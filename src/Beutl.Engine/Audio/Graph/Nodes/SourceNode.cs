@@ -8,34 +8,21 @@ namespace Beutl.Audio.Graph.Nodes;
 
 public sealed class SourceNode : AudioNode
 {
-    public SoundSource? Source
-    {
-        get;
-        set
-        {
-            if (field != value)
-            {
-                field = value;
-                Resource?.Dispose();
-                Resource = value?.ToResource(RenderContext.Default);
-            }
-        }
-    }
-
-    public SoundSource.Resource? Resource { get; private set; }
+    public (SoundSource.Resource Resource, int Version)? Source { get; set; }
 
     public override AudioBuffer Process(AudioProcessContext context)
     {
-        if (Resource == null)
+        if (Source == null)
             throw new InvalidOperationException("Source is not set.");
 
+        var resource = Source.Value.Resource;
         var sampleCount = context.GetSampleCount();
         var buffer = new AudioBuffer(context.SampleRate, 2, sampleCount);
-        var start = (int)(context.TimeRange.Start.TotalSeconds * Resource.SampleRate);
-        var length = (int)Math.Ceiling(context.TimeRange.Duration.TotalSeconds * Resource.SampleRate);
+        var start = (int)(context.TimeRange.Start.TotalSeconds * resource.SampleRate);
+        var length = (int)Math.Ceiling(context.TimeRange.Duration.TotalSeconds * resource.SampleRate);
 
         // Read PCM data from source
-        if (Resource.Read(start, length, out var pcm))
+        if (resource.Read(start, length, out var pcm))
         {
             using (pcm)
             {
@@ -94,13 +81,5 @@ public sealed class SourceNode : AudioNode
             var rightChannel = buffer.GetChannelData(1);
             leftChannel.CopyTo(rightChannel);
         }
-    }
-
-    protected override void Dispose(bool disposing)
-    {
-        Resource?.Dispose();
-        Resource = null;
-
-        base.Dispose(disposing);
     }
 }

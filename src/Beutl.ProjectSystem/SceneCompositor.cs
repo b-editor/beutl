@@ -2,6 +2,7 @@ using System.Runtime.CompilerServices;
 using Beutl.Collections.Pooled;
 using Beutl.Engine;
 using Beutl.Graphics.Rendering;
+using Beutl.Media;
 using Beutl.ProjectSystem;
 
 namespace Beutl;
@@ -16,21 +17,28 @@ public sealed class SceneCompositor : ICompositor
         _scene = scene;
     }
 
-    private sealed class CompositorContext(TimeSpan time, SceneCompositor compositor, IList<EngineObject.Resource> flow, IList<Element> currentElements)
+    private sealed class CompositorContext(
+        TimeSpan time,
+        SceneCompositor compositor,
+        IList<EngineObject.Resource> flow,
+        IList<Element> currentElements,
+        EvaluationTarget target)
         : RenderContext(time), ISceneCompositionRenderContext
     {
         public IList<EngineObject.Resource> Flow { get; set; } = flow;
 
         public IList<Element> CurrentElements { get; set; } = currentElements;
 
-        public void EvaluateElementIntoFlow(Element element, EvaluationTarget target)
+        public EvaluationTarget Target { get; set; } = target;
+
+        public void EvaluateElementIntoFlow(Element element)
         {
             using var tmpObjects = new PooledList<EngineObject>();
-            compositor.CollectResourcesFromElement(element, target, this, tmpObjects);
+            compositor.CollectResourcesFromElement(element, this, tmpObjects);
         }
     }
 
-    public CompositionFrame Evaluate(TimeSpan time)
+    public CompositionFrame EvaluateGraphics(TimeSpan time)
     {
         using var currentElements = new PooledList<Element>();
         SortLayers(time, currentElements);
@@ -38,23 +46,44 @@ public sealed class SceneCompositor : ICompositor
         using var tmpObjects = new PooledList<EngineObject>();
         using var flow = new PooledList<EngineObject.Resource>();
         using var allResources = new PooledList<EngineObject.Resource>();
-        var ctx = new CompositorContext(time, this, flow, currentElements);
+        var ctx = new CompositorContext(time, this, flow, currentElements, EvaluationTarget.Graphics);
 
         foreach (Element element in currentElements.Span)
         {
             flow.Clear();
             // EngineObjectを集める
-            CollectResourcesFromElement(element, EvaluationTarget.Graphics, ctx, tmpObjects);
+            CollectResourcesFromElement(element, ctx, tmpObjects);
 
             allResources.AddRange(flow.Span);
         }
 
-        return new CompositionFrame([.. allResources], time, _scene.FrameSize);
+        return new CompositionFrame([.. allResources], new(time, TimeSpan.FromTicks(1)), _scene.FrameSize);
+    }
+
+    public CompositionFrame EvaluateAudio(TimeRange timeRange)
+    {
+        using var currentElements = new PooledList<Element>();
+        SortLayers(timeRange, currentElements);
+
+        using var tmpObjects = new PooledList<EngineObject>();
+        using var flow = new PooledList<EngineObject.Resource>();
+        using var allResources = new PooledList<EngineObject.Resource>();
+        var ctx = new CompositorContext(timeRange.Start, this, flow, currentElements, EvaluationTarget.Audio);
+
+        foreach (Element element in currentElements.Span)
+        {
+            flow.Clear();
+            // EngineObjectを集める
+            CollectResourcesFromElement(element, ctx, tmpObjects);
+
+            allResources.AddRange(flow.Span);
+        }
+
+        return new CompositionFrame([.. allResources], timeRange, _scene.FrameSize);
     }
 
     private void CollectResourcesFromElement(
-        Element element, EvaluationTarget target,
-        CompositorContext context, PooledList<EngineObject> tmpObjects)
+        Element element, CompositorContext context, PooledList<EngineObject> tmpObjects)
     {
         // TODO: 分けるか分けないか
         using var flow = new PooledList<EngineObject.Resource>();
@@ -63,7 +92,7 @@ public sealed class SceneCompositor : ICompositor
         try
         {
             tmpObjects.Clear();
-            element.CollectObjects(target, tmpObjects);
+            element.CollectObjects(context.Target, tmpObjects);
             foreach (EngineObject obj in tmpObjects.Span)
             {
                 flow.Add(GetOrCreateResource(obj, context));
@@ -119,23 +148,26 @@ public sealed class SceneCompositor : ICompositor
     }
 
     // Layersを振り分ける
-    private void SortLayers(TimeSpan timeSpan, PooledList<Element> currentElements)
+    private void SortLayers(TimeSpan time, PooledList<Element> currentElements)
     {
-        TimeSpan enterEnd = TimeSpan.Zero;
-
-        foreach (Element? item in _scene.Children)
+        foreach (Element item in _scene.Children)
         {
-            if (InRange(item, timeSpan))
+            if (item.Range.Contains(time))
             {
                 currentElements.OrderedAdd(item, x => x.ZIndex);
             }
         }
     }
 
-    // itemがtsの範囲内かを確かめます
-    private static bool InRange(Element item, TimeSpan ts)
+    private void SortLayers(TimeRange timeRange, PooledList<Element> currentElements)
     {
-        return item.Start <= ts && ts < item.Length + item.Start;
+        foreach (Element item in _scene.Children)
+        {
+            if (item.Range.Intersects(timeRange))
+            {
+                currentElements.OrderedAdd(item, x => x.ZIndex);
+            }
+        }
     }
 
     public void Dispose()

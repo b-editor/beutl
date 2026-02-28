@@ -1,7 +1,5 @@
-﻿using Beutl.Animation;
+﻿using Beutl.Graphics.Rendering;
 using Beutl.Media;
-using Beutl.Media.Music;
-using Beutl.Media.Music.Samples;
 
 namespace Beutl.Audio.Composing;
 
@@ -13,5 +11,5 @@ public interface IComposer : IDisposable
 
     int SampleRate { get; }
 
-    AudioBuffer? Compose(TimeRange range);
+    AudioBuffer? Compose(TimeRange range, CompositionFrame frame);
 }

@@ -6,5 +6,5 @@ namespace Beutl.Graphics.Rendering;
 
 public readonly record struct CompositionFrame(
     ImmutableArray<EngineObject.Resource> Objects,
-    TimeSpan Time,
+    TimeRange Time,
     PixelSize Size);

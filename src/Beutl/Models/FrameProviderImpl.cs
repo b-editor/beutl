@@ -47,7 +47,7 @@ public sealed class FrameProviderImpl : IFrameProvider, IDisposable
 
     private Bitmap<Bgra8888> RenderCore(TimeSpan time)
     {
-        var frame = _renderer.Compositor.Evaluate(time + _scene.Start);
+        var frame = _renderer.Compositor.EvaluateGraphics(time + _scene.Start);
         _renderer.Render(frame);
         return _renderer.Snapshot();
     }

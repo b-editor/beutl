@@ -83,16 +83,16 @@ public sealed class AudioContext : IDisposable
     /// </summary>
     /// <param name="source">The sound source resource.</param>
     /// <returns>The created source node.</returns>
-    public SourceNode CreateSourceNode(SoundSource source)
+    public SourceNode CreateSourceNode(SoundSource.Resource source)
     {
         ThrowIfDisposed();
-        ArgumentNullException.ThrowIfNull(source, nameof(source));
+        ArgumentNullException.ThrowIfNull(source);
 
         // Try to reuse from previous nodes
         if (_previousNodes != null)
         {
             var existing = _previousNodes.OfType<SourceNode>()
-                .FirstOrDefault(n => n.Source == source);
+                .FirstOrDefault(n => source.Compare(n.Source));
             if (existing != null)
             {
                 _previousNodes.Remove(existing);
@@ -101,7 +101,7 @@ public sealed class AudioContext : IDisposable
             }
         }
 
-        var node = new SourceNode { Source = source };
+        var node = new SourceNode { Source = source.Capture() };
         return AddNode(node);
     }
 

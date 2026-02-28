@@ -176,7 +176,7 @@ public sealed partial class DrawableTimeController : Drawable, IPresenter<Drawab
                 {
                     if (ctx.Flow[i] is Drawable.Resource d)
                     {
-                        targetDrawable = d;
+                        targetDrawable = d.GetOriginal();
                         ctx.Flow.RemoveAt(i);
                         break;
                     }

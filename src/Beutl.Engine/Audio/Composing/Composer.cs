@@ -1,6 +1,7 @@
 ﻿using System.Runtime.CompilerServices;
 using Beutl.Animation;
 using Beutl.Audio.Graph;
+using Beutl.Graphics.Rendering;
 using Beutl.Media;
 
 namespace Beutl.Audio.Composing;
@@ -9,7 +10,6 @@ public class Composer : IComposer
 {
     private readonly AnimationSampler _animationSampler = new();
     private readonly ConditionalWeakTable<Sound, AudioNodeEntry> _audioCache = [];
-    private readonly List<Sound> _currentSounds = new();
     private readonly List<AudioNodeEntry> _currentEntry = new();
 
     private sealed class AudioNodeEntry : IDisposable
@@ -25,6 +25,7 @@ public class Composer : IComposer
             {
                 node.Dispose();
             }
+
             Nodes.Clear();
         }
     }
@@ -60,27 +61,7 @@ public class Composer : IComposer
         }
     }
 
-    protected virtual void ComposeCore(TimeRange timeRange)
-    {
-        // Default implementation: compose all sounds
-        _currentEntry.Clear();
-        foreach (var sound in _currentSounds)
-        {
-            ComposeSound(sound, timeRange);
-        }
-    }
-
-    public void AddSound(Sound sound)
-    {
-        _currentSounds.Add(sound);
-    }
-
-    public void ClearSounds()
-    {
-        _currentSounds.Clear();
-    }
-
-    public AudioBuffer? Compose(TimeRange timeRange)
+    public AudioBuffer? Compose(TimeRange timeRange, CompositionFrame frame)
     {
         if (!IsAudioRendering)
         {
@@ -88,8 +69,12 @@ public class Composer : IComposer
             {
                 IsAudioRendering = true;
 
-                // Let subclass populate sounds
-                ComposeCore(timeRange);
+                _currentEntry.Clear();
+                foreach (var resource in frame.Objects)
+                {
+                    if (resource is Sound.Resource sound)
+                        ComposeSound(sound, timeRange);
+                }
 
                 // Build final audio graph
                 return BuildFinalOutput(timeRange);
@@ -134,6 +119,7 @@ public class Composer : IComposer
         {
             return new AudioBuffer(SampleRate, 2, (int)(range.Duration.TotalSeconds * SampleRate));
         }
+
         // Apply master effects
         ApplyMasterEffects(mixedBuffer);
 
@@ -198,8 +184,9 @@ public class Composer : IComposer
     /// <summary>
     /// Composes a sound with caching support and differential updates.
     /// </summary>
-    protected void ComposeSound(Sound sound, TimeRange timeRange)
+    protected void ComposeSound(Sound.Resource resource, TimeRange timeRange)
     {
+        var sound = resource.GetOriginal();
         // Get or create cache entry
         if (!_audioCache.TryGetValue(sound, out var entry))
         {
@@ -221,7 +208,7 @@ public class Composer : IComposer
             context.BeginUpdate(entry.Nodes);
 
             // Compose the sound
-            sound.Compose(context);
+            sound.Compose(context, resource);
             entry.OutputNodes = context.GetOutputNodes().ToArray();
 
             // Complete differential update
@@ -280,7 +267,6 @@ public class Composer : IComposer
             }
 
             _audioCache.Clear();
-            _currentSounds.Clear();
         }
     }
 }

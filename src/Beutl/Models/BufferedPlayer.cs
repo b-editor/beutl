@@ -87,7 +87,7 @@ public sealed class BufferedPlayer : IPlayer
                     }
                     else
                     {
-                        var compositionFrame = _renderer.Compositor.Evaluate(time);
+                        var compositionFrame = _renderer.Compositor.EvaluateGraphics(time);
                         _renderer.Render(compositionFrame);
                         using (Ref<Bitmap<Bgra8888>> bitmap = Ref<Bitmap<Bgra8888>>.Create(_renderer.Snapshot()))
                         {

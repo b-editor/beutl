@@ -34,7 +34,7 @@ public sealed partial class TakeAfterPortal : EngineObject, IFlowOperator
                         elements.RemoveAt(i);
                         i--;
                         // Evaluate another element and get flow-processed results
-                        ctx.EvaluateElementIntoFlow(item, EvaluationTarget.Graphics);
+                        ctx.EvaluateElementIntoFlow(item);
                     }
                     else if (item.ZIndex > end) break;
                 }

@@ -114,7 +114,7 @@ public class Renderer : IRenderer
         try
         {
             IsGraphicsRendering = true;
-            Time = frame.Time;
+            Time = frame.Time.Start;
             ClearFrame();
 
             using (_fpsText.StartRender(_immediateCanvas))

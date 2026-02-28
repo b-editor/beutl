@@ -45,8 +45,8 @@ public sealed partial class SourceSound : Sound
         }
     }
 
-    protected override SoundSource? GetSoundSource()
+    public partial class Resource
     {
-        return Source.CurrentValue;
+        public override SoundSource.Resource? GetSoundSource() => Source;
     }
 }

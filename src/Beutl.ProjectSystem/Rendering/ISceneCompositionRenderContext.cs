@@ -7,5 +7,5 @@ public interface ISceneCompositionRenderContext : ICompositionRenderContext
 {
     IList<Element> CurrentElements { get; }
 
-    void EvaluateElementIntoFlow(Element element, EvaluationTarget target);
+    void EvaluateElementIntoFlow(Element element);
 }

@@ -435,7 +435,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
         }
     }
 
-    private static Pcm<Stereo32BitFloat>? FillAudioData(TimeSpan f, IComposer composer)
+    private static Pcm<Stereo32BitFloat>? FillAudioData(TimeSpan f, SceneComposer composer)
     {
         return ComposeThread.Dispatcher.Invoke(() =>
         {
@@ -459,7 +459,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
 
     private async Task PlayWithXA2(XAudioContext audioContext, Scene scene)
     {
-        IComposer composer = EditViewModel.Composer.Value;
+        var composer = EditViewModel.Composer.Value;
         int sampleRate = composer.SampleRate;
         TimeSpan cur = EditViewModel.CurrentTime.Value;
         var fmt = new WaveFormat(sampleRate, 32, 2);
@@ -555,7 +555,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
         {
             audioContext.MakeCurrent();
 
-            IComposer composer = EditViewModel.Composer.Value;
+            var composer = EditViewModel.Composer.Value;
             TimeSpan cur = EditViewModel.CurrentTime.Value;
             int[] buffers = AL.GenBuffers(2);
             CheckError();
@@ -742,7 +742,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                         using (cache)
                         {
                             // Evaluate for boundaries tracking, but use cached bitmap
-                            var compositionFrame = renderer.Compositor.Evaluate(time);
+                            var compositionFrame = renderer.Compositor.EvaluateGraphics(time);
 
                             ImmediateCanvas canvas = Renderer.GetInternalCanvas(renderer);
                             canvas.Clear();
@@ -761,7 +761,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                     }
                     else
                     {
-                        var compositionFrame = renderer.Compositor.Evaluate(time);
+                        var compositionFrame = renderer.Compositor.EvaluateGraphics(time);
                         renderer.Render(compositionFrame);
 
                         using (var forCache = Ref<Bitmap<Bgra8888>>.Create(renderer.Snapshot()))
@@ -890,7 +890,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
 
             try
             {
-                var compositionFrame = renderer.Compositor.Evaluate(CurrentFrame.Value);
+                var compositionFrame = renderer.Compositor.EvaluateGraphics(CurrentFrame.Value);
                 renderer.Render(compositionFrame);
 
                 return renderer.Snapshot();

@@ -123,7 +123,7 @@ public static class LibraryRegistrar
 
         LibraryService.Current
             .AddMultiple(Strings.SoundGroup, m => m
-                .BindSourceOperator<SoundGroupOperator>()
+                .BindSound<SoundGroup>()
             );
 
         LibraryService.Current

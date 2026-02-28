@@ -2,39 +2,39 @@
 using Beutl.Audio.Effects;
 using Beutl.Audio.Graph;
 using Beutl.Engine;
-using Beutl.Media;
 using Beutl.Language;
 using Beutl.Media.Source;
 
 namespace Beutl.Audio;
 
-[SuppressResourceClassGeneration]
-public abstract class Sound : EngineObject
+public abstract partial class Sound : EngineObject
 {
     public Sound()
     {
         ScanProperties<Sound>();
+        Effect.CurrentValue = new AudioEffectGroup();
     }
 
     public override EvaluationTarget GetEvaluationTarget() => EvaluationTarget.Audio;
 
     [Display(Name = nameof(Strings.OffsetPosition), ResourceType = typeof(Strings))]
+    [SuppressResourceClassGeneration]
     public IProperty<TimeSpan> OffsetPosition { get; } = Property.Create<TimeSpan>();
 
     [Range(0, float.MaxValue)]
     [Display(Name = nameof(Strings.Gain), ResourceType = typeof(Strings))]
+    [SuppressResourceClassGeneration]
     public IProperty<float> Gain { get; } = Property.CreateAnimatable(100f);
 
     [Range(0, float.MaxValue)]
     [Display(Name = nameof(Strings.Speed), ResourceType = typeof(Strings))]
+    [SuppressResourceClassGeneration]
     public IProperty<float> Speed { get; } = Property.CreateAnimatable(100f);
 
     [Display(Name = nameof(Strings.Effect), ResourceType = typeof(Strings))]
     public IProperty<AudioEffect?> Effect { get; } = Property.Create<AudioEffect?>();
 
-    protected abstract SoundSource? GetSoundSource();
-
-    public virtual void Compose(AudioContext context)
+    public virtual void Compose(AudioContext context, Resource resource)
     {
         if (!IsEnabled)
         {
@@ -42,7 +42,7 @@ public abstract class Sound : EngineObject
             return;
         }
 
-        var soundSource = GetSoundSource();
+        var soundSource = resource.GetSoundSource();
         if (soundSource == null)
         {
             context.Clear();
@@ -51,16 +51,11 @@ public abstract class Sound : EngineObject
 
         // Create source node
         var sourceNode = context.CreateSourceNode(soundSource);
-        if (sourceNode.Resource == null)
-        {
-            context.Clear();
-            return;
-        }
 
         var shiftNode = context.CreateShiftNode(OffsetPosition.CurrentValue);
         context.Connect(sourceNode, shiftNode);
 
-        var resampleNode = context.CreateResampleNode(sourceNode.Resource.SampleRate);
+        var resampleNode = context.CreateResampleNode(soundSource.SampleRate);
         context.Connect(shiftNode, resampleNode);
 
         var speedNode = context.CreateSpeedNode(Speed);
@@ -81,5 +76,10 @@ public abstract class Sound : EngineObject
         var clipNode = context.CreateClipNode(TimeRange.Start, TimeRange.Duration);
         context.Connect(currentNode, clipNode);
         context.MarkAsOutput(clipNode);
+    }
+
+    public partial class Resource
+    {
+        public abstract SoundSource.Resource? GetSoundSource();
     }
 }

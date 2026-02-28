@@ -87,19 +87,19 @@ public sealed partial class SourceSound : IElementThumbnailsProvider
         IElementThumbnailCacheService? cacheService,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        using var resource = Source.CurrentValue?.ToResource(RenderContext.Default);
-        if (resource == null)
+        using var resource = ToResource(RenderContext.Default);
+        if (resource.Source == null)
             yield break;
 
         if (chunkCount <= 0 || samplesPerChunk <= 0)
             yield break;
 
-        if (resource.Duration <= TimeSpan.Zero)
+        if (resource.Source.Duration <= TimeSpan.Zero)
             yield break;
 
         var duration = TimeRange.Duration;
 
-        int sampleRate = resource.SampleRate;
+        int sampleRate = resource.Source.SampleRate;
         int totalSamples = (int)(duration.TotalSeconds * sampleRate);
 
         string? cacheKey = cacheService != null ? GetThumbnailsCacheKey() : null;
@@ -107,7 +107,7 @@ public sealed partial class SourceSound : IElementThumbnailsProvider
         var cacheThreshold = TimeSpan.FromSeconds(chunkDurationSecs * 0.5);
 
         using var composer = new Composer { SampleRate = sampleRate };
-        composer.AddSound(this);
+        var frame = new CompositionFrame([resource], TimeRange, default);
 
         for (int chunkIndex = 0; chunkIndex < chunkCount; chunkIndex++)
         {
@@ -125,7 +125,8 @@ public sealed partial class SourceSound : IElementThumbnailsProvider
                 continue;
 
             if (cacheKey != null
-                && cacheService!.TryGetWaveform(cacheKey, chunkTime, cacheThreshold, out var cachedMin, out var cachedMax))
+                && cacheService!.TryGetWaveform(cacheKey, chunkTime, cacheThreshold, out var cachedMin,
+                    out var cachedMax))
             {
                 yield return new WaveformChunk(chunkIndex, cachedMin, cachedMax);
                 continue;
@@ -136,7 +137,7 @@ public sealed partial class SourceSound : IElementThumbnailsProvider
                 if (cancellationToken.IsCancellationRequested)
                     return (WaveformChunk?)null;
 
-                using var buffer = composer.Compose(new TimeRange(startTime, durationTime));
+                using var buffer = composer.Compose(new TimeRange(startTime, durationTime), frame);
                 if (buffer == null || buffer.SampleCount == 0)
                     return null;
 
