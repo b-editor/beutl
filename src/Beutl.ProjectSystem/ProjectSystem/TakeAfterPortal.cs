@@ -24,7 +24,7 @@ public sealed partial class TakeAfterPortal : EngineObject, IFlowOperator
                 int start = obj.ZIndex + 1;
                 int end = obj.ZIndex + Count;
 
-                List<Element> elements = ctx.CurrentElements;
+                IList<Element> elements = ctx.CurrentElements;
 
                 for (int i = 0; i < elements.Count; i++)
                 {

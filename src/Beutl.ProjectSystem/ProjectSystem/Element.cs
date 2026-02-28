@@ -4,7 +4,6 @@ using System.ComponentModel.DataAnnotations;
 using Beutl.Collections;
 using Beutl.Collections.Pooled;
 using Beutl.Engine;
-using Beutl.Graphics.Rendering;
 using Beutl.Language;
 using Beutl.Media;
 using Beutl.Serialization;
@@ -135,16 +134,6 @@ public class Element : Hierarchical, INotifyEdited
     public override void Serialize(ICoreSerializationContext context)
     {
         base.Serialize(context);
-
-        // シリアライズ前にIFlowOperatorの一時的な子要素をクリア
-        foreach (EngineObject obj in _objects)
-        {
-            if (obj is IFlowOperator flowOperator)
-            {
-                flowOperator.OnSerializing();
-            }
-        }
-
         context.SetValue(nameof(Objects), Objects);
     }
 
@@ -165,36 +154,14 @@ public class Element : Hierarchical, INotifyEdited
         }
     }
 
-    public PooledList<EngineObject> Evaluate(EvaluationTarget target, IRenderer renderer)
+    public void CollectObjects(EvaluationTarget target, IList<EngineObject> objects)
     {
-        lock (this)
+        foreach (EngineObject obj in _objects)
         {
-            var flow = new PooledList<EngineObject>();
-            try
-            {
-                foreach (EngineObject obj in _objects)
-                {
-                    if (!obj.IsEnabled) continue;
-                    EvaluationTarget t = obj.GetEvaluationTarget();
-                    if (t != EvaluationTarget.Unknown && t != target) continue;
-
-                    if (obj is IFlowOperator processor)
-                    {
-                        processor.ProcessFlow(flow, target, renderer);
-                    }
-                    else
-                    {
-                        flow.Add(obj);
-                    }
-                }
-
-                return flow;
-            }
-            catch
-            {
-                flow.Dispose();
-                throw;
-            }
+            if (!obj.IsEnabled) continue;
+            EvaluationTarget t = obj.GetEvaluationTarget();
+            if (t != EvaluationTarget.Unknown && t != target) continue;
+            objects.Add(obj);
         }
     }
 

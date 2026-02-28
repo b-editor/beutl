@@ -1,45 +1,27 @@
 using System.Runtime.InteropServices;
-
-using Beutl.Animation;
 using Beutl.Audio;
 using Beutl.Audio.Composing;
 using Beutl.Collections.Pooled;
 using Beutl.Engine;
-using Beutl.Graphics.Rendering;
 using Beutl.Media;
 using Beutl.ProjectSystem;
 
 namespace Beutl;
 
-public sealed class SceneComposer(Scene scene, IRenderer renderer) : Composer
+public sealed class SceneComposer(Scene scene) : Composer
 {
-    private readonly List<Element> _entered = [];
-    private readonly List<Element> _exited = [];
-    private TimeRange _lastTime = new(TimeSpan.MinValue, default);
-
-    public List<Element> CurrentElements { get; } = [];
+    private readonly List<Element> _current = [];
 
     protected override void ComposeCore(TimeRange timeRange)
     {
         ClearSounds();
-        SortLayers(timeRange, out _);
-        Span<Element> entered = CollectionsMarshal.AsSpan(_entered);
-        Span<Element> exited = CollectionsMarshal.AsSpan(_exited);
+        SortLayers(timeRange);
 
-        foreach (Element item in exited)
+        using var list = new PooledList<EngineObject>();
+        foreach (Element element in CollectionsMarshal.AsSpan(_current))
         {
-            ExitObjects(item);
-        }
-
-        foreach (Element item in entered)
-        {
-            EnterObjects(item);
-        }
-
-        for (int i = 0; i < CurrentElements.Count; i++)
-        {
-            Element element = CurrentElements[i];
-            using PooledList<EngineObject> list = element.Evaluate(EvaluationTarget.Audio, renderer, this);
+            list.Clear();
+            element.CollectObjects(EvaluationTarget.Audio, list);
             foreach (EngineObject item in list.Span)
             {
                 if (item is Sound sound)
@@ -49,70 +31,21 @@ public sealed class SceneComposer(Scene scene, IRenderer renderer) : Composer
             }
         }
 
-        _lastTime = timeRange;
         base.ComposeCore(timeRange);
     }
 
-    private static void EnterObjects(Element element)
-    {
-        foreach (EngineObject item in element.Objects.GetMarshal().Value)
-        {
-            if (item is IFlowOperator flowOperator)
-            {
-                flowOperator.EnterFlow();
-            }
-        }
-    }
-
-    private static void ExitObjects(Element element)
-    {
-        foreach (EngineObject item in element.Objects.GetMarshal().Value)
-        {
-            if (item is IFlowOperator flowOperator)
-            {
-                flowOperator.ExitFlow();
-            }
-        }
-    }
-
     // Layersを振り分ける
-    private void SortLayers(TimeRange timeSpan, out TimeRange enterAffectsRange)
+    private void SortLayers(TimeRange timeSpan)
     {
-        _entered.Clear();
-        _exited.Clear();
-        CurrentElements.Clear();
-        TimeSpan enterStart = TimeSpan.MaxValue;
-        TimeSpan enterEnd = TimeSpan.Zero;
+        _current.Clear();
 
         foreach (Element? item in scene.Children)
         {
-            bool recent = InRange(item, _lastTime);
-            bool current = InRange(item, timeSpan);
-
-            if (current)
+            if (InRange(item, timeSpan))
             {
-                CurrentElements.OrderedAdd(item, x => x.ZIndex);
-            }
-
-            if (!recent && current)
-            {
-                // _recentTimeの範囲外でcurrntTimeの範囲内
-                _entered.OrderedAdd(item, x => x.ZIndex);
-                if (item.Start < enterStart)
-                    enterStart = item.Start;
-
-                TimeSpan end = item.Range.End;
-                if (enterEnd < end)
-                    enterEnd = end;
-            }
-            else if (recent && !current)
-            {
-                // _recentTimeの範囲内でcurrntTimeの範囲外
-                _exited.OrderedAdd(item, x => x.ZIndex);
+                _current.OrderedAdd(item, x => x.ZIndex);
             }
         }
-
-        enterAffectsRange = TimeRange.FromRange(enterStart, enterEnd);
     }
 
     // itemがtsの範囲内かを確かめます
@@ -124,8 +57,6 @@ public sealed class SceneComposer(Scene scene, IRenderer renderer) : Composer
     protected override void OnDispose(bool disposing)
     {
         base.OnDispose(disposing);
-        _entered.Clear();
-        _exited.Clear();
-        CurrentElements.Clear();
+        _current.Clear();
     }
 }
