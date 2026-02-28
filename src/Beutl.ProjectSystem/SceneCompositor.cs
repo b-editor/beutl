@@ -18,24 +18,30 @@ public sealed class SceneCompositor : ICompositor
         _scene = scene;
     }
 
-    private sealed class CompositorContext(
-        TimeSpan time,
-        SceneCompositor compositor,
-        IList<EngineObject.Resource> flow,
-        IList<Element> currentElements,
-        CompositionTarget target)
-        : CompositionContext(time), ISceneCompositionRenderContext
+    private sealed class CompositorContext : CompositionContext, ISceneCompositionRenderContext
     {
-        public IList<EngineObject.Resource> Flow { get; set; } = flow;
+        private readonly SceneCompositor _compositor;
 
-        public IList<Element> CurrentElements { get; set; } = currentElements;
+        public CompositorContext(TimeSpan time,
+            SceneCompositor compositor,
+            IList<EngineObject.Resource> flow,
+            IList<Element> currentElements,
+            CompositionTarget target) : base(time)
+        {
+            _compositor = compositor;
+            CurrentElements = currentElements;
+            Target = target;
+            Flow = flow;
+        }
 
-        public CompositionTarget Target { get; set; } = target;
+        public IList<Element> CurrentElements { get; set; }
+
+        public CompositionTarget Target { get; set; }
 
         public void EvaluateElementIntoFlow(Element element)
         {
             using var tmpObjects = new PooledList<EngineObject>();
-            compositor.CollectResourcesFromElement(element, this, tmpObjects);
+            _compositor.CollectResourcesFromElement(element, this, tmpObjects);
         }
     }
 
@@ -102,7 +108,7 @@ public sealed class SceneCompositor : ICompositor
 
             foreach (EngineObject.Resource resource in flow)
             {
-                oldFlow.Add(resource);
+                oldFlow?.Add(resource);
             }
         }
         finally
