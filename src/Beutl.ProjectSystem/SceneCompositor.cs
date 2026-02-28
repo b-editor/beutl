@@ -48,11 +48,12 @@ public sealed class SceneCompositor : ICompositor
         using var allResources = new PooledList<EngineObject.Resource>();
         var ctx = new CompositorContext(time, this, flow, currentElements, EvaluationTarget.Graphics);
 
-        foreach (Element element in currentElements.Span)
+        // 途中でcurrentElementsが変わる可能性があるのでforループで回す
+        for (int index = 0; index < currentElements.Count; index++)
         {
             flow.Clear();
             // EngineObjectを集める
-            CollectResourcesFromElement(element, ctx, tmpObjects);
+            CollectResourcesFromElement(currentElements[index], ctx, tmpObjects);
 
             allResources.AddRange(flow.Span);
         }
@@ -70,11 +71,12 @@ public sealed class SceneCompositor : ICompositor
         using var allResources = new PooledList<EngineObject.Resource>();
         var ctx = new CompositorContext(timeRange.Start, this, flow, currentElements, EvaluationTarget.Audio);
 
-        foreach (Element element in currentElements.Span)
+        // 途中でcurrentElementsが変わる可能性があるのでforループで回す
+        for (int index = 0; index < currentElements.Count; index++)
         {
             flow.Clear();
             // EngineObjectを集める
-            CollectResourcesFromElement(element, ctx, tmpObjects);
+            CollectResourcesFromElement(currentElements[index], ctx, tmpObjects);
 
             allResources.AddRange(flow.Span);
         }
@@ -85,7 +87,6 @@ public sealed class SceneCompositor : ICompositor
     private void CollectResourcesFromElement(
         Element element, CompositorContext context, PooledList<EngineObject> tmpObjects)
     {
-        // TODO: 分けるか分けないか
         using var flow = new PooledList<EngineObject.Resource>();
         var oldFlow = context.Flow;
         context.Flow = flow;
