@@ -2,7 +2,6 @@ using System.ComponentModel.DataAnnotations;
 using Beutl.Animation;
 using Beutl.Editor;
 using Beutl.Engine;
-using Beutl.Engine.Expressions;
 using Beutl.Graphics.Rendering;
 using Beutl.Language;
 
@@ -17,6 +16,7 @@ public sealed partial class DrawableTimeController : Drawable, IPresenter<Drawab
     }
 
     [Display(Name = nameof(Strings.Target), ResourceType = typeof(Strings))]
+    [SuppressResourceClassGeneration]
     public IProperty<Drawable?> Target { get; } = Property.Create<Drawable?>();
 
     [Display(Name = nameof(Strings.Offset), ResourceType = typeof(Strings))]
@@ -45,54 +45,6 @@ public sealed partial class DrawableTimeController : Drawable, IPresenter<Drawab
     [Display(Name = nameof(Strings.HoldLastFrame), ResourceType = typeof(Strings))]
     public IProperty<bool> HoldLastFrame { get; } = Property.Create<bool>();
 
-    void IFlowOperator.ProcessFlow(IList<EngineObject> flow, EvaluationTarget target, object? renderer)
-    {
-        using var _ = PublishingSuppression.Enter();
-        if (!IsEnabled)
-        {
-            Target.Expression = null;
-            return;
-        }
-
-        Drawable? item = null;
-        for (int i = 0; i < flow.Count; i++)
-        {
-            if (flow[i] is Drawable d)
-            {
-                item = d;
-                flow.RemoveAt(i);
-                break;
-            }
-        }
-
-        if (item != null)
-        {
-            if ((Target.Expression is ReferenceExpression<Drawable> refExp && refExp.ObjectId != item.Id)
-                || Target.Expression is null)
-            {
-                Target.Expression = new ReferenceExpression<Drawable>(item.Id);
-            }
-        }
-        else
-        {
-            Target.Expression = null;
-        }
-
-        flow.Add(this);
-    }
-
-    void IFlowOperator.EnterFlow()
-    {
-    }
-
-    void IFlowOperator.ExitFlow()
-    {
-    }
-
-    void IFlowOperator.OnSerializing()
-    {
-    }
-
     private TimeSpan CalculateTimeWithSpeed(TimeSpan timeSpan, Resource resource)
     {
         var anm = Speed.Animation;
@@ -111,10 +63,8 @@ public sealed partial class DrawableTimeController : Drawable, IPresenter<Drawab
     /// <summary>
     /// Main time calculation (follows the order defined in the design document).
     /// </summary>
-    private TimeSpan CalculateTargetTime(TimeSpan currentTime, Resource resource)
+    private TimeSpan CalculateTargetTime(TimeSpan currentTime, Resource resource, Drawable? targetDrawable)
     {
-        // Retrieve target information
-        var targetDrawable = resource.Target?.GetOriginal();
         if (targetDrawable == null)
             return currentTime;
 
@@ -177,6 +127,7 @@ public sealed partial class DrawableTimeController : Drawable, IPresenter<Drawab
         {
             baseTime = TimeSpan.Zero;
         }
+
         if (resource.HoldLastFrame && baseTime > targetDuration)
         {
             baseTime = targetDuration;
@@ -212,28 +163,53 @@ public sealed partial class DrawableTimeController : Drawable, IPresenter<Drawab
     public partial class Resource
     {
         internal readonly Media.SpeedIntegrator SpeedIntegrator = new(60);
-        private TimeSpan _originalContextTime;
+        private Drawable.Resource? _target;
 
-        partial void PreUpdate(DrawableTimeController obj, RenderContext context)
-        {
-            // Save the original Time
-            _originalContextTime = context.Time;
-
-            // If a Target exists, replace with the calculated time
-            if (Target != null)
-            {
-                context.Time = obj.CalculateTargetTime(context.Time, this);
-            }
-        }
+        public Drawable.Resource? Target => _target;
 
         partial void PostUpdate(DrawableTimeController obj, RenderContext context)
         {
-            // Restore the original Time
-            context.Time = _originalContextTime;
+            Drawable? targetDrawable = null;
+            if (context is ICompositionRenderContext ctx)
+            {
+                for (int i = 0; i < ctx.Flow.Count; i++)
+                {
+                    if (ctx.Flow[i] is Drawable.Resource d)
+                    {
+                        targetDrawable = d;
+                        ctx.Flow.RemoveAt(i);
+                        break;
+                    }
+                }
+            }
+            else
+            {
+                targetDrawable = context.Get(obj.Target);
+            }
+
+            // Save the original Time
+            var originalContextTime = context.Time;
+            try
+            {
+                context.Time = obj.CalculateTargetTime(context.Time, this, targetDrawable);
+                bool changed = false;
+                ResourceReconciler.ReconcileResource(
+                    context: context,
+                    value: targetDrawable,
+                    field: ref _target,
+                    changed: ref changed);
+                if (changed)
+                    Version++;
+            }
+            finally
+            {
+                context.Time = originalContextTime;
+            }
         }
 
         partial void PostDispose(bool disposing)
         {
+            _target?.Dispose();
             SpeedIntegrator.Dispose();
         }
     }

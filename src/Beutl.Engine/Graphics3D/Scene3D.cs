@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using Beutl.Collections;
+using Beutl.Collections.Pooled;
 using Beutl.Editor;
 using Beutl.Engine;
 using Beutl.Graphics;
@@ -23,6 +24,7 @@ public partial class Scene3D : Drawable, IFlowOperator
         ScanProperties<Scene3D>();
         HideProperty(GizmoMode);
         HideProperty(GizmoTarget);
+        Camera.CurrentValue = new PerspectiveCamera();
     }
 
     /// <summary>
@@ -35,12 +37,14 @@ public partial class Scene3D : Drawable, IFlowOperator
     /// Gets the 3D objects in this scene.
     /// </summary>
     [Display(Name = nameof(Strings.Objects), ResourceType = typeof(Strings))]
+    [SuppressResourceClassGeneration]
     public IListProperty<Object3D> Objects { get; } = Property.CreateList<Object3D>();
 
     /// <summary>
     /// Gets the lights in this scene.
     /// </summary>
     [Display(Name = nameof(Strings.Lights), ResourceType = typeof(Strings))]
+    [SuppressResourceClassGeneration]
     public IListProperty<Light3D> Lights { get; } = Property.CreateList<Light3D>();
 
     /// <summary>
@@ -86,59 +90,6 @@ public partial class Scene3D : Drawable, IFlowOperator
     /// </summary>
     public IProperty<GizmoMode> GizmoMode { get; } = Property.Create(Gizmo.GizmoMode.None);
 
-    void IFlowOperator.ProcessFlow(IList<EngineObject> flow, EvaluationTarget target, object? renderer)
-    {
-        using var _ = PublishingSuppression.Enter();
-        if (!IsEnabled)
-        {
-            Lights.Clear();
-            Objects.Clear();
-            return;
-        }
-
-        var lights = new List<Light3D>();
-        var objects = new List<Object3D>();
-        for (int i = flow.Count - 1; i >= 0; i--)
-        {
-            switch (flow[i])
-            {
-                case Light3D light:
-                    flow.RemoveAt(i);
-                    lights.Insert(0, light);
-                    break;
-                case Object3D obj:
-                    flow.RemoveAt(i);
-                    objects.Insert(0, obj);
-                    break;
-            }
-        }
-
-        Lights.Replace(lights);
-        Objects.Replace(objects);
-        flow.Add(this);
-    }
-
-    void IFlowOperator.EnterFlow()
-    {
-        using var _ = PublishingSuppression.Enter();
-        Lights.Clear();
-        Objects.Clear();
-    }
-
-    void IFlowOperator.ExitFlow()
-    {
-        using var _ = PublishingSuppression.Enter();
-        Lights.Clear();
-        Objects.Clear();
-    }
-
-    void IFlowOperator.OnSerializing()
-    {
-        using var _ = PublishingSuppression.Enter();
-        Lights.Clear();
-        Objects.Clear();
-    }
-
     protected override Size MeasureCore(Size availableSize, Drawable.Resource resource)
     {
         var scene3DResource = (Resource)resource;
@@ -161,9 +112,16 @@ public partial class Scene3D : Drawable, IFlowOperator
 
     public partial class Resource
     {
+        private readonly PooledList<int> _lightsVersion = [];
+        private readonly PooledList<int> _objectsVersion = [];
+
         internal IRenderer3D? Renderer { get; set; }
 
         public TimeSpan Time { get; set; } = TimeSpan.Zero;
+
+        public List<Light3D.Resource> Lights { get; set; } = [];
+
+        public List<Object3D.Resource> Objects { get; set; } = [];
 
         partial void PostDispose(bool disposing)
         {
@@ -171,16 +129,71 @@ public partial class Scene3D : Drawable, IFlowOperator
             {
                 Renderer?.Dispose();
                 Renderer = null;
+                for (int i = _lightsVersion.Count; i < Lights.Count; i++)
+                {
+                    Lights[i].Dispose();
+                }
+
+                Lights.Clear();
+                _lightsVersion.Dispose();
+
+                for (int i = _objectsVersion.Count; i < Objects.Count; i++)
+                {
+                    Objects[i].Dispose();
+                }
+
+                Objects.Clear();
+                _objectsVersion.Dispose();
             }
         }
 
-        partial void PostUpdate(Scene3D _, RenderContext context)
+        partial void PostUpdate(Scene3D obj, RenderContext context)
         {
+            bool changed = false;
             if (Time != context.Time)
             {
                 Time = context.Time;
-                Version++;
+                changed = true;
             }
+
+            // Consume lights and objects from flow
+            using var consumedLights = new PooledList<Light3D.Resource>();
+            using var consumedObjects = new PooledList<Object3D.Resource>();
+            if (context is ICompositionRenderContext ctx)
+            {
+                for (int i = ctx.Flow.Count - 1; i >= 0; i--)
+                {
+                    switch (ctx.Flow[i])
+                    {
+                        case Light3D.Resource light:
+                            ctx.Flow.RemoveAt(i);
+                            consumedLights.Insert(0, light);
+                            break;
+                        case Object3D.Resource obj3d:
+                            ctx.Flow.RemoveAt(i);
+                            consumedObjects.Insert(0, obj3d);
+                            break;
+                    }
+                }
+            }
+
+            ResourceReconciler.ReconcileListFromFlow(
+                context: context,
+                property: obj.Lights,
+                consumed: consumedLights,
+                field: Lights,
+                versions: _lightsVersion,
+                changed: ref changed);
+            ResourceReconciler.ReconcileListFromFlow(
+                context: context,
+                property: obj.Objects,
+                consumed: consumedObjects,
+                field: Objects,
+                versions: _objectsVersion,
+                changed: ref changed);
+
+            if (changed)
+                Version++;
         }
     }
 }

@@ -15,6 +15,8 @@ public abstract partial class Light3D : EngineObject
         ScanProperties<Light3D>();
     }
 
+    public override EvaluationTarget GetEvaluationTarget() => EvaluationTarget.Graphics;
+
     /// <summary>
     /// Gets the color of the light.
     /// </summary>

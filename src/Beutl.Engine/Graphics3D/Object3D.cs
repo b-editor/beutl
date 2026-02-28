@@ -19,6 +19,8 @@ public abstract partial class Object3D : EngineObject
         Material.CurrentValue = new PBRMaterial();
     }
 
+    public override EvaluationTarget GetEvaluationTarget() => EvaluationTarget.Graphics;
+
     /// <summary>
     /// Gets the position of the object in world space.
     /// </summary>
