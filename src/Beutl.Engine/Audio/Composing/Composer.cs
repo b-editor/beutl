@@ -17,6 +17,7 @@ public class Composer : IComposer
         public List<AudioNode> Nodes { get; set; } = new();
         public AudioNode[]? OutputNodes { get; set; }
         public bool IsDirty { get; set; } = true;
+        public int Version { get; set; }
         public EventHandler? EditedHandler { get; set; }
 
         public void Dispose()
@@ -199,7 +200,9 @@ public class Composer : IComposer
             entry.EditedHandler = handler;
         }
 
-        if (entry.IsDirty)
+        // 今までSoundGroupに子要素が追加されたらEditedが発生していたのでIsDirtyが自動的にtrueになっていたが、
+        // Resource側で子要素を追加するようになったので、Editedイベントが発生しなくなった。なので、Versionを比較して変更を検出するようにする
+        if (entry.IsDirty || entry.Version != resource.Version)
         {
             // AudioContextはDisposeしない。AudioNodeが解放されてしまうので
             var context = new AudioContext(SampleRate, 2);
@@ -218,6 +221,7 @@ public class Composer : IComposer
             entry.Nodes.Clear();
             entry.Nodes.AddRange(context.Nodes);
 
+            entry.Version = resource.Version;
             entry.IsDirty = false;
         }
 
