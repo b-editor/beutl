@@ -14,6 +14,7 @@ public sealed partial class SoundGroup : Sound, IFlowOperator
     public SoundGroup()
     {
         ScanProperties<SoundGroup>();
+        HideProperties(OffsetPosition, Speed);
     }
 
     [SuppressResourceClassGeneration]
