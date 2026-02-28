@@ -7,14 +7,12 @@ namespace Beutl.UnitTests.Engine.Graphics.Rendering.Cache;
 
 public class RenderNodeCacheContextTest
 {
-    private RenderScene? _scene;
     private RenderNodeCacheContext? _context;
 
     [SetUp]
     public void Setup()
     {
-        _scene = new RenderScene(new PixelSize(100, 100));
-        _context = new RenderNodeCacheContext(_scene);
+        _context = new RenderNodeCacheContext(() => { });
     }
 
     [Test]

@@ -1191,8 +1191,7 @@ public partial class PlayerView
         {
             var renderer = EditViewModel.Renderer.Value;
 
-            var layer = renderer.RenderScene[_scene3D!.ZIndex];
-            var node = layer.FindRenderNode(_scene3D);
+            var node = renderer.FindRenderNode(_scene3D!);
             return node == null ? null : FindScene3DRenderNode(node)?.Scene?.Resource;
 
             Scene3DRenderNode? FindScene3DRenderNode(RenderNode rn)

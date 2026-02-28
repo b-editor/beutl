@@ -60,7 +60,7 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
             .DisposePreviousValue()
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables)!;
-        Composer = Renderer.Select(v => new SceneComposer(Scene, v))
+        Composer = Renderer.Select(v => new SceneComposer(Scene))
             .DisposePreviousValue()
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables)!;

@@ -692,7 +692,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
             if (scale == 0)
                 scale = 1;
 
-            Rect[] boundary = renderer.RenderScene[selected.Value].GetBoundaries();
+            Rect[] boundary = renderer.GetBoundaries(selected.Value);
             if (boundary.Length > 0)
             {
                 var pen = new Pen.Resource() { Brush = Brushes.Resource.White, Thickness = scale, MiterLimit = 10 };
@@ -741,8 +741,8 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                     {
                         using (cache)
                         {
-                            renderer.RenderScene.Clear();
-                            renderer.Evaluate(time);
+                            // Evaluate for boundaries tracking, but use cached bitmap
+                            var compositionFrame = renderer.Compositor.Evaluate(time);
 
                             ImmediateCanvas canvas = Renderer.GetInternalCanvas(renderer);
                             canvas.Clear();
@@ -759,8 +759,11 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                             bitmap = renderer.Snapshot();
                         }
                     }
-                    else if (renderer.Render(time))
+                    else
                     {
+                        var compositionFrame = renderer.Compositor.Evaluate(time);
+                        renderer.Render(compositionFrame);
+
                         using (var forCache = Ref<Bitmap<Bgra8888>>.Create(renderer.Snapshot()))
                         {
                             cacheManager.Add(frame, forCache);
@@ -887,10 +890,8 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
 
             try
             {
-                if (!renderer.Render(CurrentFrame.Value))
-                {
-                    throw new Exception("Failed to render.");
-                }
+                var compositionFrame = renderer.Compositor.Evaluate(CurrentFrame.Value);
+                renderer.Render(compositionFrame);
 
                 return renderer.Snapshot();
             }
