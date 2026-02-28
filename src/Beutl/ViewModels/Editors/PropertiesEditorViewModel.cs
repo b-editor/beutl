@@ -1,9 +1,7 @@
 ﻿using System.Text.Json.Nodes;
-using Beutl.Animation;
 using Beutl.Engine;
-using Beutl.Operation;
 using Beutl.Services;
-using Beutl.Editor.Services;
+using Beutl.PropertyAdapters;
 using DynamicData;
 
 namespace Beutl.ViewModels.Editors;

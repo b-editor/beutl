@@ -1,11 +1,7 @@
-using System.ComponentModel;
-using System.ComponentModel.DataAnnotations;
-using System.Reflection;
-using Beutl.Animation;
 using Beutl.Engine;
 using Beutl.Extensibility;
 
-namespace Beutl.Operation;
+namespace Beutl.PropertyAdapters;
 
 public static class PropertyAdapterFactory
 {

@@ -1,11 +1,8 @@
 using System.Collections;
 using System.Collections.Specialized;
 using Beutl.Editor;
-using Beutl.Editor.Services;
-using Beutl.Language;
 using Beutl.NodeTree;
 using Beutl.NodeTree.Nodes;
-using Beutl.Operation;
 using Beutl.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Reactive.Bindings;

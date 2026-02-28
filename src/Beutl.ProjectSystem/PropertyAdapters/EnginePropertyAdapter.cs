@@ -4,7 +4,7 @@ using System.Reactive.Linq;
 using Beutl.Engine;
 using Beutl.Extensibility;
 
-namespace Beutl.Operation;
+namespace Beutl.PropertyAdapters;
 
 public class EnginePropertyAdapter<T> : IPropertyAdapter<T>
 {

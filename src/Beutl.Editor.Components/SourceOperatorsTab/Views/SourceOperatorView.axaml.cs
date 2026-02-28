@@ -7,13 +7,10 @@ using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Xaml.Interactivity;
 using Beutl.Controls.Behaviors;
-using Beutl.Editor;
 using Beutl.Editor.Components.SourceOperatorsTab.ViewModels;
 using Beutl.Editor.Components.Views;
 using Beutl.Engine;
-using Beutl.Operation;
 using Beutl.ProjectSystem;
-using Beutl.Services;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.Editor.Components.SourceOperatorsTab.Views;

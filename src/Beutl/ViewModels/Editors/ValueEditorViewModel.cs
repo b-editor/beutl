@@ -1,6 +1,6 @@
 ﻿using Beutl.Animation;
 using Beutl.Graphics.Rendering;
-using Beutl.Operation;
+using Beutl.PropertyAdapters;
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
 

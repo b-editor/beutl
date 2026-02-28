@@ -5,7 +5,7 @@ using Beutl.Engine;
 using Beutl.Engine.Expressions;
 using Beutl.Extensibility;
 
-namespace Beutl.Operation;
+namespace Beutl.PropertyAdapters;
 
 public sealed class AnimatablePropertyAdapter<T>(AnimatableProperty<T> property, EngineObject obj)
     : EnginePropertyAdapter<T>(property, obj), IAnimatablePropertyAdapter<T>

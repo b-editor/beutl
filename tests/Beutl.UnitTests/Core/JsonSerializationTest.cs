@@ -1,13 +1,10 @@
 ﻿using System.Text.Json.Nodes;
 using Beutl.Graphics;
-using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Shapes;
 using Beutl.Logging;
-using Beutl.Media;
 using Beutl.NodeTree;
 using Beutl.NodeTree.Nodes;
 using Beutl.NodeTree.Nodes.Geometry;
-using Beutl.Operation;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
 using Microsoft.Extensions.Logging;

@@ -2,7 +2,7 @@
 using Beutl.Editor;
 using Beutl.Editor.Observers;
 using Beutl.Media.Encoding;
-using Beutl.Operation;
+using Beutl.PropertyAdapters;
 using Beutl.Services;
 using Beutl.ViewModels.Editors;
 using DynamicData;

@@ -1,6 +1,6 @@
 ﻿using Beutl.Extensibility;
 
-namespace Beutl.Operation;
+namespace Beutl.PropertyAdapters;
 
 public class CorePropertyAdapter<T>(CoreProperty<T> property, ICoreObject obj) : IPropertyAdapter<T>
 {
