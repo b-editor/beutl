@@ -1,8 +1,8 @@
 using Beutl.ProjectSystem;
 
-namespace Beutl.Graphics.Rendering;
+namespace Beutl.Composition;
 
-public interface ISceneCompositionRenderContext
+public interface ISceneCompositionContext
 {
     IList<Element> CurrentElements { get; }
 

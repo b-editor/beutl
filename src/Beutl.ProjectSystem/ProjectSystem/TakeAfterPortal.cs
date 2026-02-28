@@ -1,7 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using Beutl.Composition;
 using Beutl.Engine;
-using Beutl.Graphics.Rendering;
 using Beutl.Language;
 
 namespace Beutl.ProjectSystem;
@@ -20,7 +19,7 @@ public sealed partial class TakeAfterPortal : EngineObject, IFlowOperator
     {
         partial void PostUpdate(TakeAfterPortal obj, CompositionContext context)
         {
-            if (context is ISceneCompositionRenderContext ctx)
+            if (context is ISceneCompositionContext ctx)
             {
                 int start = obj.ZIndex + 1;
                 int end = obj.ZIndex + Count;

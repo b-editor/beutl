@@ -2,7 +2,6 @@ using System.Runtime.CompilerServices;
 using Beutl.Collections.Pooled;
 using Beutl.Composition;
 using Beutl.Engine;
-using Beutl.Graphics.Rendering;
 using Beutl.Media;
 using Beutl.ProjectSystem;
 
@@ -18,7 +17,7 @@ public sealed class SceneCompositor : ICompositor
         _scene = scene;
     }
 
-    private sealed class CompositorContext : CompositionContext, ISceneCompositionRenderContext
+    private sealed class CompositorContext : CompositionContext, ISceneCompositionContext
     {
         private readonly SceneCompositor _compositor;
 
