@@ -3,8 +3,8 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json.Nodes;
 using Beutl.Audio.Composing;
+using Beutl.Composition;
 using Beutl.Engine;
-using Beutl.Graphics.Rendering;
 using Beutl.Media;
 using Beutl.Serialization;
 using Beutl.Threading;
@@ -87,7 +87,7 @@ public sealed partial class SourceSound : IElementThumbnailsProvider
         IElementThumbnailCacheService? cacheService,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        using var resource = ToResource(RenderContext.Default);
+        using var resource = ToResource(CompositionContext.Default);
         if (resource.Source == null)
             yield break;
 

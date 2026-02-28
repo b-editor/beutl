@@ -10,7 +10,7 @@ public static class ResourceClassEmitter
 {
     public static void Emit(StringBuilder sb, string indent, string currentTypeDisplay, ClassInfo info)
     {
-        string renderContextType = "global::Beutl.Graphics.Rendering.RenderContext";
+        string renderContextType = "global::Beutl.Composition.CompositionContext";
         string engineObjectType = "global::Beutl.Engine.EngineObject";
 
         if (info.Symbol.IsAbstract)

@@ -1,6 +1,7 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using Beutl.Audio.Effects;
 using Beutl.Audio.Graph;
+using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Language;
 using Beutl.Media.Source;
@@ -15,7 +16,7 @@ public abstract partial class Sound : EngineObject
         Effect.CurrentValue = new AudioEffectGroup();
     }
 
-    public override EvaluationTarget GetEvaluationTarget() => EvaluationTarget.Audio;
+    public override CompositionTarget GetCompositionTarget() => CompositionTarget.Audio;
 
     [Display(Name = nameof(Strings.OffsetPosition), ResourceType = typeof(Strings))]
     [SuppressResourceClassGeneration]

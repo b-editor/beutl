@@ -20,6 +20,7 @@ using Beutl.Editor.Components.SourceOperatorsTab.ViewModels;
 using FluentAvalonia.UI.Controls;
 using Microsoft.Extensions.Logging;
 using System.Numerics;
+using Beutl.Composition;
 using Beutl.Graphics3D;
 using Beutl.Graphics3D.Camera;
 using Beutl.Graphics3D.Gizmo;
@@ -185,7 +186,7 @@ public partial class PlayerView
                     }
                     else
                     {
-                        var res = transformGroup.ToResource(new RenderContext(EditViewModel.CurrentTime.Value));
+                        var res = transformGroup.ToResource(new CompositionContext(EditViewModel.CurrentTime.Value));
 
                         return (obj, res.Matrix);
                     }
@@ -600,7 +601,7 @@ public partial class PlayerView
 
         public EditViewModel EditViewModel => ViewModel.EditViewModel;
 
-        private RenderContext RenderContext => field ??= new(EditViewModel.CurrentTime.Value);
+        private CompositionContext CompositionContext => field ??= new(EditViewModel.CurrentTime.Value);
 
         private AvaImage Image => View.image;
 
@@ -791,8 +792,8 @@ public partial class PlayerView
                 if (_camera != null)
                 {
                     // カメラの方向からYawとPitchを計算する
-                    var position = _camera.Position.GetValue(RenderContext);
-                    var target = _camera.Target.GetValue(RenderContext);
+                    var position = _camera.Position.GetValue(CompositionContext);
+                    var target = _camera.Target.GetValue(CompositionContext);
                     var forward = Vector3.Normalize(target - position);
 
                     _yaw = MathF.Atan2(forward.X, forward.Z);
@@ -815,10 +816,10 @@ public partial class PlayerView
             if (_leftPressed && _selectedObject != null && _camera != null)
             {
                 // カメラの向きに基づいて移動方向を計算
-                var cameraPosition = _camera.Position.GetValue(RenderContext);
-                var cameraTarget = _camera.Target.GetValue(RenderContext);
+                var cameraPosition = _camera.Position.GetValue(CompositionContext);
+                var cameraTarget = _camera.Target.GetValue(CompositionContext);
                 var forward = Vector3.Normalize(cameraTarget - cameraPosition);
-                var up = _camera.Up.GetValue(RenderContext);
+                var up = _camera.Up.GetValue(CompositionContext);
                 var right = Vector3.Normalize(Vector3.Cross(forward, up));
                 var cameraUp = Vector3.Normalize(Vector3.Cross(right, forward));
 
@@ -967,9 +968,9 @@ public partial class PlayerView
                 );
 
                 // カメラのターゲットを更新する
-                var cameraPosition = _camera.Position.GetValue(RenderContext);
+                var cameraPosition = _camera.Position.GetValue(CompositionContext);
                 var newTarget = cameraPosition + forward;
-                var targetDelta = newTarget - _camera.Target.GetValue(RenderContext);
+                var targetDelta = newTarget - _camera.Target.GetValue(CompositionContext);
 
                 if (!SetKeyFrameValue(_targetKeyFrame, targetDelta))
                 {
@@ -1025,8 +1026,8 @@ public partial class PlayerView
                 var posKeyFrame = FindKeyFramePairOrNull(_camera.Position);
                 var targetKeyFrame = FindKeyFramePairOrNull(_camera.Target);
 
-                var position = _camera.Position.GetValue(RenderContext);
-                var target = _camera.Target.GetValue(RenderContext);
+                var position = _camera.Position.GetValue(CompositionContext);
+                var target = _camera.Target.GetValue(CompositionContext);
                 var forward = Vector3.Normalize(target - position);
 
                 float speed = (float)e.Delta.Y * MoveSpeed * 3;
@@ -1072,10 +1073,10 @@ public partial class PlayerView
             if (_camera == null)
                 return;
 
-            var position = _camera.Position.GetValue(RenderContext);
-            var target = _camera.Target.GetValue(RenderContext);
+            var position = _camera.Position.GetValue(CompositionContext);
+            var target = _camera.Target.GetValue(CompositionContext);
             var forward = Vector3.Normalize(target - position);
-            var up = _camera.Up.GetValue(RenderContext);
+            var up = _camera.Up.GetValue(CompositionContext);
             var right = Vector3.Normalize(Vector3.Cross(forward, up));
 
             var movement = Vector3.Zero;

@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
@@ -20,7 +21,7 @@ public abstract partial class Drawable : EngineObject
         Transform.CurrentValue = new TransformGroup();
     }
 
-    public override EvaluationTarget GetEvaluationTarget() => EvaluationTarget.Graphics;
+    public override CompositionTarget GetCompositionTarget() => CompositionTarget.Graphics;
 
     [Display(Name = nameof(Strings.Transform), ResourceType = typeof(Strings), GroupName = nameof(Strings.Transform))]
     public IProperty<Transform?> Transform { get; } = Property.Create<Transform?>();

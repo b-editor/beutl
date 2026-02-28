@@ -1,4 +1,5 @@
 ﻿using Beutl.Animation;
+using Beutl.Composition;
 using Beutl.Graphics.Rendering;
 using Beutl.PropertyAdapters;
 using Reactive.Bindings;
@@ -16,7 +17,7 @@ public class ValueEditorViewModel<T> : BaseEditorViewModel<T>
         Value = HasExpression
             .Select(hasExpression =>
                 hasExpression && PropertyAdapter is EnginePropertyAdapter<T> { Property: var engineProperty }
-                    ? CurrentTime.Select(t => engineProperty.GetValue(new RenderContext(t)))
+                    ? CurrentTime.Select(t => engineProperty.GetValue(new CompositionContext(t)))
                     // Expressionが設定されていない場合は通常の動作
                     : EditingKeyFrame
                         .Select(x => x?.GetObservable(KeyFrame<T>.ValueProperty))

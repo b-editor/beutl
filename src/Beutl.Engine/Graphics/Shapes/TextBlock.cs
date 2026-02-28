@@ -1,7 +1,6 @@
-﻿using System.ComponentModel;
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using System.Runtime.InteropServices;
-using Beutl.Animation;
+using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Graphics.Rendering;
 using Beutl.Language;
@@ -283,7 +282,7 @@ public partial class TextBlock : Drawable
             _pen?.Dispose();
         }
 
-        partial void PreUpdate(TextBlock obj, RenderContext context)
+        partial void PreUpdate(TextBlock obj, CompositionContext context)
         {
             var fontStyle = context.Get(obj.FontStyle);
             if (FontStyle != fontStyle)
@@ -337,7 +336,7 @@ public partial class TextBlock : Drawable
             _fillCache = Fill.Capture();
         }
 
-        partial void PostUpdate(TextBlock obj, RenderContext context)
+        partial void PostUpdate(TextBlock obj, CompositionContext context)
         {
             var fill = Fill.Capture();
             if (fill != _fillCache)

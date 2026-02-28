@@ -1,10 +1,12 @@
 ﻿using Beutl.Engine;
 
-namespace Beutl.Graphics.Rendering;
+namespace Beutl.Composition;
 
-public class RenderContext(TimeSpan time)
+public class CompositionContext(TimeSpan time)
 {
-    public static RenderContext Default { get; } = new(TimeSpan.Zero);
+    public static CompositionContext Default { get; } = new(TimeSpan.Zero);
+
+    public IList<EngineObject.Resource>? Flow { get; set; }
 
     public TimeSpan Time { get; set; } = time;
 

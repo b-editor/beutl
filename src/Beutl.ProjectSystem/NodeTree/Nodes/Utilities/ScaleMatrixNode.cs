@@ -1,5 +1,4 @@
 ﻿using Beutl.Graphics;
-using Beutl.Graphics.Transformation;
 using Beutl.NodeTree.Rendering;
 
 namespace Beutl.NodeTree.Nodes.Utilities;
@@ -21,7 +20,7 @@ public partial class ScaleMatrixNode : MatrixNode
 
     public partial class Resource
     {
-        protected override Matrix GetMatrix(NodeRenderContext context, MatrixNode node)
+        protected override Matrix GetMatrix(NodeCompositionContext context, MatrixNode node)
         {
             return Matrix.CreateScale(Scale * ScaleX, Scale * ScaleY);
         }

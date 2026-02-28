@@ -1,10 +1,8 @@
-using System.Collections.Immutable;
-
 using Avalonia.Controls.Primitives;
 
 using Beutl.Animation;
+using Beutl.Composition;
 using Beutl.Engine;
-using Beutl.Graphics.Rendering;
 using Beutl.Media;
 
 using BtlPoint = Beutl.Graphics.Point;
@@ -61,14 +59,14 @@ public sealed class PathPointDragState
         }
         else
         {
-            var ctx = new RenderContext(currentTime);
+            var ctx = new CompositionContext(currentTime);
             return Property.GetValue(ctx);
         }
     }
 
     public BtlPoint GetInterpolatedValue(TimeSpan currentTime)
     {
-        var ctx = new RenderContext(currentTime);
+        var ctx = new CompositionContext(currentTime);
         return Property.GetValue(ctx);
     }
 

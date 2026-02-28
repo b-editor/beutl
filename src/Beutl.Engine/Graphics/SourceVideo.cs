@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using Beutl.Animation;
+using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Graphics.Rendering;
 using Beutl.Language;
@@ -36,7 +37,7 @@ public partial class SourceVideo : Drawable
 
     public override bool TryGetOriginalLength(out TimeSpan timeSpan)
     {
-        using var resource = ToResource(RenderContext.Default);
+        using var resource = ToResource(CompositionContext.Default);
         var ts = CalculateOriginalTime((Resource)resource);
         if (ts.HasValue)
         {
@@ -179,7 +180,7 @@ public partial class SourceVideo : Drawable
             _speedIntegrator.Dispose();
         }
 
-        partial void PostUpdate(SourceVideo obj, RenderContext context)
+        partial void PostUpdate(SourceVideo obj, CompositionContext context)
         {
             var time = context.Time;
             // アニメーションがある場合、前回のキーフレームを引く

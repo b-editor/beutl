@@ -20,7 +20,7 @@ public partial class PixelSizeNode : Node
 
     public partial class Resource
     {
-        public override void Update(NodeRenderContext context)
+        public override void Update(NodeCompositionContext context)
         {
             Value = new PixelSize(Width, Height);
         }

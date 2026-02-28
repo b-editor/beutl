@@ -4,6 +4,7 @@ using Avalonia.Platform;
 using Beutl.Audio.Composing;
 using Beutl.Audio.Platforms.OpenAL;
 using Beutl.Audio.Platforms.XAudio2;
+using Beutl.Composition;
 using Beutl.Configuration;
 using Beutl.Editor.Components.PathEditorTab.ViewModels;
 using Beutl.Editor.Components.Helpers;
@@ -862,7 +863,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
             if (Scene == null) throw new Exception("Scene is null.");
             // TODO: Rendererに特定のDrawableのみを描画するクラスを追加する
             SceneRenderer renderer = EditViewModel.Renderer.Value;
-            var resource = drawable.ToResource(new RenderContext(CurrentFrame.Value));
+            var resource = drawable.ToResource(new CompositionContext(CurrentFrame.Value));
             PixelSize frameSize = renderer.FrameSize;
             using var root = new DrawableRenderNode(resource);
             using (var context = new GraphicsContext2D(root, frameSize))

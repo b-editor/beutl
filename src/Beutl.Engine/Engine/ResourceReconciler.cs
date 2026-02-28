@@ -1,11 +1,11 @@
-﻿using Beutl.Graphics.Rendering;
+﻿using Beutl.Composition;
 
 namespace Beutl.Engine;
 
 public static class ResourceReconciler
 {
     public static void ReconcileListFromFlow<TItem, TResource>(
-        RenderContext context, IListProperty<TItem> property,
+        CompositionContext context, IListProperty<TItem> property,
         IList<TResource> consumed, List<TResource> field,
         IList<int> versions, ref bool changed)
         where TItem : EngineObject where TResource : EngineObject.Resource
@@ -71,7 +71,7 @@ public static class ResourceReconciler
     }
 
     public static void ReconcileListFromProperty<TItem, TResource>(
-        RenderContext context, IListProperty<TItem> prop,
+        CompositionContext context, IListProperty<TItem> prop,
         int offsetIndex, IList<TResource> field, ref bool changed)
         where TItem : EngineObject where TResource : EngineObject.Resource
     {
@@ -123,7 +123,7 @@ public static class ResourceReconciler
     }
 
     public static void ReconcileResource<TObject, TResource>(
-        RenderContext context, TObject value,
+        CompositionContext context, TObject value,
         ref TResource? field, ref bool changed)
         where TObject : EngineObject? where TResource : EngineObject.Resource
     {

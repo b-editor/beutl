@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using Beutl.Collections.Pooled;
+using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Graphics.Rendering;
 using Beutl.Language;
@@ -70,17 +71,17 @@ public sealed partial class DrawableDecorator : Drawable, IFlowOperator
             set => _children = value;
         }
 
-        partial void PostUpdate(DrawableDecorator obj, RenderContext context)
+        partial void PostUpdate(DrawableDecorator obj, CompositionContext context)
         {
             using var consumed = new PooledList<Drawable.Resource>();
-            if (context is ICompositionRenderContext ctx)
+            if (context.Flow != null)
             {
-                for (int i = ctx.Flow.Count - 1; i >= 0; i--)
+                for (int i = context.Flow.Count - 1; i >= 0; i--)
                 {
-                    if (ctx.Flow[i] is Drawable.Resource d)
+                    if (context.Flow[i] is Drawable.Resource d)
                     {
                         consumed.Insert(0, d);
-                        ctx.Flow.RemoveAt(i);
+                        context.Flow.RemoveAt(i);
                     }
                 }
             }

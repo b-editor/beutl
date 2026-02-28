@@ -1,10 +1,9 @@
 ﻿using System.ComponentModel.DataAnnotations;
-using System.Diagnostics;
 using System.Reflection;
 using System.Text.Json.Nodes;
 using Beutl.Animation;
+using Beutl.Composition;
 using Beutl.Engine.Expressions;
-using Beutl.Graphics.Rendering;
 using Beutl.Serialization;
 using Beutl.Validation;
 using ValidationContext = Beutl.Validation.ValidationContext;
@@ -142,7 +141,7 @@ public class AnimatableProperty<T> : IProperty<T>
         Edited?.Invoke(sender, e);
     }
 
-    public T GetValue(RenderContext context)
+    public T GetValue(CompositionContext context)
     {
         T value;
 

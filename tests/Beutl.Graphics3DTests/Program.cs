@@ -1,4 +1,5 @@
 using System.Numerics;
+using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Graphics.Backend;
 using Beutl.Graphics.Rendering;
@@ -43,7 +44,7 @@ renderer.Initialize(Width, Height);
 Console.WriteLine("Renderer initialized.");
 Console.WriteLine();
 
-var renderContext = new RenderContext(TimeSpan.Zero);
+var renderContext = new CompositionContext(TimeSpan.Zero);
 
 // === PBR Material Grid Test ===
 Console.WriteLine("=== PBR Material Grid Test ===");
@@ -220,7 +221,7 @@ static void RunShadowTest(IGraphicsContext graphicsContext)
     var renderer = new Renderer3D(graphicsContext);
     renderer.Initialize(Width, Height);
 
-    var renderContext = new RenderContext(TimeSpan.Zero);
+    var renderContext = new CompositionContext(TimeSpan.Zero);
 
     // Camera - view from above and to the side
     var camera = new PerspectiveCamera();

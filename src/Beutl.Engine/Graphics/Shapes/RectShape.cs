@@ -1,6 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using Beutl.Composition;
 using Beutl.Engine;
-using Beutl.Graphics.Rendering;
 using Beutl.Language;
 using Beutl.Media;
 
@@ -27,7 +27,7 @@ public sealed partial class RectShape : Shape
         private readonly RectGeometry _geometry = new();
         private RectGeometry.Resource? _geometryResource;
 
-        partial void PostUpdate(RectShape obj, RenderContext context)
+        partial void PostUpdate(RectShape obj, CompositionContext context)
         {
             _geometry.Width.CurrentValue = Math.Max(Width, 0);
             _geometry.Height.CurrentValue = Math.Max(Height, 0);

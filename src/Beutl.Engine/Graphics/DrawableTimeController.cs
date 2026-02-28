@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using Beutl.Animation;
-using Beutl.Editor;
+using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Graphics.Rendering;
 using Beutl.Language;
@@ -167,17 +167,17 @@ public sealed partial class DrawableTimeController : Drawable, IPresenter<Drawab
 
         public Drawable.Resource? Target => _target;
 
-        partial void PostUpdate(DrawableTimeController obj, RenderContext context)
+        partial void PostUpdate(DrawableTimeController obj, CompositionContext context)
         {
             Drawable? targetDrawable = null;
-            if (context is ICompositionRenderContext ctx)
+            if (context.Flow != null)
             {
-                for (int i = 0; i < ctx.Flow.Count; i++)
+                for (int i = 0; i < context.Flow.Count; i++)
                 {
-                    if (ctx.Flow[i] is Drawable.Resource d)
+                    if (context.Flow[i] is Drawable.Resource d)
                     {
                         targetDrawable = d.GetOriginal();
-                        ctx.Flow.RemoveAt(i);
+                        context.Flow.RemoveAt(i);
                         break;
                     }
                 }

@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics;
 using System.Runtime.InteropServices;
+using Beutl.Composition;
 using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Reactive;
@@ -237,7 +238,7 @@ public class FormattedText : IEquatable<FormattedText>
                 {
                     var geom = new SKPathGeometry();
                     geom.SetSKPath(tmp, false);
-                    exist = geom.ToResource(RenderContext.Default);
+                    exist = geom.ToResource(CompositionContext.Default);
                 }
                 else
                 {
@@ -251,7 +252,7 @@ public class FormattedText : IEquatable<FormattedText>
                 {
                     var geom = new SKPathGeometry();
                     geom.SetSKPath(tmp, false);
-                    exist = geom.ToResource(RenderContext.Default);
+                    exist = geom.ToResource(CompositionContext.Default);
                 }
                 else
                 {

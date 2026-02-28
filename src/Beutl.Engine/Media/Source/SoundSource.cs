@@ -1,7 +1,7 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Serialization;
+using Beutl.Composition;
 using Beutl.Engine;
-using Beutl.Graphics.Rendering;
 using Beutl.Media.Decoding;
 using Beutl.Media.Music;
 
@@ -24,7 +24,7 @@ public sealed class SoundSource : MediaSource
         Uri = uri;
     }
 
-    public override Resource ToResource(RenderContext context)
+    public override Resource ToResource(CompositionContext context)
     {
         var resource = new Resource();
         bool updateOnly = true;
@@ -94,7 +94,7 @@ public sealed class SoundSource : MediaSource
             return (int)(timeSpan.TotalSeconds * SampleRate);
         }
 
-        public override void Update(EngineObject obj, RenderContext context, ref bool updateOnly)
+        public override void Update(EngineObject obj, CompositionContext context, ref bool updateOnly)
         {
             base.Update(obj, context, ref updateOnly);
             var soundSource = (SoundSource)obj;

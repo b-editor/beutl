@@ -31,7 +31,7 @@ public partial class RelativeRectNode : Node
 
     public partial class Resource
     {
-        public override void Update(NodeRenderContext context)
+        public override void Update(NodeCompositionContext context)
         {
             Value = new RelativeRect(new Point(X, Y), new Size(Width, Height), Unit);
         }

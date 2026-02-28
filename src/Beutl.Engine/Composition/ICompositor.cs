@@ -1,6 +1,6 @@
 using Beutl.Media;
 
-namespace Beutl.Graphics.Rendering;
+namespace Beutl.Composition;
 
 public interface ICompositor : IDisposable
 {

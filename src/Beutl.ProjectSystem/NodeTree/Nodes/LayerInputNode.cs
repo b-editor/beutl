@@ -138,7 +138,7 @@ public partial class LayerInputNode : Node, ISocketsCanBeAdded
 
     public partial class Resource
     {
-        public override void Update(NodeRenderContext context)
+        public override void Update(NodeCompositionContext context)
         {
             var node = GetOriginal();
 

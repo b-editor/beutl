@@ -1,9 +1,8 @@
 using System.Text.Json.Nodes;
-
+using Beutl.Composition;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Engine;
 using Beutl.Engine.Expressions;
-using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Transformation;
 using Beutl.PropertyAdapters;
 using Microsoft.Extensions.DependencyInjection;
@@ -156,7 +155,7 @@ public sealed class TransformEditorViewModel : ValueEditorViewModel<Transform?>
 
         CurrentTargetName = expressionObservable
             .Select(t => t.Item2 is ReferenceExpression<Transform>
-                ? t.Item1?.Target.GetValue(RenderContext.Default)
+                ? t.Item1?.Target.GetValue(CompositionContext.Default)
                 : null)
             .Select(fe => fe != null ? CoreObjectHelper.GetDisplayName(fe) : Message.Property_is_unset)
             .ToReadOnlyReactivePropertySlim()

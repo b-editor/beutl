@@ -1,7 +1,7 @@
 ﻿using System.Runtime.CompilerServices;
 using Beutl.Animation;
 using Beutl.Audio.Graph;
-using Beutl.Graphics.Rendering;
+using Beutl.Composition;
 using Beutl.Media;
 
 namespace Beutl.Audio.Composing;

@@ -1,7 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
-using System.Net.Sockets;
+using Beutl.Composition;
 using Beutl.Engine;
-using Beutl.Graphics.Rendering;
 using Beutl.Language;
 using Beutl.Media;
 
@@ -36,7 +35,7 @@ public sealed partial class RoundedRectShape : Shape
         private readonly RoundedRectGeometry _geometry = new();
         private RoundedRectGeometry.Resource? _geometryResource;
 
-        partial void PostUpdate(RoundedRectShape obj, RenderContext context)
+        partial void PostUpdate(RoundedRectShape obj, CompositionContext context)
         {
             _geometry.Width.CurrentValue = Math.Max(Width, 0);
             _geometry.Height.CurrentValue = Math.Max(Height, 0);

@@ -1,6 +1,6 @@
 using System.Numerics;
+using Beutl.Composition;
 using Beutl.Graphics.Backend;
-using Beutl.Graphics.Rendering;
 using Beutl.Graphics3D.Lighting;
 
 namespace Beutl.Graphics3D;
@@ -27,7 +27,7 @@ public readonly struct RenderContext3D
         Vector3 cameraPosition,
         Vector3 ambientColor,
         IReadOnlyList<LightData> lights,
-        RenderContext renderContext)
+        CompositionContext compositionContext)
     {
         GraphicsContext = graphicsContext;
         RenderPass = renderPass;
@@ -37,7 +37,7 @@ public readonly struct RenderContext3D
         CameraPosition = cameraPosition;
         AmbientColor = ambientColor;
         Lights = lights;
-        RenderContext = renderContext;
+        CompositionContext = compositionContext;
     }
 
     /// <summary>
@@ -81,10 +81,10 @@ public readonly struct RenderContext3D
     public IReadOnlyList<LightData> Lights { get; }
 
     /// <summary>
-    /// Gets the 2D render context for texture source rendering.
+    /// Gets the composition context for texture source rendering.
     /// May be null if not provided during 3D rendering.
     /// </summary>
-    public RenderContext RenderContext { get; }
+    public CompositionContext CompositionContext { get; }
 
     /// <summary>
     /// Gets the primary directional light direction (for backwards compatibility).

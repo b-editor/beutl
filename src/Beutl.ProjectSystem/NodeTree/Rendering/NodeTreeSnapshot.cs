@@ -1,16 +1,15 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using Beutl.Collections;
-using Beutl.Engine;
+using Beutl.Composition;
 using Beutl.Extensibility;
-using Beutl.Graphics.Rendering;
 
 namespace Beutl.NodeTree.Rendering;
 
 public sealed class NodeTreeSnapshot : IDisposable
 {
     private Node.Resource[] _resources = [];
-    private NodeRenderContext[] _contexts = [];
+    private NodeCompositionContext[] _contexts = [];
     private ConnectionSnapshot[] _connections = [];
     private readonly Dictionary<(int, int), List<int>> _outputConnectionMap = new();
     private readonly Dictionary<(int, int), List<int>> _inputConnectionMap = new();
@@ -19,7 +18,7 @@ public sealed class NodeTreeSnapshot : IDisposable
 
     public void MarkDirty() => _isDirty = true;
 
-    public void Build(NodeTreeModel model, RenderContext context)
+    public void Build(NodeTreeModel model, CompositionContext context)
     {
         if (!_isDirty) return;
 
@@ -137,11 +136,11 @@ public sealed class NodeTreeSnapshot : IDisposable
         return sorted;
     }
 
-    private Dictionary<Node, int> BuildResourcesAndContexts(List<Node> sorted, RenderContext context)
+    private Dictionary<Node, int> BuildResourcesAndContexts(List<Node> sorted, CompositionContext context)
     {
         var nodeToResourceIndex = new Dictionary<Node, int>(sorted.Count);
         _resources = new Node.Resource[sorted.Count];
-        _contexts = new NodeRenderContext[sorted.Count];
+        _contexts = new NodeCompositionContext[sorted.Count];
 
         for (int i = 0; i < sorted.Count; i++)
         {
@@ -166,7 +165,7 @@ public sealed class NodeTreeSnapshot : IDisposable
             resource.ItemIndexMap = itemIndexMap;
             _resources[i] = resource;
 
-            _contexts[i] = new NodeRenderContext(context.Time) { Resource = resource, Snapshot = this };
+            _contexts[i] = new NodeCompositionContext(context.Time) { Resource = resource, Snapshot = this };
         }
 
         return nodeToResourceIndex;
@@ -279,7 +278,7 @@ public sealed class NodeTreeSnapshot : IDisposable
         }
     }
 
-    public void Evaluate(EvaluationTarget target, RenderContext context)
+    public void Evaluate(CompositionTarget target, CompositionContext context)
     {
         foreach (var ctx in _contexts)
         {

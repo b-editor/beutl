@@ -2,6 +2,7 @@
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json.Nodes;
+using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
@@ -84,7 +85,7 @@ public partial class SourceVideo : IElementThumbnailsProvider
         int startIndex = 0,
         int endIndex = -1)
     {
-        using var resource = ToResource(RenderContext.Default);
+        using var resource = ToResource(CompositionContext.Default);
 
         if (((Resource)resource).Source is not { } source)
             yield break;
@@ -130,7 +131,7 @@ public partial class SourceVideo : IElementThumbnailsProvider
                     if (cancellationToken.IsCancellationRequested)
                         return null;
 
-                    var ctx = new RenderContext(time + TimeRange.Start);
+                    var ctx = new CompositionContext(time + TimeRange.Start);
                     bool updateOnly = false;
                     resource.Update(this, ctx, ref updateOnly);
 

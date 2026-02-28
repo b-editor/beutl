@@ -1,11 +1,10 @@
-using Beutl.Engine;
-using Beutl.Graphics.Rendering;
+using Beutl.Composition;
 
 namespace Beutl.NodeTree.Rendering;
 
-public sealed class NodeRenderContext : RenderContext
+public sealed class NodeCompositionContext : CompositionContext
 {
-    public NodeRenderContext(TimeSpan time) : base(time)
+    public NodeCompositionContext(TimeSpan time) : base(time)
     {
     }
 
@@ -13,7 +12,7 @@ public sealed class NodeRenderContext : RenderContext
 
     internal NodeTreeSnapshot Snapshot { get; set; } = null!;
 
-    public EvaluationTarget Target { get; internal set; }
+    public CompositionTarget Target { get; internal set; }
 
     public bool HasConnection(IInputSocket socket)
     {

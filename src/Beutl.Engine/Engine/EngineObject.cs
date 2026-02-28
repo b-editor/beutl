@@ -4,10 +4,8 @@ using System.Diagnostics.CodeAnalysis;
 using System.Reactive.Disposables;
 using System.Reflection;
 using System.Text.Json.Nodes;
-using Beutl;
 using Beutl.Animation;
-using Beutl.Engine.Expressions;
-using Beutl.Graphics.Rendering;
+using Beutl.Composition;
 using Beutl.Media;
 using Beutl.Reactive;
 using Beutl.Serialization;
@@ -364,9 +362,9 @@ public class EngineObject : Hierarchical, INotifyEdited
         Edited?.Invoke(this, EventArgs.Empty);
     }
 
-    public virtual EvaluationTarget GetEvaluationTarget()
+    public virtual CompositionTarget GetCompositionTarget()
     {
-        return EvaluationTarget.Unknown;
+        return CompositionTarget.Unknown;
     }
 
     // TODO: 以下の3つのメソッドは別のインターフェースにする
@@ -385,7 +383,7 @@ public class EngineObject : Hierarchical, INotifyEdited
     {
     }
 
-    public virtual Resource ToResource(RenderContext context)
+    public virtual Resource ToResource(CompositionContext context)
     {
         var resource = new Resource();
         bool updateOnly = true;
@@ -410,7 +408,7 @@ public class EngineObject : Hierarchical, INotifyEdited
 
         public EngineObject GetOriginal() => _original;
 
-        public virtual void Update(EngineObject obj, RenderContext context, ref bool updateOnly)
+        public virtual void Update(EngineObject obj, CompositionContext context, ref bool updateOnly)
         {
             ObjectDisposedException.ThrowIf(IsDisposed, this);
             _original = obj;
@@ -425,7 +423,7 @@ public class EngineObject : Hierarchical, INotifyEdited
             }
         }
 
-        protected void CompareAndUpdate<TValue>(RenderContext context, IProperty<TValue> prop, ref TValue field,
+        protected void CompareAndUpdate<TValue>(CompositionContext context, IProperty<TValue> prop, ref TValue field,
             ref bool updateOnly)
         {
             TValue newValue = context.Get(prop);
@@ -443,7 +441,7 @@ public class EngineObject : Hierarchical, INotifyEdited
             }
         }
 
-        protected void CompareAndUpdateList<TItem, TResource>(RenderContext context, IList<TItem> prop,
+        protected void CompareAndUpdateList<TItem, TResource>(CompositionContext context, IList<TItem> prop,
             ref List<TResource> field, ref bool updateOnly) where TItem : EngineObject where TResource : Resource
         {
             for (int i = 0; i < prop.Count; i++)
@@ -499,7 +497,7 @@ public class EngineObject : Hierarchical, INotifyEdited
             }
         }
 
-        protected void CompareAndUpdateObject<TObject, TResource>(RenderContext context, IProperty<TObject> prop,
+        protected void CompareAndUpdateObject<TObject, TResource>(CompositionContext context, IProperty<TObject> prop,
             ref TResource? field, ref bool updateOnly) where TObject : EngineObject? where TResource : Resource
         {
             var value = context.Get(prop);

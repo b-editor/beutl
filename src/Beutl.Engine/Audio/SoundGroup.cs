@@ -1,8 +1,8 @@
 using System.ComponentModel.DataAnnotations;
 using Beutl.Audio.Graph;
 using Beutl.Collections.Pooled;
+using Beutl.Composition;
 using Beutl.Engine;
-using Beutl.Graphics.Rendering;
 using Beutl.Language;
 using Beutl.Media.Source;
 
@@ -125,17 +125,17 @@ public sealed partial class SoundGroup : Sound, IFlowOperator
 
         public override SoundSource.Resource? GetSoundSource() => null;
 
-        partial void PreUpdate(SoundGroup obj, RenderContext context)
+        partial void PreUpdate(SoundGroup obj, CompositionContext context)
         {
             using var consumed = new PooledList<Sound.Resource>();
-            if (context is ICompositionRenderContext ctx)
+            if (context.Flow != null)
             {
-                for (int i = ctx.Flow.Count - 1; i >= 0; i--)
+                for (int i = context.Flow.Count - 1; i >= 0; i--)
                 {
-                    if (ctx.Flow[i] is Sound.Resource d)
+                    if (context.Flow[i] is Sound.Resource d)
                     {
                         consumed.Insert(0, d);
-                        ctx.Flow.RemoveAt(i);
+                        context.Flow.RemoveAt(i);
                     }
                 }
             }

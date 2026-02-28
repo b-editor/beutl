@@ -51,7 +51,7 @@ public partial class FactoryNode<T> : Node
 
     public partial class Resource
     {
-        public override void Update(NodeRenderContext context)
+        public override void Update(NodeCompositionContext context)
         {
             var node = GetOriginal();
             OutputSocket = node.Object;

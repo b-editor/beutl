@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Graphics.Rendering;
 using Beutl.Language;
@@ -17,7 +18,7 @@ public sealed partial class TakeAfterPortal : EngineObject, IFlowOperator
 
     public partial class Resource
     {
-        partial void PostUpdate(TakeAfterPortal obj, RenderContext context)
+        partial void PostUpdate(TakeAfterPortal obj, CompositionContext context)
         {
             if (context is ISceneCompositionRenderContext ctx)
             {

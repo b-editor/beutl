@@ -67,7 +67,7 @@ public partial class GroupInput : Node, ISocketsCanBeAdded
     {
         public IItemValue[]? OuterInputValues { get; set; }
 
-        public override void Update(NodeRenderContext context)
+        public override void Update(NodeCompositionContext context)
         {
             if (OuterInputValues == null) return;
 

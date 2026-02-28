@@ -3,6 +3,7 @@ using System.Numerics;
 using System.Text.Json.Nodes;
 using Beutl.Animation;
 using Beutl.Audio;
+using Beutl.Composition;
 using Beutl.Configuration;
 using Beutl.Editor;
 using Beutl.Editor.Components.GraphEditorTab.ViewModels;
@@ -763,14 +764,14 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
                 t1.Source.CurrentValue = video;
                 var videoResource = TrySetDuration(
                     element1,
-                    () => video.ToResource(RenderContext.Default),
+                    () => video.ToResource(CompositionContext.Default),
                     v => v.Duration);
 
                 var sound = SoundSource.Open(desc.FileName);
                 t2.Source.CurrentValue = sound;
                 var soundResource = TrySetDuration(
                     element2,
-                    () => sound.ToResource(RenderContext.Default),
+                    () => sound.ToResource(CompositionContext.Default),
                     v => v.Duration);
                 // VideoSource.Resource, SoundSource.ResourceのMediaReaderは参照カウンターで管理され、Resource間で共有される
                 // すぐに解放してしまうとこのDuration設定時とレンダリング時の2回MediaReaderが生成されてしまう
@@ -799,7 +800,7 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
                 t.Source.CurrentValue = sound;
                 var soundResource = TrySetDuration(
                     element,
-                    () => sound.ToResource(RenderContext.Default),
+                    () => sound.ToResource(CompositionContext.Default),
                     v => v.Duration);
                 compositeDisposable.Add(Disposable.Create(() =>
                     RenderThread.Dispatcher.Dispatch(() => soundResource?.Dispose(), DispatchPriority.Low)));

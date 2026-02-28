@@ -1,4 +1,5 @@
-﻿using Beutl.Graphics;
+﻿using Beutl.Composition;
+using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Shapes;
 using Beutl.Logging;
@@ -47,7 +48,7 @@ public class TextBlockTests
         tb.Spacing.CurrentValue = 0;
         tb.Text.CurrentValue = str;
 
-        var resource = tb.ToResource(RenderContext.Default);
+        var resource = tb.ToResource(CompositionContext.Default);
 
         var node = new DrawableRenderNode(resource);
         using (var context = new GraphicsContext2D(node, new(1920, 1080)))
@@ -74,13 +75,13 @@ public class TextBlockTests
         tb.Fill.CurrentValue = Brushes.White;
         tb.Spacing.CurrentValue = 0;
         tb.Text.CurrentValue = Case1;
-        var resource = tb.ToResource(RenderContext.Default);
+        var resource = tb.ToResource(CompositionContext.Default);
 
         var pen = new Pen();
         pen.Brush.CurrentValue = Brushes.Black;
         pen.Thickness.CurrentValue = 5;
         pen.StrokeAlignment.CurrentValue = StrokeAlignment.Outside;
-        var penResource = pen.ToResource(RenderContext.Default);
+        var penResource = pen.ToResource(CompositionContext.Default);
 
         using var skpath = TextBlock.ToSKPath(resource.GetTextElements());
         var bounds = PenHelper.GetBounds(skpath.Bounds.ToGraphicsRect(), penResource);

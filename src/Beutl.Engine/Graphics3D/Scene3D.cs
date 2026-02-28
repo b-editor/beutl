@@ -1,7 +1,6 @@
 using System.ComponentModel.DataAnnotations;
-using Beutl.Collections;
 using Beutl.Collections.Pooled;
-using Beutl.Editor;
+using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
@@ -147,7 +146,7 @@ public partial class Scene3D : Drawable, IFlowOperator
             }
         }
 
-        partial void PostUpdate(Scene3D obj, RenderContext context)
+        partial void PostUpdate(Scene3D obj, CompositionContext context)
         {
             bool changed = false;
             if (Time != context.Time)
@@ -159,18 +158,18 @@ public partial class Scene3D : Drawable, IFlowOperator
             // Consume lights and objects from flow
             using var consumedLights = new PooledList<Light3D.Resource>();
             using var consumedObjects = new PooledList<Object3D.Resource>();
-            if (context is ICompositionRenderContext ctx)
+            if (context.Flow != null)
             {
-                for (int i = ctx.Flow.Count - 1; i >= 0; i--)
+                for (int i = context.Flow.Count - 1; i >= 0; i--)
                 {
-                    switch (ctx.Flow[i])
+                    switch (context.Flow[i])
                     {
                         case Light3D.Resource light:
-                            ctx.Flow.RemoveAt(i);
+                            context.Flow.RemoveAt(i);
                             consumedLights.Insert(0, light);
                             break;
                         case Object3D.Resource obj3d:
-                            ctx.Flow.RemoveAt(i);
+                            context.Flow.RemoveAt(i);
                             consumedObjects.Insert(0, obj3d);
                             break;
                     }

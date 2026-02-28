@@ -1,9 +1,8 @@
 using System.ComponentModel.DataAnnotations;
 using System.Runtime.InteropServices;
-
+using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Graphics.Backend;
-using Beutl.Graphics.Rendering;
 using Beutl.Language;
 using Beutl.Logging;
 
@@ -121,7 +120,7 @@ public sealed partial class GLSLScriptEffect : FilterEffect
 
         public float Time { get; private set; }
 
-        partial void PostUpdate(GLSLScriptEffect obj, RenderContext context)
+        partial void PostUpdate(GLSLScriptEffect obj, CompositionContext context)
         {
             float duration = (float)obj.TimeRange.Duration.TotalSeconds;
             float time = (float)(context.Time - obj.TimeRange.Start).TotalSeconds;

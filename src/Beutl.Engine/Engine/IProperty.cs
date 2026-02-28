@@ -2,8 +2,8 @@
 using System.Text.Json.Nodes;
 using Beutl.Animation;
 using Beutl.Collections;
+using Beutl.Composition;
 using Beutl.Engine.Expressions;
-using Beutl.Graphics.Rendering;
 using Beutl.Serialization;
 using Beutl.Validation;
 
@@ -106,7 +106,7 @@ public interface IProperty<T> : IProperty
         }
     }
 
-    T GetValue(RenderContext context);
+    T GetValue(CompositionContext context);
 
     event EventHandler<PropertyValueChangedEventArgs<T>>? ValueChanged;
 

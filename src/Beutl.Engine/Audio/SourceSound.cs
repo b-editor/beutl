@@ -1,6 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using Beutl.Composition;
 using Beutl.Engine;
-using Beutl.Graphics.Rendering;
 using Beutl.Language;
 using Beutl.Media.Source;
 
@@ -24,7 +24,7 @@ public sealed partial class SourceSound : Sound
 
     public override bool TryGetOriginalLength(out TimeSpan timeSpan)
     {
-        using var resource = Source.CurrentValue?.ToResource(RenderContext.Default);
+        using var resource = Source.CurrentValue?.ToResource(CompositionContext.Default);
         if (resource != null)
         {
             timeSpan = resource.Duration;

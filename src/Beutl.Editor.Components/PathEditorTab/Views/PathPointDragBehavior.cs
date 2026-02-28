@@ -5,17 +5,14 @@ using Avalonia.Input;
 using Avalonia.LogicalTree;
 using Avalonia.Xaml.Interactivity;
 using Beutl.Animation;
+using Beutl.Composition;
 using Beutl.Controls;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.PathEditorTab.Services;
-using Beutl.Editor.Components.PathEditorTab.ViewModels;
-using Beutl.Editor.Components.PropertyEditors.Services;
 using Beutl.Editor.Services;
 using Beutl.Engine;
-using Beutl.Graphics.Rendering;
 using Beutl.Media;
 using Beutl.ProjectSystem;
-using Beutl.Services;
 using Microsoft.Extensions.DependencyInjection;
 using BtlPoint = Beutl.Graphics.Point;
 using BtlVector = Beutl.Graphics.Vector;
@@ -268,7 +265,7 @@ public sealed class PathPointDragBehavior : Behavior<Thumb>
                                         keyTime += element.Start;
                                     }
 
-                                    var ctx = new RenderContext(keyTime);
+                                    var ctx = new CompositionContext(keyTime);
                                     BtlPoint anchorpoint = anchor.GetEndPoint().GetValue(ctx);
                                     BtlPoint point = _dragState.GetInterpolatedValue(keyTime);
                                     BtlPoint d = anchorpoint - point;
@@ -300,7 +297,7 @@ public sealed class PathPointDragBehavior : Behavior<Thumb>
                             else
                             {
                                 var clock = viewModel.EditorContext.GetRequiredService<IEditorClock>();
-                                var ctx = new RenderContext(clock.CurrentTime.Value);
+                                var ctx = new CompositionContext(clock.CurrentTime.Value);
                                 BtlPoint point =
                                     _dragState.GetInterpolatedValue(clock.CurrentTime.Value);
                                 BtlPoint anchorpoint = anchor.GetEndPoint().GetValue(ctx);

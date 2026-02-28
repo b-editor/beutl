@@ -1,8 +1,8 @@
-﻿using Beutl.Graphics.Rendering;
+﻿using Beutl.Composition;
 
 namespace Beutl.Engine.Expressions;
 
-public class ExpressionContext(TimeSpan time, IProperty currentProperty, PropertyLookup propertyLookup) : RenderContext(time)
+public class ExpressionContext(TimeSpan time, IProperty currentProperty, PropertyLookup propertyLookup) : CompositionContext(time)
 {
     private readonly HashSet<IProperty> _evaluationStack = [];
 

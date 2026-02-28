@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.Numerics;
+using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Graphics3D.Materials;
 using Beutl.Graphics3D.Meshes;
@@ -19,7 +20,7 @@ public abstract partial class Object3D : EngineObject
         Material.CurrentValue = new PBRMaterial();
     }
 
-    public override EvaluationTarget GetEvaluationTarget() => EvaluationTarget.Graphics;
+    public override CompositionTarget GetCompositionTarget() => CompositionTarget.Graphics;
 
     /// <summary>
     /// Gets the position of the object in world space.

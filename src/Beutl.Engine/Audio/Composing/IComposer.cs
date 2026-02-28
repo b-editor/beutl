@@ -1,4 +1,4 @@
-﻿using Beutl.Graphics.Rendering;
+﻿using Beutl.Composition;
 using Beutl.Media;
 
 namespace Beutl.Audio.Composing;

@@ -2,7 +2,7 @@ using System.Collections.Specialized;
 using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
 using Beutl.Collections;
-using Beutl.Collections.Pooled;
+using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Language;
 using Beutl.Media;
@@ -154,13 +154,13 @@ public class Element : Hierarchical, INotifyEdited
         }
     }
 
-    public void CollectObjects(EvaluationTarget target, IList<EngineObject> objects)
+    public void CollectObjects(CompositionTarget target, IList<EngineObject> objects)
     {
         foreach (EngineObject obj in _objects)
         {
             if (!obj.IsEnabled) continue;
-            EvaluationTarget t = obj.GetEvaluationTarget();
-            if (t != EvaluationTarget.Unknown && t != target) continue;
+            CompositionTarget t = obj.GetCompositionTarget();
+            if (t != CompositionTarget.Unknown && t != target) continue;
             objects.Add(obj);
         }
     }

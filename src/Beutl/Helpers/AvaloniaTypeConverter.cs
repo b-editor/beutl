@@ -3,6 +3,7 @@ using Avalonia;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using Avalonia.Threading;
+using Beutl.Composition;
 using Beutl.Controls;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Engine;
@@ -31,7 +32,7 @@ public static class AvaloniaTypeConverter
     }
 
     private static IDisposable AdaptEngineObject<T, TResource>(T obj, IObservable<TimeSpan> time,
-        Func<T, RenderContext, TResource> createResource, Action<TResource> onUpdated)
+        Func<T, CompositionContext, TResource> createResource, Action<TResource> onUpdated)
         where T : EngineObject
         where TResource : EngineObject.Resource
     {

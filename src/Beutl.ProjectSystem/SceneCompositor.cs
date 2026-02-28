@@ -1,5 +1,6 @@
 using System.Runtime.CompilerServices;
 using Beutl.Collections.Pooled;
+using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
@@ -22,14 +23,14 @@ public sealed class SceneCompositor : ICompositor
         SceneCompositor compositor,
         IList<EngineObject.Resource> flow,
         IList<Element> currentElements,
-        EvaluationTarget target)
-        : RenderContext(time), ISceneCompositionRenderContext
+        CompositionTarget target)
+        : CompositionContext(time), ISceneCompositionRenderContext
     {
         public IList<EngineObject.Resource> Flow { get; set; } = flow;
 
         public IList<Element> CurrentElements { get; set; } = currentElements;
 
-        public EvaluationTarget Target { get; set; } = target;
+        public CompositionTarget Target { get; set; } = target;
 
         public void EvaluateElementIntoFlow(Element element)
         {
@@ -46,7 +47,7 @@ public sealed class SceneCompositor : ICompositor
         using var tmpObjects = new PooledList<EngineObject>();
         using var flow = new PooledList<EngineObject.Resource>();
         using var allResources = new PooledList<EngineObject.Resource>();
-        var ctx = new CompositorContext(time, this, flow, currentElements, EvaluationTarget.Graphics);
+        var ctx = new CompositorContext(time, this, flow, currentElements, CompositionTarget.Graphics);
 
         // 途中でcurrentElementsが変わる可能性があるのでforループで回す
         for (int index = 0; index < currentElements.Count; index++)
@@ -69,7 +70,7 @@ public sealed class SceneCompositor : ICompositor
         using var tmpObjects = new PooledList<EngineObject>();
         using var flow = new PooledList<EngineObject.Resource>();
         using var allResources = new PooledList<EngineObject.Resource>();
-        var ctx = new CompositorContext(timeRange.Start, this, flow, currentElements, EvaluationTarget.Audio);
+        var ctx = new CompositorContext(timeRange.Start, this, flow, currentElements, CompositionTarget.Audio);
 
         // 途中でcurrentElementsが変わる可能性があるのでforループで回す
         for (int index = 0; index < currentElements.Count; index++)
@@ -110,7 +111,7 @@ public sealed class SceneCompositor : ICompositor
         }
     }
 
-    private EngineObject.Resource GetOrCreateResource(EngineObject obj, RenderContext context)
+    private EngineObject.Resource GetOrCreateResource(EngineObject obj, CompositionContext context)
     {
         if (!_resourceCache.TryGetValue(obj, out var resource) || resource.IsDisposed)
         {

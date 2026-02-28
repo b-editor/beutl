@@ -1,6 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using Beutl.Composition;
 using Beutl.Engine;
-using Beutl.Graphics.Rendering;
 using Beutl.Language;
 using Beutl.Utilities;
 
@@ -26,7 +26,7 @@ public sealed class SkewTransform : Transform
     [Display(Name = nameof(Strings.SkewY), ResourceType = typeof(Strings))]
     public IProperty<float> SkewY { get; } = Property.CreateAnimatable<float>();
 
-    public override Matrix CreateMatrix(RenderContext context)
+    public override Matrix CreateMatrix(CompositionContext context)
     {
         float skewX = context.Get(SkewX);
         float skewY = context.Get(SkewY);

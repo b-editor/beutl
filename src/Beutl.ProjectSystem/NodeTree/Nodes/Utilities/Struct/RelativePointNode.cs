@@ -23,7 +23,7 @@ public partial class RelativePointNode : Node
 
     public partial class Resource
     {
-        public override void Update(NodeRenderContext context)
+        public override void Update(NodeCompositionContext context)
         {
             Value = new RelativePoint(X, Y, Unit);
         }

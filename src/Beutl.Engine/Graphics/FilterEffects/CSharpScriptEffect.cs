@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations;
+using Beutl.Composition;
 using Beutl.Engine;
-using Beutl.Graphics.Rendering;
 using Beutl.Language;
 using Beutl.Logging;
 using Microsoft.CodeAnalysis;
@@ -109,7 +109,7 @@ public sealed partial class CSharpScriptEffect : FilterEffect
 
         public float Time { get; private set; }
 
-        partial void PostUpdate(CSharpScriptEffect obj, RenderContext context)
+        partial void PostUpdate(CSharpScriptEffect obj, CompositionContext context)
         {
             float duration = (float)obj.TimeRange.Duration.TotalSeconds;
             float time = (float)(context.Time - obj.TimeRange.Start).TotalSeconds;

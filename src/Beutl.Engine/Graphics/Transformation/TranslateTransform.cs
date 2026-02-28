@@ -1,6 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using Beutl.Composition;
 using Beutl.Engine;
-using Beutl.Graphics.Rendering;
 using Beutl.Language;
 
 namespace Beutl.Graphics.Transformation;
@@ -37,7 +37,7 @@ public sealed class TranslateTransform : Transform
     [Display(Name = nameof(Strings.Y), ResourceType = typeof(Strings))]
     public IProperty<float> Y { get; } = Property.CreateAnimatable(0f);
 
-    public override Matrix CreateMatrix(RenderContext context)
+    public override Matrix CreateMatrix(CompositionContext context)
     {
         float x = context.Get(X);
         float y = context.Get(Y);

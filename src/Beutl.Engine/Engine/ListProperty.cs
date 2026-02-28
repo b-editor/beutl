@@ -5,8 +5,8 @@ using System.Reflection;
 using System.Text.Json.Nodes;
 using Beutl.Animation;
 using Beutl.Collections;
+using Beutl.Composition;
 using Beutl.Engine.Expressions;
-using Beutl.Graphics.Rendering;
 using Beutl.Serialization;
 using Beutl.Validation;
 
@@ -107,7 +107,7 @@ public class ListProperty<T> : IListProperty<T>
         Edited?.Invoke(sender, e);
     }
 
-    public ICoreList<T> GetValue(RenderContext context)
+    public ICoreList<T> GetValue(CompositionContext context)
     {
         return CurrentValue;
     }

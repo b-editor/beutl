@@ -1,6 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using Beutl.Composition;
 using Beutl.Engine;
-using Beutl.Graphics.Rendering;
 using Beutl.Language;
 
 namespace Beutl.Graphics.Transformation;
@@ -21,7 +21,7 @@ public sealed class MatrixTransform : Transform
     [Display(Name = nameof(Strings.Matrix), ResourceType = typeof(Strings))]
     public IProperty<Matrix> Matrix { get; } = Property.CreateAnimatable(Graphics.Matrix.Identity);
 
-    public override Matrix CreateMatrix(RenderContext context)
+    public override Matrix CreateMatrix(CompositionContext context)
     {
         return context.Get(Matrix);
     }

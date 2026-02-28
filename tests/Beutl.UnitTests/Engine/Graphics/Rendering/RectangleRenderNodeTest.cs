@@ -1,4 +1,5 @@
-﻿using Beutl.Graphics;
+﻿using Beutl.Composition;
+using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
 
@@ -15,7 +16,7 @@ public class RectangleRenderNodeTest
         var pen = new Pen();
         pen.Brush.CurrentValue = Brushes.Black;
         pen.Thickness.CurrentValue = 1;
-        var penResource = pen.ToResource(RenderContext.Default);
+        var penResource = pen.ToResource(CompositionContext.Default);
 
         var node = new RectangleRenderNode(rect, fill, penResource);
 
@@ -35,8 +36,8 @@ public class RectangleRenderNodeTest
         var pen2 = new Pen();
         pen2.Brush.CurrentValue = Brushes.Black;
         pen2.Thickness.CurrentValue = 2;
-        var penResource1 = pen1.ToResource(RenderContext.Default);
-        var penResource2 = pen2.ToResource(RenderContext.Default);
+        var penResource1 = pen1.ToResource(CompositionContext.Default);
+        var penResource2 = pen2.ToResource(CompositionContext.Default);
 
         var node = new RectangleRenderNode(rect1, fill1, penResource1);
 
@@ -53,7 +54,7 @@ public class RectangleRenderNodeTest
         var pen = new Pen();
         pen.Brush.CurrentValue = Brushes.Black;
         pen.Thickness.CurrentValue = 1;
-        var penResource = pen.ToResource(RenderContext.Default);
+        var penResource = pen.ToResource(CompositionContext.Default);
         var context = new RenderNodeContext([]);
 
         var node = new RectangleRenderNode(rect, fill, penResource);
@@ -71,7 +72,7 @@ public class RectangleRenderNodeTest
         var pen = new Pen();
         pen.Brush.CurrentValue = Brushes.Black;
         pen.Thickness.CurrentValue = 1;
-        var penResource = pen.ToResource(RenderContext.Default);
+        var penResource = pen.ToResource(CompositionContext.Default);
         var context = new RenderNodeContext([]);
 
         var node = new RectangleRenderNode(rect, fill, penResource);
@@ -89,7 +90,7 @@ public class RectangleRenderNodeTest
         var pen = new Pen();
         pen.Brush.CurrentValue = Brushes.Black;
         pen.Thickness.CurrentValue = 1;
-        var penResource = pen.ToResource(RenderContext.Default);
+        var penResource = pen.ToResource(CompositionContext.Default);
         var context = new RenderNodeContext([]);
 
         var node = new RectangleRenderNode(rect, fill, penResource);
@@ -106,7 +107,7 @@ public class RectangleRenderNodeTest
         var pen = new Pen();
         pen.Brush.CurrentValue = Brushes.Black;
         pen.Thickness.CurrentValue = 50;
-        var penResource = pen.ToResource(RenderContext.Default);
+        var penResource = pen.ToResource(CompositionContext.Default);
         var context = new RenderNodeContext([]);
 
         var node = new RectangleRenderNode(rect, null, penResource);

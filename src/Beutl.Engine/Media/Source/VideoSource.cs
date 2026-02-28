@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Serialization;
+using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Graphics.Rendering;
 using Beutl.Media.Decoding;
@@ -23,7 +24,7 @@ public sealed class VideoSource : MediaSource
         Uri = uri;
     }
 
-    public override Resource ToResource(RenderContext context)
+    public override Resource ToResource(CompositionContext context)
     {
         var resource = new Resource();
         bool updateOnly = true;
@@ -68,7 +69,7 @@ public sealed class VideoSource : MediaSource
             return _counter.Value.ReadVideo(frame, out bitmap);
         }
 
-        public override void Update(EngineObject obj, RenderContext context, ref bool updateOnly)
+        public override void Update(EngineObject obj, CompositionContext context, ref bool updateOnly)
         {
             base.Update(obj, context, ref updateOnly);
             var videoSource = (VideoSource)obj;
