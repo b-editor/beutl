@@ -735,7 +735,7 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
                 SetAccentColor(element, typeof(TValue).FullName!);
 
                 value = new TValue();
-                element.Objects.Add(value);
+                element.AddObject(value);
                 if (value is Drawable drawable)
                 {
                     SetTransform(drawable);
@@ -831,7 +831,7 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
                 element.AccentColor =
                     ColorGenerator.GenerateColor(desc.InitialObject.FullName ?? desc.InitialObject.Name);
                 var engineObject = (EngineObject)Activator.CreateInstance(desc.InitialObject)!;
-                element.Objects.Add(engineObject);
+                element.AddObject(engineObject);
                 if (engineObject is Drawable drawable)
                 {
                     SetTransform(drawable);

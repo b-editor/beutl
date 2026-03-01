@@ -59,7 +59,7 @@ public sealed partial class SourceOperatorsTabView : UserControl
             && vm.Element.Value is Element element)
         {
             HistoryManager history = vm.GetRequiredService<HistoryManager>();
-            element.Objects.Add((EngineObject)Activator.CreateInstance(item)!);
+            element.AddObject((EngineObject)Activator.CreateInstance(item)!);
             history.Commit(CommandNames.AddSourceOperator);
 
             e.Handled = true;

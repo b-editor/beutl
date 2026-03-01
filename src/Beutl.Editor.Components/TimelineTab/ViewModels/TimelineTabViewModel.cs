@@ -600,7 +600,7 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler
             AccentColor = ColorGenerator.GenerateColor(typeof(Graphics.SourceImage).FullName!),
             Name = Path.GetFileName(imageFile)
         };
-        newElement.Objects.Add(sourceImage);
+        newElement.AddObject(sourceImage);
 
         CoreSerializer.StoreToUri(newElement, RandomFileNameGenerator.GenerateUri(
             dir, Constants.ElementFileExtension));

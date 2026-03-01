@@ -100,6 +100,33 @@ public class Element : Hierarchical, INotifyEdited
     [NotAutoSerialized]
     public ICoreList<EngineObject> Objects => _objects;
 
+    public void AddObject(EngineObject obj)
+    {
+        if (obj is IFlowOperator)
+        {
+            Objects.Add(new TakeAfterPortal());
+        }
+        Objects.Add(obj);
+    }
+
+    public void InsertObject(int index, EngineObject obj)
+    {
+        if (obj is IFlowOperator)
+        {
+            Objects.Insert(index, new TakeAfterPortal());
+            Objects.Insert(index + 1, obj);
+        }
+        else
+        {
+            Objects.Insert(index, obj);
+        }
+    }
+
+    public void RemoveObject(EngineObject obj)
+    {
+        Objects.Remove(obj);
+    }
+
     public void OnSplit(bool backward, TimeSpan startDelta, TimeSpan lengthDelta)
     {
         foreach (EngineObject item in _objects)

@@ -36,7 +36,7 @@ public sealed partial class SourceOperatorView : UserControl
             HistoryManager history = viewModel2.GetRequiredService<HistoryManager>();
             EngineObject obj = viewModel2.Model;
             Element element = obj.FindRequiredHierarchicalParent<Element>();
-            element.Objects.Remove(obj);
+            element.RemoveObject(obj);
             history.Commit(CommandNames.RemoveSourceOperator);
         }
     }
@@ -57,11 +57,11 @@ public sealed partial class SourceOperatorView : UserControl
 
             if (half < position.Y)
             {
-                element.Objects.Insert(index + 1, (EngineObject)Activator.CreateInstance(item2)!);
+                element.InsertObject(index + 1, (EngineObject)Activator.CreateInstance(item2)!);
             }
             else
             {
-                element.Objects.Insert(index, (EngineObject)Activator.CreateInstance(item2)!);
+                element.InsertObject(index, (EngineObject)Activator.CreateInstance(item2)!);
             }
 
             history.Commit(CommandNames.AddSourceOperator);

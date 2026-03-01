@@ -6,7 +6,7 @@ using Beutl.Language;
 namespace Beutl.ProjectSystem;
 
 [Display(Name = nameof(Strings.Portal), ResourceType = typeof(Strings))]
-public sealed partial class TakeAfterPortal : EngineObject, IFlowOperator
+public sealed partial class TakeAfterPortal : EngineObject
 {
     public TakeAfterPortal()
     {
