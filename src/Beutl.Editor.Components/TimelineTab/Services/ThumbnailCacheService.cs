@@ -1,21 +1,21 @@
 ﻿using System.Collections.Concurrent;
+using Beutl.Engine;
 using Beutl.Logging;
 using Beutl.Media;
-using Beutl.Engine;
 using Microsoft.Extensions.Logging;
 
 namespace Beutl.Editor.Components.TimelineTab.Services;
 
-public sealed class ElementThumbnailCacheService : IElementThumbnailCacheService
+public sealed class ThumbnailCacheService : IThumbnailCacheService
 {
-    private static readonly Lazy<ElementThumbnailCacheService> s_instance = new(() => new ElementThumbnailCacheService());
+    private static readonly Lazy<ThumbnailCacheService> s_instance = new(() => new ThumbnailCacheService());
 
-    private readonly ILogger _logger = Log.CreateLogger<ElementThumbnailCacheService>();
+    private readonly ILogger _logger = Log.CreateLogger<ThumbnailCacheService>();
     private readonly ConcurrentDictionary<string, CacheIndex> _indices = new();
     private readonly ConcurrentDictionary<string, WaveformCacheIndex> _waveformIndices = new();
     private const int MaxTotalEntries = 512;
 
-    public static ElementThumbnailCacheService Instance => s_instance.Value;
+    public static ThumbnailCacheService Instance => s_instance.Value;
 
     public bool TryGet(string cacheKey, TimeSpan time, TimeSpan threshold, out IBitmap? bitmap)
     {

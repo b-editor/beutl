@@ -2,7 +2,7 @@ using Beutl.Media;
 
 namespace Beutl.Engine;
 
-public interface IElementThumbnailCacheService
+public interface IThumbnailCacheService
 {
     bool TryGet(string cacheKey, TimeSpan time, TimeSpan threshold, out IBitmap? bitmap);
 

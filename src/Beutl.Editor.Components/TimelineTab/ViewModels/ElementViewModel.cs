@@ -32,8 +32,8 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
     private ImmutableHashSet<Guid>? _elementGroup;
     private readonly Subject<Unit> _thumbnailsInvalidatedSubject = new();
     private CancellationTokenSource? _thumbnailsCts;
-    private IElementThumbnailsProvider? _currentThumbnailsProvider;
-    private readonly IElementThumbnailCacheService _thumbnailCacheService = ElementThumbnailCacheService.Instance;
+    private IThumbnailsProvider? _currentThumbnailsProvider;
+    private readonly IThumbnailCacheService _thumbnailCacheService = ThumbnailCacheService.Instance;
     private EventHandler? _thumbnailsInvalidatedHandler;
     private string? _lastThumbnailsCacheKey;
     private int _lastVisibleStart = -1;
@@ -145,10 +145,10 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
         Scope = new ElementScopeViewModel(Model, this);
 
         // プレビュー関連の初期化
-        IsThumbnailsKindAudio = ThumbnailsKind.Select(k => k == ElementThumbnailsKind.Audio)
+        IsThumbnailsKindAudio = ThumbnailsKind.Select(k => k == Engine.ThumbnailsKind.Audio)
             .ToReadOnlyReactivePropertySlim()
             .AddTo(_disposables);
-        IsThumbnailsKindVideo = ThumbnailsKind.Select(k => k == ElementThumbnailsKind.Video)
+        IsThumbnailsKindVideo = ThumbnailsKind.Select(k => k == Engine.ThumbnailsKind.Video)
             .ToReadOnlyReactivePropertySlim()
             .AddTo(_disposables);
 
@@ -285,7 +285,7 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
 
     public ReactiveCommand ChangeToOriginalDuration { get; } = new();
 
-    public ReactivePropertySlim<ElementThumbnailsKind> ThumbnailsKind { get; } = new(ElementThumbnailsKind.None);
+    public ReactivePropertySlim<ThumbnailsKind> ThumbnailsKind { get; } = new(Engine.ThumbnailsKind.None);
 
     public ReadOnlyReactivePropertySlim<bool> IsThumbnailsKindVideo { get; }
 
@@ -800,7 +800,7 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
         if (IsThumbnailsDisabled.Value)
         {
             CancelThumbnailsLoading();
-            ThumbnailsKind.Value = ElementThumbnailsKind.None;
+            ThumbnailsKind.Value = Engine.ThumbnailsKind.None;
             ThumbnailsClear?.Invoke();
             WaveformClear?.Invoke();
             return;
@@ -839,7 +839,7 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
 
         if (provider == null)
         {
-            ThumbnailsKind.Value = ElementThumbnailsKind.None;
+            ThumbnailsKind.Value = Engine.ThumbnailsKind.None;
             return;
         }
 
@@ -853,10 +853,10 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
         {
             switch (provider.ThumbnailsKind)
             {
-                case ElementThumbnailsKind.Video:
+                case Engine.ThumbnailsKind.Video:
                     await UpdateVideoThumbnailsAsync(provider, ct);
                     break;
-                case ElementThumbnailsKind.Audio:
+                case Engine.ThumbnailsKind.Audio:
                     await UpdateAudioThumbnailsAsync(provider, ct);
                     break;
             }
@@ -879,11 +879,11 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
         }
     }
 
-    private IElementThumbnailsProvider? FindThumbnailsProvider()
+    private IThumbnailsProvider? FindThumbnailsProvider()
     {
         foreach (var child in Model.Objects)
         {
-            if (child is IElementThumbnailsProvider provider)
+            if (child is IThumbnailsProvider provider)
                 return provider;
         }
 
@@ -902,7 +902,7 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
         if (end < start) return;
 
         var provider = _currentThumbnailsProvider;
-        if (provider == null || provider.ThumbnailsKind != ElementThumbnailsKind.Video)
+        if (provider == null || provider.ThumbnailsKind != Engine.ThumbnailsKind.Video)
             return;
 
         // Width変更による生成が進行中ならキャンセルする
@@ -960,7 +960,7 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
         }
     }
 
-    private async Task UpdateVideoThumbnailsAsync(IElementThumbnailsProvider provider, CancellationToken ct)
+    private async Task UpdateVideoThumbnailsAsync(IThumbnailsProvider provider, CancellationToken ct)
     {
         const int MaxThumbnailHeight = 25;
         double width = Width.Value;
@@ -1000,7 +1000,7 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
         }
     }
 
-    private async Task UpdateAudioThumbnailsAsync(IElementThumbnailsProvider provider, CancellationToken ct)
+    private async Task UpdateAudioThumbnailsAsync(IThumbnailsProvider provider, CancellationToken ct)
     {
         const int MaxSamplesPerChunk = 4096;
         double width = Width.Value;

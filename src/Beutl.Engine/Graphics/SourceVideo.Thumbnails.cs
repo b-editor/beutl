@@ -11,11 +11,11 @@ using Beutl.Threading;
 
 namespace Beutl.Graphics;
 
-public partial class SourceVideo : IElementThumbnailsProvider
+public partial class SourceVideo : IThumbnailsProvider
 {
     private EventHandler? _thumbnailHandler;
 
-    public ElementThumbnailsKind ThumbnailsKind => ElementThumbnailsKind.Video;
+    public ThumbnailsKind ThumbnailsKind => ThumbnailsKind.Video;
 
     public event EventHandler? ThumbnailsInvalidated;
 
@@ -80,7 +80,7 @@ public partial class SourceVideo : IElementThumbnailsProvider
     public async IAsyncEnumerable<(int Index, int Count, IBitmap Thumbnail)> GetThumbnailStripAsync(
         int maxWidth,
         int maxHeight,
-        IElementThumbnailCacheService? cacheService,
+        IThumbnailCacheService? cacheService,
         [EnumeratorCancellation] CancellationToken cancellationToken = default,
         int startIndex = 0,
         int endIndex = -1)
@@ -166,7 +166,7 @@ public partial class SourceVideo : IElementThumbnailsProvider
     public async IAsyncEnumerable<WaveformChunk> GetWaveformChunksAsync(
         int chunkCount,
         int samplesPerChunk,
-        IElementThumbnailCacheService? cacheService,
+        IThumbnailCacheService? cacheService,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         await Task.CompletedTask;

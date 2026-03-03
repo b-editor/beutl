@@ -11,11 +11,11 @@ using Beutl.Threading;
 
 namespace Beutl.Audio;
 
-public sealed partial class SourceSound : IElementThumbnailsProvider
+public sealed partial class SourceSound : IThumbnailsProvider
 {
     private EventHandler? _thumbnailHandler;
 
-    public ElementThumbnailsKind ThumbnailsKind => ElementThumbnailsKind.Audio;
+    public ThumbnailsKind ThumbnailsKind => ThumbnailsKind.Audio;
 
     public event EventHandler? ThumbnailsInvalidated;
 
@@ -72,7 +72,7 @@ public sealed partial class SourceSound : IElementThumbnailsProvider
     public async IAsyncEnumerable<(int Index, int Count, IBitmap Thumbnail)> GetThumbnailStripAsync(
         int maxWidth,
         int maxHeight,
-        IElementThumbnailCacheService? cacheService,
+        IThumbnailCacheService? cacheService,
         [EnumeratorCancellation] CancellationToken cancellationToken = default,
         int startIndex = 0,
         int endIndex = -1)
@@ -84,7 +84,7 @@ public sealed partial class SourceSound : IElementThumbnailsProvider
     public async IAsyncEnumerable<WaveformChunk> GetWaveformChunksAsync(
         int chunkCount,
         int samplesPerChunk,
-        IElementThumbnailCacheService? cacheService,
+        IThumbnailCacheService? cacheService,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         using var resource = ToResource(CompositionContext.Default);
