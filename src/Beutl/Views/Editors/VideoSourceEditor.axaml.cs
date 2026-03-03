@@ -61,6 +61,6 @@ public partial class VideoSourceEditor : UserControl
         TimelineTabViewModel? timeline = vm.GetService<EditViewModel>()?.FindToolTab<TimelineTabViewModel>();
         ElementViewModel? elmViewModel = timeline?.GetViewModelFor(element);
 
-        elmViewModel?.ChangeToOriginalLength.Execute();
+        elmViewModel?.ChangeToOriginalDuration.Execute();
     }
 }

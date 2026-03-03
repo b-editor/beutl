@@ -127,30 +127,31 @@ public class Element : Hierarchical, INotifyEdited
         Objects.Remove(obj);
     }
 
-    public void OnSplit(bool backward, TimeSpan startDelta, TimeSpan lengthDelta)
+    public void NotifySplitted(bool backward, TimeSpan startDelta, TimeSpan durationDelta)
     {
         foreach (EngineObject item in _objects)
         {
-            item.OnSplit(backward, startDelta, lengthDelta);
+            if (item is ISplittable splittable)
+                splittable.NotifySplitted(backward, startDelta, durationDelta);
         }
     }
 
-    public bool HasOriginalLength()
+    public bool HasOriginalDuration()
     {
         foreach (EngineObject item in _objects)
         {
-            if (item.HasOriginalLength())
+            if (item is IOriginalDurationProvider provider && provider.HasOriginalDuration())
                 return true;
         }
 
         return false;
     }
 
-    public bool TryGetOriginalLength(out TimeSpan timeSpan)
+    public bool TryGetOriginalDuration(out TimeSpan timeSpan)
     {
         foreach (EngineObject item in _objects)
         {
-            if (item.TryGetOriginalLength(out timeSpan))
+            if (item is IOriginalDurationProvider provider && provider.TryGetOriginalDuration(out timeSpan))
                 return true;
         }
 

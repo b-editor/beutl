@@ -7,7 +7,7 @@ using Beutl.Media.Source;
 namespace Beutl.Audio;
 
 [Display(Name = nameof(Strings.Sound), ResourceType = typeof(Strings))]
-public sealed partial class SourceSound : Sound
+public sealed partial class SourceSound : Sound, IOriginalDurationProvider, ISplittable
 {
     public SourceSound()
     {
@@ -17,12 +17,12 @@ public sealed partial class SourceSound : Sound
     [Display(Name = nameof(Strings.Source), ResourceType = typeof(Strings))]
     public IProperty<SoundSource?> Source { get; } = Property.Create<SoundSource?>();
 
-    public override bool HasOriginalLength()
+    public bool HasOriginalDuration()
     {
         return Source.CurrentValue != null;
     }
 
-    public override bool TryGetOriginalLength(out TimeSpan timeSpan)
+    public bool TryGetOriginalDuration(out TimeSpan timeSpan)
     {
         using var resource = Source.CurrentValue?.ToResource(CompositionContext.Default);
         if (resource != null)
@@ -37,7 +37,7 @@ public sealed partial class SourceSound : Sound
         }
     }
 
-    public override void OnSplit(bool backward, TimeSpan startDelta, TimeSpan lengthDelta)
+    public void NotifySplitted(bool backward, TimeSpan startDelta, TimeSpan durationDelta)
     {
         if (backward)
         {

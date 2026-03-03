@@ -10,7 +10,7 @@ using Beutl.Media.Source;
 namespace Beutl.Graphics;
 
 [Display(Name = nameof(Strings.Video), ResourceType = typeof(Strings))]
-public partial class SourceVideo : Drawable
+public partial class SourceVideo : Drawable, IOriginalDurationProvider, ISplittable
 {
     public SourceVideo()
     {
@@ -30,12 +30,12 @@ public partial class SourceVideo : Drawable
     [Display(Name = nameof(Strings.IsLoop), ResourceType = typeof(Strings))]
     public IProperty<bool> IsLoop { get; } = Property.CreateAnimatable<bool>();
 
-    public override bool HasOriginalLength()
+    public bool HasOriginalDuration()
     {
         return Source.CurrentValue != null;
     }
 
-    public override bool TryGetOriginalLength(out TimeSpan timeSpan)
+    public bool TryGetOriginalDuration(out TimeSpan timeSpan)
     {
         using var resource = ToResource(CompositionContext.Default);
         var ts = CalculateOriginalTime((Resource)resource);
@@ -51,7 +51,7 @@ public partial class SourceVideo : Drawable
         }
     }
 
-    public override void OnSplit(bool backward, TimeSpan startDelta, TimeSpan lengthDelta)
+    public void NotifySplitted(bool backward, TimeSpan startDelta, TimeSpan durationDelta)
     {
         if (backward)
         {

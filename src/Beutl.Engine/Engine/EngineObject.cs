@@ -367,22 +367,6 @@ public class EngineObject : Hierarchical, INotifyEdited
         return CompositionTarget.Unknown;
     }
 
-    // TODO: 以下の3つのメソッドは別のインターフェースにする
-    public virtual bool HasOriginalLength()
-    {
-        return false;
-    }
-
-    public virtual bool TryGetOriginalLength(out TimeSpan timeSpan)
-    {
-        timeSpan = default;
-        return false;
-    }
-
-    public virtual void OnSplit(bool backward, TimeSpan startDelta, TimeSpan lengthDelta)
-    {
-    }
-
     public virtual Resource ToResource(CompositionContext context)
     {
         var resource = new Resource();

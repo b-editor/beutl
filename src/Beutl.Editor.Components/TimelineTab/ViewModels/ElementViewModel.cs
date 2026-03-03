@@ -127,7 +127,7 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
         BringAnimationToTop.Subscribe(OnBringAnimationToTop)
             .AddTo(_disposables);
 
-        ChangeToOriginalLength.Subscribe(OnChangeToOriginalLength)
+        ChangeToOriginalDuration.Subscribe(OnChangeToOriginalDuration)
             .AddTo(_disposables);
 
         // ZIndexが変更されたら、LayerHeaderのカウントを増減して、新しいLayerHeaderを設定する。
@@ -283,7 +283,7 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
 
     public ReactiveCommand BringAnimationToTop { get; } = new();
 
-    public ReactiveCommand ChangeToOriginalLength { get; } = new();
+    public ReactiveCommand ChangeToOriginalDuration { get; } = new();
 
     public ReactivePropertySlim<ElementThumbnailsKind> ThumbnailsKind { get; } = new(ElementThumbnailsKind.None);
 
@@ -659,17 +659,17 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
         }
 
         int rate = Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;
-        TimeSpan minLength = TimeSpan.FromSeconds(1d / rate);
+        TimeSpan minDuration = TimeSpan.FromSeconds(1d / rate);
         TimeSpan absTime = timeSpan.RoundToRate(rate);
 
         var groupUpdates = new Dictionary<int, List<Guid>>();
 
         foreach (ElementViewModel target in targets)
         {
-            TimeSpan forwardLength = absTime - target.Model.Start;
-            TimeSpan backwardLength = target.Model.Length - forwardLength;
+            TimeSpan forwardDuration = absTime - target.Model.Start;
+            TimeSpan backwardDuration = target.Model.Length - forwardDuration;
 
-            if (forwardLength < minLength || backwardLength < minLength)
+            if (forwardDuration < minDuration || backwardDuration < minDuration)
                 continue;
 
             ObjectRegenerator.Regenerate(target.Model, out Element backward);
@@ -677,10 +677,10 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
             target.Scene.MoveChild(
                 target.Model.ZIndex,
                 target.Model.Start,
-                forwardLength,
+                forwardDuration,
                 target.Model);
             backward.Start = absTime;
-            backward.Length = backwardLength;
+            backward.Length = backwardDuration;
             foreach (KeyFrameAnimation item in new ObjectSearcher(backward,
                              o => o is KeyFrameAnimation { UseGlobalClock: false })
                          .SearchAll()
@@ -688,7 +688,7 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
             {
                 foreach (IKeyFrame keyframe in item.KeyFrames)
                 {
-                    keyframe.KeyTime -= forwardLength;
+                    keyframe.KeyTime -= forwardDuration;
                 }
             }
 
@@ -696,8 +696,8 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
                 backward,
                 RandomFileNameGenerator.GenerateUri(Scene.Uri!, Constants.ElementFileExtension));
             target.Scene.AddChild(backward);
-            backward.OnSplit(true, forwardLength, -forwardLength);
-            target.Model.OnSplit(false, TimeSpan.Zero, -backwardLength);
+            backward.NotifySplitted(true, forwardDuration, -forwardDuration);
+            target.Model.NotifySplitted(false, TimeSpan.Zero, -backwardDuration);
 
             if (target._elementGroup is { } set)
             {
@@ -728,36 +728,36 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
         Timeline.EditorContext.GetRequiredService<HistoryManager>().Commit(CommandNames.SplitElement);
     }
 
-    private async void OnChangeToOriginalLength()
+    private async void OnChangeToOriginalDuration()
     {
-        if (Model.HasOriginalLength()
-            && Model.TryGetOriginalLength(out TimeSpan timeSpan))
+        if (Model.HasOriginalDuration()
+            && Model.TryGetOriginalDuration(out TimeSpan timeSpan))
         {
             PrepareAnimationContext context = PrepareAnimation();
 
             int rate = Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;
-            TimeSpan length = timeSpan.FloorToRate(rate);
+            TimeSpan duration = timeSpan.FloorToRate(rate);
 
             Element? after = Model.GetAfter(Model.ZIndex, Model.Range.End);
             if (after != null)
             {
                 TimeSpan delta = after.Start - Model.Start;
-                if (delta < length)
+                if (delta < duration)
                 {
-                    length = delta;
+                    duration = delta;
                 }
             }
 
-            Scene.MoveChild(Model.ZIndex, Model.Start, length, Model);
+            Scene.MoveChild(Model.ZIndex, Model.Start, duration, Model);
             Timeline.EditorContext.GetRequiredService<HistoryManager>().Commit(CommandNames.MoveElement);
 
             await AnimationRequest(context);
         }
     }
 
-    public bool HasOriginalLength()
+    public bool HasOriginalDuration()
     {
-        return Model.HasOriginalLength();
+        return Model.HasOriginalDuration();
     }
 
     public void Execute(ContextCommandExecution execution)
