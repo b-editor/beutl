@@ -14,6 +14,7 @@ public sealed partial class DrawableDecorator : Drawable, IFlowOperator
     public DrawableDecorator()
     {
         ScanProperties<DrawableDecorator>();
+        HideProperties(AlignmentX, AlignmentY);
     }
 
     [SuppressResourceClassGeneration]
@@ -39,6 +40,7 @@ public sealed partial class DrawableDecorator : Drawable, IFlowOperator
                            (n, b) => n.Update(
                                b.Transform, b.TransformOrigin, b.availableSize,
                                Media.AlignmentX.Left, Media.AlignmentY.Top, b.boundsMemory)))
+                using (context.PushOpacity(resource.Opacity / 100f))
                 using (r.FilterEffect == null ? new() : context.PushFilterEffect(r.FilterEffect))
                 using (context.PushNode(
                            boundsMemory,

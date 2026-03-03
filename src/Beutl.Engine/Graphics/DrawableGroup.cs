@@ -15,6 +15,7 @@ public sealed partial class DrawableGroup : Drawable, IFlowOperator
     public DrawableGroup()
     {
         ScanProperties<DrawableGroup>();
+        HideProperties(AlignmentX, AlignmentY);
     }
 
     [SuppressResourceClassGeneration]
@@ -39,6 +40,7 @@ public sealed partial class DrawableGroup : Drawable, IFlowOperator
                            b.Transform, b.TransformOrigin, b.availableSize,
                            Media.AlignmentX.Left, Media.AlignmentY.Top, b.boundsMemory)))
             using (r.FilterEffect == null ? new() : context.PushFilterEffect(r.FilterEffect))
+            using (context.PushOpacity(resource.Opacity / 100f))
             using (context.PushNode(
                        boundsMemory,
                        b => new BoundsObserveNode(b),
