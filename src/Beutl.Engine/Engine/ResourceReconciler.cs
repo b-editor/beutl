@@ -13,20 +13,12 @@ public static class ResourceReconciler
         // consumedを先頭から追加していき、後ろにpropertyの残りを追加する
         if (consumed.Count != versions.Count)
         {
-            if (consumed.Count < versions.Count && field.Count >= versions.Count)
-            {
-                // fieldに不要なリソースがあるので削除
-                field.RemoveRange(consumed.Count, versions.Count - consumed.Count);
-            }
+            field.RemoveRange(0, versions.Count);
 
             versions.Clear();
             for (int i = 0; i < consumed.Count; i++)
             {
-                if (i < field.Count)
-                    field[i] = consumed[i];
-                else
-                    field.Add(consumed[i]);
-
+                field.Insert(i, consumed[i]);
                 versions.Add(consumed[i].Version);
             }
 
