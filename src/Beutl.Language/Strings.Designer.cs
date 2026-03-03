@@ -5773,11 +5773,11 @@ namespace Beutl.Language {
         }
 
         /// <summary>
-        ///   Looks up a localized string similar to Source Operators.
+        ///   Looks up a localized string similar to Element Property.
         /// </summary>
-        public static string SourceOperators {
+        public static string ElementProperty {
             get {
-                return ResourceManager.GetString("SourceOperators", resourceCulture);
+                return ResourceManager.GetString("ElementProperty", resourceCulture);
             }
         }
 

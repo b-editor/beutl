@@ -1,15 +1,15 @@
 using Avalonia.Controls;
 using Avalonia.Input;
-using Beutl.Editor.Components.SourceOperatorsTab.ViewModels;
+using Beutl.Editor.Components.ElementPropertyTab.ViewModels;
 using Beutl.Engine;
 using Beutl.ProjectSystem;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Beutl.Editor.Components.SourceOperatorsTab.Views;
+namespace Beutl.Editor.Components.ElementPropertyTab.Views;
 
-public sealed partial class SourceOperatorsTabView : UserControl
+public sealed partial class ElementPropertyTabView : UserControl
 {
-    public SourceOperatorsTabView()
+    public ElementPropertyTabView()
     {
         InitializeComponent();
         AddHandler(DragDrop.DragOverEvent, DragOver);
@@ -19,18 +19,18 @@ public sealed partial class SourceOperatorsTabView : UserControl
     protected override void OnDataContextChanged(EventArgs e)
     {
         base.OnDataContextChanged(e);
-        if (DataContext is SourceOperatorsTabViewModel viewModel)
+        if (DataContext is ElementPropertyTabViewModel viewModel)
         {
-            var self = new WeakReference<SourceOperatorsTabView>(this);
+            var self = new WeakReference<ElementPropertyTabView>(this);
             viewModel.RequestScroll = obj =>
             {
-                if (self.TryGetTarget(out SourceOperatorsTabView? @this) && @this.DataContext is SourceOperatorsTabViewModel viewModel)
+                if (self.TryGetTarget(out ElementPropertyTabView? @this) && @this.DataContext is ElementPropertyTabViewModel viewModel)
                 {
                     int index = 0;
                     bool found = false;
                     for (; index < viewModel.Items.Count; index++)
                     {
-                        SourceOperatorViewModel? item = viewModel.Items[index];
+                        EngineObjectPropertyViewModel? item = viewModel.Items[index];
                         if (ReferenceEquals(item?.Model, obj))
                         {
                             found = true;
@@ -55,12 +55,12 @@ public sealed partial class SourceOperatorsTabView : UserControl
     {
         if (e.DataTransfer.TryGetValue(BeutlDataFormats.EngineObject) is { } typeName
             && TypeFormat.ToType(typeName) is { } item
-            && DataContext is SourceOperatorsTabViewModel vm
+            && DataContext is ElementPropertyTabViewModel vm
             && vm.Element.Value is Element element)
         {
             HistoryManager history = vm.GetRequiredService<HistoryManager>();
             element.AddObject((EngineObject)Activator.CreateInstance(item)!);
-            history.Commit(CommandNames.AddSourceOperator);
+            history.Commit(CommandNames.AddObject);
 
             e.Handled = true;
         }

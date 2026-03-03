@@ -194,7 +194,7 @@ public class LibraryItemViewModel
                 KnownLibraryItemFormats.FilterEffect => "FilterEffect",
                 KnownLibraryItemFormats.Node => "Node",
                 KnownLibraryItemFormats.AudioEffect => "Node",
-                KnownLibraryItemFormats.EngineObject => Strings.SourceOperators,
+                KnownLibraryItemFormats.EngineObject => Strings.Object,
                 _ => string.Empty,
             };
         }

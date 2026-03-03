@@ -1,25 +1,25 @@
 using System.Diagnostics.CodeAnalysis;
 using Avalonia.Controls;
-using Beutl.Editor.Components.SourceOperatorsTab.ViewModels;
-using Beutl.Editor.Components.SourceOperatorsTab.Views;
+using Beutl.Editor.Components.ElementPropertyTab.ViewModels;
+using Beutl.Editor.Components.ElementPropertyTab.Views;
 using FluentAvalonia.UI.Controls;
 using Symbol = FluentIcons.Common.Symbol;
 using SymbolIconSource = FluentIcons.FluentAvalonia.SymbolIconSource;
 
-namespace Beutl.Editor.Components.SourceOperatorsTab;
+namespace Beutl.Editor.Components.ElementPropertyTab;
 
 [PrimitiveImpl]
-public sealed class SourceOperatorsTabExtension : ToolTabExtension
+public sealed class ElementPropertyTabExtension : ToolTabExtension
 {
-    public static readonly SourceOperatorsTabExtension Instance = new();
+    public static readonly ElementPropertyTabExtension Instance = new();
 
     public override bool CanMultiple => false;
 
-    public override string Name => "Operators editor";
+    public override string Name => "Element Property";
 
-    public override string DisplayName => "Operators editor";
+    public override string DisplayName => "Element Property";
 
-    public override string? Header => Strings.SourceOperators;
+    public override string? Header => Strings.ElementProperty;
 
     public override IconSource GetIcon()
     {
@@ -28,13 +28,13 @@ public sealed class SourceOperatorsTabExtension : ToolTabExtension
 
     public override bool TryCreateContent(IEditorContext editorContext, [NotNullWhen(true)] out Control? control)
     {
-        control = new SourceOperatorsTabView();
+        control = new ElementPropertyTabView();
         return true;
     }
 
     public override bool TryCreateContext(IEditorContext editorContext, [NotNullWhen(true)] out IToolContext? context)
     {
-        context = new SourceOperatorsTabViewModel(editorContext);
+        context = new ElementPropertyTabViewModel(editorContext);
         return true;
     }
 }

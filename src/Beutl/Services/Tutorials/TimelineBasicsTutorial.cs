@@ -5,7 +5,7 @@ using Beutl.Animation;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.LibraryTab;
-using Beutl.Editor.Components.SourceOperatorsTab;
+using Beutl.Editor.Components.ElementPropertyTab;
 using Beutl.Engine;
 using Beutl.Graphics.Shapes;
 using Beutl.ProjectSystem;
@@ -95,7 +95,7 @@ public static class TimelineBasicsTutorial
                     Id = "scene-element-properties",
                     Title = TutorialStrings.Tutorial_SceneEdit_Step3_Title,
                     Content = TutorialStrings.Tutorial_SceneEdit_Step3_Content,
-                    TargetElements = [new TargetElementDefinition { ToolTabType = typeof(SourceOperatorsTabExtension), IsPrimary = true }],
+                    TargetElements = [new TargetElementDefinition { ToolTabType = typeof(ElementPropertyTabExtension), IsPrimary = true }],
                     PreferredPlacement = TutorialStepPlacement.Left,
                 },
 

@@ -8,13 +8,13 @@ using Beutl.Serialization;
 using Microsoft.Extensions.DependencyInjection;
 using Reactive.Bindings;
 
-namespace Beutl.Editor.Components.SourceOperatorsTab.ViewModels;
+namespace Beutl.Editor.Components.ElementPropertyTab.ViewModels;
 
-public sealed class SourceOperatorViewModel : IDisposable, IPropertyEditorContextVisitor, IServiceProvider, IUnknownObjectViewModel
+public sealed class EngineObjectPropertyViewModel : IDisposable, IPropertyEditorContextVisitor, IServiceProvider, IUnknownObjectViewModel
 {
-    private SourceOperatorsTabViewModel _parent;
+    private ElementPropertyTabViewModel _parent;
 
-    public SourceOperatorViewModel(EngineObject model, SourceOperatorsTabViewModel parent)
+    public EngineObjectPropertyViewModel(EngineObject model, ElementPropertyTabViewModel parent)
     {
         Model = model;
         _parent = parent;
@@ -26,7 +26,7 @@ public sealed class SourceOperatorViewModel : IDisposable, IPropertyEditorContex
             if (history != null)
             {
                 Model.IsEnabled = v;
-                history.Commit(CommandNames.ChangeSourceOperatorEnabled);
+                history.Commit(CommandNames.ChangeObjectEnabled);
             }
         });
 
@@ -166,6 +166,6 @@ public sealed class SourceOperatorViewModel : IDisposable, IPropertyEditorContex
         HistoryManager history = this.GetRequiredService<HistoryManager>();
 
         element.Objects[index] = obj;
-        history.Commit(CommandNames.PasteSourceOperator);
+        history.Commit(CommandNames.PasteObject);
     }
 }

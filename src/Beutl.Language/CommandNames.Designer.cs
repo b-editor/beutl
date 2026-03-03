@@ -267,33 +267,33 @@ namespace Beutl.Language {
             }
         }
 
-        public static string AddSourceOperator {
+        public static string AddObject {
             get {
-                return ResourceManager.GetString("AddSourceOperator", resourceCulture);
+                return ResourceManager.GetString("AddObject", resourceCulture);
             }
         }
 
-        public static string RemoveSourceOperator {
+        public static string RemoveObject {
             get {
-                return ResourceManager.GetString("RemoveSourceOperator", resourceCulture);
+                return ResourceManager.GetString("RemoveObject", resourceCulture);
             }
         }
 
-        public static string ChangeSourceOperatorEnabled {
+        public static string ChangeObjectEnabled {
             get {
-                return ResourceManager.GetString("ChangeSourceOperatorEnabled", resourceCulture);
+                return ResourceManager.GetString("ChangeObjectEnabled", resourceCulture);
             }
         }
 
-        public static string PasteSourceOperator {
+        public static string PasteObject {
             get {
-                return ResourceManager.GetString("PasteSourceOperator", resourceCulture);
+                return ResourceManager.GetString("PasteObject", resourceCulture);
             }
         }
 
-        public static string MoveSourceOperator {
+        public static string MoveObject {
             get {
-                return ResourceManager.GetString("MoveSourceOperator", resourceCulture);
+                return ResourceManager.GetString("MoveObject", resourceCulture);
             }
         }
 

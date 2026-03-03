@@ -7,17 +7,17 @@ using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Xaml.Interactivity;
 using Beutl.Controls.Behaviors;
-using Beutl.Editor.Components.SourceOperatorsTab.ViewModels;
+using Beutl.Editor.Components.ElementPropertyTab.ViewModels;
 using Beutl.Editor.Components.Views;
 using Beutl.Engine;
 using Beutl.ProjectSystem;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Beutl.Editor.Components.SourceOperatorsTab.Views;
+namespace Beutl.Editor.Components.ElementPropertyTab.Views;
 
-public sealed partial class SourceOperatorView : UserControl
+public sealed partial class EngineObjectPropertyView : UserControl
 {
-    public SourceOperatorView()
+    public EngineObjectPropertyView()
     {
         Resources["ViewModelToViewConverter"] = ViewModelToViewConverter.Instance;
         InitializeComponent();
@@ -31,13 +31,13 @@ public sealed partial class SourceOperatorView : UserControl
 
     public void Remove_Click(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is SourceOperatorViewModel viewModel2)
+        if (DataContext is EngineObjectPropertyViewModel viewModel2)
         {
             HistoryManager history = viewModel2.GetRequiredService<HistoryManager>();
             EngineObject obj = viewModel2.Model;
             Element element = obj.FindRequiredHierarchicalParent<Element>();
             element.RemoveObject(obj);
-            history.Commit(CommandNames.RemoveSourceOperator);
+            history.Commit(CommandNames.RemoveObject);
         }
     }
 
@@ -45,7 +45,7 @@ public sealed partial class SourceOperatorView : UserControl
     {
         if (e.DataTransfer.TryGetValue(BeutlDataFormats.EngineObject) is { } typeName
             && TypeFormat.ToType(typeName) is { } item2
-            && DataContext is SourceOperatorViewModel viewModel2)
+            && DataContext is EngineObjectPropertyViewModel viewModel2)
         {
             HistoryManager history = viewModel2.GetRequiredService<HistoryManager>();
             EngineObject obj = viewModel2.Model;
@@ -64,7 +64,7 @@ public sealed partial class SourceOperatorView : UserControl
                 element.InsertObject(index, (EngineObject)Activator.CreateInstance(item2)!);
             }
 
-            history.Commit(CommandNames.AddSourceOperator);
+            history.Commit(CommandNames.AddObject);
 
             e.Handled = true;
         }
@@ -81,7 +81,7 @@ public sealed partial class SourceOperatorView : UserControl
     protected override void OnDataContextChanged(EventArgs e)
     {
         base.OnDataContextChanged(e);
-        if (DataContext is SourceOperatorViewModel viewModel)
+        if (DataContext is EngineObjectPropertyViewModel viewModel)
         {
             if (!viewModel.IsDummy.Value)
             {
@@ -110,14 +110,14 @@ public sealed partial class SourceOperatorView : UserControl
     {
         protected override void OnMoveDraggedItem(ItemsControl? itemsControl, int oldIndex, int newIndex)
         {
-            if (itemsControl?.DataContext is SourceOperatorsTabViewModel
+            if (itemsControl?.DataContext is ElementPropertyTabViewModel
                 {
                     Element.Value: { } element
                 } viewModel)
             {
                 HistoryManager history = viewModel.GetRequiredService<HistoryManager>();
                 element.Objects.Move(oldIndex, newIndex);
-                history.Commit(CommandNames.MoveSourceOperator);
+                history.Commit(CommandNames.MoveObject);
             }
         }
     }

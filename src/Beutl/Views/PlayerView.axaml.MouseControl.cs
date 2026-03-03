@@ -16,7 +16,7 @@ using Beutl.ProjectSystem;
 using Beutl.Services;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Editors;
-using Beutl.Editor.Components.SourceOperatorsTab.ViewModels;
+using Beutl.Editor.Components.ElementPropertyTab.ViewModels;
 using FluentAvalonia.UI.Controls;
 using Microsoft.Extensions.Logging;
 using System.Numerics;
@@ -353,10 +353,10 @@ public partial class PlayerView
 
             if (e.ClickCount == 2 && Drawable is Graphics.Shapes.Shape shape)
             {
-                SourceOperatorsTabViewModel? tab = EditViewModel.FindToolTab<SourceOperatorsTabViewModel>();
+                ElementPropertyTabViewModel? tab = EditViewModel.FindToolTab<ElementPropertyTabViewModel>();
                 if (tab != null)
                 {
-                    foreach (SourceOperatorViewModel item in tab.Items)
+                    foreach (EngineObjectPropertyViewModel item in tab.Items)
                     {
                         IPropertyEditorContext?
                             prop = item.Properties.FirstOrDefault(v => v is GeometryEditorViewModel);

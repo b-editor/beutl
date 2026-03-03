@@ -504,8 +504,8 @@
   <data name="BitmapInterpolationMode" xml:space="preserve">
     <value>Bitmap Interpolation Mode</value>
   </data>
-  <data name="SourceOperators" xml:space="preserve">
-    <value>Source Operators</value>
+  <data name="ElementProperty" xml:space="preserve">
+    <value>Element Property</value>
   </data>
   <data name="ProjectFile" xml:space="preserve">
     <value>Project File</value>

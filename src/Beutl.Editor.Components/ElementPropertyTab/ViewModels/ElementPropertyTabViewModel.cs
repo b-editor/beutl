@@ -10,16 +10,16 @@ using Microsoft.Extensions.DependencyInjection;
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
 
-namespace Beutl.Editor.Components.SourceOperatorsTab.ViewModels;
+namespace Beutl.Editor.Components.ElementPropertyTab.ViewModels;
 
-public sealed class SourceOperatorsTabViewModel : IToolContext
+public sealed class ElementPropertyTabViewModel : IToolContext
 {
     private readonly IDisposable _disposable0;
     private IEditorContext _editorContext;
     private IDisposable? _disposable1;
     private Element? _oldElement;
 
-    public SourceOperatorsTabViewModel(IEditorContext editorContext)
+    public ElementPropertyTabViewModel(IEditorContext editorContext)
     {
         _editorContext = editorContext;
         Element = editorContext.GetRequiredService<IEditorSelection>().SelectedObject
@@ -39,14 +39,14 @@ public sealed class SourceOperatorsTabViewModel : IToolContext
             {
                 _disposable1?.Dispose();
 
-                Items.AddRange(element.Objects.Select(x => new SourceOperatorViewModel(x, this)));
+                Items.AddRange(element.Objects.Select(x => new EngineObjectPropertyViewModel(x, this)));
                 _disposable1 = element.Objects.CollectionChangedAsObservable()
                     .Subscribe(e =>
                     {
-                        void RemoveItems(CoreList<SourceOperatorViewModel> items, int index, int count)
+                        void RemoveItems(CoreList<EngineObjectPropertyViewModel> items, int index, int count)
                         {
                             ISupportCloseAnimation? closeAnm = this.GetService<ISupportCloseAnimation>();
-                            foreach (SourceOperatorViewModel item in items.GetMarshal().Value.Slice(index, count))
+                            foreach (EngineObjectPropertyViewModel item in items.GetMarshal().Value.Slice(index, count))
                             {
                                 closeAnm?.Close(item.Model);
                                 item?.Dispose();
@@ -59,7 +59,7 @@ public sealed class SourceOperatorsTabViewModel : IToolContext
                             case NotifyCollectionChangedAction.Add:
                                 Items.InsertRange(e.NewStartingIndex, e.NewItems!
                                     .Cast<EngineObject>()
-                                    .Select(x => new SourceOperatorViewModel(x, this)));
+                                    .Select(x => new EngineObjectPropertyViewModel(x, this)));
                                 break;
 
                             case NotifyCollectionChangedAction.Move:
@@ -82,7 +82,7 @@ public sealed class SourceOperatorsTabViewModel : IToolContext
 
                                 Items.InsertRange(newIndex, e.NewItems!
                                     .Cast<EngineObject>()
-                                    .Select(x => new SourceOperatorViewModel(x, this)));
+                                    .Select(x => new EngineObjectPropertyViewModel(x, this)));
                                 break;
 
                             case NotifyCollectionChangedAction.Remove:
@@ -100,7 +100,7 @@ public sealed class SourceOperatorsTabViewModel : IToolContext
         });
     }
 
-    public string Header => Strings.SourceOperators;
+    public string Header => Strings.ElementProperty;
 
     public Action<EngineObject>? RequestScroll { get; set; }
 
@@ -109,9 +109,9 @@ public sealed class SourceOperatorsTabViewModel : IToolContext
     [Obsolete("Use Element property instead.")]
     public ReactiveProperty<Element?> Layer => Element;
 
-    public CoreList<SourceOperatorViewModel> Items { get; } = [];
+    public CoreList<EngineObjectPropertyViewModel> Items { get; } = [];
 
-    public ToolTabExtension Extension => SourceOperatorsTabExtension.Instance;
+    public ToolTabExtension Extension => ElementPropertyTabExtension.Instance;
 
     public IEditorContext ParentContext => _editorContext;
 
@@ -160,20 +160,20 @@ public sealed class SourceOperatorsTabViewModel : IToolContext
     {
         string viewStateDir = ViewStateDirectory(element);
         var json = new JsonArray();
-        foreach (SourceOperatorViewModel? item in Items)
+        foreach (EngineObjectPropertyViewModel? item in Items)
         {
             json.Add(item?.SaveState());
         }
 
         string name = Path.GetFileNameWithoutExtension(element.Uri!.LocalPath);
-        json.JsonSave(Path.Combine(viewStateDir, $"{name}.operators.config"));
+        json.JsonSave(Path.Combine(viewStateDir, $"{name}.property.config"));
     }
 
     private void RestoreState(Element element)
     {
         string viewStateDir = ViewStateDirectory(element);
         string name = Path.GetFileNameWithoutExtension(element.Uri!.LocalPath);
-        string viewStateFile = Path.Combine(viewStateDir, $"{name}.operators.config");
+        string viewStateFile = Path.Combine(viewStateDir, $"{name}.property.config");
 
         if (File.Exists(viewStateFile))
         {
@@ -181,11 +181,11 @@ public sealed class SourceOperatorsTabViewModel : IToolContext
             var json = JsonNode.Parse(stream);
             if (json is JsonArray array)
             {
-                foreach ((JsonNode? item, SourceOperatorViewModel? op) in array.Zip(Items))
+                foreach ((JsonNode? item, EngineObjectPropertyViewModel? itemViewModel) in array.Zip(Items))
                 {
-                    if (item != null && op != null)
+                    if (item != null && itemViewModel != null)
                     {
-                        op.RestoreState(item);
+                        itemViewModel.RestoreState(item);
                     }
                 }
             }
@@ -195,7 +195,7 @@ public sealed class SourceOperatorsTabViewModel : IToolContext
     private void ClearItems(bool closeAnm = false)
     {
         ISupportCloseAnimation? closeService = closeAnm ? this.GetService<ISupportCloseAnimation>() : null;
-        foreach (SourceOperatorViewModel? item in Items.GetMarshal().Value)
+        foreach (EngineObjectPropertyViewModel? item in Items.GetMarshal().Value)
         {
             closeService?.Close(item.Model);
             item?.Dispose();

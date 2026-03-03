@@ -234,20 +234,20 @@
     <value>ノードの使用を変更</value>
   </data>
   <!-- Source Operator Operations -->
-  <data name="AddSourceOperator" xml:space="preserve">
-    <value>ソースオペレーターを追加</value>
+  <data name="AddObject" xml:space="preserve">
+    <value>オブジェクトを追加</value>
   </data>
-  <data name="RemoveSourceOperator" xml:space="preserve">
-    <value>ソースオペレーターを削除</value>
+  <data name="RemoveObject" xml:space="preserve">
+    <value>オブジェクトを削除</value>
   </data>
-  <data name="ChangeSourceOperatorEnabled" xml:space="preserve">
-    <value>ソースオペレーターの有効/無効を変更</value>
+  <data name="ChangeObjectEnabled" xml:space="preserve">
+    <value>オブジェクトの有効/無効を変更</value>
   </data>
-  <data name="PasteSourceOperator" xml:space="preserve">
-    <value>ソースオペレーターを貼り付け</value>
+  <data name="PasteObject" xml:space="preserve">
+    <value>オブジェクトを貼り付け</value>
   </data>
-  <data name="MoveSourceOperator" xml:space="preserve">
-    <value>ソースオペレーターを移動</value>
+  <data name="MoveObject" xml:space="preserve">
+    <value>オブジェクトを移動</value>
   </data>
   <!-- Scene Settings Operations -->
   <data name="ChangeSceneSettings" xml:space="preserve">
