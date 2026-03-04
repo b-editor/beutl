@@ -316,7 +316,7 @@ public class Renderer : IRenderer
     {
         foreach (var item in _nodeCache)
         {
-            item.Value.Node.Drawable?.Resource.Dispose();
+            // Compositor側でDisposeされるのでResourceはDisposeせず、NodeだけがDisposeされるようにする
             item.Value.Dispose();
         }
     }
