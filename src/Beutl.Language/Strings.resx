@@ -1059,6 +1059,15 @@
   <data name="Pen_StrokeAlignment" xml:space="preserve">
     <value>Location</value>
   </data>
+  <data name="Pen_TrimStart" xml:space="preserve">
+    <value>Trim start</value>
+  </data>
+  <data name="Pen_TrimEnd" xml:space="preserve">
+    <value>Trim end</value>
+  </data>
+  <data name="Pen_TrimOffset" xml:space="preserve">
+    <value>Trim offset</value>
+  </data>
   <data name="StrokeAlignment_Center" xml:space="preserve">
     <value>Center</value>
   </data>

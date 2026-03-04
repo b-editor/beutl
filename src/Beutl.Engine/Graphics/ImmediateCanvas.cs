@@ -496,6 +496,7 @@ public partial class ImmediateCanvas : ICanvas
             _sharedStrokePaint.StrokeCap = (SKStrokeCap)pen.StrokeCap;
             _sharedStrokePaint.StrokeJoin = (SKStrokeJoin)pen.StrokeJoin;
             _sharedStrokePaint.StrokeMiter = pen.MiterLimit;
+            SKPathEffect? dashEffect = null;
             if (pen.DashArray != null && pen.DashArray.Count > 0)
             {
                 IReadOnlyList<float> srcDashes = pen.DashArray;
@@ -511,10 +512,11 @@ public partial class ImmediateCanvas : ICanvas
 
                 float offset = (float)(pen.DashOffset * thickness);
 
-                var pe = SKPathEffect.CreateDash(dashesArray, offset);
-
-                _sharedStrokePaint.PathEffect = pe;
+                dashEffect = SKPathEffect.CreateDash(dashesArray, offset);
             }
+
+            SKPathEffect? trimEffect = PenHelper.CreateTrimEffect(pen);
+            _sharedStrokePaint.PathEffect = PenHelper.CombineEffects(dashEffect, trimEffect);
 
             new BrushConstructor(original, pen.Brush, blendMode).ConfigurePaint(_sharedStrokePaint);
         }
