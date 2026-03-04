@@ -39,8 +39,8 @@ public sealed partial class DrawableGroup : Drawable, IFlowOperator
                        (n, b) => n.Update(
                            b.Transform, b.TransformOrigin, b.availableSize,
                            Media.AlignmentX.Left, Media.AlignmentY.Top, b.boundsMemory)))
-            using (r.FilterEffect == null ? new() : context.PushFilterEffect(r.FilterEffect))
             using (context.PushOpacity(resource.Opacity / 100f))
+            using (r.FilterEffect == null ? new() : context.PushFilterEffect(r.FilterEffect))
             using (context.PushNode(
                        boundsMemory,
                        b => new BoundsObserveNode(b),
