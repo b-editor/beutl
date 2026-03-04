@@ -120,6 +120,9 @@ public sealed class EqualizerNode : AudioNode
                     outData[i] = filter.Process(outData[i]);
                 }
             }
+
+            // Apply soft clipping to prevent audio distortion
+            AudioMath.ApplySoftClipper(outData);
         }
 
         return output;
@@ -177,6 +180,12 @@ public sealed class EqualizerNode : AudioNode
             }
 
             processed += chunkSize;
+        }
+
+        // Apply soft clipping to each channel to prevent audio distortion
+        for (int ch = 0; ch < output.ChannelCount; ch++)
+        {
+            AudioMath.ApplySoftClipper(output.GetChannelData(ch));
         }
 
         return output;
