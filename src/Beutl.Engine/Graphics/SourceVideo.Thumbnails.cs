@@ -85,32 +85,34 @@ public partial class SourceVideo : IThumbnailsProvider
         int startIndex = 0,
         int endIndex = -1)
     {
-        using var resource = ToResource(CompositionContext.Default);
-
-        if (((Resource)resource).Source is not { } source)
-            yield break;
-
-        if (source.Duration <= TimeSpan.Zero)
-            yield break;
-        var duration = TimeRange.Duration;
-
-        var frameSize = source.FrameSize;
-        float aspectRatio = (float)frameSize.Width / frameSize.Height;
-        float thumbWidth = maxHeight * aspectRatio;
-        int count = (int)MathF.Ceiling(maxWidth / thumbWidth);
-        double interval = duration.TotalSeconds / count;
-
-        string? cacheKey = cacheService != null ? GetThumbnailsCacheKey() : null;
-        var cacheThreshold = TimeSpan.FromSeconds(interval * 0.5);
-
-        int effectiveStart = Math.Max(0, startIndex);
-        int effectiveEnd = endIndex < 0 ? count - 1 : Math.Min(endIndex, count - 1);
-
-        var node = new DrawableRenderNode(resource);
-        var processor = new RenderNodeProcessor(node, false);
-
+        Resource? resource = null;
+        DrawableRenderNode? node = null;
         try
         {
+            resource = ToResource(CompositionContext.Default);
+
+            if (resource.Source is not { } source)
+                yield break;
+
+            if (source.Duration <= TimeSpan.Zero)
+                yield break;
+            var duration = TimeRange.Duration;
+
+            var frameSize = source.FrameSize;
+            float aspectRatio = (float)frameSize.Width / frameSize.Height;
+            float thumbWidth = maxHeight * aspectRatio;
+            int count = (int)MathF.Ceiling(maxWidth / thumbWidth);
+            double interval = duration.TotalSeconds / count;
+
+            string? cacheKey = cacheService != null ? GetThumbnailsCacheKey() : null;
+            var cacheThreshold = TimeSpan.FromSeconds(interval * 0.5);
+
+            int effectiveStart = Math.Max(0, startIndex);
+            int effectiveEnd = endIndex < 0 ? count - 1 : Math.Min(endIndex, count - 1);
+
+            node = new DrawableRenderNode(resource);
+            var processor = new RenderNodeProcessor(node, false);
+
             for (int i = effectiveStart; i <= effectiveEnd; i++)
             {
                 if (cancellationToken.IsCancellationRequested)
@@ -158,7 +160,8 @@ public partial class SourceVideo : IThumbnailsProvider
         {
             RenderThread.Dispatcher.Dispatch(() =>
             {
-                node.Dispose();
+                node?.Dispose();
+                resource?.Dispose();
             }, ct: CancellationToken.None);
         }
     }
