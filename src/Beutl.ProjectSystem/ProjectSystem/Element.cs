@@ -241,11 +241,6 @@ public class Element : Hierarchical, INotifyEdited
             }
             else if (e.Property == IsEnabledProperty)
             {
-                foreach (EngineObject obj in _objects)
-                {
-                    obj.IsEnabled = IsEnabled;
-                }
-
                 Edited?.Invoke(this, EventArgs.Empty);
             }
         }
@@ -256,7 +251,6 @@ public class Element : Hierarchical, INotifyEdited
         obj.IsTimeAnchor = true;
         obj.ZIndex = ZIndex;
         obj.TimeRange = new TimeRange(Start, Length);
-        obj.IsEnabled = IsEnabled;
     }
 
     private void OnObjectAttached(EngineObject obj)
