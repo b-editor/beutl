@@ -16,6 +16,7 @@
     <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" />
   <PackageReference Include="SkiaSharp" VersionOverride="3.119.2" />
   <PackageReference Include="SkiaSharp.HarfBuzz" VersionOverride="3.119.2" />
+  <PackageReference Include="Vortice.XAudio2" VersionOverride="3.8.3" />
   </ItemGroup>
 
 </Project>

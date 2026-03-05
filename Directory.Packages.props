@@ -86,6 +86,6 @@
     <PackageVersion Include="System.Reactive" Version="6.1.0" />
     <PackageVersion Include="Vortice.Direct3D9" Version="3.8.3" />
     <PackageVersion Include="Vortice.MediaFoundation" Version="3.8.3" />
-    <PackageVersion Include="Vortice.XAudio2" Version="3.8.2" />
+    <PackageVersion Include="Vortice.XAudio2" Version="3.8.3" />
   </ItemGroup>
 </Project>
