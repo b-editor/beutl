@@ -683,7 +683,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
         PreviewInvalidated?.Invoke(this, EventArgs.Empty);
     }
 
-    private void DrawBoundaries(Renderer renderer, ImmediateCanvas canvas)
+    private void DrawBoundaries(Renderer renderer, ImmediateCanvas canvas, bool recalculate = false)
     {
         int? selected = EditViewModel.SelectedLayerNumber.Value;
         if (selected.HasValue)
@@ -693,7 +693,10 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
             if (scale == 0)
                 scale = 1;
 
-            Rect[] boundary = renderer.GetBoundaries(selected.Value);
+            // フレームキャッシュを使う場合はBoundsを再計算する必要がある
+            Rect[] boundary = recalculate
+                ? renderer.RecalculateBoundaries(selected.Value)
+                : renderer.GetBoundaries(selected.Value);
             if (boundary.Length > 0)
             {
                 var pen = new Pen.Resource() { Brush = Brushes.Resource.White, Thickness = scale, MiterLimit = 10 };
@@ -755,7 +758,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                                 canvas.DrawBitmap(cache.Value, Brushes.Resource.White, null);
                             }
 
-                            DrawBoundaries(renderer, canvas);
+                            DrawBoundaries(renderer, canvas, true);
 
                             bitmap = renderer.Snapshot();
                         }
@@ -772,7 +775,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                         }
 
                         ImmediateCanvas canvas = Renderer.GetInternalCanvas(renderer);
-                        DrawBoundaries(renderer, canvas);
+                        DrawBoundaries(renderer, canvas, true);
 
                         bitmap = renderer.Snapshot();
                     }

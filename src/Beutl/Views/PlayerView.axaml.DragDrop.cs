@@ -29,8 +29,11 @@ public partial class PlayerView
         if (containsFe || containsTra)
         {
             Drawable? drawable = await RenderThread.Dispatcher.InvokeAsync(() =>
-                editViewModel.Renderer.Value.HitTest(
-                    new((float)scaledPosition.X, (float)scaledPosition.Y)));
+            {
+                var compositor = editViewModel.Renderer.Value.Compositor;
+                var compositionFrame = compositor.EvaluateGraphics(frame);
+                return editViewModel.Renderer.Value.HitTest(compositionFrame, new((float)scaledPosition.X, (float)scaledPosition.Y));
+            });
 
             if (drawable != null)
             {

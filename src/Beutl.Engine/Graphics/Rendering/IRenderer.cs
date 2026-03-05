@@ -21,6 +21,7 @@ public interface IRenderer : IDisposable
 
     Bitmap<Bgra8888> Snapshot();
 
+    Drawable? HitTest(CompositionFrame frame, Point point);
 
     void UpdateFrame(CompositionFrame frame);
 

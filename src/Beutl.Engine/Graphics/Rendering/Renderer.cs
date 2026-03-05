@@ -266,6 +266,7 @@ public class Renderer : IRenderer
     public Drawable? HitTest(CompositionFrame frame, Point point)
     {
         RenderThread.Dispatcher.VerifyAccess();
+        UpdateFrame(frame);
 
         for (int i = _allCurrentEntries.Count - 1; i >= 0; i--)
         {
@@ -294,6 +295,23 @@ public class Renderer : IRenderer
     public Rect[] GetBoundaries(int zIndex)
     {
         return [.. _allCurrentEntries.Where(e => e.Node.Drawable?.Resource.GetOriginal().ZIndex == zIndex).Select(e => e.Bounds)];
+    }
+
+    public Rect[] RecalculateBoundaries(int zIndex)
+    {
+        return [.. _allCurrentEntries.Where(e => e.Node.Drawable?.Resource.GetOriginal().ZIndex == zIndex).Select(e =>
+        {
+            var processor = new RenderNodeProcessor(e.Node, true);
+            var ops = processor.PullToRoot();
+            Rect bounds = Rect.Empty;
+            foreach (var op in ops)
+            {
+                bounds = bounds.Union(op.Bounds);
+                op.Dispose();
+            }
+            e.Bounds = bounds;
+            return bounds;
+        })];
     }
 
     public DrawableRenderNode? FindRenderNode(Drawable drawable)

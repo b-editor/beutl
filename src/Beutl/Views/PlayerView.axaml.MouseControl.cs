@@ -329,8 +329,11 @@ public partial class PlayerView
             _scaledStartPosition = imagePosition / scaleX;
 
             Drawable = RenderThread.Dispatcher.Invoke(() =>
-                EditViewModel.Renderer.Value.HitTest(
-                    new((float)_scaledStartPosition.X, (float)_scaledStartPosition.Y)));
+            {
+                var compositor = EditViewModel.Renderer.Value.Compositor;
+                var compositionFrame = compositor.EvaluateGraphics(EditViewModel.CurrentTime.Value);
+                return EditViewModel.Renderer.Value.HitTest(compositionFrame, new((float)_scaledStartPosition.X, (float)_scaledStartPosition.Y));
+            });
 
             if (Drawable != null)
             {
@@ -1178,8 +1181,11 @@ public partial class PlayerView
             var scaledPos = pos / scaleX;
 
             var drawable = RenderThread.Dispatcher.Invoke(() =>
-                EditViewModel.Renderer.Value.HitTest(
-                    new((float)scaledPos.X, (float)scaledPos.Y)));
+            {
+                var compositor = EditViewModel.Renderer.Value.Compositor;
+                var compositionFrame = compositor.EvaluateGraphics(EditViewModel.CurrentTime.Value);
+                return EditViewModel.Renderer.Value.HitTest(compositionFrame, new((float)scaledPos.X, (float)scaledPos.Y));
+            });
 
             if (drawable is Scene3D scene3D)
             {
