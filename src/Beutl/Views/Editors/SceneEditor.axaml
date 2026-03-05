@@ -1,0 +1,30 @@
+<UserControl x:Class="Beutl.Views.Editors.SceneEditor"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:icons="using:FluentIcons.FluentAvalonia"
+             xmlns:lang="using:Beutl.Language"
+             xmlns:pe="using:Beutl.Controls.PropertyEditors"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:viewModel="using:Beutl.ViewModels.Editors"
+             x:DataType="viewModel:SceneEditorViewModel"
+             Background="Transparent">
+    <pe:ReferenceEditor Header="{Binding Header, FallbackValue=Scene}"
+                        SelectTargetRequested="SelectTarget_Requested"
+                        TargetName="{Binding CurrentTargetName.Value}">
+        <pe:ReferenceEditor.MenuContent>
+            <Button Margin="0,0,4,0"
+                    Padding="0"
+                    Classes="size-24x24"
+                    Theme="{StaticResource TransparentButton}">
+                <Button.Flyout>
+                    <ui:FAMenuFlyout>
+                        <ui:MenuFlyoutItem Click="SetNullClick"
+                                           FontWeight="Normal"
+                                           Text="{x:Static lang:Strings.Null}" />
+                    </ui:FAMenuFlyout>
+                </Button.Flyout>
+                <icons:SymbolIcon Symbol="MoreVertical" />
+            </Button>
+        </pe:ReferenceEditor.MenuContent>
+    </pe:ReferenceEditor>
+</UserControl>

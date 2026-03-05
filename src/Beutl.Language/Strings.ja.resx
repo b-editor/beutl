@@ -2311,4 +2311,10 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="BpmOffset" xml:space="preserve">
     <value>オフセット</value>
   </data>
+  <data name="SceneSoundReference" xml:space="preserve">
+    <value>シーン参照 (音声)</value>
+  </data>
+  <data name="SceneGraphicsReference" xml:space="preserve">
+    <value>シーン参照 (動画)</value>
+  </data>
 </root>

@@ -6584,5 +6584,17 @@ namespace Beutl.Language {
                 return ResourceManager.GetString("BpmOffset", resourceCulture);
             }
         }
+
+        public static string SceneSoundReference {
+            get {
+                return ResourceManager.GetString("SceneSoundReference", resourceCulture);
+            }
+        }
+
+        public static string SceneGraphicsReference {
+            get {
+                return ResourceManager.GetString("SceneGraphicsReference", resourceCulture);
+            }
+        }
     }
 }

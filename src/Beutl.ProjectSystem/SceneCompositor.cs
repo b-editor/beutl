@@ -9,13 +9,14 @@ namespace Beutl;
 
 public sealed class SceneCompositor : ICompositor
 {
-    private readonly Scene _scene;
     private readonly ConditionalWeakTable<EngineObject, EngineObject.Resource> _resourceCache = new();
 
     public SceneCompositor(Scene scene)
     {
-        _scene = scene;
+        Scene = scene;
     }
+
+    public Scene Scene { get; }
 
     private sealed class CompositorContext : CompositionContext, ISceneCompositionContext
     {
@@ -64,7 +65,7 @@ public sealed class SceneCompositor : ICompositor
             allResources.AddRange(flow.Span);
         }
 
-        return new CompositionFrame([.. allResources], new(time, TimeSpan.FromTicks(1)), _scene.FrameSize);
+        return new CompositionFrame([.. allResources], new(time, TimeSpan.FromTicks(1)), Scene.FrameSize);
     }
 
     public CompositionFrame EvaluateAudio(TimeRange timeRange)
@@ -87,7 +88,7 @@ public sealed class SceneCompositor : ICompositor
             allResources.AddRange(flow.Span);
         }
 
-        return new CompositionFrame([.. allResources], timeRange, _scene.FrameSize);
+        return new CompositionFrame([.. allResources], timeRange, Scene.FrameSize);
     }
 
     private void CollectResourcesFromElement(
@@ -157,7 +158,7 @@ public sealed class SceneCompositor : ICompositor
     // Layersを振り分ける
     private void SortLayers(TimeSpan time, PooledList<Element> currentElements)
     {
-        foreach (Element item in _scene.Children)
+        foreach (Element item in Scene.Children)
         {
             if (item.Range.Contains(time))
             {
@@ -168,7 +169,7 @@ public sealed class SceneCompositor : ICompositor
 
     private void SortLayers(TimeRange timeRange, PooledList<Element> currentElements)
     {
-        foreach (Element item in _scene.Children)
+        foreach (Element item in Scene.Children)
         {
             if (item.Range.Intersects(timeRange))
             {
