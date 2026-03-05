@@ -742,9 +742,9 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                     {
                         using (cache)
                         {
-                            // Evaluate for boundaries tracking, but use cached bitmap
                             var compositionFrame = renderer.Compositor.EvaluateGraphics(time);
 
+                            renderer.UpdateFrame(compositionFrame);
                             ImmediateCanvas canvas = Renderer.GetInternalCanvas(renderer);
                             canvas.Clear();
 

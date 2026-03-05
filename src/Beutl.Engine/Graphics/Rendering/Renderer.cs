@@ -225,7 +225,45 @@ public class Renderer : IRenderer
         _allCurrentEntries.Clear();
     }
 
-    public Drawable? HitTest(Point point)
+    public void UpdateFrame(CompositionFrame frame)
+    {
+        RenderThread.Dispatcher.VerifyAccess();
+        Time = frame.Time.Start;
+        ClearFrame();
+
+        foreach (var obj in frame.Objects)
+        {
+            if (obj is not Drawable.Resource drawableResource)
+                continue;
+
+            var drawable = drawableResource.GetOriginal();
+            Entry entry;
+            bool shouldRender;
+
+            if (!_nodeCache.TryGetValue(drawable, out entry!))
+            {
+                AddDetachedHandler(drawable);
+                entry = new Entry(new DrawableRenderNode(drawableResource));
+                _nodeCache.Add(drawable, entry);
+                shouldRender = true;
+            }
+            else
+            {
+                shouldRender = entry.Node.Update(drawableResource);
+            }
+
+            if (shouldRender)
+            {
+                using var ctx = new GraphicsContext2D(entry.Node, FrameSize);
+                drawable.Render(ctx, drawableResource);
+            }
+
+            RevalidateAll(entry.Node);
+            _allCurrentEntries.Add(entry);
+        }
+    }
+
+    public Drawable? HitTest(CompositionFrame frame, Point point)
     {
         RenderThread.Dispatcher.VerifyAccess();
 
