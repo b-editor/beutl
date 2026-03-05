@@ -1,4 +1,5 @@
-﻿using Beutl.Animation;
+using Beutl.Composition;
+using Beutl.Graphics.Rendering.Cache;
 using Beutl.Media;
 using Beutl.Media.Pixel;
 
@@ -6,8 +7,6 @@ namespace Beutl.Graphics.Rendering;
 
 public interface IRenderer : IDisposable
 {
-    RenderScene RenderScene { get; }
-
     PixelSize FrameSize { get; }
 
     TimeSpan Time { get; }
@@ -18,9 +17,17 @@ public interface IRenderer : IDisposable
 
     bool IsGraphicsRendering { get; }
 
-    Drawable? HitTest(Point point);
-
-    bool Render(TimeSpan time);
+    void Render(CompositionFrame frame);
 
     Bitmap<Bgra8888> Snapshot();
+
+    Drawable? HitTest(CompositionFrame frame, Point point);
+
+    void UpdateFrame(CompositionFrame frame);
+
+    Rect[] GetBoundaries(int zIndex);
+
+    DrawableRenderNode? FindRenderNode(Drawable drawable);
+
+    RenderNodeCacheContext GetCacheContext();
 }

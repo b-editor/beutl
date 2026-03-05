@@ -1,7 +1,7 @@
 using System.Numerics;
 using System.Runtime.InteropServices;
+using Beutl.Composition;
 using Beutl.Graphics.Backend;
-using Beutl.Graphics.Rendering;
 using Beutl.Graphics3D.Lighting;
 using Beutl.Graphics3D.Materials;
 using Beutl.Graphics3D.Meshes;
@@ -61,7 +61,7 @@ public sealed class GeometryPass : GraphicsNode3D
     protected override void OnInitialize(int width, int height)
     {
         CreateGBuffer(width, height);
-        _defaultMaterialResource = _defaultMaterial.ToResource(new RenderContext(TimeSpan.Zero));
+        _defaultMaterialResource = _defaultMaterial.ToResource(new CompositionContext(TimeSpan.Zero));
     }
 
     protected override void OnResize(int width, int height)
@@ -99,7 +99,7 @@ public sealed class GeometryPass : GraphicsNode3D
     /// Executes the geometry pass, rendering all objects to the G-Buffer.
     /// </summary>
     public void Execute(
-        RenderContext renderContext,
+        CompositionContext compositionContext,
         Camera.Camera3D.Resource camera,
         IReadOnlyList<Object3D.Resource> objects,
         float aspectRatio,
@@ -120,7 +120,7 @@ public sealed class GeometryPass : GraphicsNode3D
             camera.Position,
             new Vector3(ambientColor.R / 255f, ambientColor.G / 255f, ambientColor.B / 255f) * ambientIntensity,
             lightDataList,
-            renderContext);
+            compositionContext);
 
         // Clear colors for G-Buffer (black/zero for most, except normal which should be (0,0,1) for up)
         Span<Color> clearColors =

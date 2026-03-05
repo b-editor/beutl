@@ -16,8 +16,8 @@ using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Services;
 using Beutl.Logging;
 using Beutl.Media;
-using Beutl.Services;
 using Beutl.ProjectSystem;
+using Beutl.Services;
 using FluentAvalonia.UI.Controls;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -458,12 +458,12 @@ public sealed partial class TimelineTabView : UserControl
             .RoundToRate(viewModel.Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30);
         viewModel.ClickedPosition = pt;
 
-        if (e.DataTransfer.TryGetValue(BeutlDataFormats.SourceOperator) is { } typeName
+        if (e.DataTransfer.TryGetValue(BeutlDataFormats.EngineObject) is { } typeName
             && TypeFormat.ToType(typeName) is { } type)
         {
             viewModel.AddElement.Execute(new ElementDescription(
                 viewModel.ClickedFrame, TimeSpan.FromSeconds(5), viewModel.CalculateClickedLayer(),
-                InitialOperator: type));
+                InitialObject: type));
         }
         else if (e.DataTransfer.TryGetFile()?.TryGetLocalPath() is { } fileName)
         {
@@ -475,7 +475,7 @@ public sealed partial class TimelineTabView : UserControl
 
     private void TimelinePanel_DragOver(object? sender, DragEventArgs e)
     {
-        if (e.DataTransfer.Contains(BeutlDataFormats.SourceOperator)
+        if (e.DataTransfer.Contains(BeutlDataFormats.EngineObject)
             || e.DataTransfer.Contains(DataFormat.File))
         {
             e.DragEffects = DragDropEffects.Copy;
@@ -498,14 +498,14 @@ public sealed partial class TimelineTabView : UserControl
     {
         switch (item)
         {
-            case SingleTypeLibraryItem single when single.Format == KnownLibraryItemFormats.SourceOperator:
+            case SingleTypeLibraryItem single when single.Format == KnownLibraryItemFormats.EngineObject:
                 {
                     var menuItem = new MenuFlyoutItem { Text = single.DisplayName, Tag = single.ImplementationType };
                     menuItem.Click += AddElementWithTypeClick;
                     return menuItem;
                 }
 
-            case MultipleTypeLibraryItem multiple when multiple.Types.TryGetValue(KnownLibraryItemFormats.SourceOperator, out Type? type):
+            case MultipleTypeLibraryItem multiple when multiple.Types.TryGetValue(KnownLibraryItemFormats.EngineObject, out Type? type):
                 {
                     var menuItem = new MenuFlyoutItem { Text = multiple.DisplayName, Tag = type };
                     menuItem.Click += AddElementWithTypeClick;
@@ -549,7 +549,7 @@ public sealed partial class TimelineTabView : UserControl
             ViewModel.ClickedFrame,
             TimeSpan.FromSeconds(5),
             ViewModel.CalculateClickedLayer(),
-            InitialOperator: operatorType));
+            InitialObject: operatorType));
     }
 
     private void ShowSceneSettings(object? sender, RoutedEventArgs e)

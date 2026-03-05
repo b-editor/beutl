@@ -1,8 +1,7 @@
 using System.Numerics;
+using Beutl.Composition;
 using Beutl.Graphics.Backend;
-using Beutl.Graphics.Rendering;
 using Beutl.Graphics3D.Lighting;
-using Beutl.Graphics3D.Materials;
 using Beutl.Graphics3D.Meshes;
 using Beutl.Media;
 
@@ -85,7 +84,7 @@ public sealed class TransparentPass : GraphicsNode3D
     /// <summary>
     /// Executes the transparent pass, rendering transparent objects over the lit scene.
     /// </summary>
-    /// <param name="renderContext">The 2D render context (for texture rendering).</param>
+    /// <param name="compositionContext">The 2D render context (for texture rendering).</param>
     /// <param name="camera">The camera resource.</param>
     /// <param name="transparentObjects">List of transparent objects sorted by distance (far to near).</param>
     /// <param name="lights">The list of lights in the scene.</param>
@@ -93,7 +92,7 @@ public sealed class TransparentPass : GraphicsNode3D
     /// <param name="ambientIntensity">The ambient light intensity.</param>
     /// <param name="aspectRatio">The aspect ratio of the viewport.</param>
     public void Execute(
-        RenderContext renderContext,
+        CompositionContext compositionContext,
         Camera.Camera3D.Resource camera,
         IReadOnlyList<TransparentObjectEntry> transparentObjects,
         IReadOnlyList<LightData> lights,
@@ -126,7 +125,7 @@ public sealed class TransparentPass : GraphicsNode3D
                 ambientColor.G / 255f * ambientIntensity,
                 ambientColor.B / 255f * ambientIntensity),
             lights,
-            renderContext);
+            compositionContext);
 
         // Begin transparent pass with load (preserves copied content and depth buffer)
         Span<Color> clearColors = [Colors.Transparent];

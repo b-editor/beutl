@@ -7,7 +7,7 @@ using Beutl.Editor.Components.FileBrowserTab;
 using Beutl.Editor.Components.LibraryTab;
 using Beutl.Editor.Components.ObjectPropertyTab;
 using Beutl.Editor.Components.SceneSettingsTab;
-using Beutl.Editor.Components.SourceOperatorsTab;
+using Beutl.Editor.Components.ElementPropertyTab;
 using Beutl.Editor.Components.GraphEditorTab;
 using Beutl.Editor.Components.NodeTreeTab;
 using Beutl.Editor.Components.PathEditorTab;
@@ -28,7 +28,7 @@ public sealed class LoadPrimitiveExtensionTask : StartupTask
         SceneProjectItemExtension.Instance,
         TimelineTabExtension.Instance,
         ObjectPropertyTabExtension.Instance,
-        SourceOperatorsTabExtension.Instance,
+        ElementPropertyTabExtension.Instance,
         PropertyEditorExtension.Instance,
         NodeTreeTabExtension.Instance,
         GraphEditorTabExtension.Instance,

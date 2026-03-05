@@ -1,4 +1,5 @@
-﻿using Beutl.Engine;
+﻿using Beutl.Composition;
+using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 
@@ -9,7 +10,7 @@ public sealed class RenderNodeDrawable : Drawable
 {
     public RenderNode? Node { get; set; }
 
-    public override Resource ToResource(RenderContext context)
+    public override Resource ToResource(CompositionContext context)
     {
         bool updateOnly = false;
         var resource = new Resource();
@@ -42,7 +43,7 @@ public sealed class RenderNodeDrawable : Drawable
     {
         public RenderNode? Node { get; set; }
 
-        public override void Update(EngineObject obj, RenderContext context, ref bool updateOnly)
+        public override void Update(EngineObject obj, CompositionContext context, ref bool updateOnly)
         {
             base.Update(obj, context, ref updateOnly);
             if (obj is RenderNodeDrawable renderNode)

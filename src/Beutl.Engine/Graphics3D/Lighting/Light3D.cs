@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Language;
 using Beutl.Media;
@@ -14,6 +15,8 @@ public abstract partial class Light3D : EngineObject
     {
         ScanProperties<Light3D>();
     }
+
+    public override CompositionTarget GetCompositionTarget() => CompositionTarget.Graphics;
 
     /// <summary>
     /// Gets the color of the light.

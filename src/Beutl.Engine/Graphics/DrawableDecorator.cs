@@ -1,4 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using Beutl.Collections.Pooled;
+using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Graphics.Rendering;
 using Beutl.Language;
@@ -7,13 +9,15 @@ namespace Beutl.Graphics;
 
 // Drawable継承しているが、Drawableのメソッドは使っていない
 [Display(Name = nameof(Strings.Decorator), ResourceType = typeof(Strings))]
-public sealed partial class DrawableDecorator : Drawable
+public sealed partial class DrawableDecorator : Drawable, IFlowOperator
 {
     public DrawableDecorator()
     {
         ScanProperties<DrawableDecorator>();
+        HideProperties(AlignmentX, AlignmentY);
     }
 
+    [SuppressResourceClassGeneration]
     public IListProperty<Drawable> Children { get; } = Property.CreateList<Drawable>();
 
     public override void Render(GraphicsContext2D context, Drawable.Resource resource)
@@ -36,6 +40,7 @@ public sealed partial class DrawableDecorator : Drawable
                            (n, b) => n.Update(
                                b.Transform, b.TransformOrigin, b.availableSize,
                                Media.AlignmentX.Left, Media.AlignmentY.Top, b.boundsMemory)))
+                using (context.PushOpacity(resource.Opacity / 100f))
                 using (r.FilterEffect == null ? new() : context.PushFilterEffect(r.FilterEffect))
                 using (context.PushNode(
                            boundsMemory,
@@ -55,5 +60,56 @@ public sealed partial class DrawableDecorator : Drawable
     protected override Size MeasureCore(Size availableSize, Drawable.Resource resource)
     {
         return Size.Empty;
+    }
+
+    public new partial class Resource
+    {
+        private readonly PooledList<int> _childrenVersion = [];
+        private List<Drawable.Resource> _children = [];
+
+        public List<Drawable.Resource> Children
+        {
+            get => _children;
+            set => _children = value;
+        }
+
+        partial void PostUpdate(DrawableDecorator obj, CompositionContext context)
+        {
+            using var consumed = new PooledList<Drawable.Resource>();
+            if (context.Flow != null)
+            {
+                for (int i = context.Flow.Count - 1; i >= 0; i--)
+                {
+                    if (context.Flow[i] is Drawable.Resource d)
+                    {
+                        consumed.Insert(0, d);
+                        context.Flow.RemoveAt(i);
+                    }
+                }
+            }
+
+            bool changed = false;
+            ResourceReconciler.ReconcileListFromFlow(
+                context: context,
+                property: obj.Children,
+                consumed: consumed,
+                field: _children,
+                versions: _childrenVersion,
+                changed: ref changed);
+
+            if (changed)
+                Version++;
+        }
+
+        partial void PostDispose(bool disposing)
+        {
+            for (int i = _childrenVersion.Count; i < _children.Count; i++)
+            {
+                _children[i].Dispose();
+            }
+
+            _children.Clear();
+            _childrenVersion.Dispose();
+        }
     }
 }

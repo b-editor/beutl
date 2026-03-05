@@ -1,5 +1,4 @@
-﻿using Beutl.Engine;
-using Beutl.Graphics;
+﻿using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Shapes;
 using Beutl.Media;
@@ -61,7 +60,7 @@ public partial class TextNode : Node
 
     public partial class Resource
     {
-        public override void Update(NodeRenderContext context)
+        public override void Update(NodeCompositionContext context)
         {
             var node = GetOriginal();
             var output = Output;

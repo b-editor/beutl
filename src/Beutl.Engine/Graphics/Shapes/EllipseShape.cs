@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
-using Beutl.Graphics.Rendering;
+using Beutl.Composition;
+using Beutl.Engine;
 using Beutl.Language;
 using Beutl.Media;
 
@@ -8,12 +9,25 @@ namespace Beutl.Graphics.Shapes;
 [Display(Name = nameof(Strings.Ellipse), ResourceType = typeof(Strings))]
 public sealed partial class EllipseShape : Shape
 {
+    public EllipseShape()
+    {
+        ScanProperties<EllipseShape>();
+    }
+
+    [Display(Name = nameof(Strings.Width), ResourceType = typeof(Strings))]
+    [Range(0, float.MaxValue)]
+    public IProperty<float> Width { get; } = Property.CreateAnimatable<float>(100);
+
+    [Display(Name = nameof(Strings.Height), ResourceType = typeof(Strings))]
+    [Range(0, float.MaxValue)]
+    public IProperty<float> Height { get; } = Property.CreateAnimatable<float>(100);
+
     public partial class Resource
     {
         private readonly EllipseGeometry _geometry = new();
         private EllipseGeometry.Resource? _geometryResource;
 
-        partial void PostUpdate(EllipseShape obj, RenderContext context)
+        partial void PostUpdate(EllipseShape obj, CompositionContext context)
         {
             _geometry.Width.CurrentValue = Math.Max(Width, 0);
             _geometry.Height.CurrentValue = Math.Max(Height, 0);

@@ -463,7 +463,7 @@ public sealed class ListEditor<TItem> : ListEditor
 
                     if (selectedType != null && Activator.CreateInstance(selectedType) is TItem item)
                     {
-                        viewModel.AddItem(item);
+                        await Dispatcher.UIThread.InvokeAsync(() => viewModel.AddItem(item));
                     }
                     else
                     {

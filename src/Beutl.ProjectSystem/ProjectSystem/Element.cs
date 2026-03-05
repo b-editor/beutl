@@ -1,12 +1,11 @@
-﻿using System.ComponentModel;
+using System.Collections.Specialized;
+using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
-using Beutl.Audio.Composing;
-using Beutl.Collections.Pooled;
+using Beutl.Collections;
+using Beutl.Composition;
 using Beutl.Engine;
-using Beutl.Graphics.Rendering;
 using Beutl.Language;
 using Beutl.Media;
-using Beutl.Operation;
 using Beutl.Serialization;
 
 namespace Beutl.ProjectSystem;
@@ -18,7 +17,8 @@ public class Element : Hierarchical, INotifyEdited
     public static readonly CoreProperty<int> ZIndexProperty;
     public static readonly CoreProperty<Color> AccentColorProperty;
     public static readonly CoreProperty<bool> IsEnabledProperty;
-    public static readonly CoreProperty<SourceOperation> OperationProperty;
+    public static readonly CoreProperty<ICoreList<EngineObject>> ObjectsProperty;
+    private readonly HierarchicalList<EngineObject> _objects;
     private TimeSpan _start;
     private TimeSpan _length;
     private int _zIndex;
@@ -47,17 +47,17 @@ public class Element : Hierarchical, INotifyEdited
             .DefaultValue(true)
             .Register();
 
-        OperationProperty = ConfigureProperty<SourceOperation, Element>(nameof(Operation))
-            .Accessor(o => o.Operation, null)
+        ObjectsProperty = ConfigureProperty<ICoreList<EngineObject>, Element>(nameof(Objects))
+            .Accessor(o => o.Objects)
             .Register();
     }
 
     public Element()
     {
-        Operation = new SourceOperation();
-        Operation.Edited += (s, e) => Edited?.Invoke(s, e);
-
-        HierarchicalChildren.Add(Operation);
+        _objects = new HierarchicalList<EngineObject>(this);
+        _objects.Attached += OnObjectAttached;
+        _objects.Detached += OnObjectDetached;
+        _objects.CollectionChanged += OnObjectsCollectionChanged;
     }
 
     public event EventHandler? Edited;
@@ -97,25 +97,99 @@ public class Element : Hierarchical, INotifyEdited
         set => SetAndRaise(IsEnabledProperty, ref _isEnabled, value);
     }
 
-    public SourceOperation Operation { get; }
+    [NotAutoSerialized]
+    public ICoreList<EngineObject> Objects => _objects;
+
+    public void AddObject(EngineObject obj)
+    {
+        if (obj is IFlowOperator)
+        {
+            Objects.Add(new TakeAfterPortal());
+        }
+        Objects.Add(obj);
+    }
+
+    public void InsertObject(int index, EngineObject obj)
+    {
+        if (obj is IFlowOperator)
+        {
+            Objects.Insert(index, new TakeAfterPortal());
+            Objects.Insert(index + 1, obj);
+        }
+        else
+        {
+            Objects.Insert(index, obj);
+        }
+    }
+
+    public void RemoveObject(EngineObject obj)
+    {
+        Objects.Remove(obj);
+    }
+
+    public void NotifySplitted(bool backward, TimeSpan startDelta, TimeSpan durationDelta)
+    {
+        foreach (EngineObject item in _objects)
+        {
+            if (item is ISplittable splittable)
+                splittable.NotifySplitted(backward, startDelta, durationDelta);
+        }
+    }
+
+    public bool HasOriginalDuration()
+    {
+        foreach (EngineObject item in _objects)
+        {
+            if (item is IOriginalDurationProvider provider && provider.HasOriginalDuration())
+                return true;
+        }
+
+        return false;
+    }
+
+    public bool TryGetOriginalDuration(out TimeSpan timeSpan)
+    {
+        foreach (EngineObject item in _objects)
+        {
+            if (item is IOriginalDurationProvider provider && provider.TryGetOriginalDuration(out timeSpan))
+                return true;
+        }
+
+        timeSpan = default;
+        return false;
+    }
 
     public override void Serialize(ICoreSerializationContext context)
     {
         base.Serialize(context);
-        context.SetValue(nameof(Operation), Operation);
+        context.SetValue(nameof(Objects), Objects);
     }
 
     public override void Deserialize(ICoreSerializationContext context)
     {
         base.Deserialize(context);
-        context.Populate(nameof(Operation), Operation);
+        if (context.GetValue<EngineObject[]>(nameof(Objects)) is { } objects)
+        {
+            Objects.Replace(objects);
+        }
+        else if (context is IJsonSerializationContext jsonContext)
+        {
+            EngineObject[] migrated = ElementMigration.MigrateFromOperation(jsonContext);
+            if (migrated.Length > 0)
+            {
+                Objects.Replace(migrated);
+            }
+        }
     }
 
-    public PooledList<EngineObject> Evaluate(EvaluationTarget target, IRenderer renderer, IComposer? composer = null)
+    public void CollectObjects(CompositionTarget target, IList<EngineObject> objects)
     {
-        lock (this)
+        foreach (EngineObject obj in _objects)
         {
-            return Operation.Evaluate(target, renderer, this, composer);
+            if (!obj.IsEnabled) continue;
+            CompositionTarget t = obj.GetCompositionTarget();
+            if (t != CompositionTarget.Unknown && t != target) continue;
+            objects.Add(obj);
         }
     }
 
@@ -143,20 +217,61 @@ public class Element : Hierarchical, INotifyEdited
 
             if (e.Property == StartProperty || e.Property == LengthProperty)
             {
+                // 全EngineObjectのTimeRangeを更新
                 TimeRange newRange = Range;
-                TimeRange oldRange = GetOldRange();
+                foreach (EngineObject obj in _objects)
+                {
+                    obj.TimeRange = newRange;
+                }
 
+                TimeRange oldRange = GetOldRange();
                 Edited?.Invoke(this, new ElementEditedEventArgs
                 {
                     AffectedRange = [newRange, oldRange]
                 });
             }
-            else if (e.Property == ZIndexProperty
-                || e.Property == IsEnabledProperty)
+            else if (e.Property == ZIndexProperty)
+            {
+                foreach (EngineObject obj in _objects)
+                {
+                    obj.ZIndex = ZIndex;
+                }
+
+                Edited?.Invoke(this, EventArgs.Empty);
+            }
+            else if (e.Property == IsEnabledProperty)
             {
                 Edited?.Invoke(this, EventArgs.Empty);
             }
         }
+    }
+
+    private void UpdateObjectFromElement(EngineObject obj)
+    {
+        obj.IsTimeAnchor = true;
+        obj.ZIndex = ZIndex;
+        obj.TimeRange = new TimeRange(Start, Length);
+    }
+
+    private void OnObjectAttached(EngineObject obj)
+    {
+        obj.Edited += OnObjectEdited;
+        UpdateObjectFromElement(obj);
+    }
+
+    private void OnObjectDetached(EngineObject obj)
+    {
+        obj.Edited -= OnObjectEdited;
+    }
+
+    private void OnObjectsCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        Edited?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void OnObjectEdited(object? sender, EventArgs e)
+    {
+        Edited?.Invoke(sender, e);
     }
 
     internal Element? GetBefore(int zindex, TimeSpan start)

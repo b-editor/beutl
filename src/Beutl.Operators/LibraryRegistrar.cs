@@ -1,15 +1,17 @@
-﻿using Beutl.Audio;
+using Beutl.Audio;
 using Beutl.Audio.Effects;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Particles;
 using Beutl.Graphics.Transformation;
 using Beutl.Graphics3D;
+using Beutl.Graphics3D.Lighting;
+using Beutl.Graphics3D.Models;
+using Beutl.Graphics3D.Primitives;
 using Beutl.Language;
 using Beutl.Media;
 using Beutl.NodeTree;
-// using Beutl.NodeTree.Nodes.Transform;
-using Beutl.Operation;
+using Beutl.ProjectSystem;
 using Beutl.Services;
 
 namespace Beutl.Operators;
@@ -20,153 +22,122 @@ public static class LibraryRegistrar
     {
         LibraryService.Current
             .AddMultiple(Strings.Ellipse, m => m
-                .BindSourceOperator<Source.EllipseOperator>()
                 .BindDrawable<Graphics.Shapes.EllipseShape>()
-                // .BindNode<NodeTree.Nodes.Geometry.EllipseGeometryNode>()
                 .BindGeometry<EllipseGeometry>()
             );
 
         LibraryService.Current
             .AddMultiple(Strings.Rectangle, m => m
-                .BindSourceOperator<Source.RectOperator>()
                 .BindDrawable<Graphics.Shapes.RectShape>()
-                // .BindNode<NodeTree.Nodes.Geometry.RectGeometryNode>()
                 .BindGeometry<RectGeometry>()
             );
 
         LibraryService.Current
             .AddMultiple(Strings.RoundedRect, m => m
-                .BindSourceOperator<Source.RoundedRectOperator>()
                 .BindDrawable<Graphics.Shapes.RoundedRectShape>()
-                // .BindNode<NodeTree.Nodes.Geometry.RoundedRectGeometryNode>()
                 .BindGeometry<RoundedRectGeometry>()
             );
 
         LibraryService.Current
             .AddMultiple(Strings.GeometryShape, m => m
-                .BindSourceOperator<Source.GeometryOperator>()
                 .BindDrawable<Graphics.Shapes.GeometryShape>()
             );
 
         LibraryService.Current
             .AddMultiple(Strings.Text, m => m
-                .BindSourceOperator<Source.TextBlockOperator>()
                 .BindDrawable<Graphics.Shapes.TextBlock>()
             );
 
         LibraryService.Current
             .AddMultiple(Strings.Video, m => m
-                .BindSourceOperator<Source.SourceVideoOperator>()
                 .BindDrawable<SourceVideo>()
             );
 
         LibraryService.Current
             .AddMultiple(Strings.Image, m => m
-                .BindSourceOperator<Source.SourceImageOperator>()
                 .BindDrawable<SourceImage>()
             );
 
         LibraryService.Current
             .AddMultiple(Strings.Backdrop, m => m
-                .BindSourceOperator<Source.SourceBackdropOperator>()
                 .BindDrawable<SourceBackdrop>()
             );
 
         LibraryService.Current
             .AddMultiple(Strings.Sound, m => m
-                .BindSourceOperator<Source.SourceSoundOperator>()
                 .BindSound<SourceSound>()
             );
 
         LibraryService.Current.RegisterGroup($"3D ({Strings.Experimental})", g => g
             .AddMultiple(Strings.Scene3D, m => m
-                .BindSourceOperator<Source.Scene3DOperator>()
                 .BindDrawable<Scene3D>()
             )
             .AddMultiple(Strings.Cube3D, m => m
-                .BindSourceOperator<Source.Cube3DOperator>()
+                .BindEngineObject<Cube3D>()
             )
             .AddMultiple(Strings.Sphere3D, m => m
-                .BindSourceOperator<Source.Sphere3DOperator>()
+                .BindEngineObject<Sphere3D>()
             )
             .AddMultiple(Strings.Plane3D, m => m
-                .BindSourceOperator<Source.Plane3DOperator>()
+                .BindEngineObject<Plane3D>()
             )
             .AddMultiple(Strings.Model3D, m => m
-                .BindSourceOperator<Source.Model3DOperator>()
+                .BindEngineObject<Model3D>()
             )
             // Lights
             .AddMultiple(Strings.DirectionalLight3D, m => m
-                .BindSourceOperator<Source.DirectionalLight3DOperator>()
+                .BindEngineObject<DirectionalLight3D>()
             )
             .AddMultiple(Strings.PointLight3D, m => m
-                .BindSourceOperator<Source.PointLight3DOperator>()
+                .BindEngineObject<PointLight3D>()
             )
             .AddMultiple(Strings.SpotLight3D, m => m
-                .BindSourceOperator<Source.SpotLight3DOperator>()
+                .BindEngineObject<SpotLight3D>()
             )
         );
 
         LibraryService.Current
             .AddMultiple(Strings.ParticleEmitter, m => m
-                .BindSourceOperator<Source.ParticleEmitterOperator>()
                 .BindDrawable<ParticleEmitter>()
             );
 
         LibraryService.Current
             .AddMultiple(Strings.NodeTree, m => m
-                .BindSourceOperator<Source.NodeTreeOperator>()
                 .BindDrawable<NodeTreeDrawable>()
             );
 
         LibraryService.Current
             .AddMultiple(Strings.Portal, m => m
-                .BindSourceOperator<TakeAfterOperator>()
+                .BindEngineObject<TakeAfterPortal>()
             );
 
         LibraryService.Current
             .AddMultiple(Strings.Decorator, m => m
-                .BindSourceOperator<DecorateOperator>()
+                .BindDrawable<DrawableDecorator>()
             );
 
         LibraryService.Current
             .AddMultiple(Strings.Group, m => m
-                .BindSourceOperator<GroupOperator>()
+                .BindDrawable<DrawableGroup>()
             );
 
         LibraryService.Current
             .AddMultiple(Strings.SoundGroup, m => m
-                .BindSourceOperator<SoundGroupOperator>()
+                .BindSound<SoundGroup>()
             );
 
         LibraryService.Current
             .AddMultiple(Strings.TimeController, m => m
-                .BindSourceOperator<Source.DrawableTimeControllerOperator>()
                 .BindDrawable<DrawableTimeController>()
             );
 
         LibraryService.Current
             .RegisterGroup(Strings.Transform, g => g
-                .AddMultiple(Strings.Translate, m => m
-                        .BindTransform<TranslateTransform>()
-                    // .BindNode<TranslateTransformNode>()
-                )
-                .AddMultiple(Strings.Skew, m => m
-                        .BindTransform<SkewTransform>()
-                    // .BindNode<SkewTransformNode>()
-                )
-                .AddMultiple(Strings.Scale, m => m
-                        .BindTransform<ScaleTransform>()
-                    // .BindNode<ScaleTransformNode>()
-                )
-                .AddMultiple(Strings.Rotation, m => m
-                        .BindTransform<RotationTransform>()
-                    // .BindNode<RotationTransformNode>()
-                )
-                .AddMultiple(Strings.Rotation3D, m => m
-                        .BindTransform<Rotation3DTransform>()
-                    // .BindNode<Rotation3DTransformNode>()
-                )
+                .AddTransform<TranslateTransform>(Strings.Translate)
+                .AddTransform<SkewTransform>(Strings.Skew)
+                .AddTransform<ScaleTransform>(Strings.Scale)
+                .AddTransform<RotationTransform>(Strings.Rotation)
+                .AddTransform<Rotation3DTransform>(Strings.Rotation3D)
             );
 
         LibraryService.Current

@@ -4,6 +4,7 @@ using Avalonia.Platform;
 using Beutl.Audio.Composing;
 using Beutl.Audio.Platforms.OpenAL;
 using Beutl.Audio.Platforms.XAudio2;
+using Beutl.Composition;
 using Beutl.Configuration;
 using Beutl.Editor.Components.PathEditorTab.ViewModels;
 using Beutl.Editor.Components.Helpers;
@@ -18,7 +19,6 @@ using Beutl.Media.Music.Samples;
 using Beutl.Media.Pixel;
 using Beutl.Media.Source;
 using Beutl.Models;
-using Beutl.Operators.Source;
 using Beutl.ProjectSystem;
 using Beutl.Services;
 using Microsoft.Extensions.Logging;
@@ -164,12 +164,12 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
     {
         foreach (var element in Scene?.Children ?? [])
         {
-            foreach (var op in element.Operation.Children)
+            foreach (var obj in element.Objects)
             {
-                if (op is Operators.Source.Scene3DOperator scene3DOp && scene3DOp.Value != null)
+                if (obj is Graphics3D.Scene3D scene3D)
                 {
-                    scene3DOp.Value.GizmoTarget.CurrentValue = null;
-                    scene3DOp.Value.GizmoMode.CurrentValue = GizmoMode.None;
+                    scene3D.GizmoTarget.CurrentValue = null;
+                    scene3D.GizmoMode.CurrentValue = GizmoMode.None;
                 }
             }
         }
@@ -179,13 +179,13 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
     {
         if (Scene == null) return;
 
-        foreach (var op in Scene.Children
-                     .SelectMany(e => e.Operation.Children)
-                     .OfType<Scene3DOperator>()
-                     .Where(op => op.Value.GizmoTarget.CurrentValue.HasValue))
+        foreach (var scene3D in Scene.Children
+                     .SelectMany(e => e.Objects)
+                     .OfType<Graphics3D.Scene3D>()
+                     .Where(s => s.GizmoTarget.CurrentValue.HasValue))
         {
             // GizmoTargetが設定されている場合のみモードを更新
-            op.Value.GizmoMode.CurrentValue = mode;
+            scene3D.GizmoMode.CurrentValue = mode;
         }
     }
 
@@ -436,7 +436,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
         }
     }
 
-    private static Pcm<Stereo32BitFloat>? FillAudioData(TimeSpan f, IComposer composer)
+    private static Pcm<Stereo32BitFloat>? FillAudioData(TimeSpan f, SceneComposer composer)
     {
         return ComposeThread.Dispatcher.Invoke(() =>
         {
@@ -460,7 +460,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
 
     private async Task PlayWithXA2(XAudioContext audioContext, Scene scene)
     {
-        IComposer composer = EditViewModel.Composer.Value;
+        var composer = EditViewModel.Composer.Value;
         int sampleRate = composer.SampleRate;
         TimeSpan cur = EditViewModel.CurrentTime.Value;
         var fmt = new WaveFormat(sampleRate, 32, 2);
@@ -556,7 +556,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
         {
             audioContext.MakeCurrent();
 
-            IComposer composer = EditViewModel.Composer.Value;
+            var composer = EditViewModel.Composer.Value;
             TimeSpan cur = EditViewModel.CurrentTime.Value;
             int[] buffers = AL.GenBuffers(2);
             CheckError();
@@ -683,7 +683,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
         PreviewInvalidated?.Invoke(this, EventArgs.Empty);
     }
 
-    private void DrawBoundaries(Renderer renderer, ImmediateCanvas canvas)
+    private void DrawBoundaries(Renderer renderer, ImmediateCanvas canvas, bool recalculate = false)
     {
         int? selected = EditViewModel.SelectedLayerNumber.Value;
         if (selected.HasValue)
@@ -693,7 +693,10 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
             if (scale == 0)
                 scale = 1;
 
-            Rect[] boundary = renderer.RenderScene[selected.Value].GetBoundaries();
+            // フレームキャッシュを使う場合はBoundsを再計算する必要がある
+            Rect[] boundary = recalculate
+                ? renderer.RecalculateBoundaries(selected.Value)
+                : renderer.GetBoundaries(selected.Value);
             if (boundary.Length > 0)
             {
                 var pen = new Pen.Resource() { Brush = Brushes.Resource.White, Thickness = scale, MiterLimit = 10 };
@@ -742,9 +745,9 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                     {
                         using (cache)
                         {
-                            renderer.RenderScene.Clear();
-                            renderer.Evaluate(time);
+                            var compositionFrame = renderer.Compositor.EvaluateGraphics(time);
 
+                            renderer.UpdateFrame(compositionFrame);
                             ImmediateCanvas canvas = Renderer.GetInternalCanvas(renderer);
                             canvas.Clear();
 
@@ -755,13 +758,16 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                                 canvas.DrawBitmap(cache.Value, Brushes.Resource.White, null);
                             }
 
-                            DrawBoundaries(renderer, canvas);
+                            DrawBoundaries(renderer, canvas, true);
 
                             bitmap = renderer.Snapshot();
                         }
                     }
-                    else if (renderer.Render(time))
+                    else
                     {
+                        var compositionFrame = renderer.Compositor.EvaluateGraphics(time);
+                        renderer.Render(compositionFrame);
+
                         using (var forCache = Ref<Bitmap<Bgra8888>>.Create(renderer.Snapshot()))
                         {
                             cacheManager.Add(frame, forCache);
@@ -769,7 +775,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                         }
 
                         ImmediateCanvas canvas = Renderer.GetInternalCanvas(renderer);
-                        DrawBoundaries(renderer, canvas);
+                        DrawBoundaries(renderer, canvas, true);
 
                         bitmap = renderer.Snapshot();
                     }
@@ -860,7 +866,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
             if (Scene == null) throw new Exception("Scene is null.");
             // TODO: Rendererに特定のDrawableのみを描画するクラスを追加する
             SceneRenderer renderer = EditViewModel.Renderer.Value;
-            var resource = drawable.ToResource(new RenderContext(CurrentFrame.Value));
+            var resource = drawable.ToResource(new CompositionContext(CurrentFrame.Value));
             PixelSize frameSize = renderer.FrameSize;
             using var root = new DrawableRenderNode(resource);
             using (var context = new GraphicsContext2D(root, frameSize))
@@ -888,10 +894,8 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
 
             try
             {
-                if (!renderer.Render(CurrentFrame.Value))
-                {
-                    throw new Exception("Failed to render.");
-                }
+                var compositionFrame = renderer.Compositor.EvaluateGraphics(CurrentFrame.Value);
+                renderer.Render(compositionFrame);
 
                 return renderer.Snapshot();
             }

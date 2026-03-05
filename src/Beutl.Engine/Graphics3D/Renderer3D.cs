@@ -1,9 +1,8 @@
-using System.Collections.Generic;
 using System.Numerics;
 using Beutl.Collections.Pooled;
+using Beutl.Composition;
 using Beutl.Graphics;
 using Beutl.Graphics.Backend;
-using Beutl.Graphics.Rendering;
 using Beutl.Graphics3D.Camera;
 using Beutl.Graphics3D.Gizmo;
 using Beutl.Graphics3D.Lighting;
@@ -125,7 +124,7 @@ internal sealed class Renderer3D : IRenderer3D
     }
 
     public void Render(
-        RenderContext renderContext,
+        CompositionContext compositionContext,
         Camera3D.Resource camera,
         IReadOnlyList<Object3D.Resource> objects,
         IReadOnlyList<Light3D.Resource> lights,
@@ -188,7 +187,7 @@ internal sealed class Renderer3D : IRenderer3D
         }
 
         // === GEOMETRY PASS (opaque objects only) ===
-        _geometryPass.Execute(renderContext, camera, opaqueObjects, aspectRatio, lightDataList, ambientColor, ambientIntensity);
+        _geometryPass.Execute(compositionContext, camera, opaqueObjects, aspectRatio, lightDataList, ambientColor, ambientIntensity);
         _geometryPass.PrepareForSampling();
 
         // === LIGHTING PASS ===
@@ -204,7 +203,7 @@ internal sealed class Renderer3D : IRenderer3D
         if (transparentObjects.Count > 0)
         {
             _transparentPass.SetColorTexture(_lightingPass.OutputTexture!);
-            _transparentPass.Execute(renderContext, camera, transparentObjects, lightDataList, ambientColor, ambientIntensity, aspectRatio);
+            _transparentPass.Execute(compositionContext, camera, transparentObjects, lightDataList, ambientColor, ambientIntensity, aspectRatio);
             _transparentPass.PrepareForSampling();
             colorOutput = _transparentPass.OutputTexture;
         }

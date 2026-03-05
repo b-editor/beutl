@@ -233,20 +233,20 @@
     <value>Change Use Node</value>
   </data>
   <!-- Source Operator Operations -->
-  <data name="AddSourceOperator" xml:space="preserve">
-    <value>Add Source Operator</value>
+  <data name="AddObject" xml:space="preserve">
+    <value>Add Object</value>
   </data>
-  <data name="RemoveSourceOperator" xml:space="preserve">
-    <value>Remove Source Operator</value>
+  <data name="RemoveObject" xml:space="preserve">
+    <value>Remove Object</value>
   </data>
-  <data name="ChangeSourceOperatorEnabled" xml:space="preserve">
-    <value>Change Source Operator Enabled</value>
+  <data name="ChangeObjectEnabled" xml:space="preserve">
+    <value>Change Object Enabled</value>
   </data>
-  <data name="PasteSourceOperator" xml:space="preserve">
-    <value>Paste Source Operator</value>
+  <data name="PasteObject" xml:space="preserve">
+    <value>Paste Object</value>
   </data>
-  <data name="MoveSourceOperator" xml:space="preserve">
-    <value>Move Source Operator</value>
+  <data name="MoveObject" xml:space="preserve">
+    <value>Move Object</value>
   </data>
   <!-- Scene Settings Operations -->
   <data name="ChangeSceneSettings" xml:space="preserve">

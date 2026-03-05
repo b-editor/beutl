@@ -1,8 +1,8 @@
-﻿using System.ComponentModel;
+using System.ComponentModel;
 
 using Avalonia;
 using Beutl.Editor.Components.Helpers;
-using Beutl.Operation;
+using Beutl.Engine;
 using Beutl.ProjectSystem;
 
 using Reactive.Bindings;
@@ -12,19 +12,20 @@ namespace Beutl.Editor.Components.TimelineTab.ViewModels;
 public sealed class ElementScopeViewModel : IDisposable
 {
     private readonly CompositeDisposable _disposables = [];
-    private TakeAfterOperator? _model;
+    private TakeAfterPortal? _model;
 
     public ElementScopeViewModel(Element element, ElementViewModel parent)
     {
         Model = element;
         Parent = parent;
-        element.Operation.Children.Attached += OnChildrenAttached;
-        element.Operation.Children.Detached += OnChildrenDetached;
-        foreach (SourceOperator item in element.Operation.Children)
+        element.Objects.Attached += OnChildrenAttached;
+        element.Objects.Detached += OnChildrenDetached;
+        foreach (EngineObject item in element.Objects)
         {
-            if (item is TakeAfterOperator takeAfter)
-                takeAfter.PropertyChanged += OnTakeAfterPropertyChanged;
+            if (item is TakeAfterPortal takeAfter)
+                takeAfter.Count.ValueChanged += OnTakeAfterCountChanged;
         }
+        Update();
 
         Margin = parent.Margin.CombineLatest(parent.BorderMargin)
             .Select(t => t.First + t.Second)
@@ -73,43 +74,42 @@ public sealed class ElementScopeViewModel : IDisposable
 
     public Element Model { get; private set; }
 
-    private void OnChildrenDetached(SourceOperator obj)
+    private void OnChildrenDetached(EngineObject obj)
     {
-        if (obj is TakeAfterOperator takeAfter)
+        if (obj is TakeAfterPortal takeAfter)
         {
             if (ReferenceEquals(_model, takeAfter))
             {
                 Update();
             }
 
-            takeAfter.PropertyChanged -= OnTakeAfterPropertyChanged;
+            takeAfter.Count.ValueChanged -= OnTakeAfterCountChanged;
         }
     }
 
-    private void OnChildrenAttached(SourceOperator obj)
+    private void OnChildrenAttached(EngineObject obj)
     {
-        if (obj is TakeAfterOperator takeAfter)
+        if (obj is TakeAfterPortal takeAfter)
         {
-            if (_model == null || _model.Count < takeAfter.Count)
+            if (_model == null || _model.Count.CurrentValue < takeAfter.Count.CurrentValue)
             {
                 _model = takeAfter;
-                Count.Value = takeAfter.Count;
+                Count.Value = takeAfter.Count.CurrentValue;
             }
 
-            takeAfter.PropertyChanged += OnTakeAfterPropertyChanged;
+            takeAfter.Count.ValueChanged += OnTakeAfterCountChanged;
         }
     }
 
-    private void OnTakeAfterPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    private void OnTakeAfterCountChanged(object? sender, PropertyValueChangedEventArgs<int> e)
     {
-        if (sender is TakeAfterOperator takeAfter
-            && e is CorePropertyChangedEventArgs<int> ev
-            && ev.Property == TakeAfterOperator.CountProperty)
+        if (e.Property.GetOwnerObject() is TakeAfterPortal takeAfter)
         {
-            if (Count.Value < ev.NewValue)
+            int newCount = takeAfter.Count.CurrentValue;
+            if (Count.Value < newCount)
             {
                 _model = takeAfter;
-                Count.Value = takeAfter.Count;
+                Count.Value = newCount;
             }
             else if (ReferenceEquals(_model, takeAfter))
             {
@@ -121,14 +121,14 @@ public sealed class ElementScopeViewModel : IDisposable
     private void Update()
     {
         int maxCount = int.MinValue;
-        TakeAfterOperator? model = null;
-        foreach (SourceOperator item in Model.Operation.Children)
+        TakeAfterPortal? model = null;
+        foreach (EngineObject item in Model.Objects)
         {
-            if (item is TakeAfterOperator takeAfterOperator
-                && maxCount < takeAfterOperator.Count)
+            if (item is TakeAfterPortal takeAfterPortal
+                && maxCount < takeAfterPortal.Count.CurrentValue)
             {
-                model = takeAfterOperator;
-                maxCount = takeAfterOperator.Count;
+                model = takeAfterPortal;
+                maxCount = takeAfterPortal.Count.CurrentValue;
             }
         }
 
@@ -145,16 +145,16 @@ public sealed class ElementScopeViewModel : IDisposable
 
     public void Dispose()
     {
-        foreach (SourceOperator item in Model.Operation.Children)
+        foreach (EngineObject item in Model.Objects)
         {
-            if (item is TakeAfterOperator takeAfterOperator)
+            if (item is TakeAfterPortal takeAfterPortal)
             {
-                takeAfterOperator.PropertyChanged -= OnTakeAfterPropertyChanged;
+                takeAfterPortal.Count.ValueChanged -= OnTakeAfterCountChanged;
             }
         }
 
-        Model.Operation.Children.Attached -= OnChildrenAttached;
-        Model.Operation.Children.Detached -= OnChildrenDetached;
+        Model.Objects.Attached -= OnChildrenAttached;
+        Model.Objects.Detached -= OnChildrenDetached;
 
         _disposables.Dispose();
         Count.Dispose();

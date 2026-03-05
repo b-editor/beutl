@@ -1,4 +1,5 @@
-﻿using Beutl.Graphics;
+﻿using Beutl.Composition;
+using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Shapes;
@@ -37,7 +38,7 @@ public class GraphicsContext2DTests
         drawable.Fill.CurrentValue = Brushes.White;
         drawable.FilterEffect.CurrentValue = new FilterEffectGroup { Children = { new SplitEffect(), new InnerShadow() } };
         drawable.Transform.CurrentValue = new TransformGroup { Children = { new RotationTransform(), new ScaleTransform() } };
-        var resource = drawable.ToResource(RenderContext.Default);
+        var resource = drawable.ToResource(CompositionContext.Default);
 
         var node = new DrawableRenderNode(resource);
         using (var context = new GraphicsContext2D(node, new PixelSize(1920, 1080)))
@@ -47,7 +48,7 @@ public class GraphicsContext2DTests
 
         ((FilterEffectGroup)drawable.FilterEffect.CurrentValue).Children.RemoveAt(0);
         var updateOnly = false;
-        resource.Update(drawable, RenderContext.Default, ref updateOnly);
+        resource.Update(drawable, CompositionContext.Default, ref updateOnly);
 
         bool triggered = false;
         RenderNode? untrackedNode = null;
@@ -100,7 +101,7 @@ public class GraphicsContext2DTests
         var imageUri = TestMediaHelper.CreateTestImageUri(100, 100, Colors.White);
         var imageSource = new ImageSource();
         imageSource.ReadFrom(imageUri);
-        using var imageResource = imageSource.ToResource(RenderContext.Default);
+        using var imageResource = imageSource.ToResource(CompositionContext.Default);
 
         context.DrawImageSource(imageResource, Brushes.Resource.White, null);
 
@@ -117,7 +118,7 @@ public class GraphicsContext2DTests
         var videoPath = TestMediaHelper.CreateTestVideoFile(100, 100, new Rational(30), 300);
         var videoSource = new VideoSource();
         videoSource.ReadFrom(new Uri(videoPath));
-        using var videoResource = videoSource.ToResource(RenderContext.Default);
+        using var videoResource = videoSource.ToResource(CompositionContext.Default);
 
         context.DrawVideoSource(videoResource, TimeSpan.Zero, Brushes.Resource.White, null);
 
@@ -145,7 +146,7 @@ public class GraphicsContext2DTests
         var geometry = new EllipseGeometry();
         geometry.Width.CurrentValue = 100;
         geometry.Height.CurrentValue = 100;
-        var resource = geometry.ToResource(RenderContext.Default);
+        var resource = geometry.ToResource(CompositionContext.Default);
 
         context.DrawGeometry(resource, Brushes.Resource.White, null);
 
@@ -169,7 +170,7 @@ public class GraphicsContext2DTests
     public void DrawDrawable_ShouldCreateDrawableRenderNode()
     {
         var drawable = new RectShape();
-        var resource = drawable.ToResource(RenderContext.Default);
+        var resource = drawable.ToResource(CompositionContext.Default);
         var node = new ContainerRenderNode();
         var context = new GraphicsContext2D(node, new PixelSize(1920, 1080));
 
@@ -273,7 +274,7 @@ public class GraphicsContext2DTests
         var geometry = new EllipseGeometry();
         geometry.Width.CurrentValue = 100;
         geometry.Height.CurrentValue = 100;
-        var resource = geometry.ToResource(RenderContext.Default);
+        var resource = geometry.ToResource(CompositionContext.Default);
 
         context.PushClip(resource).Dispose();
 
@@ -299,7 +300,7 @@ public class GraphicsContext2DTests
         var node = new ContainerRenderNode();
         var context = new GraphicsContext2D(node, new PixelSize(1920, 1080));
         var effect = new Blur();
-        var resource = effect.ToResource(RenderContext.Default);
+        var resource = effect.ToResource(CompositionContext.Default);
 
         context.PushFilterEffect(resource).Dispose();
 
@@ -326,7 +327,7 @@ public class GraphicsContext2DTests
         var node = new ContainerRenderNode();
         var context = new GraphicsContext2D(node, new PixelSize(1920, 1080));
         var transform = new RotationTransform();
-        var resource = transform.ToResource(RenderContext.Default);
+        var resource = transform.ToResource(CompositionContext.Default);
 
         context.PushTransform(resource).Dispose();
 
@@ -340,7 +341,7 @@ public class GraphicsContext2DTests
         var node = new ContainerRenderNode();
         var context = new GraphicsContext2D(node, new PixelSize(1920, 1080));
         var transform = new TransformGroup { Children = { new RotationTransform(), new ScaleTransform() } };
-        var resource = transform.ToResource(RenderContext.Default);
+        var resource = transform.ToResource(CompositionContext.Default);
 
         context.PushTransform(resource).Dispose();
 

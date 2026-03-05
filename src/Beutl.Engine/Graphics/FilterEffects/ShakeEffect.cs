@@ -1,10 +1,8 @@
 ﻿using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
-using Beutl.Animation;
+using Beutl.Composition;
 using Beutl.Engine;
-using Beutl.Graphics.Rendering;
 using Beutl.Language;
-using Beutl.Media;
 
 namespace Beutl.Graphics.Effects;
 
@@ -67,7 +65,7 @@ public class ShakeEffect : FilterEffect
             });
     }
 
-    public override Resource ToResource(RenderContext context)
+    public override Resource ToResource(CompositionContext context)
     {
         var resource = new Resource();
         bool updateOnly = true;
@@ -90,7 +88,7 @@ public class ShakeEffect : FilterEffect
 
         public float Time => _time;
 
-        public override void Update(EngineObject obj, RenderContext context, ref bool updateOnly)
+        public override void Update(EngineObject obj, CompositionContext context, ref bool updateOnly)
         {
             base.Update(obj, context, ref updateOnly);
 

@@ -1,3 +1,4 @@
+using Beutl.Composition;
 using Beutl.Controls;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.PathEditorTab.Services;
@@ -7,9 +8,7 @@ using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Shapes;
 using Beutl.Media;
-using Beutl.Operation;
 using Beutl.ProjectSystem;
-using Beutl.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Reactive.Bindings;
 
@@ -52,10 +51,7 @@ public sealed class PathEditorViewModel : IDisposable, IPathEditorContext
         Element = Context.Select(v => v?.GetService<Element>())
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
-        SourceOperator = Context.Select(v => v?.GetService<SourceOperator>() as IPublishOperator)
-            .ToReadOnlyReactivePropertySlim()
-            .DisposeWith(_disposables);
-        Drawable = SourceOperator.Select(v => v?.Value as Drawable)
+        Drawable = Geometry.Select(v => v?.FindHierarchicalParent<Drawable>())
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
@@ -112,11 +108,9 @@ public sealed class PathEditorViewModel : IDisposable, IPathEditorContext
         // Shape.cs
         if (drawable is GeometryShape.Resource { Data: PathGeometry.Resource geometry } shape)
         {
-            var requestedSize = new Size(shape.Width, shape.Height);
             Rect shapeBounds = geometry.Bounds;
-            Vector scale = Shape.CalculateScale(requestedSize, shapeBounds, shape.Stretch);
             //matrix = Graphics.Matrix.CreateTranslation(-shapeBounds.Position);
-            Size size = shapeBounds.Size * scale;
+            Size size = shapeBounds.Size;
 
             if (shape.Pen != null)
             {
@@ -125,8 +119,6 @@ public sealed class PathEditorViewModel : IDisposable, IPathEditorContext
 
                 matrix *= Graphics.Matrix.CreateTranslation(thickness, thickness);
             }
-
-            matrix *= Graphics.Matrix.CreateScale(scale);
 
             Matrix mat = drawable.GetOriginal().GetTransformMatrix(frameSize, size, drawable);
             matrix *= mat;
@@ -149,8 +141,6 @@ public sealed class PathEditorViewModel : IDisposable, IPathEditorContext
     public IReadOnlyReactiveProperty<PathFigure?> PathFigure { get; }
 
     public IReadOnlyReactiveProperty<Element?> Element { get; }
-
-    public ReadOnlyReactivePropertySlim<IPublishOperator?> SourceOperator { get; }
 
     public ReadOnlyReactivePropertySlim<Drawable?> Drawable { get; }
 
@@ -179,7 +169,7 @@ public sealed class PathEditorViewModel : IDisposable, IPathEditorContext
         // Groupプロパティを初期化
         context.ExpandForEditing();
 
-        var shapeResource = shape.ToResource(new RenderContext(_clock.CurrentTime.Value));
+        var shapeResource = shape.ToResource(new CompositionContext(_clock.CurrentTime.Value));
         Avalonia.Matrix matrix = CalculateMatrix(shapeResource).ToAvaMatrix();
         if (matrix.TryInvert(out Avalonia.Matrix inverted)
             && shapeResource is GeometryShape.Resource { Data: not null } geometryShapeResource

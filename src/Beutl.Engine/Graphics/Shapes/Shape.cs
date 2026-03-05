@@ -12,89 +12,14 @@ public abstract partial class Shape : Drawable
     public Shape()
     {
         ScanProperties<Shape>();
+        Fill.CurrentValue = new SolidColorBrush(Colors.White);
     }
-
-    [Display(Name = nameof(Strings.Width), ResourceType = typeof(Strings))]
-    [Range(0, float.MaxValue)]
-    public IProperty<float> Width { get; } = Property.CreateAnimatable<float>(-1);
-
-    [Display(Name = nameof(Strings.Height), ResourceType = typeof(Strings))]
-    [Range(0, float.MaxValue)]
-    public IProperty<float> Height { get; } = Property.CreateAnimatable<float>(-1);
-
-    public IProperty<Stretch> Stretch { get; } = Property.CreateAnimatable(Media.Stretch.None);
 
     [Display(Name = nameof(Strings.Stroke), GroupName = nameof(Strings.Stroke), ResourceType = typeof(Strings))]
     public IProperty<Pen?> Pen { get; } = Property.Create<Pen?>();
 
-    internal static Vector CalculateScale(Size requestedSize, Rect shapeBounds, Stretch stretch)
-    {
-        var shapeSize = shapeBounds.Size;
-        float desiredX = requestedSize.Width;
-        float desiredY = requestedSize.Height;
-        bool widthInfinityOrNegative = float.IsInfinity(requestedSize.Width) || requestedSize.Width < 0;
-        bool heightInfinityOrNegative = float.IsInfinity(requestedSize.Height) || requestedSize.Height < 0;
-
-        float sx = 0.0f;
-        float sy = 0.0f;
-
-        if (widthInfinityOrNegative)
-        {
-            desiredX = shapeSize.Width;
-        }
-
-        if (heightInfinityOrNegative)
-        {
-            desiredY = shapeSize.Height;
-        }
-
-        if (shapeBounds.Width > 0)
-        {
-            sx = desiredX / shapeSize.Width;
-        }
-
-        if (shapeBounds.Height > 0)
-        {
-            sy = desiredY / shapeSize.Height;
-        }
-
-        if (widthInfinityOrNegative)
-        {
-            sx = sy;
-        }
-
-        if (heightInfinityOrNegative)
-        {
-            sy = sx;
-        }
-
-        switch (stretch)
-        {
-            case Media.Stretch.Uniform:
-                sx = sy = Math.Min(sx, sy);
-                break;
-            case Media.Stretch.UniformToFill:
-                sx = sy = Math.Max(sx, sy);
-                break;
-            case Media.Stretch.Fill:
-                if (widthInfinityOrNegative)
-                {
-                    sx = 1.0f;
-                }
-
-                if (heightInfinityOrNegative)
-                {
-                    sy = 1.0f;
-                }
-
-                break;
-            default:
-                sx = sy = 1;
-                break;
-        }
-
-        return new Vector(sx, sy);
-    }
+    [Display(Name = nameof(Strings.Fill), ResourceType = typeof(Strings), GroupName = nameof(Strings.Fill))]
+    public IProperty<Brush?> Fill { get; } = Property.Create<Brush?>();
 
     protected override Size MeasureCore(Size availableSize, Drawable.Resource resource)
     {
@@ -105,8 +30,7 @@ public abstract partial class Shape : Drawable
             return default;
         }
 
-        Vector scale = CalculateScale(new Size(r.Width, r.Height), geometry.Bounds, r.Stretch);
-        Size size = geometry.Bounds.Size * scale;
+        Size size = geometry.Bounds.Size;
         if (r.Pen != null)
         {
             size = size.Inflate(ActualThickness(r.Pen));
@@ -127,9 +51,6 @@ public abstract partial class Shape : Drawable
         if (geometry == null)
             return;
 
-        var requestedSize = new Size(r.Width, r.Height);
-        Rect shapeBounds = geometry.Bounds;
-        Vector scale = CalculateScale(requestedSize, shapeBounds, r.Stretch);
         Matrix matrix = Matrix.Identity;
         //Matrix matrix = Matrix.CreateTranslation(-shapeBounds.Position);
 
@@ -139,8 +60,6 @@ public abstract partial class Shape : Drawable
 
             matrix *= Matrix.CreateTranslation(thickness, thickness);
         }
-
-        matrix *= Matrix.CreateScale(scale);
 
         using (context.PushTransform(matrix))
         {

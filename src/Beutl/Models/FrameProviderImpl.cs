@@ -47,18 +47,9 @@ public sealed class FrameProviderImpl : IFrameProvider, IDisposable
 
     private Bitmap<Bgra8888> RenderCore(TimeSpan time)
     {
-        int retry = 0;
-    Retry:
-        if (_renderer.Render(time + _scene.Start))
-        {
-            return _renderer.Snapshot();
-        }
-
-        if (retry > 3)
-            throw new Exception("Renderer.RenderがFalseでした。他にこのシーンを使用していないか確認してください。");
-
-        retry++;
-        goto Retry;
+        var frame = _renderer.Compositor.EvaluateGraphics(time + _scene.Start);
+        _renderer.Render(frame);
+        return _renderer.Snapshot();
     }
 
     private async ValueTask<Bitmap<Bgra8888>> RenderFrameCore(long frame, CancellationToken cancellationToken)

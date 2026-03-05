@@ -1,7 +1,7 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using Beutl.Controls.Navigation;
 using Beutl.Editor;
-using Beutl.Operation;
+using Beutl.PropertyAdapters;
 using Beutl.Services;
 using Beutl.ViewModels.Editors;
 

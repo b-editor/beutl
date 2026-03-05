@@ -14,7 +14,7 @@ public sealed class PropertyEditorGroupContext(IPropertyEditorContext?[] childre
 
     public void Accept(IPropertyEditorContextVisitor visitor)
     {
-        throw new InvalidOperationException("PropertiesはSourceOperatotViewModelがAcceptしています。");
+        throw new InvalidOperationException("PropertiesはEngineObjectPropertyViewModelがAcceptしています。");
     }
 
     public void Dispose()

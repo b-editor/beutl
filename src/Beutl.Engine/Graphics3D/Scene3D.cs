@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
-using Beutl.Collections;
+using Beutl.Collections.Pooled;
+using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
@@ -15,11 +16,14 @@ namespace Beutl.Graphics3D;
 /// A Drawable that renders a 3D scene.
 /// </summary>
 [Display(Name = nameof(Strings.Scene3D), ResourceType = typeof(Strings))]
-public partial class Scene3D : Drawable
+public partial class Scene3D : Drawable, IFlowOperator
 {
     public Scene3D()
     {
         ScanProperties<Scene3D>();
+        HideProperty(GizmoMode);
+        HideProperty(GizmoTarget);
+        Camera.CurrentValue = new PerspectiveCamera();
     }
 
     /// <summary>
@@ -32,12 +36,14 @@ public partial class Scene3D : Drawable
     /// Gets the 3D objects in this scene.
     /// </summary>
     [Display(Name = nameof(Strings.Objects), ResourceType = typeof(Strings))]
+    [SuppressResourceClassGeneration]
     public IListProperty<Object3D> Objects { get; } = Property.CreateList<Object3D>();
 
     /// <summary>
     /// Gets the lights in this scene.
     /// </summary>
     [Display(Name = nameof(Strings.Lights), ResourceType = typeof(Strings))]
+    [SuppressResourceClassGeneration]
     public IListProperty<Light3D> Lights { get; } = Property.CreateList<Light3D>();
 
     /// <summary>
@@ -105,9 +111,16 @@ public partial class Scene3D : Drawable
 
     public partial class Resource
     {
+        private readonly PooledList<int> _lightsVersion = [];
+        private readonly PooledList<int> _objectsVersion = [];
+
         internal IRenderer3D? Renderer { get; set; }
 
         public TimeSpan Time { get; set; } = TimeSpan.Zero;
+
+        public List<Light3D.Resource> Lights { get; set; } = [];
+
+        public List<Object3D.Resource> Objects { get; set; } = [];
 
         partial void PostDispose(bool disposing)
         {
@@ -115,16 +128,71 @@ public partial class Scene3D : Drawable
             {
                 Renderer?.Dispose();
                 Renderer = null;
+                for (int i = _lightsVersion.Count; i < Lights.Count; i++)
+                {
+                    Lights[i].Dispose();
+                }
+
+                Lights.Clear();
+                _lightsVersion.Dispose();
+
+                for (int i = _objectsVersion.Count; i < Objects.Count; i++)
+                {
+                    Objects[i].Dispose();
+                }
+
+                Objects.Clear();
+                _objectsVersion.Dispose();
             }
         }
 
-        partial void PostUpdate(Scene3D _, RenderContext context)
+        partial void PostUpdate(Scene3D obj, CompositionContext context)
         {
+            bool changed = false;
             if (Time != context.Time)
             {
                 Time = context.Time;
-                Version++;
+                changed = true;
             }
+
+            // Consume lights and objects from flow
+            using var consumedLights = new PooledList<Light3D.Resource>();
+            using var consumedObjects = new PooledList<Object3D.Resource>();
+            if (context.Flow != null)
+            {
+                for (int i = context.Flow.Count - 1; i >= 0; i--)
+                {
+                    switch (context.Flow[i])
+                    {
+                        case Light3D.Resource light:
+                            context.Flow.RemoveAt(i);
+                            consumedLights.Insert(0, light);
+                            break;
+                        case Object3D.Resource obj3d:
+                            context.Flow.RemoveAt(i);
+                            consumedObjects.Insert(0, obj3d);
+                            break;
+                    }
+                }
+            }
+
+            ResourceReconciler.ReconcileListFromFlow(
+                context: context,
+                property: obj.Lights,
+                consumed: consumedLights,
+                field: Lights,
+                versions: _lightsVersion,
+                changed: ref changed);
+            ResourceReconciler.ReconcileListFromFlow(
+                context: context,
+                property: obj.Objects,
+                consumed: consumedObjects,
+                field: Objects,
+                versions: _objectsVersion,
+                changed: ref changed);
+
+            if (changed)
+                Version++;
         }
     }
 }

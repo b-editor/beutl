@@ -1,12 +1,11 @@
 ﻿using System.Collections.Concurrent;
 using System.ComponentModel;
+using System.Diagnostics.CodeAnalysis;
 using System.Reactive.Disposables;
 using System.Reflection;
 using System.Text.Json.Nodes;
-using Beutl;
 using Beutl.Animation;
-using Beutl.Engine.Expressions;
-using Beutl.Graphics.Rendering;
+using Beutl.Composition;
 using Beutl.Media;
 using Beutl.Reactive;
 using Beutl.Serialization;
@@ -15,6 +14,7 @@ using LinqExpression = System.Linq.Expressions.Expression;
 
 namespace Beutl.Engine;
 
+[DummyType(typeof(DummyEngineObject))]
 public class EngineObject : Hierarchical, INotifyEdited
 {
     // これらのプロパティは描画時ではなく編集時に更新されるべき
@@ -28,6 +28,7 @@ public class EngineObject : Hierarchical, INotifyEdited
     private TimeRange _timeRange;
     private IDisposable? _timeAnchorSubscription;
     private readonly List<IProperty> _properties = new();
+    private List<IProperty>? _displayProperties;
 
     public event EventHandler? Edited;
 
@@ -235,8 +236,9 @@ public class EngineObject : Hierarchical, INotifyEdited
         var propertyInfos = type.GetProperties(
             BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly);
 
-        foreach (var propertyInfo in propertyInfos)
+        for (int index = 0; index < propertyInfos.Length; index++)
         {
+            PropertyInfo propertyInfo = propertyInfos[index];
             if (!typeof(IProperty).IsAssignableFrom(propertyInfo.PropertyType)) continue;
 
             if (!ReflectionCache<T>.Properties.TryGetValue(propertyInfo, out var func))
@@ -259,7 +261,7 @@ public class EngineObject : Hierarchical, INotifyEdited
                     ReflectionCache<T>.Validators[propertyInfo.Name] = validator;
                 }
 
-                RegisterProperty(property);
+                RegisterProperty(property, index);
                 property.SetPropertyInfo(propertyInfo);
                 property.SetOwnerObject(this);
                 property.SetValidator(validator);
@@ -274,6 +276,80 @@ public class EngineObject : Hierarchical, INotifyEdited
             _properties.Add(property);
             property.Edited += OnPropertyEdited;
         }
+
+        if (_displayProperties?.Contains(property) == false)
+        {
+            _displayProperties.Add(property);
+        }
+    }
+
+    protected void RegisterProperty(IProperty property, int index)
+    {
+        if (!_properties.Contains(property))
+        {
+            _properties.Insert(Math.Min(index, _properties.Count), property);
+            property.Edited += OnPropertyEdited;
+        }
+
+        if (_displayProperties?.Contains(property) == false)
+        {
+            _displayProperties.Insert(Math.Min(index, _displayProperties.Count), property);
+        }
+    }
+
+    public IReadOnlyList<IProperty> GetDisplayProperties() => _displayProperties ?? _properties;
+
+    protected void HideProperty(IProperty property)
+    {
+        EnsureDisplayProperties();
+        _displayProperties.Remove(property);
+    }
+
+    protected void HideProperties(params IProperty[] properties)
+    {
+        EnsureDisplayProperties();
+        _displayProperties.RemoveAll(p => properties.Contains(p));
+    }
+
+    protected void MoveProperty(IProperty property, int index)
+    {
+        EnsureDisplayProperties();
+        _displayProperties.Remove(property);
+        _displayProperties.Insert(Math.Min(index, _displayProperties.Count), property);
+    }
+
+    protected void MovePropertyBefore(IProperty property, IProperty target)
+    {
+        EnsureDisplayProperties();
+        _displayProperties.Remove(property);
+        int targetIndex = _displayProperties.IndexOf(target);
+        if (targetIndex >= 0)
+            _displayProperties.Insert(targetIndex, property);
+        else
+            _displayProperties.Add(property);
+    }
+
+    protected void MovePropertyAfter(IProperty property, IProperty target)
+    {
+        EnsureDisplayProperties();
+        _displayProperties.Remove(property);
+        int targetIndex = _displayProperties.IndexOf(target);
+        if (targetIndex >= 0)
+            _displayProperties.Insert(targetIndex + 1, property);
+        else
+            _displayProperties.Add(property);
+    }
+
+    protected void ReorderProperties(params IProperty[] ordered)
+    {
+        EnsureDisplayProperties();
+        _displayProperties = [..ordered, .._displayProperties.Except(ordered)];
+    }
+
+    [MemberNotNull(nameof(_displayProperties))]
+    private void EnsureDisplayProperties()
+    {
+        _displayProperties ??= [.._properties];
     }
 
     private void OnPropertyEdited(object? sender, EventArgs e)
@@ -286,7 +362,12 @@ public class EngineObject : Hierarchical, INotifyEdited
         Edited?.Invoke(this, EventArgs.Empty);
     }
 
-    public virtual Resource ToResource(RenderContext context)
+    public virtual CompositionTarget GetCompositionTarget()
+    {
+        return CompositionTarget.Unknown;
+    }
+
+    public virtual Resource ToResource(CompositionContext context)
     {
         var resource = new Resource();
         bool updateOnly = true;
@@ -311,7 +392,7 @@ public class EngineObject : Hierarchical, INotifyEdited
 
         public EngineObject GetOriginal() => _original;
 
-        public virtual void Update(EngineObject obj, RenderContext context, ref bool updateOnly)
+        public virtual void Update(EngineObject obj, CompositionContext context, ref bool updateOnly)
         {
             ObjectDisposedException.ThrowIf(IsDisposed, this);
             _original = obj;
@@ -326,7 +407,7 @@ public class EngineObject : Hierarchical, INotifyEdited
             }
         }
 
-        protected void CompareAndUpdate<TValue>(RenderContext context, IProperty<TValue> prop, ref TValue field,
+        protected void CompareAndUpdate<TValue>(CompositionContext context, IProperty<TValue> prop, ref TValue field,
             ref bool updateOnly)
         {
             TValue newValue = context.Get(prop);
@@ -344,7 +425,7 @@ public class EngineObject : Hierarchical, INotifyEdited
             }
         }
 
-        protected void CompareAndUpdateList<TItem, TResource>(RenderContext context, IList<TItem> prop,
+        protected void CompareAndUpdateList<TItem, TResource>(CompositionContext context, IList<TItem> prop,
             ref List<TResource> field, ref bool updateOnly) where TItem : EngineObject where TResource : Resource
         {
             for (int i = 0; i < prop.Count; i++)
@@ -400,7 +481,7 @@ public class EngineObject : Hierarchical, INotifyEdited
             }
         }
 
-        protected void CompareAndUpdateObject<TObject, TResource>(RenderContext context, IProperty<TObject> prop,
+        protected void CompareAndUpdateObject<TObject, TResource>(CompositionContext context, IProperty<TObject> prop,
             ref TResource? field, ref bool updateOnly) where TObject : EngineObject? where TResource : Resource
         {
             var value = context.Get(prop);

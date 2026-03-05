@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using Beutl.Animation;
+using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Graphics.Rendering;
 using Beutl.Language;
@@ -9,7 +10,7 @@ using Beutl.Media.Source;
 namespace Beutl.Graphics;
 
 [Display(Name = nameof(Strings.Video), ResourceType = typeof(Strings))]
-public partial class SourceVideo : Drawable
+public partial class SourceVideo : Drawable, IOriginalDurationProvider, ISplittable
 {
     public SourceVideo()
     {
@@ -28,6 +29,35 @@ public partial class SourceVideo : Drawable
 
     [Display(Name = nameof(Strings.IsLoop), ResourceType = typeof(Strings))]
     public IProperty<bool> IsLoop { get; } = Property.CreateAnimatable<bool>();
+
+    public bool HasOriginalDuration()
+    {
+        return Source.CurrentValue != null;
+    }
+
+    public bool TryGetOriginalDuration(out TimeSpan timeSpan)
+    {
+        using var resource = ToResource(CompositionContext.Default);
+        var ts = CalculateOriginalTime((Resource)resource);
+        if (ts.HasValue)
+        {
+            timeSpan = ts.Value - OffsetPosition.CurrentValue;
+            return true;
+        }
+        else
+        {
+            timeSpan = TimeSpan.Zero;
+            return false;
+        }
+    }
+
+    public void NotifySplitted(bool backward, TimeSpan startDelta, TimeSpan durationDelta)
+    {
+        if (backward)
+        {
+            OffsetPosition.CurrentValue += startDelta;
+        }
+    }
 
     private TimeSpan CalculateVideoTime(TimeSpan timeSpan, Resource resource)
     {
@@ -150,7 +180,7 @@ public partial class SourceVideo : Drawable
             _speedIntegrator.Dispose();
         }
 
-        partial void PostUpdate(SourceVideo obj, RenderContext context)
+        partial void PostUpdate(SourceVideo obj, CompositionContext context)
         {
             var time = context.Time;
             // アニメーションがある場合、前回のキーフレームを引く

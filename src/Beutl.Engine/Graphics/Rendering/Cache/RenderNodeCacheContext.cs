@@ -7,7 +7,7 @@ using Microsoft.Extensions.Logging;
 namespace Beutl.Graphics.Rendering.Cache;
 
 // TODO: インスタンスのあるクラスである必要はないので、近々削除する
-public sealed class RenderNodeCacheContext(RenderScene scene)
+public sealed class RenderNodeCacheContext(Action clearAllCaches)
 {
     internal static readonly ILogger _logger = Log.CreateLogger("RenderNodeCache");
 
@@ -19,7 +19,7 @@ public sealed class RenderNodeCacheContext(RenderScene scene)
         set
         {
             ArgumentNullException.ThrowIfNull(value);
-            scene.ClearCache();
+            clearAllCaches();
             _cacheOptions = value;
         }
     }

@@ -115,7 +115,7 @@ public class LibraryItemViewModel
             KnownLibraryItemFormats.FilterEffect => BeutlDataFormats.FilterEffect,
             KnownLibraryItemFormats.Node => BeutlDataFormats.Node,
             KnownLibraryItemFormats.AudioEffect => BeutlDataFormats.AudioEffect,
-            KnownLibraryItemFormats.SourceOperator => BeutlDataFormats.SourceOperator,
+            KnownLibraryItemFormats.EngineObject => BeutlDataFormats.EngineObject,
             _ => DataFormat.CreateStringApplicationFormat(format)
         };
     }
@@ -194,7 +194,7 @@ public class LibraryItemViewModel
                 KnownLibraryItemFormats.FilterEffect => "FilterEffect",
                 KnownLibraryItemFormats.Node => "Node",
                 KnownLibraryItemFormats.AudioEffect => "Node",
-                KnownLibraryItemFormats.SourceOperator => Strings.SourceOperators,
+                KnownLibraryItemFormats.EngineObject => Strings.Object,
                 _ => string.Empty,
             };
         }

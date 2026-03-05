@@ -1,8 +1,7 @@
 ﻿using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
-using Beutl.Animation;
-using Beutl.Graphics.Rendering;
+using Beutl.Composition;
 using Beutl.Media;
 
 namespace Beutl.Converters;
@@ -112,7 +111,7 @@ public sealed class ColorConverter : TypeConverter
         }
         else if (value is SolidColorBrush solidColorBrush)
         {
-            return solidColorBrush.Color.GetValue(RenderContext.Default);
+            return solidColorBrush.Color.GetValue(CompositionContext.Default);
         }
         else if (value is SolidColorBrush.Resource solidColorBrushResource)
         {

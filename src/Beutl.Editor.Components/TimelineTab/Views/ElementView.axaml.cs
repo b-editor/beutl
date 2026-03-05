@@ -10,11 +10,9 @@ using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using Avalonia.Xaml.Interactivity;
 using Beutl.Configuration;
-using Beutl.Editor;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Services;
-using Beutl.Editor.Components.NodeTreeTab.ViewModels;
-using Beutl.Operation;
+using Beutl.Engine;
 using Beutl.ProjectSystem;
 using Beutl.Services.PrimitiveImpls;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
@@ -66,7 +64,7 @@ public sealed partial class ElementView : UserControl
     {
         if (DataContext is not ElementViewModel viewModel) return;
 
-        change2OriginalLength.IsEnabled = viewModel.HasOriginalLength();
+        change2OriginalDuration.IsEnabled = viewModel.HasOriginalDuration();
         splitByCurrent.IsEnabled = viewModel.Model.Range.Contains(viewModel.Timeline.EditorContext.GetRequiredService<IEditorClock>().CurrentTime.Value);
         groupSelectedElements.IsEnabled = viewModel.CanGroupSelectedElements();
         ungroupSelectedElements.IsEnabled = viewModel.CanUngroupSelectedElements();
@@ -269,7 +267,7 @@ public sealed partial class ElementView : UserControl
             Element? Before,
             Element? After,
             TimeSpan RecordedEndTime,
-            TimeSpan? OriginalLength);
+            TimeSpan? OriginalDuration);
 
         private bool _pressed;
         private AlignmentX _resizeType;
@@ -333,9 +331,9 @@ public sealed partial class ElementView : UserControl
                                 // 右
                                 double x = ctx.After == null ? point.X : Math.Min(ctx.After.Start.TimeToPixel(scale), point.X);
 
-                                if (ctx.OriginalLength.HasValue)
+                                if (ctx.OriginalDuration.HasValue)
                                 {
-                                    double maxWidth = ctx.OriginalLength.Value.TimeToPixel(scale);
+                                    double maxWidth = ctx.OriginalDuration.Value.TimeToPixel(scale);
                                     x = Math.Min(x, left + maxWidth);
                                 }
 
@@ -401,12 +399,12 @@ public sealed partial class ElementView : UserControl
 
                     _resizeContexts = filteredElements.Select(elem =>
                     {
-                        TimeSpan? originalLength = null;
+                        TimeSpan? originalDuration = null;
                         if (clampToOriginal
-                            && elem.Model.Operation.Children.FirstOrDefault(v => v.HasOriginalLength()) is { } op
-                            && op.TryGetOriginalLength(out TimeSpan ts))
+                            && elem.Model.HasOriginalDuration()
+                            && elem.Model.TryGetOriginalDuration(out TimeSpan ts))
                         {
-                            originalLength = ts;
+                            originalDuration = ts;
                         }
 
                         return new ElementResizeContext(
@@ -414,7 +412,7 @@ public sealed partial class ElementView : UserControl
                             Before: elem.Model.GetBefore(elem.Model.ZIndex, elem.Model.Start),
                             After: elem.Model.GetAfter(elem.Model.ZIndex, elem.Model.Range.End),
                             RecordedEndTime: elem.Model.Range.End,
-                            OriginalLength: originalLength);
+                            OriginalDuration: originalDuration);
                     }).ToArray();
 
                     _pressed = true;

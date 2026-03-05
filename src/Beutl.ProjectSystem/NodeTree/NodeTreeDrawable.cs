@@ -1,5 +1,5 @@
 using System.ComponentModel.DataAnnotations;
-using System.Reactive;
+using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
@@ -16,12 +16,13 @@ public sealed class NodeTreeDrawable : Drawable
     public NodeTreeDrawable()
     {
         ScanProperties<NodeTreeDrawable>();
+        HideProperties(Transform, AlignmentX, AlignmentY, TransformOrigin, FilterEffect, BlendMode, Opacity);
         Model.CurrentValue = new NodeTreeModel();
     }
 
     public IProperty<NodeTreeModel?> Model { get; } = Property.Create<NodeTreeModel?>();
 
-    public override Resource ToResource(RenderContext context)
+    public override Resource ToResource(CompositionContext context)
     {
         bool updateOnly = false;
         var resource = new Resource();
@@ -54,7 +55,7 @@ public sealed class NodeTreeDrawable : Drawable
 
         public List<RenderNode> OutputRenderNode { get; private set; } = [];
 
-        public override void Update(EngineObject obj, RenderContext context, ref bool updateOnly)
+        public override void Update(EngineObject obj, CompositionContext context, ref bool updateOnly)
         {
             base.Update(obj, context, ref updateOnly);
             OutputRenderNode.Clear();
@@ -72,7 +73,7 @@ public sealed class NodeTreeDrawable : Drawable
                 {
                     _snapshot.Build(_model, context);
 
-                    _snapshot.Evaluate(EvaluationTarget.Graphics, context);
+                    _snapshot.Evaluate(CompositionTarget.Graphics, context);
 
                     PullOutputValue(_model);
 

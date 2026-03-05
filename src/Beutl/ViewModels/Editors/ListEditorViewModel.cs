@@ -400,6 +400,12 @@ public sealed class ListEditorViewModel<TItem> : BaseEditorViewModel, IListEdito
     protected override void Dispose(bool disposing)
     {
         base.Dispose(disposing);
+        if (_incc != null)
+        {
+            _incc.CollectionChanged -= OnCollectionChanged;
+            _incc = null;
+        }
+
         foreach (ListItemEditorViewModel<TItem> item in Items)
         {
             item.Dispose();

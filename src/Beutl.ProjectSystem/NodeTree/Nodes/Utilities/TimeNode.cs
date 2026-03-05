@@ -1,5 +1,4 @@
 ﻿using Beutl.NodeTree.Rendering;
-using Beutl.ProjectSystem;
 
 namespace Beutl.NodeTree.Nodes.Utilities;
 
@@ -23,7 +22,7 @@ public partial class TimeNode : Node
 
     public partial class Resource
     {
-        public override void Update(NodeRenderContext context)
+        public override void Update(NodeCompositionContext context)
         {
             var node = GetOriginal();
             float duration = (float)node.TimeRange.Duration.TotalSeconds;

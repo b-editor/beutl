@@ -27,7 +27,7 @@ public partial class MeasureNode : Node
 
     public partial class Resource
     {
-        public override void Update(NodeRenderContext context)
+        public override void Update(NodeCompositionContext context)
         {
             if (Input is RenderNode renderNode)
             {

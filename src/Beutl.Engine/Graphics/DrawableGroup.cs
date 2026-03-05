@@ -1,4 +1,6 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
+using Beutl.Collections.Pooled;
+using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Transformation;
@@ -8,13 +10,15 @@ using Beutl.Media;
 namespace Beutl.Graphics;
 
 [Display(Name = nameof(Strings.Group), ResourceType = typeof(Strings))]
-public sealed partial class DrawableGroup : Drawable
+public sealed partial class DrawableGroup : Drawable, IFlowOperator
 {
     public DrawableGroup()
     {
         ScanProperties<DrawableGroup>();
+        HideProperties(AlignmentX, AlignmentY);
     }
 
+    [SuppressResourceClassGeneration]
     public IListProperty<Drawable> Children { get; } = Property.CreateList<Drawable>();
 
     public override void Render(GraphicsContext2D context, Drawable.Resource resource)
@@ -35,6 +39,7 @@ public sealed partial class DrawableGroup : Drawable
                        (n, b) => n.Update(
                            b.Transform, b.TransformOrigin, b.availableSize,
                            Media.AlignmentX.Left, Media.AlignmentY.Top, b.boundsMemory)))
+            using (context.PushOpacity(resource.Opacity / 100f))
             using (r.FilterEffect == null ? new() : context.PushFilterEffect(r.FilterEffect))
             using (context.PushNode(
                        boundsMemory,
@@ -58,6 +63,54 @@ public sealed partial class DrawableGroup : Drawable
     protected override Size MeasureCore(Size availableSize, Drawable.Resource resource)
     {
         return Size.Empty;
+    }
+
+    public new partial class Resource
+    {
+        private readonly PooledList<int> _childrenVersion = [];
+
+        public List<Drawable.Resource> Children { get; set; } = [];
+
+        partial void PreUpdate(DrawableGroup obj, CompositionContext context)
+        {
+            // Consume all Drawables from flow
+            using var consumed = new PooledList<Drawable.Resource>();
+            if (context.Flow != null)
+            {
+                for (int i = context.Flow.Count - 1; i >= 0; i--)
+                {
+                    if (context.Flow[i] is Drawable.Resource d)
+                    {
+                        consumed.Insert(0, d);
+                        context.Flow.RemoveAt(i);
+                    }
+                }
+            }
+
+            // Reconcile children from consumed drawables
+            bool changed = false;
+            ResourceReconciler.ReconcileListFromFlow(
+                context: context,
+                property: obj.Children,
+                consumed: consumed,
+                field: Children,
+                versions: _childrenVersion,
+                changed: ref changed);
+
+            if (changed)
+                Version++;
+        }
+
+        partial void PostDispose(bool disposing)
+        {
+            for (int i = _childrenVersion.Count; i < Children.Count; i++)
+            {
+                Children[i].Dispose();
+            }
+
+            Children.Clear();
+            _childrenVersion.Dispose();
+        }
     }
 
     internal sealed class BoundsObserveNode : ContainerRenderNode

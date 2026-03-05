@@ -2,13 +2,10 @@
 using Beutl.Collections.Pooled;
 using Beutl.Engine;
 using Beutl.Media;
-using Beutl.Operation;
+using Beutl.PropertyAdapters;
 using Beutl.Services;
 
 using DynamicData;
-
-using Microsoft.Extensions.DependencyInjection;
-
 using Reactive.Bindings;
 
 namespace Beutl.ViewModels.Editors;

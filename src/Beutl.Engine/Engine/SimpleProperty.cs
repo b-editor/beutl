@@ -2,8 +2,8 @@
 using System.Reflection;
 using System.Text.Json.Nodes;
 using Beutl.Animation;
+using Beutl.Composition;
 using Beutl.Engine.Expressions;
-using Beutl.Graphics.Rendering;
 using Beutl.Serialization;
 using Beutl.Validation;
 using ValidationContext = Beutl.Validation.ValidationContext;
@@ -108,7 +108,7 @@ public class SimpleProperty<T>(T defaultValue, IValidator<T>? validator = null) 
         Edited?.Invoke(sender, e);
     }
 
-    public T GetValue(RenderContext context)
+    public T GetValue(CompositionContext context)
     {
         if (_expression != null)
         {

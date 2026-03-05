@@ -1,9 +1,7 @@
 ﻿using System.Text.Json.Nodes;
-using Beutl.Animation;
 using Beutl.Engine;
-using Beutl.Operation;
 using Beutl.Services;
-using Beutl.Editor.Services;
+using Beutl.PropertyAdapters;
 using DynamicData;
 
 namespace Beutl.ViewModels.Editors;
@@ -95,7 +93,7 @@ public sealed class PropertiesEditorViewModel : IDisposable, IJsonSerializable, 
         Type simpleAdapterType = typeof(SimplePropertyAdapter<>);
         Type animatableAdapterType = typeof(AnimatablePropertyAdapter<>);
 
-        List<IProperty> cprops = [.. obj.Properties];
+        List<IProperty> cprops = [.. obj.GetDisplayProperties()];
         cprops.RemoveAll(x => !(predicate?.Invoke(x) ?? true));
         List<IPropertyAdapter> props = cprops.ConvertAll(x =>
         {

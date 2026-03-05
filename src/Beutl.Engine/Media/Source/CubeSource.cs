@@ -1,9 +1,7 @@
 using System.Text.Json.Serialization;
-
+using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Graphics;
-using Beutl.Graphics.Rendering;
-using Beutl.IO;
 using Beutl.Serialization;
 
 namespace Beutl.Media.Source;
@@ -19,7 +17,7 @@ public sealed class CubeSource : MediaSource
         Uri = uri;
     }
 
-    public override Resource ToResource(RenderContext context)
+    public override Resource ToResource(CompositionContext context)
     {
         var resource = new Resource();
         bool updateOnly = true;
@@ -34,7 +32,7 @@ public sealed class CubeSource : MediaSource
 
         public CubeFile? Cube => _cube;
 
-        public override void Update(EngineObject obj, RenderContext context, ref bool updateOnly)
+        public override void Update(EngineObject obj, CompositionContext context, ref bool updateOnly)
         {
             base.Update(obj, context, ref updateOnly);
             var cubeSource = (CubeSource)obj;

@@ -1,8 +1,5 @@
-using System;
-using System.Collections.Generic;
-using System.Numerics;
+using Beutl.Composition;
 using Beutl.Graphics;
-using Beutl.Graphics.Rendering;
 using Beutl.Graphics3D.Camera;
 using Beutl.Graphics3D.Gizmo;
 using Beutl.Graphics3D.Lighting;
@@ -44,7 +41,7 @@ public interface IRenderer3D : IDisposable
     /// <summary>
     /// Renders the 3D scene.
     /// </summary>
-    /// <param name="renderContext">The render context.</param>
+    /// <param name="compositionContext">The composition context.</param>
     /// <param name="camera">The camera resource.</param>
     /// <param name="objects">The object resources to render.</param>
     /// <param name="lights">The lights in the scene.</param>
@@ -54,7 +51,7 @@ public interface IRenderer3D : IDisposable
     /// <param name="gizmoTarget">The object to display gizmo for, or null.</param>
     /// <param name="gizmoMode">The gizmo visualization mode.</param>
     void Render(
-        RenderContext renderContext,
+        CompositionContext compositionContext,
         Camera3D.Resource camera,
         IReadOnlyList<Object3D.Resource> objects,
         IReadOnlyList<Light3D.Resource> lights,

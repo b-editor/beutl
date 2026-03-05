@@ -9,8 +9,8 @@ using Beutl.Editor.Components.LibraryTab;
 using Beutl.Editor.Components.LibraryTab.Views;
 using Beutl.Engine;
 using Beutl.Graphics;
+using Beutl.Graphics.Shapes;
 using Beutl.Graphics.Transformation;
-using Beutl.Operators.Source;
 using Beutl.ProjectSystem;
 using Beutl.Services.PrimitiveImpls;
 using Beutl.ViewModels;
@@ -54,7 +54,7 @@ public static class AnimationEditTutorial
                     Start: TimeSpan.Zero,
                     Length: TimeSpan.FromSeconds(5),
                     Layer: 0,
-                    InitialOperator: typeof(EllipseOperator)));
+                    InitialObject: typeof(EllipseShape)));
 
                 return true;
             },
@@ -186,7 +186,7 @@ public static class AnimationEditTutorial
                         EditViewModel? editVm = TutorialHelpers.GetEditViewModel();
                         if (editVm == null) return;
 
-                        Element? element = TutorialHelpers.FindElementWithOperator<EllipseOperator>(editVm.Scene);
+                        Element? element = TutorialHelpers.FindElementWithObject<EllipseShape>(editVm.Scene);
                         if (element == null) return;
 
                         TranslateTransform? translateTransform = TutorialHelpers.GetTranslateTransform(
@@ -299,7 +299,7 @@ public static class AnimationEditTutorial
                     OnShown = () =>
                     {
                         EditViewModel? editVm = TutorialHelpers.GetEditViewModel();
-                        Element? element = TutorialHelpers.FindElementWithOperator<EllipseOperator>(editVm?.Scene);
+                        Element? element = TutorialHelpers.FindElementWithObject<EllipseShape>(editVm?.Scene);
                         TutorialHelpers.PrepareForPlayback(editVm, element);
                     },
                 },
@@ -397,7 +397,7 @@ public static class AnimationEditTutorial
                     OnShown = () =>
                     {
                         EditViewModel? editVm = TutorialHelpers.GetEditViewModel();
-                        Element? element = TutorialHelpers.FindElementWithOperator<EllipseOperator>(editVm?.Scene);
+                        Element? element = TutorialHelpers.FindElementWithObject<EllipseShape>(editVm?.Scene);
                         if (editVm != null && element != null)
                         {
                             editVm.CurrentTime.Value = element.Start;
@@ -424,7 +424,7 @@ public static class AnimationEditTutorial
             .OfType<Views.Editors.TransformEditor>()
             .FirstOrDefault(c =>
                 c.DataContext is TransformEditorViewModel vm &&
-                (vm.GetService(typeof(Element)) as Element)?.Operation.Children.OfType<EllipseOperator>().Any() ==
+                (vm.GetService(typeof(Element)) as Element)?.Objects.OfType<EllipseShape>().Any() ==
                 true);
     }
 

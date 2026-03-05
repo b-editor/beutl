@@ -1,11 +1,9 @@
 using System.Text.Json.Nodes;
-using Beutl.Editor;
 using Beutl.Editor.Services;
 using Beutl.Engine;
 using Beutl.Graphics.Effects;
-using Beutl.Media;
-using Beutl.Operation;
 using Beutl.ProjectSystem;
+using Beutl.PropertyAdapters;
 using Microsoft.Extensions.DependencyInjection;
 using Reactive.Bindings;
 

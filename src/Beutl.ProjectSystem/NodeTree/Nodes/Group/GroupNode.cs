@@ -290,7 +290,7 @@ public partial class GroupNode : Node
         private int _groupInputSlotIndex = -1;
         private int _groupOutputSlotIndex = -1;
 
-        public override void Initialize(NodeRenderContext context)
+        public override void Initialize(NodeCompositionContext context)
         {
             var node = GetOriginal();
             node.Group.TopologyChanged += OnGroupTopologyChanged;
@@ -315,7 +315,7 @@ public partial class GroupNode : Node
             _groupOutputSlotIndex = -1;
         }
 
-        public override void Update(NodeRenderContext context)
+        public override void Update(NodeCompositionContext context)
         {
             var node = GetOriginal();
             if (_innerSnapshot == null) return;

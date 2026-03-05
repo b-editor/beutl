@@ -17,7 +17,7 @@ public abstract partial class ConfigureNode : Node
 
     public partial class Resource
     {
-        public override void Update(NodeRenderContext context)
+        public override void Update(NodeCompositionContext context)
         {
             var node = GetOriginal();
             var inputs = context.CollectListInputValues(node.InputSocket);
@@ -34,7 +34,7 @@ public abstract partial class ConfigureNode : Node
             }
         }
 
-        protected virtual void EvaluateCore(NodeRenderContext context)
+        protected virtual void EvaluateCore(NodeCompositionContext context)
         {
         }
     }

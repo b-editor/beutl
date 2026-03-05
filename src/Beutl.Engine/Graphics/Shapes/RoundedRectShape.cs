@@ -1,6 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using Beutl.Composition;
 using Beutl.Engine;
-using Beutl.Graphics.Rendering;
 using Beutl.Language;
 using Beutl.Media;
 
@@ -14,9 +14,17 @@ public sealed partial class RoundedRectShape : Shape
         ScanProperties<RoundedRectShape>();
     }
 
+    [Display(Name = nameof(Strings.Width), ResourceType = typeof(Strings))]
+    [Range(0, float.MaxValue)]
+    public IProperty<float> Width { get; } = Property.CreateAnimatable<float>(100);
+
+    [Display(Name = nameof(Strings.Height), ResourceType = typeof(Strings))]
+    [Range(0, float.MaxValue)]
+    public IProperty<float> Height { get; } = Property.CreateAnimatable<float>(100);
+
     [Display(Name = nameof(Strings.CornerRadius), ResourceType = typeof(Strings))]
     [Range(typeof(CornerRadius), "0", "max")]
-    public IProperty<CornerRadius> CornerRadius { get; } = Property.CreateAnimatable<CornerRadius>();
+    public IProperty<CornerRadius> CornerRadius { get; } = Property.CreateAnimatable<CornerRadius>(new(25));
 
     [Range(0, 100)]
     [Display(Name = nameof(Strings.Smoothing), ResourceType = typeof(Strings))]
@@ -27,7 +35,7 @@ public sealed partial class RoundedRectShape : Shape
         private readonly RoundedRectGeometry _geometry = new();
         private RoundedRectGeometry.Resource? _geometryResource;
 
-        partial void PostUpdate(RoundedRectShape obj, RenderContext context)
+        partial void PostUpdate(RoundedRectShape obj, CompositionContext context)
         {
             _geometry.Width.CurrentValue = Math.Max(Width, 0);
             _geometry.Height.CurrentValue = Math.Max(Height, 0);

@@ -1,7 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
-
+using Beutl.Composition;
 using Beutl.Engine;
-using Beutl.Graphics.Rendering;
 using Beutl.Language;
 using Beutl.Logging;
 using Microsoft.Extensions.Logging;
@@ -122,7 +121,7 @@ public sealed partial class SKSLScriptEffect : FilterEffect
 
         public float Time { get; private set; }
 
-        partial void PostUpdate(SKSLScriptEffect obj, RenderContext context)
+        partial void PostUpdate(SKSLScriptEffect obj, CompositionContext context)
         {
             float duration = (float)obj.TimeRange.Duration.TotalSeconds;
             float time = (float)(context.Time - obj.TimeRange.Start).TotalSeconds;

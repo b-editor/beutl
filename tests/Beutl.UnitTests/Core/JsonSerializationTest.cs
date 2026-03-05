@@ -1,14 +1,10 @@
 ﻿using System.Text.Json.Nodes;
 using Beutl.Graphics;
-using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Shapes;
 using Beutl.Logging;
-using Beutl.Media;
 using Beutl.NodeTree;
 using Beutl.NodeTree.Nodes;
 using Beutl.NodeTree.Nodes.Geometry;
-using Beutl.Operation;
-using Beutl.Operators.Source;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
 using Microsoft.Extensions.Logging;
@@ -64,15 +60,15 @@ public class JsonSerializationTest
         var elm1 = new Element();
         CoreSerializer.StoreToUri(elm1, UriHelper.CreateFromPath(Path.Combine(basePath, $"0.layer")));
         scene.AddChild(elm1);
-        elm1.Operation.Children.Add(new EllipseOperator());
-        elm1.Operation.Children.Add(new DecorateOperator());
+        elm1.Objects.Add(new EllipseShape());
+        elm1.Objects.Add(new DrawableDecorator());
 
         var elm2 = new Element { ZIndex = 2 };
         CoreSerializer.StoreToUri(elm2, UriHelper.CreateFromPath(Path.Combine(basePath, $"1.layer")));
         scene.AddChild(elm2);
-        var nodeTreeOp = new NodeTreeOperator();
-        elm2.Operation.Children.Add(nodeTreeOp);
-        var nodeTreeModel = nodeTreeOp.Value.Model.CurrentValue!;
+        var nodeTreeDrawable = new NodeTreeDrawable();
+        elm2.Objects.Add(nodeTreeDrawable);
+        var nodeTreeModel = nodeTreeDrawable.Model.CurrentValue!;
         var rectNode = new RectGeometryNode();
         var shapeNode = new GeometryShapeNode();
         var outNode = new OutputNode();

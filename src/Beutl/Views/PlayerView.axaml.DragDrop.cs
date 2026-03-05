@@ -29,8 +29,11 @@ public partial class PlayerView
         if (containsFe || containsTra)
         {
             Drawable? drawable = await RenderThread.Dispatcher.InvokeAsync(() =>
-                editViewModel.Renderer.Value.HitTest(
-                    new((float)scaledPosition.X, (float)scaledPosition.Y)));
+            {
+                var compositor = editViewModel.Renderer.Value.Compositor;
+                var compositionFrame = compositor.EvaluateGraphics(frame);
+                return editViewModel.Renderer.Value.HitTest(compositionFrame, new((float)scaledPosition.X, (float)scaledPosition.Y));
+            });
 
             if (drawable != null)
             {
@@ -79,7 +82,7 @@ public partial class PlayerView
                 return elements.Length == 0 ? 0 : elements.Max(v => v.ZIndex) + 1;
             }
 
-            if (e.DataTransfer.TryGetValue(BeutlDataFormats.SourceOperator) is { } typeName
+            if (e.DataTransfer.TryGetValue(BeutlDataFormats.EngineObject) is { } typeName
                 && TypeFormat.ToType(typeName) is { } type)
             {
                 e.Handled = true;
@@ -87,7 +90,7 @@ public partial class PlayerView
                 int zindex = CalculateZIndex(scene);
 
                 editViewModel.AddElement(new ElementDescription(
-                    frame, TimeSpan.FromSeconds(5), zindex, InitialOperator: type, Position: centeredPosition));
+                    frame, TimeSpan.FromSeconds(5), zindex, InitialObject: type, Position: centeredPosition));
             }
             else if (e.DataTransfer.TryGetFile()?.TryGetLocalPath() is { } fileName)
             {
@@ -103,7 +106,7 @@ public partial class PlayerView
 
     private void OnFrameDragOver(object? sender, DragEventArgs e)
     {
-        if (e.DataTransfer.Contains(BeutlDataFormats.SourceOperator)
+        if (e.DataTransfer.Contains(BeutlDataFormats.EngineObject)
             || e.DataTransfer.Contains(BeutlDataFormats.FilterEffect)
             || e.DataTransfer.Contains(BeutlDataFormats.Transform)
             || e.DataTransfer.Contains(DataFormat.File))

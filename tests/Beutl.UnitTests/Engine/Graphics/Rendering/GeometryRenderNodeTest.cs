@@ -1,4 +1,5 @@
-﻿using Beutl.Graphics;
+﻿using Beutl.Composition;
+using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
 
@@ -13,9 +14,9 @@ public class GeometryRenderNodeTest
         var geometry = new EllipseGeometry { Width = { CurrentValue = 100 }, Height = { CurrentValue = 100 } };
         Brush fill = new SolidColorBrush(Colors.Red);
         Pen pen = new Pen { Brush = { CurrentValue = Brushes.Black }, Thickness = { CurrentValue = 1 } };
-        var geometryResource = geometry.ToResource(RenderContext.Default);
-        var fillResource = fill.ToResource(RenderContext.Default);
-        var penResource = pen.ToResource(RenderContext.Default);
+        var geometryResource = geometry.ToResource(CompositionContext.Default);
+        var fillResource = fill.ToResource(CompositionContext.Default);
+        var penResource = pen.ToResource(CompositionContext.Default);
 
         var node = new GeometryRenderNode(geometryResource, fillResource, penResource);
 
@@ -31,12 +32,12 @@ public class GeometryRenderNodeTest
         Brush fill2 = new SolidColorBrush(Colors.Blue);
         Pen pen1 = new Pen { Brush = { CurrentValue = Brushes.Black }, Thickness = { CurrentValue = 1 } };
         Pen pen2 = new Pen { Brush = { CurrentValue = Brushes.Black }, Thickness = { CurrentValue = 2 } };
-        var geometryResource1 = geometry1.ToResource(RenderContext.Default);
-        var geometryResource2 = geometry2.ToResource(RenderContext.Default);
-        var fillResource1 = fill1.ToResource(RenderContext.Default);
-        var fillResource2 = fill2.ToResource(RenderContext.Default);
-        var penResource1 = pen1.ToResource(RenderContext.Default);
-        var penResource2 = pen2.ToResource(RenderContext.Default);
+        var geometryResource1 = geometry1.ToResource(CompositionContext.Default);
+        var geometryResource2 = geometry2.ToResource(CompositionContext.Default);
+        var fillResource1 = fill1.ToResource(CompositionContext.Default);
+        var fillResource2 = fill2.ToResource(CompositionContext.Default);
+        var penResource1 = pen1.ToResource(CompositionContext.Default);
+        var penResource2 = pen2.ToResource(CompositionContext.Default);
 
         var node = new GeometryRenderNode(geometryResource1, fillResource1, penResource1);
 
@@ -51,9 +52,9 @@ public class GeometryRenderNodeTest
         var geometry = new EllipseGeometry { Width = { CurrentValue = 100 }, Height = { CurrentValue = 100 } };
         Brush fill = new SolidColorBrush(Colors.Red);
         Pen pen = new Pen { Brush = { CurrentValue = Brushes.Black }, Thickness = { CurrentValue = 1 } };
-        var geometryResource = geometry.ToResource(RenderContext.Default);
-        var fillResource = fill.ToResource(RenderContext.Default);
-        var penResource = pen.ToResource(RenderContext.Default);
+        var geometryResource = geometry.ToResource(CompositionContext.Default);
+        var fillResource = fill.ToResource(CompositionContext.Default);
+        var penResource = pen.ToResource(CompositionContext.Default);
         var context = new RenderNodeContext([]);
 
         var node = new GeometryRenderNode(geometryResource, fillResource, penResource);
@@ -69,9 +70,9 @@ public class GeometryRenderNodeTest
         var geometry = new EllipseGeometry { Width = { CurrentValue = 100 }, Height = { CurrentValue = 100 } };
         Brush fill = new SolidColorBrush(Colors.Red);
         Pen pen = new Pen { Brush = { CurrentValue = Brushes.Black }, Thickness = { CurrentValue = 1 } };
-        var geometryResource = geometry.ToResource(RenderContext.Default);
-        var fillResource = fill.ToResource(RenderContext.Default);
-        var penResource = pen.ToResource(RenderContext.Default);
+        var geometryResource = geometry.ToResource(CompositionContext.Default);
+        var fillResource = fill.ToResource(CompositionContext.Default);
+        var penResource = pen.ToResource(CompositionContext.Default);
         var context = new RenderNodeContext([]);
 
         var node = new GeometryRenderNode(geometryResource, fillResource, penResource);
@@ -87,9 +88,9 @@ public class GeometryRenderNodeTest
         var geometry = new EllipseGeometry { Width = { CurrentValue = 100 }, Height = { CurrentValue = 100 } };
         Brush fill = new SolidColorBrush(Colors.Red);
         Pen pen = new Pen { Brush = { CurrentValue = Brushes.Black }, Thickness = { CurrentValue = 1 } };
-        var geometryResource = geometry.ToResource(RenderContext.Default);
-        var fillResource = fill.ToResource(RenderContext.Default);
-        var penResource = pen.ToResource(RenderContext.Default);
+        var geometryResource = geometry.ToResource(CompositionContext.Default);
+        var fillResource = fill.ToResource(CompositionContext.Default);
+        var penResource = pen.ToResource(CompositionContext.Default);
         var context = new RenderNodeContext([]);
 
         var node = new GeometryRenderNode(geometryResource, fillResource, penResource);
@@ -104,8 +105,8 @@ public class GeometryRenderNodeTest
     {
         var geometry = new EllipseGeometry { Width = { CurrentValue = 100 }, Height = { CurrentValue = 100 } };
         Pen pen = new Pen { Brush = { CurrentValue = Brushes.Black }, Thickness = { CurrentValue = 50 } };
-        var geometryResource = geometry.ToResource(RenderContext.Default);
-        var penResource = pen.ToResource(RenderContext.Default);
+        var geometryResource = geometry.ToResource(CompositionContext.Default);
+        var penResource = pen.ToResource(CompositionContext.Default);
         var context = new RenderNodeContext([]);
 
         var node = new GeometryRenderNode(geometryResource, null, penResource);

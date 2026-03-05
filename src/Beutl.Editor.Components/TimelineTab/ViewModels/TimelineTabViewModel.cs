@@ -1,6 +1,5 @@
 ﻿using System.Collections.Immutable;
 using System.Collections.Specialized;
-using System.Reactive.Linq;
 using System.Reactive.Subjects;
 using System.Text.Json.Nodes;
 using Avalonia;
@@ -9,7 +8,6 @@ using Avalonia.Input.Platform;
 using Avalonia.Platform.Storage;
 using Beutl.Animation;
 using Beutl.Configuration;
-using Beutl.Editor;
 using Beutl.Editor.Services;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.TimelineTab.Models;
@@ -17,14 +15,12 @@ using Beutl.Engine;
 using Beutl.Logging;
 using Beutl.Media;
 using Beutl.Media.Source;
-using Beutl.Operation;
-using Beutl.Operators.Source;
 using Beutl.ProjectSystem;
+using Beutl.PropertyAdapters;
 using Beutl.Serialization;
 using Beutl.Services;
 using Beutl.Services.PrimitiveImpls;
 using Beutl.Utilities;
-using DynamicData;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
@@ -594,17 +590,17 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler
         string imageFile = RandomFileNameGenerator.Generate(resDir, "png");
         imageData.Save(imageFile);
 
-        var sp = new SourceImageOperator();
-        sp.Value.Source.CurrentValue = ImageSource.Open(imageFile);
+        var sourceImage = new Graphics.SourceImage();
+        sourceImage.Source.CurrentValue = ImageSource.Open(imageFile);
         var newElement = new Element
         {
             Start = ClickedFrame,
             Length = TimeSpan.FromSeconds(5),
             ZIndex = CalculateClickedLayer(),
-            Operation = { Children = { sp } },
-            AccentColor = ColorGenerator.GenerateColor(typeof(SourceImageOperator).FullName!),
+            AccentColor = ColorGenerator.GenerateColor(typeof(Graphics.SourceImage).FullName!),
             Name = Path.GetFileName(imageFile)
         };
+        newElement.AddObject(sourceImage);
 
         CoreSerializer.StoreToUri(newElement, RandomFileNameGenerator.GenerateUri(
             dir, Constants.ElementFileExtension));

@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using Beutl.Animation;
+using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Graphics.Rendering;
 using Beutl.Language;
@@ -7,7 +8,7 @@ using Beutl.Language;
 namespace Beutl.Graphics;
 
 [Display(Name = nameof(Strings.TimeController), ResourceType = typeof(Strings))]
-public sealed partial class DrawableTimeController : Drawable, IPresenter<Drawable>
+public sealed partial class DrawableTimeController : Drawable, IPresenter<Drawable>, IFlowOperator
 {
     public DrawableTimeController()
     {
@@ -15,6 +16,7 @@ public sealed partial class DrawableTimeController : Drawable, IPresenter<Drawab
     }
 
     [Display(Name = nameof(Strings.Target), ResourceType = typeof(Strings))]
+    [SuppressResourceClassGeneration]
     public IProperty<Drawable?> Target { get; } = Property.Create<Drawable?>();
 
     [Display(Name = nameof(Strings.Offset), ResourceType = typeof(Strings))]
@@ -61,10 +63,8 @@ public sealed partial class DrawableTimeController : Drawable, IPresenter<Drawab
     /// <summary>
     /// Main time calculation (follows the order defined in the design document).
     /// </summary>
-    private TimeSpan CalculateTargetTime(TimeSpan currentTime, Resource resource)
+    private TimeSpan CalculateTargetTime(TimeSpan currentTime, Resource resource, Drawable? targetDrawable)
     {
-        // Retrieve target information
-        var targetDrawable = resource.Target?.GetOriginal();
         if (targetDrawable == null)
             return currentTime;
 
@@ -127,6 +127,7 @@ public sealed partial class DrawableTimeController : Drawable, IPresenter<Drawab
         {
             baseTime = TimeSpan.Zero;
         }
+
         if (resource.HoldLastFrame && baseTime > targetDuration)
         {
             baseTime = targetDuration;
@@ -162,28 +163,53 @@ public sealed partial class DrawableTimeController : Drawable, IPresenter<Drawab
     public partial class Resource
     {
         internal readonly Media.SpeedIntegrator SpeedIntegrator = new(60);
-        private TimeSpan _originalContextTime;
+        private Drawable.Resource? _target;
 
-        partial void PreUpdate(DrawableTimeController obj, RenderContext context)
+        public Drawable.Resource? Target => _target;
+
+        partial void PostUpdate(DrawableTimeController obj, CompositionContext context)
         {
-            // Save the original Time
-            _originalContextTime = context.Time;
-
-            // If a Target exists, replace with the calculated time
-            if (Target != null)
+            Drawable? targetDrawable = null;
+            if (context.Flow != null)
             {
-                context.Time = obj.CalculateTargetTime(context.Time, this);
+                for (int i = 0; i < context.Flow.Count; i++)
+                {
+                    if (context.Flow[i] is Drawable.Resource d)
+                    {
+                        targetDrawable = d.GetOriginal();
+                        context.Flow.RemoveAt(i);
+                        break;
+                    }
+                }
             }
-        }
+            else
+            {
+                targetDrawable = context.Get(obj.Target);
+            }
 
-        partial void PostUpdate(DrawableTimeController obj, RenderContext context)
-        {
-            // Restore the original Time
-            context.Time = _originalContextTime;
+            // Save the original Time
+            var originalContextTime = context.Time;
+            try
+            {
+                context.Time = obj.CalculateTargetTime(context.Time, this, targetDrawable);
+                bool changed = false;
+                ResourceReconciler.ReconcileResource(
+                    context: context,
+                    value: targetDrawable,
+                    field: ref _target,
+                    changed: ref changed);
+                if (changed)
+                    Version++;
+            }
+            finally
+            {
+                context.Time = originalContextTime;
+            }
         }
 
         partial void PostDispose(bool disposing)
         {
+            _target?.Dispose();
             SpeedIntegrator.Dispose();
         }
     }

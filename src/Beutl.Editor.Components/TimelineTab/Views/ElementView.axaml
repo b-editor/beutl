@@ -115,8 +115,8 @@
                         <icons:SymbolIconSource Symbol="Rename" />
                     </ui:MenuFlyoutItem.IconSource>
                 </ui:MenuFlyoutItem>
-                <ui:MenuFlyoutItem x:Name="change2OriginalLength"
-                                   Command="{Binding ChangeToOriginalLength}"
+                <ui:MenuFlyoutItem x:Name="change2OriginalDuration"
+                                   Command="{Binding ChangeToOriginalDuration}"
                                    Text="{x:Static lang:Strings.ChangeToOriginalLength}" />
                 <ui:MenuFlyoutItem Click="ChangeColor_Click" Text="{x:Static lang:Strings.ChangeColor}" />
                 <ui:ToggleMenuFlyoutItem IsChecked="{Binding IsThumbnailsDisabled.Value}" Text="{x:Static lang:Strings.DisableThumbnails}">

@@ -1,6 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using Beutl.Composition;
 using Beutl.Engine;
-using Beutl.Graphics.Rendering;
 using Beutl.Language;
 
 namespace Beutl.Graphics.Transformation;
@@ -36,7 +36,7 @@ public sealed class ScaleTransform : Transform
     [Display(Name = nameof(Strings.ScaleY), ResourceType = typeof(Strings))]
     public IProperty<float> ScaleY { get; } = Property.CreateAnimatable(100f);
 
-    public override Matrix CreateMatrix(RenderContext context)
+    public override Matrix CreateMatrix(CompositionContext context)
     {
         float scale = context.Get(Scale) / 100f;
         float scaleX = context.Get(ScaleX) / 100f;

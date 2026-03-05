@@ -1,3 +1,4 @@
+using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Backend;
@@ -79,7 +80,7 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
 
         // Render
         renderer.Render(
-            new RenderContext(scene.Time),
+            new CompositionContext(scene.Time),
             cameraResource,
             objectResources,
             lightResources,

@@ -8,7 +8,7 @@ using Beutl.Engine;
 using Beutl.Engine.Expressions;
 using Beutl.Extensibility;
 using Beutl.NodeTree.Rendering;
-using Beutl.Operation;
+using Beutl.PropertyAdapters;
 
 namespace Beutl.NodeTree;
 

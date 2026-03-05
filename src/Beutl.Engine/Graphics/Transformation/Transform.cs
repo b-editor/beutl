@@ -1,5 +1,5 @@
-﻿using Beutl.Engine;
-using Beutl.Graphics.Rendering;
+﻿using Beutl.Composition;
+using Beutl.Engine;
 
 namespace Beutl.Graphics.Transformation;
 
@@ -7,9 +7,9 @@ namespace Beutl.Graphics.Transformation;
 [PresenterType(typeof(TransformPresenter))]
 public abstract class Transform : EngineObject
 {
-    public abstract Matrix CreateMatrix(RenderContext context);
+    public abstract Matrix CreateMatrix(CompositionContext context);
 
-    public override Resource ToResource(RenderContext context)
+    public override Resource ToResource(CompositionContext context)
     {
         var resource = new Resource();
         bool updateOnly = true;
@@ -21,7 +21,7 @@ public abstract class Transform : EngineObject
     {
         public Matrix Matrix { get; set; } = Matrix.Identity;
 
-        public override void Update(EngineObject obj, RenderContext context, ref bool updateOnly)
+        public override void Update(EngineObject obj, CompositionContext context, ref bool updateOnly)
         {
             base.Update(obj, context, ref updateOnly);
             var transform = (Transform)obj;

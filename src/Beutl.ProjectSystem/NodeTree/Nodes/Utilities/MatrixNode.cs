@@ -17,7 +17,7 @@ public abstract partial class MatrixNode : Node
 
     public partial class Resource
     {
-        public override void Update(NodeRenderContext context)
+        public override void Update(NodeCompositionContext context)
         {
             var node = GetOriginal();
             Matrix matrix = GetMatrix(context, node);
@@ -32,7 +32,7 @@ public abstract partial class MatrixNode : Node
             }
         }
 
-        protected virtual Matrix GetMatrix(NodeRenderContext context, MatrixNode node)
+        protected virtual Matrix GetMatrix(NodeCompositionContext context, MatrixNode node)
             => Matrix.Identity;
     }
 }

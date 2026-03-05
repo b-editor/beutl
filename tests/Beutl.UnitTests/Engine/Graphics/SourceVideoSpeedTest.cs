@@ -1,6 +1,6 @@
 using Beutl.Animation;
+using Beutl.Composition;
 using Beutl.Graphics;
-using Beutl.Graphics.Rendering;
 using Beutl.Media;
 using Beutl.Media.Source;
 using Beutl.UnitTests.Engine.Graphics.Rendering;
@@ -30,7 +30,7 @@ public class SourceVideoSpeedTest
 
         _videoSource = new VideoSource();
         _videoSource.ReadFrom(new Uri(videoPath));
-        _videoSourceResource = _videoSource.ToResource(RenderContext.Default);
+        _videoSourceResource = _videoSource.ToResource(CompositionContext.Default);
 
         _sourceVideo = new SourceVideo();
         _sourceVideo.Source.CurrentValue = _videoSource;
@@ -53,10 +53,10 @@ public class SourceVideoSpeedTest
     {
         // Arrange
         _sourceVideo!.Speed.CurrentValue = 100f;
-        _sourceVideoResource = (SourceVideo.Resource)_sourceVideo.ToResource(RenderContext.Default);
+        _sourceVideoResource = (SourceVideo.Resource)_sourceVideo.ToResource(CompositionContext.Default);
 
         // 1秒時点でリソースを更新
-        var context = new RenderContext(TimeSpan.FromSeconds(1));
+        var context = new CompositionContext(TimeSpan.FromSeconds(1));
         var updateOnly = false;
         _sourceVideoResource.Update(_sourceVideo, context, ref updateOnly);
 
@@ -69,10 +69,10 @@ public class SourceVideoSpeedTest
     {
         // Arrange
         _sourceVideo!.Speed.CurrentValue = 200f;
-        _sourceVideoResource = (SourceVideo.Resource)_sourceVideo.ToResource(RenderContext.Default);
+        _sourceVideoResource = (SourceVideo.Resource)_sourceVideo.ToResource(CompositionContext.Default);
 
         // 1秒時点でリソースを更新
-        var context = new RenderContext(TimeSpan.FromSeconds(1));
+        var context = new CompositionContext(TimeSpan.FromSeconds(1));
         var updateOnly = false;
         _sourceVideoResource.Update(_sourceVideo, context, ref updateOnly);
 
@@ -85,10 +85,10 @@ public class SourceVideoSpeedTest
     {
         // Arrange
         _sourceVideo!.Speed.CurrentValue = 50f;
-        _sourceVideoResource = (SourceVideo.Resource)_sourceVideo.ToResource(RenderContext.Default);
+        _sourceVideoResource = (SourceVideo.Resource)_sourceVideo.ToResource(CompositionContext.Default);
 
         // 2秒時点でリソースを更新
-        var context = new RenderContext(TimeSpan.FromSeconds(2));
+        var context = new CompositionContext(TimeSpan.FromSeconds(2));
         var updateOnly = false;
         _sourceVideoResource.Update(_sourceVideo, context, ref updateOnly);
 
@@ -105,10 +105,10 @@ public class SourceVideoSpeedTest
         animation.KeyFrames.Add(new KeyFrame<float> { Value = 200f, KeyTime = TimeSpan.FromSeconds(2) });
         _sourceVideo!.Speed.Animation = animation;
 
-        _sourceVideoResource = (SourceVideo.Resource)_sourceVideo.ToResource(RenderContext.Default);
+        _sourceVideoResource = (SourceVideo.Resource)_sourceVideo.ToResource(CompositionContext.Default);
 
         // 1秒時点でリソースを更新
-        var context = new RenderContext(TimeSpan.FromSeconds(1));
+        var context = new CompositionContext(TimeSpan.FromSeconds(1));
         var updateOnly = false;
         _sourceVideoResource.Update(_sourceVideo, context, ref updateOnly);
 
@@ -127,10 +127,10 @@ public class SourceVideoSpeedTest
         animation.KeyFrames.Add(new KeyFrame<float> { Value = 300f, KeyTime = TimeSpan.FromSeconds(4) });
         _sourceVideo!.Speed.Animation = animation;
 
-        _sourceVideoResource = (SourceVideo.Resource)_sourceVideo.ToResource(RenderContext.Default);
+        _sourceVideoResource = (SourceVideo.Resource)_sourceVideo.ToResource(CompositionContext.Default);
 
         // 2秒時点でリソースを更新
-        var context = new RenderContext(TimeSpan.FromSeconds(2));
+        var context = new CompositionContext(TimeSpan.FromSeconds(2));
         var updateOnly = false;
         _sourceVideoResource.Update(_sourceVideo, context, ref updateOnly);
 
@@ -149,10 +149,10 @@ public class SourceVideoSpeedTest
         animation.KeyFrames.Add(new KeyFrame<float> { Value = 150f, KeyTime = TimeSpan.FromSeconds(10) });
         _sourceVideo!.Speed.Animation = animation;
 
-        _sourceVideoResource = (SourceVideo.Resource)_sourceVideo.ToResource(RenderContext.Default);
+        _sourceVideoResource = (SourceVideo.Resource)_sourceVideo.ToResource(CompositionContext.Default);
 
         // 2秒時点でリソースを更新
-        var context = new RenderContext(TimeSpan.FromSeconds(2));
+        var context = new CompositionContext(TimeSpan.FromSeconds(2));
         var updateOnly = false;
         _sourceVideoResource.Update(_sourceVideo, context, ref updateOnly);
 
@@ -168,10 +168,10 @@ public class SourceVideoSpeedTest
         animation1.KeyFrames.Add(new KeyFrame<float> { Value = 200f, KeyTime = TimeSpan.Zero });
         _sourceVideo!.Speed.Animation = animation1;
 
-        _sourceVideoResource = (SourceVideo.Resource)_sourceVideo.ToResource(RenderContext.Default);
+        _sourceVideoResource = (SourceVideo.Resource)_sourceVideo.ToResource(CompositionContext.Default);
 
         // 最初の更新
-        var context1 = new RenderContext(TimeSpan.FromSeconds(1));
+        var context1 = new CompositionContext(TimeSpan.FromSeconds(1));
         var updateOnly1 = false;
         _sourceVideoResource.Update(_sourceVideo, context1, ref updateOnly1);
 
@@ -202,10 +202,10 @@ public class SourceVideoSpeedTest
         _sourceVideo!.Speed.CurrentValue = 150f;
         // アニメーションを設定しない（PostUpdateはelseブランチを通る）
 
-        _sourceVideoResource = (SourceVideo.Resource)_sourceVideo.ToResource(RenderContext.Default);
+        _sourceVideoResource = (SourceVideo.Resource)_sourceVideo.ToResource(CompositionContext.Default);
 
         // 2秒時点でリソースを更新
-        var context = new RenderContext(TimeSpan.FromSeconds(2));
+        var context = new CompositionContext(TimeSpan.FromSeconds(2));
         var updateOnly = false;
         _sourceVideoResource.Update(_sourceVideo, context, ref updateOnly);
 
@@ -221,10 +221,10 @@ public class SourceVideoSpeedTest
         animation.KeyFrames.Add(new KeyFrame<float> { Value = 200f, KeyTime = TimeSpan.Zero });
         _sourceVideo!.Speed.Animation = animation;
 
-        _sourceVideoResource = (SourceVideo.Resource)_sourceVideo.ToResource(RenderContext.Default);
+        _sourceVideoResource = (SourceVideo.Resource)_sourceVideo.ToResource(CompositionContext.Default);
 
         // 1秒時点でリソースを更新
-        var context = new RenderContext(TimeSpan.FromSeconds(1));
+        var context = new CompositionContext(TimeSpan.FromSeconds(1));
         var updateOnly = false;
         _sourceVideoResource.Update(_sourceVideo, context, ref updateOnly);
 
@@ -241,13 +241,13 @@ public class SourceVideoSpeedTest
         animation.KeyFrames.Add(new KeyFrame<float> { Value = 200f, KeyTime = TimeSpan.FromSeconds(10) });
         _sourceVideo!.Speed.Animation = animation;
 
-        _sourceVideoResource = (SourceVideo.Resource)_sourceVideo.ToResource(RenderContext.Default);
+        _sourceVideoResource = (SourceVideo.Resource)_sourceVideo.ToResource(CompositionContext.Default);
 
         // 連続した時間での更新
         var positions = new List<double>();
         for (int i = 0; i <= 5; i++)
         {
-            var context = new RenderContext(TimeSpan.FromSeconds(i));
+            var context = new CompositionContext(TimeSpan.FromSeconds(i));
             var updateOnly = false;
             _sourceVideoResource.Update(_sourceVideo, context, ref updateOnly);
             positions.Add(_sourceVideoResource.RequestedPosition.TotalSeconds);
@@ -266,10 +266,10 @@ public class SourceVideoSpeedTest
     {
         // Arrange
         _sourceVideo!.Speed.CurrentValue = 200f;
-        _sourceVideoResource = (SourceVideo.Resource)_sourceVideo.ToResource(RenderContext.Default);
+        _sourceVideoResource = (SourceVideo.Resource)_sourceVideo.ToResource(CompositionContext.Default);
 
         // 初期化のための更新
-        var initContext = new RenderContext(TimeSpan.Zero);
+        var initContext = new CompositionContext(TimeSpan.Zero);
         var updateOnly = false;
         _sourceVideoResource.Update(_sourceVideo, initContext, ref updateOnly);
 
@@ -290,10 +290,10 @@ public class SourceVideoSpeedTest
         animation.KeyFrames.Add(new KeyFrame<float> { Value = 200f, KeyTime = TimeSpan.FromSeconds(10) });
         _sourceVideo!.Speed.Animation = animation;
 
-        _sourceVideoResource = (SourceVideo.Resource)_sourceVideo.ToResource(RenderContext.Default);
+        _sourceVideoResource = (SourceVideo.Resource)_sourceVideo.ToResource(CompositionContext.Default);
 
         // 初期化のための更新
-        var initContext = new RenderContext(TimeSpan.Zero);
+        var initContext = new CompositionContext(TimeSpan.Zero);
         var updateOnly = false;
         _sourceVideoResource.Update(_sourceVideo, initContext, ref updateOnly);
 
@@ -313,10 +313,10 @@ public class SourceVideoSpeedTest
         animation.KeyFrames.Add(new KeyFrame<float> { Value = 200f, KeyTime = TimeSpan.Zero });
         _sourceVideo!.Speed.Animation = animation;
 
-        _sourceVideoResource = (SourceVideo.Resource)_sourceVideo.ToResource(RenderContext.Default);
+        _sourceVideoResource = (SourceVideo.Resource)_sourceVideo.ToResource(CompositionContext.Default);
 
         // 1ミリ秒時点でリソースを更新（1/60秒 ≈ 16.67ミリ秒より小さい）
-        var context = new RenderContext(TimeSpan.FromMilliseconds(1));
+        var context = new CompositionContext(TimeSpan.FromMilliseconds(1));
         var updateOnly = false;
         _sourceVideoResource.Update(_sourceVideo, context, ref updateOnly);
 
@@ -333,10 +333,10 @@ public class SourceVideoSpeedTest
         animation.KeyFrames.Add(new KeyFrame<float> { Value = 5f, KeyTime = TimeSpan.Zero });
         _sourceVideo!.Speed.Animation = animation;
 
-        _sourceVideoResource = (SourceVideo.Resource)_sourceVideo.ToResource(RenderContext.Default);
+        _sourceVideoResource = (SourceVideo.Resource)_sourceVideo.ToResource(CompositionContext.Default);
 
         // 2秒時点でリソースを更新
-        var context = new RenderContext(TimeSpan.FromSeconds(2));
+        var context = new CompositionContext(TimeSpan.FromSeconds(2));
         var updateOnly = false;
         _sourceVideoResource.Update(_sourceVideo, context, ref updateOnly);
 
@@ -352,10 +352,10 @@ public class SourceVideoSpeedTest
         animation.KeyFrames.Add(new KeyFrame<float> { Value = 5f, KeyTime = TimeSpan.Zero });
         _sourceVideo!.Speed.Animation = animation;
 
-        _sourceVideoResource = (SourceVideo.Resource)_sourceVideo.ToResource(RenderContext.Default);
+        _sourceVideoResource = (SourceVideo.Resource)_sourceVideo.ToResource(CompositionContext.Default);
 
         // 初期化のための更新
-        var initContext = new RenderContext(TimeSpan.Zero);
+        var initContext = new CompositionContext(TimeSpan.Zero);
         var updateOnly = false;
         _sourceVideoResource.Update(_sourceVideo, initContext, ref updateOnly);
 

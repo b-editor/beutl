@@ -301,7 +301,7 @@ public abstract partial class Node : EngineObject
         public IRenderer? Renderer { get; internal set; }
         public Dictionary<INodeItem, int> ItemIndexMap { get; set; } = new();
 
-        public virtual void Initialize(NodeRenderContext context)
+        public virtual void Initialize(NodeCompositionContext context)
         {
         }
 
@@ -313,7 +313,7 @@ public abstract partial class Node : EngineObject
         {
         }
 
-        public virtual void Update(NodeRenderContext context)
+        public virtual void Update(NodeCompositionContext context)
         {
         }
     }

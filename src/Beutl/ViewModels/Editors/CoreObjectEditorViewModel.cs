@@ -1,8 +1,8 @@
 ﻿using System.Text.Json.Nodes;
+using Beutl.Composition;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Engine;
 using Beutl.Engine.Expressions;
-using Beutl.Graphics.Rendering;
 using Microsoft.Extensions.DependencyInjection;
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
@@ -74,7 +74,7 @@ public sealed class CoreObjectEditorViewModel<T> : BaseEditorViewModel<T>, ICore
 
         CurrentTargetName = expressionObservable
             .Select(t => t.Item2 is ReferenceExpression<T>
-                ? t.Item1?.Target.GetValue(RenderContext.Default)
+                ? t.Item1?.Target.GetValue(CompositionContext.Default)
                 : null)
             .Select(obj => obj != null ? CoreObjectHelper.GetDisplayName(obj) : Message.Property_is_unset)
             .ToReadOnlyReactivePropertySlim()

@@ -1,4 +1,5 @@
-﻿using Beutl.Graphics;
+﻿using Beutl.Composition;
+using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Shapes;
 using Beutl.Graphics.Transformation;
@@ -28,7 +29,7 @@ public class ShapeTests
         shape.Width.CurrentValue = 100;
         shape.Height.CurrentValue = 100;
         shape.Fill.CurrentValue = Brushes.White;
-        var resource = shape.ToResource(RenderContext.Default);
+        var resource = shape.ToResource(CompositionContext.Default);
 
         using var renderTarget = RenderTarget.Create(250, 250)!;
         using var canvas = new ImmediateCanvas(renderTarget);
@@ -58,7 +59,7 @@ public class ShapeTests
         pen.DashArray.CurrentValue = [2];
         shape.Pen.CurrentValue = pen;
 
-        var resource = shape.ToResource(RenderContext.Default);
+        var resource = shape.ToResource(CompositionContext.Default);
 
         using var renderTarget = RenderTarget.Create(250, 250)!;
         using var canvas = new ImmediateCanvas(renderTarget);
@@ -82,7 +83,7 @@ public class ShapeTests
         shape.Width.CurrentValue = 100;
         shape.Height.CurrentValue = 100;
         shape.Fill.CurrentValue = Brushes.White;
-        var resource = shape.ToResource(RenderContext.Default);
+        var resource = shape.ToResource(CompositionContext.Default);
 
         using var renderTarget = RenderTarget.Create(250, 250)!;
         using var canvas = new ImmediateCanvas(renderTarget);
@@ -106,7 +107,7 @@ public class ShapeTests
         shape.Height.CurrentValue = 100;
         shape.CornerRadius.CurrentValue = new CornerRadius(25);
         shape.Fill.CurrentValue = Brushes.White;
-        var resource = shape.ToResource(RenderContext.Default);
+        var resource = shape.ToResource(CompositionContext.Default);
 
         using var renderTarget = RenderTarget.Create(250, 250)!;
         using var canvas = new ImmediateCanvas(renderTarget);
@@ -139,7 +140,7 @@ public class ShapeTests
         pen.StrokeCap.CurrentValue = StrokeCap.Round;
         pen.StrokeAlignment.CurrentValue = alignment;
         shape.Pen.CurrentValue = pen;
-        var resource = shape.ToResource(RenderContext.Default);
+        var resource = shape.ToResource(CompositionContext.Default);
 
         using var renderTarget = RenderTarget.Create(250, 250)!;
         using var canvas = new ImmediateCanvas(renderTarget);
@@ -178,10 +179,10 @@ public class ShapeTests
         shape.Data.CurrentValue = geometry;
         shape.Fill.CurrentValue = Brushes.White;
 
-        var resource = shape.ToResource(RenderContext.Default);
+        var resource = shape.ToResource(CompositionContext.Default);
         shape.Transform.CurrentValue = new TranslateTransform(-resource.Data!.Bounds.Position);
         bool updateOnly = false;
-        resource.Update(shape, RenderContext.Default, ref updateOnly);
+        resource.Update(shape, CompositionContext.Default, ref updateOnly);
 
         using var renderTarget = RenderTarget.Create(250, 250)!;
         using var canvas = new ImmediateCanvas(renderTarget);
@@ -235,10 +236,10 @@ public class ShapeTests
         shape.Fill.CurrentValue = Brushes.Gray;
         shape.Pen.CurrentValue = pen;
 
-        var resource = shape.ToResource(RenderContext.Default);
+        var resource = shape.ToResource(CompositionContext.Default);
         shape.Transform.CurrentValue = new TranslateTransform(-resource.Data!.Bounds.Position);
         bool updateOnly = false;
-        resource.Update(shape, RenderContext.Default, ref updateOnly);
+        resource.Update(shape, CompositionContext.Default, ref updateOnly);
 
         using var renderTarget = RenderTarget.Create(250, 250)!;
         using var canvas = new ImmediateCanvas(renderTarget);

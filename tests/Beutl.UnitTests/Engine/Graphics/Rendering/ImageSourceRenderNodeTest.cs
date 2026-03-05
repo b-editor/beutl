@@ -1,4 +1,5 @@
-﻿using Beutl.Graphics;
+﻿using Beutl.Composition;
+using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
 using Beutl.Media.Source;
@@ -17,7 +18,7 @@ public class ImageSourceRenderNodeTest
         var uri = TestMediaHelper.CreateTestImageUri(100, 100, Colors.White);
         _imageSource = new ImageSource();
         _imageSource.ReadFrom(uri);
-        _imageSourceResource = _imageSource.ToResource(RenderContext.Default);
+        _imageSourceResource = _imageSource.ToResource(CompositionContext.Default);
     }
 
     [TearDown]
@@ -41,7 +42,7 @@ public class ImageSourceRenderNodeTest
         var pen = new Pen();
         pen.Brush.CurrentValue = Brushes.Black;
         pen.Thickness.CurrentValue = 1;
-        var penResource = pen.ToResource(RenderContext.Default);
+        var penResource = pen.ToResource(CompositionContext.Default);
         var node = new ImageSourceRenderNode(source, fill, penResource);
 
         Assert.That(node.Update(source, fill, penResource), Is.False);
@@ -55,12 +56,12 @@ public class ImageSourceRenderNodeTest
         var pen = new Pen();
         pen.Brush.CurrentValue = Brushes.Black;
         pen.Thickness.CurrentValue = 1;
-        var penResource = pen.ToResource(RenderContext.Default);
+        var penResource = pen.ToResource(CompositionContext.Default);
         var node = new ImageSourceRenderNode(source, fill, penResource);
 
         pen.Thickness.CurrentValue = 2;
         var updateOnly = false;
-        penResource.Update(pen, RenderContext.Default, ref updateOnly);
+        penResource.Update(pen, CompositionContext.Default, ref updateOnly);
 
         Assert.That(node.Update(source, fill, penResource), Is.True);
     }
@@ -98,7 +99,7 @@ public class ImageSourceRenderNodeTest
         var pen = new Pen();
         pen.Brush.CurrentValue = Brushes.Black;
         pen.Thickness.CurrentValue = 50;
-        var penResource = pen.ToResource(RenderContext.Default);
+        var penResource = pen.ToResource(CompositionContext.Default);
         var context = new RenderNodeContext([]);
 
         var node = new ImageSourceRenderNode(source, null, penResource);
@@ -115,7 +116,7 @@ public class ImageSourceRenderNodeTest
         var pen = new Pen();
         pen.Brush.CurrentValue = Brushes.Black;
         pen.Thickness.CurrentValue = 50;
-        var penResource = pen.ToResource(RenderContext.Default);
+        var penResource = pen.ToResource(CompositionContext.Default);
         var context = new RenderNodeContext([]);
 
         var node = new ImageSourceRenderNode(source, null, penResource);

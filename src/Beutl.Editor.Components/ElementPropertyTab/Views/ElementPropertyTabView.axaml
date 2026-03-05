@@ -1,0 +1,22 @@
+<UserControl x:Class="Beutl.Editor.Components.ElementPropertyTab.Views.ElementPropertyTabView"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:local="using:Beutl.Editor.Components.ElementPropertyTab.Views"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:viewModel="using:Beutl.Editor.Components.ElementPropertyTab.ViewModels"
+             d:DesignHeight="450"
+             d:DesignWidth="800"
+             x:DataType="viewModel:ElementPropertyTabViewModel"
+             DragDrop.AllowDrop="True"
+             mc:Ignorable="d">
+    <ScrollViewer x:Name="scrollViewer">
+        <ItemsControl x:Name="itemsControl" ItemsSource="{Binding Items}">
+            <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                    <local:EngineObjectPropertyView />
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+    </ScrollViewer>
+</UserControl>

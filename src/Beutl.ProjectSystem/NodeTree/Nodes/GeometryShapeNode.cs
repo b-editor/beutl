@@ -26,7 +26,7 @@ public sealed partial class GeometryShapeNode : Node
     {
         private GeometryRenderNode? _cachedOutput;
 
-        public override void Update(NodeRenderContext context)
+        public override void Update(NodeCompositionContext context)
         {
             var geometry = Geometry;
 

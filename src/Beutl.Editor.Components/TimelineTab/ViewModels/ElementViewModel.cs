@@ -13,7 +13,7 @@ using Beutl.Editor.Components.TimelineTab.Services;
 using Beutl.Editor.Services;
 using Beutl.Logging;
 using Beutl.Media;
-using Beutl.Operation;
+using Beutl.Engine;
 using Microsoft.Extensions.DependencyInjection;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
@@ -32,8 +32,8 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
     private ImmutableHashSet<Guid>? _elementGroup;
     private readonly Subject<Unit> _thumbnailsInvalidatedSubject = new();
     private CancellationTokenSource? _thumbnailsCts;
-    private IElementThumbnailsProvider? _currentThumbnailsProvider;
-    private readonly IElementThumbnailCacheService _thumbnailCacheService = ElementThumbnailCacheService.Instance;
+    private IThumbnailsProvider? _currentThumbnailsProvider;
+    private readonly IThumbnailCacheService _thumbnailCacheService = ThumbnailCacheService.Instance;
     private EventHandler? _thumbnailsInvalidatedHandler;
     private string? _lastThumbnailsCacheKey;
     private int _lastVisibleStart = -1;
@@ -127,7 +127,7 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
         BringAnimationToTop.Subscribe(OnBringAnimationToTop)
             .AddTo(_disposables);
 
-        ChangeToOriginalLength.Subscribe(OnChangeToOriginalLength)
+        ChangeToOriginalDuration.Subscribe(OnChangeToOriginalDuration)
             .AddTo(_disposables);
 
         // ZIndexが変更されたら、LayerHeaderのカウントを増減して、新しいLayerHeaderを設定する。
@@ -145,10 +145,10 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
         Scope = new ElementScopeViewModel(Model, this);
 
         // プレビュー関連の初期化
-        IsThumbnailsKindAudio = ThumbnailsKind.Select(k => k == ElementThumbnailsKind.Audio)
+        IsThumbnailsKindAudio = ThumbnailsKind.Select(k => k == Engine.ThumbnailsKind.Audio)
             .ToReadOnlyReactivePropertySlim()
             .AddTo(_disposables);
-        IsThumbnailsKindVideo = ThumbnailsKind.Select(k => k == ElementThumbnailsKind.Video)
+        IsThumbnailsKindVideo = ThumbnailsKind.Select(k => k == Engine.ThumbnailsKind.Video)
             .ToReadOnlyReactivePropertySlim()
             .AddTo(_disposables);
 
@@ -283,9 +283,9 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
 
     public ReactiveCommand BringAnimationToTop { get; } = new();
 
-    public ReactiveCommand ChangeToOriginalLength { get; } = new();
+    public ReactiveCommand ChangeToOriginalDuration { get; } = new();
 
-    public ReactivePropertySlim<ElementThumbnailsKind> ThumbnailsKind { get; } = new(ElementThumbnailsKind.None);
+    public ReactivePropertySlim<ThumbnailsKind> ThumbnailsKind { get; } = new(Engine.ThumbnailsKind.None);
 
     public ReadOnlyReactivePropertySlim<bool> IsThumbnailsKindVideo { get; }
 
@@ -659,17 +659,17 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
         }
 
         int rate = Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;
-        TimeSpan minLength = TimeSpan.FromSeconds(1d / rate);
+        TimeSpan minDuration = TimeSpan.FromSeconds(1d / rate);
         TimeSpan absTime = timeSpan.RoundToRate(rate);
 
         var groupUpdates = new Dictionary<int, List<Guid>>();
 
         foreach (ElementViewModel target in targets)
         {
-            TimeSpan forwardLength = absTime - target.Model.Start;
-            TimeSpan backwardLength = target.Model.Length - forwardLength;
+            TimeSpan forwardDuration = absTime - target.Model.Start;
+            TimeSpan backwardDuration = target.Model.Length - forwardDuration;
 
-            if (forwardLength < minLength || backwardLength < minLength)
+            if (forwardDuration < minDuration || backwardDuration < minDuration)
                 continue;
 
             ObjectRegenerator.Regenerate(target.Model, out Element backward);
@@ -677,10 +677,10 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
             target.Scene.MoveChild(
                 target.Model.ZIndex,
                 target.Model.Start,
-                forwardLength,
+                forwardDuration,
                 target.Model);
             backward.Start = absTime;
-            backward.Length = backwardLength;
+            backward.Length = backwardDuration;
             foreach (KeyFrameAnimation item in new ObjectSearcher(backward,
                              o => o is KeyFrameAnimation { UseGlobalClock: false })
                          .SearchAll()
@@ -688,7 +688,7 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
             {
                 foreach (IKeyFrame keyframe in item.KeyFrames)
                 {
-                    keyframe.KeyTime -= forwardLength;
+                    keyframe.KeyTime -= forwardDuration;
                 }
             }
 
@@ -696,8 +696,8 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
                 backward,
                 RandomFileNameGenerator.GenerateUri(Scene.Uri!, Constants.ElementFileExtension));
             target.Scene.AddChild(backward);
-            backward.Operation.OnSplit(true, forwardLength, -forwardLength);
-            target.Model.Operation.OnSplit(false, TimeSpan.Zero, -backwardLength);
+            backward.NotifySplitted(true, forwardDuration, -forwardDuration);
+            target.Model.NotifySplitted(false, TimeSpan.Zero, -backwardDuration);
 
             if (target._elementGroup is { } set)
             {
@@ -728,36 +728,36 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
         Timeline.EditorContext.GetRequiredService<HistoryManager>().Commit(CommandNames.SplitElement);
     }
 
-    private async void OnChangeToOriginalLength()
+    private async void OnChangeToOriginalDuration()
     {
-        if (Model.Operation.Children.FirstOrDefault(v => v.HasOriginalLength()) is { } op
-            && op.TryGetOriginalLength(out TimeSpan timeSpan))
+        if (Model.HasOriginalDuration()
+            && Model.TryGetOriginalDuration(out TimeSpan timeSpan))
         {
             PrepareAnimationContext context = PrepareAnimation();
 
             int rate = Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;
-            TimeSpan length = timeSpan.FloorToRate(rate);
+            TimeSpan duration = timeSpan.FloorToRate(rate);
 
             Element? after = Model.GetAfter(Model.ZIndex, Model.Range.End);
             if (after != null)
             {
                 TimeSpan delta = after.Start - Model.Start;
-                if (delta < length)
+                if (delta < duration)
                 {
-                    length = delta;
+                    duration = delta;
                 }
             }
 
-            Scene.MoveChild(Model.ZIndex, Model.Start, length, Model);
+            Scene.MoveChild(Model.ZIndex, Model.Start, duration, Model);
             Timeline.EditorContext.GetRequiredService<HistoryManager>().Commit(CommandNames.MoveElement);
 
             await AnimationRequest(context);
         }
     }
 
-    public bool HasOriginalLength()
+    public bool HasOriginalDuration()
     {
-        return Model.Operation.Children.Any(v => v.HasOriginalLength());
+        return Model.HasOriginalDuration();
     }
 
     public void Execute(ContextCommandExecution execution)
@@ -800,7 +800,7 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
         if (IsThumbnailsDisabled.Value)
         {
             CancelThumbnailsLoading();
-            ThumbnailsKind.Value = ElementThumbnailsKind.None;
+            ThumbnailsKind.Value = Engine.ThumbnailsKind.None;
             ThumbnailsClear?.Invoke();
             WaveformClear?.Invoke();
             return;
@@ -839,7 +839,7 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
 
         if (provider == null)
         {
-            ThumbnailsKind.Value = ElementThumbnailsKind.None;
+            ThumbnailsKind.Value = Engine.ThumbnailsKind.None;
             return;
         }
 
@@ -853,10 +853,10 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
         {
             switch (provider.ThumbnailsKind)
             {
-                case ElementThumbnailsKind.Video:
+                case Engine.ThumbnailsKind.Video:
                     await UpdateVideoThumbnailsAsync(provider, ct);
                     break;
-                case ElementThumbnailsKind.Audio:
+                case Engine.ThumbnailsKind.Audio:
                     await UpdateAudioThumbnailsAsync(provider, ct);
                     break;
             }
@@ -879,11 +879,11 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
         }
     }
 
-    private IElementThumbnailsProvider? FindThumbnailsProvider()
+    private IThumbnailsProvider? FindThumbnailsProvider()
     {
-        foreach (var child in Model.Operation.Children)
+        foreach (var child in Model.Objects)
         {
-            if (child is IElementThumbnailsProvider provider)
+            if (child is IThumbnailsProvider provider)
                 return provider;
         }
 
@@ -902,7 +902,7 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
         if (end < start) return;
 
         var provider = _currentThumbnailsProvider;
-        if (provider == null || provider.ThumbnailsKind != ElementThumbnailsKind.Video)
+        if (provider == null || provider.ThumbnailsKind != Engine.ThumbnailsKind.Video)
             return;
 
         // Width変更による生成が進行中ならキャンセルする
@@ -960,7 +960,7 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
         }
     }
 
-    private async Task UpdateVideoThumbnailsAsync(IElementThumbnailsProvider provider, CancellationToken ct)
+    private async Task UpdateVideoThumbnailsAsync(IThumbnailsProvider provider, CancellationToken ct)
     {
         const int MaxThumbnailHeight = 25;
         double width = Width.Value;
@@ -1000,7 +1000,7 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
         }
     }
 
-    private async Task UpdateAudioThumbnailsAsync(IElementThumbnailsProvider provider, CancellationToken ct)
+    private async Task UpdateAudioThumbnailsAsync(IThumbnailsProvider provider, CancellationToken ct)
     {
         const int MaxSamplesPerChunk = 4096;
         double width = Width.Value;

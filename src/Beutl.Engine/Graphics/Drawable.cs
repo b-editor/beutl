@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
@@ -16,11 +17,11 @@ public abstract partial class Drawable : EngineObject
     public Drawable()
     {
         ScanProperties<Drawable>();
+        FilterEffect.CurrentValue = new FilterEffectGroup();
+        Transform.CurrentValue = new TransformGroup();
     }
 
-    [Display(Name = nameof(Strings.ImageFilter), ResourceType = typeof(Strings),
-        GroupName = nameof(Strings.ImageFilter))]
-    public IProperty<FilterEffect?> FilterEffect { get; } = Property.Create<FilterEffect?>();
+    public override CompositionTarget GetCompositionTarget() => CompositionTarget.Graphics;
 
     [Display(Name = nameof(Strings.Transform), ResourceType = typeof(Strings), GroupName = nameof(Strings.Transform))]
     public IProperty<Transform?> Transform { get; } = Property.Create<Transform?>();
@@ -35,8 +36,9 @@ public abstract partial class Drawable : EngineObject
         GroupName = nameof(Strings.Transform))]
     public IProperty<RelativePoint> TransformOrigin { get; } = Property.CreateAnimatable(RelativePoint.Center);
 
-    [Display(Name = nameof(Strings.Fill), ResourceType = typeof(Strings), GroupName = nameof(Strings.Fill))]
-    public IProperty<Brush?> Fill { get; } = Property.Create<Brush?>();
+    [Display(Name = nameof(Strings.ImageFilter), ResourceType = typeof(Strings),
+        GroupName = nameof(Strings.ImageFilter))]
+    public IProperty<FilterEffect?> FilterEffect { get; } = Property.Create<FilterEffect?>();
 
     [Display(Name = nameof(Strings.BlendMode), ResourceType = typeof(Strings))]
     public IProperty<BlendMode> BlendMode { get; } = Property.CreateAnimatable(Graphics.BlendMode.SrcOver);

@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations;
+using Beutl.Composition;
 using Beutl.Engine;
-using Beutl.Graphics.Rendering;
 using Beutl.Language;
 
 namespace Beutl.Graphics.Transformation;
@@ -17,7 +17,7 @@ public sealed class TransformPresenter : Transform, IPresenter<Transform>
     [Display(Name = nameof(Strings.Target), ResourceType = typeof(Strings))]
     public IProperty<Transform?> Target { get; } = Property.Create<Transform?>();
 
-    public override Matrix CreateMatrix(RenderContext context)
+    public override Matrix CreateMatrix(CompositionContext context)
     {
         var target = context.Get(Target);
         return target?.CreateMatrix(context) ?? Matrix.Identity;

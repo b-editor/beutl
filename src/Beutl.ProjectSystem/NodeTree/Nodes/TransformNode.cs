@@ -15,7 +15,7 @@ public partial class TransformNode : ConfigureNode
 
     public partial class Resource
     {
-        protected override void EvaluateCore(NodeRenderContext context)
+        protected override void EvaluateCore(NodeCompositionContext context)
         {
             var node = GetOriginal();
             var matrix = context.HasConnection(node.Matrix)

@@ -2,7 +2,7 @@
 using Beutl.Api.Services;
 using Beutl.Editor.Components.FileBrowserTab;
 using Beutl.Editor.Components.LibraryTab;
-using Beutl.Editor.Components.SourceOperatorsTab;
+using Beutl.Editor.Components.ElementPropertyTab;
 using Beutl.Logging;
 using Beutl.Services.PrimitiveImpls;
 using Microsoft.Extensions.Logging;
@@ -386,7 +386,7 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
         {
             TimelineTabExtension.Instance,
             OutputTabExtension.Instance,
-            SourceOperatorsTabExtension.Instance,
+            ElementPropertyTabExtension.Instance,
             LibraryTabExtension.Instance,
             FileBrowserTabExtension.Instance,
         };

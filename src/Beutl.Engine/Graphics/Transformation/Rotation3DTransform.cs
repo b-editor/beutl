@@ -1,7 +1,7 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.Numerics;
+using Beutl.Composition;
 using Beutl.Engine;
-using Beutl.Graphics.Rendering;
 using Beutl.Language;
 using Beutl.Utilities;
 
@@ -52,7 +52,7 @@ public sealed class Rotation3DTransform : Transform
     [Display(Name = nameof(Strings.Depth), ResourceType = typeof(Strings))]
     public IProperty<float> Depth { get; } = Property.CreateAnimatable(500f);
 
-    public override Matrix CreateMatrix(RenderContext context)
+    public override Matrix CreateMatrix(CompositionContext context)
     {
         float centerX = context.Get(CenterX);
         float centerY = context.Get(CenterY);

@@ -1,6 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using Beutl.Composition;
 using Beutl.Engine;
-using Beutl.Graphics.Rendering;
 using Beutl.Language;
 using Beutl.Utilities;
 
@@ -22,7 +22,7 @@ public sealed class RotationTransform : Transform
     [Display(Name = nameof(Strings.Rotation), ResourceType = typeof(Strings))]
     public IProperty<float> Rotation { get; } = Property.CreateAnimatable<float>();
 
-    public override Matrix CreateMatrix(RenderContext context)
+    public override Matrix CreateMatrix(CompositionContext context)
     {
         float rot = context.Get(Rotation);
         return Matrix.CreateRotation(MathUtilities.Deg2Rad(rot));

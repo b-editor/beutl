@@ -22,7 +22,7 @@ public partial class SwitchNode : Node
 
     public partial class Resource
     {
-        public override void Update(NodeRenderContext context)
+        public override void Update(NodeCompositionContext context)
         {
             Output = Switch ? True : False;
         }

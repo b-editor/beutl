@@ -1,4 +1,5 @@
-﻿using Beutl.Graphics;
+﻿using Beutl.Composition;
+using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
@@ -22,7 +23,7 @@ public class FilterEffectRenderNodeTest
     public void Process_ShouldReturnRenderNodeOperations()
     {
         var effect = new Blur();
-        var resource = effect.ToResource(RenderContext.Default);
+        var resource = effect.ToResource(CompositionContext.Default);
         var node = new FilterEffectRenderNode(resource);
         var context = CreateRenderNodeContext();
         var operations = node.Process(context);
@@ -34,7 +35,7 @@ public class FilterEffectRenderNodeTest
     public void Process_ShouldApplyFilterEffect()
     {
         var effect = new Blur() { Sigma = { CurrentValue = new(10, 10) } };
-        var resource = effect.ToResource(RenderContext.Default);
+        var resource = effect.ToResource(CompositionContext.Default);
         var node = new FilterEffectRenderNode(resource);
         var context = CreateRenderNodeContext();
         var operations = node.Process(context);
@@ -50,7 +51,7 @@ public class FilterEffectRenderNodeTest
     public void Update_ShouldReturnFalseForSameFilterEffect()
     {
         var effect = new Blur();
-        var resource = effect.ToResource(RenderContext.Default);
+        var resource = effect.ToResource(CompositionContext.Default);
         var node = new FilterEffectRenderNode(resource);
 
         var result = node.Update(resource);
@@ -63,11 +64,11 @@ public class FilterEffectRenderNodeTest
     public void Update_ShouldReturnTrueForDifferentFilterEffectProperty()
     {
         var effect = new Blur();
-        var resource = effect.ToResource(RenderContext.Default);
+        var resource = effect.ToResource(CompositionContext.Default);
         var node = new FilterEffectRenderNode(resource);
         effect.Sigma.CurrentValue = new(10, 10);
         var updateOnly = false;
-        resource.Update(effect, RenderContext.Default, ref updateOnly);
+        resource.Update(effect, CompositionContext.Default, ref updateOnly);
 
         var result = node.Update(resource);
 
@@ -79,8 +80,8 @@ public class FilterEffectRenderNodeTest
     {
         var effect1 = new Blur();
         var effect2 = new DropShadow();
-        var effectResource1 = effect1.ToResource(RenderContext.Default);
-        var effectResource2 = effect2.ToResource(RenderContext.Default);
+        var effectResource1 = effect1.ToResource(CompositionContext.Default);
+        var effectResource2 = effect2.ToResource(CompositionContext.Default);
         var node = new FilterEffectRenderNode(effectResource1);
 
         var result = node.Update(effectResource2);

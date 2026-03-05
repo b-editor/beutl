@@ -1,6 +1,7 @@
 ﻿using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media.Imaging;
+using Beutl.Composition;
 using Beutl.Graphics.Rendering;
 using Brushes = Beutl.Media.Brushes;
 using TextBlock = Beutl.Graphics.Shapes.TextBlock;
@@ -22,7 +23,7 @@ public partial class MainWindow : Window
             Fill = { CurrentValue = Brushes.White }
         };
 
-        _resource = _text.ToResource(RenderContext.Default);
+        _resource = _text.ToResource(CompositionContext.Default);
         _node = new DrawableRenderNode(_resource);
 
         textBox.GetObservable(TextBox.TextProperty).Subscribe(TextChanged);
@@ -48,7 +49,7 @@ public partial class MainWindow : Window
     {
         var updateOnly = false;
         var oldVersion = _resource.Version;
-        _resource.Update(_text, RenderContext.Default, ref updateOnly);
+        _resource.Update(_text, CompositionContext.Default, ref updateOnly);
         if (_resource.Version != oldVersion) return;
 
         using (var context = new GraphicsContext2D(_node,
