@@ -168,7 +168,7 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
                             await _handler.DownloadAndLoadPackage(release, packageId);
                             NotificationService.ShowInformation(
                                 title: ExtensionsPage.PackageInstaller,
-                                message: string.Format(ExtensionsPage.PackageInstaller_ScheduledInstallation,
+                                message: string.Format(ExtensionsPage.PackageInstaller_Installed,
                                     packageId.Id));
                         }
                         catch (Exception ex)
@@ -218,7 +218,7 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
                             await _handler.DownloadAndLoadPackage(release, packageId);
                             NotificationService.ShowInformation(
                                 title: ExtensionsPage.PackageInstaller,
-                                message: string.Format(ExtensionsPage.PackageInstaller_ScheduledUpdate, packageId.Id));
+                                message: string.Format(ExtensionsPage.PackageInstaller_Updated, packageId.Id));
                         }
                         catch (Exception ex)
                         {
@@ -255,7 +255,13 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
                         throw new Exception("Failed to unload the package. It may still be in use. Uninstallation has been scheduled.");
                     }
 
-                    if (!_handler.UninstallWithFallback(Package.Name))
+                    if (_handler.UninstallWithFallback(Package.Name))
+                    {
+                        NotificationService.ShowInformation(
+                            title: ExtensionsPage.PackageInstaller,
+                            message: string.Format(ExtensionsPage.PackageInstaller_Uninstalled, Package.Name));
+                    }
+                    else
                     {
                         NotificationService.ShowInformation(
                             title: ExtensionsPage.PackageInstaller,

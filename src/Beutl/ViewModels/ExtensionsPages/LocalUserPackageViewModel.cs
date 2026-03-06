@@ -63,7 +63,7 @@ public sealed class LocalUserPackageViewModel : BaseViewModel, IUserPackageViewM
                         await _handler.DownloadAndLoadPackage(_packageIdentity);
                         NotificationService.ShowInformation(
                             title: ExtensionsPage.PackageInstaller,
-                            message: string.Format(ExtensionsPage.PackageInstaller_ScheduledInstallation,
+                            message: string.Format(ExtensionsPage.PackageInstaller_Installed,
                                 _packageIdentity.Id));
                     }
                     catch (Exception ex)
@@ -111,7 +111,7 @@ public sealed class LocalUserPackageViewModel : BaseViewModel, IUserPackageViewM
                             await _handler.DownloadAndLoadPackage(LatestRelease.Value, packageId);
                             NotificationService.ShowInformation(
                                 title: ExtensionsPage.PackageInstaller,
-                                message: string.Format(ExtensionsPage.PackageInstaller_ScheduledUpdate, packageId.Id));
+                                message: string.Format(ExtensionsPage.PackageInstaller_Updated, packageId.Id));
                         }
                         catch (Exception ex)
                         {
@@ -157,6 +157,13 @@ public sealed class LocalUserPackageViewModel : BaseViewModel, IUserPackageViewM
                         NotificationService.ShowInformation(
                             title: ExtensionsPage.PackageInstaller,
                             message: string.Format(ExtensionsPage.PackageInstaller_ScheduledUninstallation,
+                                _packageIdentity.Id));
+                    }
+                    else
+                    {
+                        NotificationService.ShowInformation(
+                            title: ExtensionsPage.PackageInstaller,
+                            message: string.Format(ExtensionsPage.PackageInstaller_Uninstalled,
                                 _packageIdentity.Id));
                     }
                 }

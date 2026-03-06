@@ -175,6 +175,15 @@ If the URL is ɑn suspicious, we recommend that you do not open it.</value>
   <data name="PackageInstaller" xml:space="preserve">
     <value>Package Installer</value>
   </data>
+  <data name="PackageInstaller_Installed" xml:space="preserve">
+    <value>'{0}' has been installed successfully.</value>
+  </data>
+  <data name="PackageInstaller_Updated" xml:space="preserve">
+    <value>'{0}' has been updated successfully.</value>
+  </data>
+  <data name="PackageInstaller_Uninstalled" xml:space="preserve">
+    <value>'{0}' has been uninstalled successfully.</value>
+  </data>
   <data name="PackageInstaller_ScheduledInstallation" xml:space="preserve">
     <value>'{0}' installation is scheduled.
 To apply the package changes, exit Beutl.</value>

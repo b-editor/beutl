@@ -172,6 +172,15 @@ URLが不審な場合、開かないことをお勧めします。</value>
   <data name="Could_not_find_a_package_from_remote" xml:space="preserve">
     <value>リモートから '{0}' が見つかりませんでした。</value>
   </data>
+  <data name="PackageInstaller_Installed" xml:space="preserve">
+    <value>'{0}'をインストールしました。</value>
+  </data>
+  <data name="PackageInstaller_Updated" xml:space="preserve">
+    <value>'{0}'を更新しました。</value>
+  </data>
+  <data name="PackageInstaller_Uninstalled" xml:space="preserve">
+    <value>'{0}'をアンインストールしました。</value>
+  </data>
   <data name="PackageInstaller_ScheduledInstallation" xml:space="preserve">
     <value>'{0}'のインストールを予約しました。
 パッケージの変更を適用するには、Beutlを終了してください。</value>

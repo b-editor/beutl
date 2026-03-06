@@ -75,7 +75,7 @@ public sealed class RemoteUserPackageViewModel : BaseViewModel, IUserPackageView
                             await _handler.DownloadAndLoadPackage(release, packageId);
                             NotificationService.ShowInformation(
                                 title: ExtensionsPage.PackageInstaller,
-                                message: string.Format(ExtensionsPage.PackageInstaller_ScheduledInstallation,
+                                message: string.Format(ExtensionsPage.PackageInstaller_Installed,
                                     packageId.Id));
                         }
                         catch (Exception ex)
@@ -132,7 +132,7 @@ public sealed class RemoteUserPackageViewModel : BaseViewModel, IUserPackageView
                             await _handler.DownloadAndLoadPackage(release, packageId);
                             NotificationService.ShowInformation(
                                 title: ExtensionsPage.PackageInstaller,
-                                message: string.Format(ExtensionsPage.PackageInstaller_ScheduledUpdate, packageId.Id));
+                                message: string.Format(ExtensionsPage.PackageInstaller_Updated, packageId.Id));
                         }
                         catch (Exception ex)
                         {
@@ -173,9 +173,13 @@ public sealed class RemoteUserPackageViewModel : BaseViewModel, IUserPackageView
                         throw new Exception("Failed to unload the package. It may still be in use. Uninstallation has been scheduled.");
                     }
 
-                    bool hasFallback = _handler.UninstallWithFallback(Package.Name);
-
-                    if (hasFallback)
+                    if (_handler.UninstallWithFallback(Package.Name))
+                    {
+                        NotificationService.ShowInformation(
+                            title: ExtensionsPage.PackageInstaller,
+                            message: string.Format(ExtensionsPage.PackageInstaller_Uninstalled, Package.Name));
+                    }
+                    else
                     {
                         NotificationService.ShowInformation(
                             title: ExtensionsPage.PackageInstaller,

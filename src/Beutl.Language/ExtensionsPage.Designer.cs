@@ -159,6 +159,24 @@ namespace Beutl.Language {
             }
         }
         
+        public static string PackageInstaller_Installed {
+            get {
+                return ResourceManager.GetString("PackageInstaller_Installed", resourceCulture);
+            }
+        }
+
+        public static string PackageInstaller_Updated {
+            get {
+                return ResourceManager.GetString("PackageInstaller_Updated", resourceCulture);
+            }
+        }
+
+        public static string PackageInstaller_Uninstalled {
+            get {
+                return ResourceManager.GetString("PackageInstaller_Uninstalled", resourceCulture);
+            }
+        }
+
         public static string PackageInstaller_ScheduledInstallation {
             get {
                 return ResourceManager.GetString("PackageInstaller_ScheduledInstallation", resourceCulture);
