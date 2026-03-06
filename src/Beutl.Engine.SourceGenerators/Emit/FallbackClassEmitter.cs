@@ -68,6 +68,10 @@ public static class FallbackClassEmitter
     private static void EmitJsonProperty(StringBuilder sb, string indent)
     {
         sb.AppendLine($"{indent}public global::System.Text.Json.Nodes.JsonObject? Json {{ get; set; }}");
+        sb.AppendLine();
+        sb.AppendLine($"{indent}public global::Beutl.Serialization.FallbackReason Reason {{ get; set; }}");
+        sb.AppendLine();
+        sb.AppendLine($"{indent}public string? ErrorMessage {{ get; set; }}");
     }
 
     private static void EmitSerialize(StringBuilder sb, string indent)

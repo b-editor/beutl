@@ -9,9 +9,19 @@ public sealed class FallbackTypeAttribute(Type fallbackType) : Attribute
     public Type FallbackType { get; } = fallbackType;
 }
 
+public enum FallbackReason
+{
+    TypeNotFound,
+    DeserializationFailed,
+}
+
 public interface IFallback : ICoreSerializable
 {
     JsonObject? Json { get; set; }
+
+    FallbackReason Reason { get; set; }
+
+    string? ErrorMessage { get; set; }
 
     bool TryGetTypeName([NotNullWhen(true)] out string? result);
 }
