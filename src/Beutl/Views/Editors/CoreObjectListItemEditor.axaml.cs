@@ -18,7 +18,7 @@ public partial class CoreObjectListItemEditor : UserControl, IListItemEditor
 {
     private static readonly CrossFade s_transition = new(TimeSpan.FromMilliseconds(167));
     private CancellationTokenSource? _lastTransitionCts;
-    private UnknownObjectView? _unknownObjectView;
+    private FallbackObjectView? _fallbackObjectView;
 
     public CoreObjectListItemEditor()
     {
@@ -41,15 +41,15 @@ public partial class CoreObjectListItemEditor : UserControl, IListItemEditor
             });
 
         this.GetObservable(DataContextProperty)
-            .Select(x => x as IUnknownObjectViewModel)
-            .Select(x => x?.IsFallback.Select(_ => x) ?? Observable.ReturnThenNever<IUnknownObjectViewModel?>(null))
+            .Select(x => x as IFallbackObjectViewModel)
+            .Select(x => x?.IsFallback.Select(_ => x) ?? Observable.ReturnThenNever<IFallbackObjectViewModel?>(null))
             .Switch()
             .Where(v => v?.IsFallback.Value == true)
             .Take(1)
             .Subscribe(_ =>
             {
-                _unknownObjectView = new UnknownObjectView();
-                content.Children.Add(_unknownObjectView);
+                _fallbackObjectView = new FallbackObjectView();
+                content.Children.Add(_fallbackObjectView);
             });
     }
 

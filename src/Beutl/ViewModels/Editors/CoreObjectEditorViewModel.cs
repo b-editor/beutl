@@ -31,7 +31,7 @@ public interface ICoreObjectEditorViewModel
     bool CanWrite { get; }
 }
 
-public sealed class CoreObjectEditorViewModel<T> : BaseEditorViewModel<T>, ICoreObjectEditorViewModel, IUnknownObjectViewModel
+public sealed class CoreObjectEditorViewModel<T> : BaseEditorViewModel<T>, ICoreObjectEditorViewModel, IFallbackObjectViewModel
     where T : CoreObject
 {
     public CoreObjectEditorViewModel(IPropertyAdapter<T> property)

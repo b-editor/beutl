@@ -20,7 +20,7 @@ public partial class GeometryEditor : UserControl
     private readonly ILogger _logger = Log.CreateLogger<GeometryEditor>();
 
     private CancellationTokenSource? _lastTransitionCts;
-    private UnknownObjectView? _unknownObjectView;
+    private FallbackObjectView? _fallbackObjectView;
 
     public GeometryEditor()
     {
@@ -50,8 +50,8 @@ public partial class GeometryEditor : UserControl
             .Take(1)
             .Subscribe(_ =>
             {
-                _unknownObjectView = new UnknownObjectView();
-                content.Children.Add(_unknownObjectView);
+                _fallbackObjectView = new FallbackObjectView();
+                content.Children.Add(_fallbackObjectView);
             });
     }
 

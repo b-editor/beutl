@@ -2,7 +2,7 @@ using Reactive.Bindings;
 
 namespace Beutl.Editor.Services;
 
-public interface IUnknownObjectViewModel
+public interface IFallbackObjectViewModel
 {
     IReadOnlyReactiveProperty<bool> IsFallback { get; }
 

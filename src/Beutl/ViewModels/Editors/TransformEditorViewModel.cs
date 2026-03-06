@@ -24,7 +24,7 @@ public enum KnownTransformType
     Presenter
 }
 
-public sealed class TransformEditorViewModel : ValueEditorViewModel<Transform?>, IUnknownObjectViewModel
+public sealed class TransformEditorViewModel : ValueEditorViewModel<Transform?>, IFallbackObjectViewModel
 {
     private static KnownTransformType GetTransformType(Transform? obj)
     {

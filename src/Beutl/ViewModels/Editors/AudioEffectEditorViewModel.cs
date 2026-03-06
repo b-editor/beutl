@@ -11,7 +11,7 @@ using Reactive.Bindings;
 
 namespace Beutl.ViewModels.Editors;
 
-public sealed class AudioEffectEditorViewModel : ValueEditorViewModel<AudioEffect?>, IUnknownObjectViewModel
+public sealed class AudioEffectEditorViewModel : ValueEditorViewModel<AudioEffect?>, IFallbackObjectViewModel
 {
     public AudioEffectEditorViewModel(IPropertyAdapter<AudioEffect?> property)
         : base(property)

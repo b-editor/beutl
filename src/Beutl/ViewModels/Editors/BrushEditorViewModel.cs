@@ -11,7 +11,7 @@ using Reactive.Bindings;
 
 namespace Beutl.ViewModels.Editors;
 
-public sealed class BrushEditorViewModel : BaseEditorViewModel, IUnknownObjectViewModel
+public sealed class BrushEditorViewModel : BaseEditorViewModel, IFallbackObjectViewModel
 {
     private IDisposable? _revoker;
     private Action? _update;

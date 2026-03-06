@@ -100,7 +100,7 @@ public sealed partial class EngineObjectPropertyView : UserControl
 
                 if (panel.Children.Count == 1)
                 {
-                    panel.Children.Add(new UnknownObjectView());
+                    panel.Children.Add(new FallbackObjectView());
                 }
             }
         }

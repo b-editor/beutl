@@ -34,7 +34,7 @@ public sealed partial class BrushEditor : UserControl
     private CancellationTokenSource? _lastTransitionCts;
 
     private BrushEditorFlyout? _flyout;
-    private UnknownObjectView? _unknownObjectView;
+    private FallbackObjectView? _fallbackObjectView;
     private bool _flyoutOpen;
 
     public BrushEditor()
@@ -65,8 +65,8 @@ public sealed partial class BrushEditor : UserControl
             .Take(1)
             .Subscribe(_ =>
             {
-                _unknownObjectView = new UnknownObjectView();
-                (content.Child as Panel)?.Children.Add(_unknownObjectView);
+                _fallbackObjectView = new FallbackObjectView();
+                (content.Child as Panel)?.Children.Add(_fallbackObjectView);
             });
     }
 

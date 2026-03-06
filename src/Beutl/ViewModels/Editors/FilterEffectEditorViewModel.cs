@@ -12,7 +12,7 @@ using Reactive.Bindings;
 
 namespace Beutl.ViewModels.Editors;
 
-public sealed class FilterEffectEditorViewModel : ValueEditorViewModel<FilterEffect?>, IUnknownObjectViewModel
+public sealed class FilterEffectEditorViewModel : ValueEditorViewModel<FilterEffect?>, IFallbackObjectViewModel
 {
     public FilterEffectEditorViewModel(IPropertyAdapter<FilterEffect?> property)
         : base(property)

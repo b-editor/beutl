@@ -11,7 +11,7 @@ using Reactive.Bindings;
 
 namespace Beutl.ViewModels.Editors;
 
-public sealed class GeometryEditorViewModel : ValueEditorViewModel<Geometry?>, IGeometryEditorContext, IUnknownObjectViewModel
+public sealed class GeometryEditorViewModel : ValueEditorViewModel<Geometry?>, IGeometryEditorContext, IFallbackObjectViewModel
 {
     public GeometryEditorViewModel(IPropertyAdapter<Geometry?> property)
         : base(property)

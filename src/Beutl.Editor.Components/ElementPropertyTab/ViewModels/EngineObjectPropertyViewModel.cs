@@ -10,7 +10,7 @@ using Reactive.Bindings;
 
 namespace Beutl.Editor.Components.ElementPropertyTab.ViewModels;
 
-public sealed class EngineObjectPropertyViewModel : IDisposable, IPropertyEditorContextVisitor, IServiceProvider, IUnknownObjectViewModel
+public sealed class EngineObjectPropertyViewModel : IDisposable, IPropertyEditorContextVisitor, IServiceProvider, IFallbackObjectViewModel
 {
     private ElementPropertyTabViewModel _parent;
 

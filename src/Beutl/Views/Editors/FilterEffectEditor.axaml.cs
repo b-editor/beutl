@@ -19,7 +19,7 @@ public partial class FilterEffectEditor : UserControl
     private static readonly CrossFade s_transition = new(TimeSpan.FromMilliseconds(250));
 
     private CancellationTokenSource? _lastTransitionCts;
-    private UnknownObjectView? _unknownObjectView;
+    private FallbackObjectView? _fallbackObjectView;
     private bool _flyoutOpen;
 
     public FilterEffectEditor()
@@ -54,8 +54,8 @@ public partial class FilterEffectEditor : UserControl
             .Take(1)
             .Subscribe(_ =>
             {
-                _unknownObjectView = new UnknownObjectView();
-                content.Children.Add(_unknownObjectView);
+                _fallbackObjectView = new FallbackObjectView();
+                content.Children.Add(_fallbackObjectView);
             });
     }
 
