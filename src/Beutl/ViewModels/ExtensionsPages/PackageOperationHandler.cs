@@ -2,7 +2,9 @@ using Beutl.Api;
 using Beutl.Api.Objects;
 using Beutl.Api.Services;
 using Beutl.Logging;
+using Beutl.Serialization;
 using Beutl.Services;
+using FluentAvalonia.UI.Controls;
 using Microsoft.Extensions.Logging;
 using NuGet.Packaging;
 using NuGet.Packaging.Core;
@@ -141,6 +143,56 @@ internal class PackageOperationHandler
         foreach (PackageIdentity item in _installedPackageRepository.GetLocalPackages(packageName))
         {
             _queue.UninstallQueue(item);
+        }
+    }
+
+    public static async Task<bool> EnsureProjectClosed()
+    {
+        if (!ProjectService.Current.IsOpened.Value)
+            return true;
+
+        var dialog = new ContentDialog
+        {
+            Title = ExtensionsPage.PackageInstaller,
+            Content = ExtensionsPage.PackageInstaller_CloseProjectConfirmation,
+            PrimaryButtonText = Strings.OK,
+            SecondaryButtonText = ExtensionsPage.PackageInstaller_SaveAndClose,
+            CloseButtonText = Strings.Cancel,
+            DefaultButton = ContentDialogButton.Secondary
+        };
+
+        ContentDialogResult result = await dialog.ShowAsync();
+
+        if (result == ContentDialogResult.Secondary)
+        {
+            await SaveAll();
+            ProjectService.Current.CloseProject();
+            return true;
+        }
+
+        if (result == ContentDialogResult.Primary)
+        {
+            ProjectService.Current.CloseProject();
+            return true;
+        }
+
+        return false;
+    }
+
+    private static async Task SaveAll()
+    {
+        Project? project = ProjectService.Current.CurrentProject.Value;
+        if (project != null)
+        {
+            CoreSerializer.StoreToUri(project, project.Uri!);
+        }
+
+        foreach (EditorTabItem item in EditorService.Current.TabItems)
+        {
+            if (item.Commands.Value != null)
+            {
+                await item.Commands.Value.OnSave();
+            }
         }
     }
 

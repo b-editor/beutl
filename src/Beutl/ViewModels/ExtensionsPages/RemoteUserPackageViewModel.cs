@@ -58,6 +58,9 @@ public sealed class RemoteUserPackageViewModel : BaseViewModel, IUserPackageView
                 try
                 {
                     IsBusy.Value = true;
+                    if (!await PackageOperationHandler.EnsureProjectClosed())
+                        return;
+
                     StatusText.Value = ExtensionsPage.Installing;
                     using (await _app.Lock.LockAsync())
                     {
@@ -111,6 +114,9 @@ public sealed class RemoteUserPackageViewModel : BaseViewModel, IUserPackageView
                 try
                 {
                     IsBusy.Value = true;
+                    if (!await PackageOperationHandler.EnsureProjectClosed())
+                        return;
+
                     StatusText.Value = ExtensionsPage.Updating;
                     using (await _app.Lock.LockAsync())
                     {
@@ -166,6 +172,9 @@ public sealed class RemoteUserPackageViewModel : BaseViewModel, IUserPackageView
                 try
                 {
                     IsBusy.Value = true;
+                    if (!await PackageOperationHandler.EnsureProjectClosed())
+                        return;
+
                     StatusText.Value = ExtensionsPage.Uninstalling;
 
                     if (!_handler.UnloadPackages(Package.Name))

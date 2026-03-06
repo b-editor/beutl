@@ -196,6 +196,12 @@ To apply the package changes, exit Beutl.</value>
     <value>'{0}' uninstallation is scheduled.
 To apply the package changes, exit Beutl.</value>
   </data>
+  <data name="PackageInstaller_CloseProjectConfirmation" xml:space="preserve">
+    <value>A project is currently open. It needs to be closed before modifying packages. Do you want to close it?</value>
+  </data>
+  <data name="PackageInstaller_SaveAndClose" xml:space="preserve">
+    <value>Save and close</value>
+  </data>
   <data name="AuthorizationIsRequired" xml:space="preserve">
     <value>Authorization is required.</value>
   </data>

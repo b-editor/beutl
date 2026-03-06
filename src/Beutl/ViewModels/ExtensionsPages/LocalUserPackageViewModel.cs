@@ -56,6 +56,9 @@ public sealed class LocalUserPackageViewModel : BaseViewModel, IUserPackageViewM
                 try
                 {
                     IsBusy.Value = true;
+                    if (!await PackageOperationHandler.EnsureProjectClosed())
+                        return;
+
                     StatusText.Value = ExtensionsPage.Installing;
 
                     try
@@ -98,6 +101,9 @@ public sealed class LocalUserPackageViewModel : BaseViewModel, IUserPackageViewM
                 try
                 {
                     IsBusy.Value = true;
+                    if (!await PackageOperationHandler.EnsureProjectClosed())
+                        return;
+
                     StatusText.Value = ExtensionsPage.Updating;
                     if (LatestRelease.Value != null)
                     {
@@ -145,6 +151,9 @@ public sealed class LocalUserPackageViewModel : BaseViewModel, IUserPackageViewM
                 try
                 {
                     IsBusy.Value = true;
+                    if (!await PackageOperationHandler.EnsureProjectClosed())
+                        return;
+
                     StatusText.Value = ExtensionsPage.Uninstalling;
 
                     if (!_handler.UnloadPackages(Package.Name))

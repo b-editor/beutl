@@ -196,6 +196,12 @@ URLが不審な場合、開かないことをお勧めします。</value>
     <value>'{0}'のアンインストールを予約しました。
 パッケージの変更を適用するには、Beutlを終了してください。</value>
   </data>
+  <data name="PackageInstaller_CloseProjectConfirmation" xml:space="preserve">
+    <value>プロジェクトが開かれています。パッケージを変更するにはプロジェクトを閉じる必要があります。閉じますか？</value>
+  </data>
+  <data name="PackageInstaller_SaveAndClose" xml:space="preserve">
+    <value>保存して閉じる</value>
+  </data>
   <data name="AuthorizationIsRequired" xml:space="preserve">
     <value>認証が必要です。</value>
   </data>

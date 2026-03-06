@@ -195,6 +195,18 @@ namespace Beutl.Language {
             }
         }
         
+        public static string PackageInstaller_CloseProjectConfirmation {
+            get {
+                return ResourceManager.GetString("PackageInstaller_CloseProjectConfirmation", resourceCulture);
+            }
+        }
+
+        public static string PackageInstaller_SaveAndClose {
+            get {
+                return ResourceManager.GetString("PackageInstaller_SaveAndClose", resourceCulture);
+            }
+        }
+
         public static string AuthorizationIsRequired {
             get {
                 return ResourceManager.GetString("AuthorizationIsRequired", resourceCulture);
