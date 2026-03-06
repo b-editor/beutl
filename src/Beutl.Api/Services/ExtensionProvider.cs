@@ -130,6 +130,20 @@ public sealed class ExtensionProvider : IBeutlApiResource
         }
     }
 
+    public Extension[] RemoveExtensions(int id)
+    {
+        lock (_lock)
+        {
+            if (_allExtensions.Remove(id, out Extension[]? extensions))
+            {
+                _extensions.RemoveAll(extensions);
+                InvalidateCache();
+                return extensions;
+            }
+            return [];
+        }
+    }
+
     public void InvalidateCache()
     {
         _cacheInvalidated = true;

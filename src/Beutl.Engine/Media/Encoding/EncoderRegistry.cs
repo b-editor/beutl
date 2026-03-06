@@ -19,4 +19,9 @@ public static class EncoderRegistry
     {
         s_registerd.Add(metadata);
     }
+
+    public static bool Unregister(IEncoderInfo metadata)
+    {
+        return s_registerd.Remove(metadata);
+    }
 }

@@ -29,6 +29,16 @@ public sealed class TutorialServiceHandler : ITutorialService
         }
     }
 
+    public void Unregister(string tutorialId)
+    {
+        TutorialState? current = _currentTutorial.Value;
+        if (current?.Definition.Id == tutorialId)
+        {
+            CancelTutorial();
+        }
+        _tutorials.RemoveAll(t => t.Id == tutorialId);
+    }
+
     public async Task StartTutorial(string tutorialId, bool autoFulfillPrerequisites = false)
     {
         TutorialDefinition? tutorial = _tutorials.Find(t => t.Id == tutorialId);

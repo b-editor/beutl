@@ -1,4 +1,4 @@
-﻿using Beutl.Api;
+using Beutl.Api;
 using Beutl.Api.Objects;
 using Beutl.Api.Services;
 using Beutl.Logging;
@@ -16,6 +16,8 @@ public sealed class LocalUserPackageViewModel : BaseViewModel, IUserPackageViewM
     private readonly CompositeDisposable _disposables = [];
     private readonly InstalledPackageRepository _installedPackageRepository;
     private readonly PackageChangesQueue _queue;
+    private readonly PackageManager _packageManager;
+    private readonly PackageInstaller _packageInstaller;
     private readonly PackageIdentity _packageIdentity;
 
     public LocalUserPackageViewModel(LocalPackage package, BeutlApiApplication app)
@@ -27,6 +29,8 @@ public sealed class LocalUserPackageViewModel : BaseViewModel, IUserPackageViewM
 
         _installedPackageRepository = app.GetResource<InstalledPackageRepository>();
         _queue = app.GetResource<PackageChangesQueue>();
+        _packageManager = app.GetResource<PackageManager>();
+        _packageInstaller = app.GetResource<PackageInstaller>();
 
         IObservable<PackageChangesQueue.EventType> observable = _queue.GetObservable(package.Name);
         CanCancel = observable.Select(x => x != PackageChangesQueue.EventType.None)
@@ -116,17 +120,45 @@ public sealed class LocalUserPackageViewModel : BaseViewModel, IUserPackageViewM
                 try
                 {
                     IsBusy.Value = true;
+
+                    // ロード済みパッケージをアンロード
+                    bool unloadResult = true;
+                    foreach (LocalPackage pkg in _packageManager.FindLoadedPackage(Package.Name))
+                    {
+                        unloadResult &= _packageManager.Unload(pkg);
+                    }
+
+                    if (!unloadResult)
+                    {
+                        throw new Exception("Failed to unload the package. It may still be in use. Uninstallation has been scheduled.");
+                    }
+
+                    if (Package.InstalledPath != null)
+                    {
+                        var ctx = _packageInstaller.PrepareForUninstall(Package.InstalledPath);
+                        _packageInstaller.Uninstall(ctx, new Progress<double>());
+
+                        if (ctx.FailedPackages is { Count: > 0 })
+                        {
+                            _logger.LogWarning("Some files could not be deleted, falling back to queue.");
+                            _queue.UninstallQueue(_packageIdentity);
+
+                            NotificationService.ShowInformation(
+                                title: ExtensionsPage.PackageInstaller,
+                                message: string.Format(ExtensionsPage.PackageInstaller_ScheduledUninstallation,
+                                    _packageIdentity.Id));
+                        }
+                    }
+                }
+                catch (Exception e)
+                {
+                    activity?.SetStatus(ActivityStatusCode.Error);
+                    _logger.LogWarning(e, "Immediate uninstall failed, falling back to queue.");
                     _queue.UninstallQueue(_packageIdentity);
                     NotificationService.ShowInformation(
                         title: ExtensionsPage.PackageInstaller,
                         message: string.Format(ExtensionsPage.PackageInstaller_ScheduledUninstallation,
                             _packageIdentity.Id));
-                }
-                catch (Exception e)
-                {
-                    activity?.SetStatus(ActivityStatusCode.Error);
-                    await e.Handle();
-                    _logger.LogError(e, "An unexpected error has occurred.");
                 }
                 finally
                 {

@@ -69,4 +69,17 @@ public static class DecoderRegistry
             s_registered.Add(decoder);
         }
     }
+
+    public static bool Unregister(IDecoderInfo decoder)
+    {
+        lock (s_lock)
+        {
+            bool removed = s_registered.Remove(decoder);
+            if (removed)
+            {
+                InvalidateCache();
+            }
+            return removed;
+        }
+    }
 }

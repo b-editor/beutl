@@ -1,5 +1,6 @@
-﻿using System.Collections.Concurrent;
+using System.Collections.Concurrent;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Reactive.Subjects;
 using System.Reflection;
 using Beutl.Api.Objects;
@@ -14,6 +15,8 @@ using Telemetry = Beutl.Api.Services.PackageManagemantActivitySource;
 
 namespace Beutl.Api.Services;
 
+public record LoadedPackageInfo(LocalPackage Package, PluginLoadContext? LoadContext);
+
 public sealed class PackageManager(
     InstalledPackageRepository installedPackageRepository,
     ExtensionProvider extensionProvider,
@@ -21,11 +24,11 @@ public sealed class PackageManager(
     BeutlApiApplication apiApplication) : PackageLoader
 {
     private readonly ILogger _logger = Log.CreateLogger<PackageManager>();
-    private readonly ConcurrentBag<LocalPackage> _loadedPackage = [];
+    private readonly ConcurrentDictionary<int, LoadedPackageInfo> _loadedPackages = new();
     private readonly ExtensionSettingsStore _settingsStore = new();
     private readonly Subject<(PackageIdentity Package, bool Loaded)> _subject = new();
 
-    public IEnumerable<LocalPackage> LoadedPackage => _loadedPackage;
+    public IEnumerable<LocalPackage> LoadedPackage => _loadedPackages.Values.Select(x => x.Package);
 
     public ExtensionProvider ExtensionProvider => extensionProvider;
 
@@ -38,16 +41,17 @@ public sealed class PackageManager(
 
     public bool IsLoaded(string name, string? version = null)
     {
+        var packages = _loadedPackages.Values;
         if (version is { })
         {
             var nugetVersion = new NuGetVersion(version);
-            return _loadedPackage.Any(
-                x => StringComparer.OrdinalIgnoreCase.Equals(x.Name, name)
-                     && new NuGetVersion(x.Version) == nugetVersion);
+            return packages.Any(
+                x => StringComparer.OrdinalIgnoreCase.Equals(x.Package.Name, name)
+                     && new NuGetVersion(x.Package.Version) == nugetVersion);
         }
         else
         {
-            return _loadedPackage.Any(x => StringComparer.OrdinalIgnoreCase.Equals(x.Name, name));
+            return packages.Any(x => StringComparer.OrdinalIgnoreCase.Equals(x.Package.Name, name));
         }
     }
 
@@ -60,13 +64,14 @@ public sealed class PackageManager(
 
         string[] files = Directory.GetFiles(Helper.LocalSourcePath, "*.nupkg");
         var list = new List<LocalPackage>(files.Length);
+        var packages = _loadedPackages.Values;
 
         foreach (string file in files)
         {
             using FileStream stream = File.OpenRead(file);
             if (Helper.ReadLocalPackageFromNupkgFile(stream) is { } localPackage)
             {
-                if (!_loadedPackage.Any(x => StringComparer.OrdinalIgnoreCase.Equals(x.Name, localPackage.Name)))
+                if (!packages.Any(x => StringComparer.OrdinalIgnoreCase.Equals(x.Package.Name, localPackage.Name)))
                 {
                     list.Add(localPackage);
                 }
@@ -131,8 +136,10 @@ public sealed class PackageManager(
         {
             DiscoverService discover = apiApplication.GetResource<DiscoverService>();
 
-            LocalPackage? pkg = _loadedPackage.FirstOrDefault(v =>
-                !v.SideLoad && StringComparer.OrdinalIgnoreCase.Equals(v.Name, name));
+            LocalPackage? pkg = _loadedPackages.Values
+                .Select(x => x.Package)
+                .FirstOrDefault(v =>
+                    !v.SideLoad && StringComparer.OrdinalIgnoreCase.Equals(v.Name, name));
             if (pkg != null)
             {
                 string versionStr = pkg.Version;
@@ -227,16 +234,16 @@ public sealed class PackageManager(
                 package.InstalledPath = Helper.PackagePathResolver.GetInstallPath(packageId);
             }
 
-            Assembly[] assemblies = !package.SideLoad
+            PackageLoadResult result = !package.SideLoad
                 ? Load(package.InstalledPath)
                 : SideLoad(package.InstalledPath);
 
             activity?.AddEvent(new ActivityEvent("Assemblies loaded"));
-            activity?.SetTag("AssemblyCount", assemblies.Length);
+            activity?.SetTag("AssemblyCount", result.Assemblies.Length);
 
             var extensions = new List<Extension>();
 
-            foreach (Assembly assembly in assemblies)
+            foreach (Assembly assembly in result.Assemblies)
             {
                 LoadExtensions(assembly, extensions);
             }
@@ -246,10 +253,101 @@ public sealed class PackageManager(
 
             ExtensionProvider.AddExtensions(package.LocalId, extensions.ToArray());
 
-            _loadedPackage.Add(package);
+            _loadedPackages.TryAdd(package.LocalId, new LoadedPackageInfo(package, result.LoadContext));
 
-            return assemblies;
+            var pkgId = new PackageIdentity(package.Name,
+                string.IsNullOrEmpty(package.Version) ? null : NuGetVersion.Parse(package.Version));
+            _subject.OnNext((pkgId, true));
+
+            return result.Assemblies;
         }
+    }
+
+    public bool Unload(LocalPackage package)
+    {
+        using (Activity? activity = Telemetry.ActivitySource.StartActivity("Unload"))
+        {
+            var result = UnloadCore(activity, package, out WeakReference? weakReference);
+            if (!result || weakReference == null)
+            {
+                return false;
+            }
+
+            for (int i = 0; weakReference.IsAlive && (i < 10); i++)
+            {
+                GC.Collect();
+                GC.WaitForPendingFinalizers();
+            }
+
+            return !weakReference.IsAlive;
+        }
+    }
+
+    private bool UnloadCore(Activity? activity, LocalPackage package, [NotNullWhen(true)] out WeakReference? weakReference)
+    {
+        weakReference = null;
+        activity?.SetTag("PackageName", package.Name);
+
+        if (package.LocalId == LocalPackage.Reserved0)
+        {
+            _logger.LogWarning("Cannot unload built-in extensions.");
+            return false;
+        }
+
+        if (!_loadedPackages.TryRemove(package.LocalId, out LoadedPackageInfo? info))
+        {
+            _logger.LogWarning("Package {PackageName} is not loaded.", package.Name);
+            return false;
+        }
+
+        Extension[] extensions = extensionProvider.RemoveExtensions(package.LocalId);
+        foreach (Extension ext in extensions)
+        {
+            try
+            {
+                if (ext is ViewExtension viewExtension)
+                {
+                    commandManager.Unregister(viewExtension);
+                }
+
+                ext.Unload();
+                CleanupExtensionSettings(ext);
+
+                _logger.LogInformation("Extension {ExtensionName} unloaded.", ext.GetType().Name);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to unload extension {ExtensionName}.", ext.GetType().Name);
+            }
+        }
+
+        if (info.LoadContext is { } loadContext)
+        {
+            try
+            {
+                loadContext.Unload();
+                _logger.LogInformation("AssemblyLoadContext unloaded for {PackageName}.", package.Name);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to unload AssemblyLoadContext for {PackageName}.", package.Name);
+            }
+        }
+
+        var pkgId = new PackageIdentity(package.Name,
+            string.IsNullOrEmpty(package.Version) ? null : NuGetVersion.Parse(package.Version));
+        _subject.OnNext((pkgId, false));
+
+        // https://learn.microsoft.com/ja-jp/dotnet/standard/assembly/unloadability#use-a-custom-collectible-assemblyloadcontext
+        weakReference = new WeakReference(info.LoadContext, trackResurrection: true);
+        return true;
+    }
+
+    public LocalPackage[] FindLoadedPackage(string name)
+    {
+        return [.. _loadedPackages.Values
+            .Select(x => x.Package)
+            .Where(x => StringComparer.OrdinalIgnoreCase.Equals(x.Name, name))];
     }
 
     private void LoadExtensions(Assembly assembly, List<Extension> extensions)
@@ -281,8 +379,19 @@ public sealed class PackageManager(
         {
             _settingsStore.Restore(extension, settings);
 
-            settings.ConfigurationChanged += (_, _) => _settingsStore.Save(extension, settings);
+            EventHandler handler = (_, _) => _settingsStore.Save(extension, settings);
+            extension.SettingsChangedHandler = handler;
+            settings.ConfigurationChanged += handler;
             _logger.LogInformation("Settings restored for extension {ExtensionName}", extension.GetType().Name);
+        }
+    }
+
+    private void CleanupExtensionSettings(Extension extension)
+    {
+        if (extension.Settings is { } settings && extension.SettingsChangedHandler is { } handler)
+        {
+            settings.ConfigurationChanged -= handler;
+            extension.SettingsChangedHandler = null;
         }
     }
 
@@ -306,16 +415,17 @@ public sealed class PackageManager(
 
         protected override void Subscribed(IObserver<bool> observer, bool first)
         {
+            var packages = _manager._loadedPackages.Values;
             if (_packageIdentity is { })
             {
-                observer.OnNext(_manager._loadedPackage.Any(
-                    x => StringComparer.OrdinalIgnoreCase.Equals(x.Name, _name)
-                         && new NuGetVersion(x.Version) == _packageIdentity.Version));
+                observer.OnNext(packages.Any(
+                    x => StringComparer.OrdinalIgnoreCase.Equals(x.Package.Name, _name)
+                         && new NuGetVersion(x.Package.Version) == _packageIdentity.Version));
             }
             else
             {
                 observer.OnNext(
-                    _manager._loadedPackage.Any(x => StringComparer.OrdinalIgnoreCase.Equals(x.Name, _name)));
+                    packages.Any(x => StringComparer.OrdinalIgnoreCase.Equals(x.Package.Name, _name)));
             }
         }
 
