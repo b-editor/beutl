@@ -25,6 +25,10 @@ public sealed class FilterEffectEditorViewModel : ValueEditorViewModel<FilterEff
             .ToReadOnlyReactivePropertySlim(Strings.Unknown)
             .DisposeWith(Disposables);
 
+        FallbackMessage = Value.Select(FallbackHelper.GetFallbackMessage)
+            .ToReadOnlyReactivePropertySlim(Message.Could_not_restore_because_type_could_not_be_found)
+            .DisposeWith(Disposables);
+
         FilterName = Value.Select(v =>
             {
                 if (v != null)
@@ -132,6 +136,8 @@ public sealed class FilterEffectEditorViewModel : ValueEditorViewModel<FilterEff
     public IReadOnlyReactiveProperty<bool> IsFallback { get; }
 
     public IReadOnlyReactiveProperty<string> ActualTypeName { get; }
+
+    public IReadOnlyReactiveProperty<string> FallbackMessage { get; }
 
     public ReactivePropertySlim<PropertiesEditorViewModel?> Properties { get; } = new();
 

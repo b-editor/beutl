@@ -19,4 +19,16 @@ public static class FallbackHelper
             return Strings.Unknown;
         }
     }
+
+    public static string GetFallbackMessage(object? obj)
+    {
+        if (obj is IFallback { Reason: FallbackReason.DeserializationFailed } fallback)
+        {
+            return fallback.ErrorMessage != null
+                ? $"{Message.Could_not_restore_because_an_exception_occurred}\n{fallback.ErrorMessage}"
+                : Message.Could_not_restore_because_an_exception_occurred;
+        }
+
+        return Message.Could_not_restore_because_type_could_not_be_found;
+    }
 }

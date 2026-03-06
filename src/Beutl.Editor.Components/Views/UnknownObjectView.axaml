@@ -16,7 +16,7 @@
                 Spacing="8"
                 TextBlock.TextWrapping="WrapWithOverflow">
 
-        <TextBlock Text="{x:Static lang:Message.Could_not_restore_because_type_could_not_be_found}" />
+        <TextBlock Text="{Binding FallbackMessage.Value}" />
         <SelectableTextBlock Text="{Binding ActualTypeName.Value}" />
 
         <WrapPanel Margin="-6">

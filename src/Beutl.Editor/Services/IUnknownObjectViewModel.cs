@@ -8,6 +8,8 @@ public interface IUnknownObjectViewModel
 
     IReadOnlyReactiveProperty<string> ActualTypeName { get; }
 
+    IReadOnlyReactiveProperty<string> FallbackMessage { get; }
+
     IObservable<string?> GetJsonString();
 
     void SetJsonString(string? json);

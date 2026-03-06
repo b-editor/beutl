@@ -69,6 +69,10 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel, IUnknownObjectVi
             .ToReadOnlyReactivePropertySlim(Strings.Unknown)
             .DisposeWith(Disposables);
 
+        FallbackMessage = Value.Select(FallbackHelper.GetFallbackMessage)
+            .ToReadOnlyReactivePropertySlim(Message.Could_not_restore_because_type_could_not_be_found)
+            .DisposeWith(Disposables);
+
         Value.CombineWithPrevious()
             .Select(v => v.OldValue)
             .Where(v => v != null)
@@ -137,6 +141,8 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel, IUnknownObjectVi
     public IReadOnlyReactiveProperty<bool> IsFallback { get; }
 
     public IReadOnlyReactiveProperty<string> ActualTypeName { get; }
+
+    public IReadOnlyReactiveProperty<string> FallbackMessage { get; }
 
     public IObservable<string?> GetJsonString()
     {

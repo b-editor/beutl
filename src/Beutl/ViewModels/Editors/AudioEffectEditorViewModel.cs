@@ -24,6 +24,10 @@ public sealed class AudioEffectEditorViewModel : ValueEditorViewModel<AudioEffec
             .ToReadOnlyReactivePropertySlim(Strings.Unknown)
             .DisposeWith(Disposables);
 
+        FallbackMessage = Value.Select(FallbackHelper.GetFallbackMessage)
+            .ToReadOnlyReactivePropertySlim(Message.Could_not_restore_because_type_could_not_be_found)
+            .DisposeWith(Disposables);
+
         FilterName = Value.Select(v =>
             {
                 if (v != null)
@@ -115,6 +119,8 @@ public sealed class AudioEffectEditorViewModel : ValueEditorViewModel<AudioEffec
     public IReadOnlyReactiveProperty<bool> IsFallback { get; }
 
     public IReadOnlyReactiveProperty<string> ActualTypeName { get; }
+
+    public IReadOnlyReactiveProperty<string> FallbackMessage { get; }
 
     public IObservable<string?> GetJsonString()
     {

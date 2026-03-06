@@ -239,6 +239,9 @@
   <data name="Could_not_restore_because_type_could_not_be_found" xml:space="preserve">
     <value>型が見つからないため、復元できませんでした。</value>
   </data>
+  <data name="Could_not_restore_because_an_exception_occurred" xml:space="preserve">
+    <value>デシリアライズ中に例外が発生したため、復元できませんでした。</value>
+  </data>
   <data name="Must_upgrade_for_continued_use" xml:space="preserve">
     <value>引き続き使用するにはアップグレードする必要があります</value>
   </data>

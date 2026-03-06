@@ -37,6 +37,9 @@ public sealed class EngineObjectPropertyViewModel : IDisposable, IPropertyEditor
 
         ActualTypeName = Observable.ReturnThenNever(FallbackHelper.GetTypeName(model))
             .ToReadOnlyReactivePropertySlim()!;
+
+        FallbackMessage = Observable.ReturnThenNever(FallbackHelper.GetFallbackMessage(model))
+            .ToReadOnlyReactivePropertySlim()!;
     }
 
     public EngineObject Model { get; private set; }
@@ -50,6 +53,8 @@ public sealed class EngineObjectPropertyViewModel : IDisposable, IPropertyEditor
     public IReadOnlyReactiveProperty<bool> IsFallback { get; }
 
     public IReadOnlyReactiveProperty<string> ActualTypeName { get; }
+
+    public IReadOnlyReactiveProperty<string> FallbackMessage { get; }
 
     public void RestoreState(JsonNode json)
     {
