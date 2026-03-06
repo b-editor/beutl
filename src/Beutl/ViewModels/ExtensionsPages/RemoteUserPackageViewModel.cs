@@ -4,6 +4,7 @@ using Beutl.Api.Services;
 using Beutl.Logging;
 using Beutl.Services;
 using Microsoft.Extensions.Logging;
+using NuGet.Packaging;
 using NuGet.Packaging.Core;
 using NuGet.Versioning;
 using Reactive.Bindings;
@@ -73,13 +74,25 @@ public sealed class RemoteUserPackageViewModel : BaseViewModel, IUserPackageView
                         }
 
                         Release release = await AcquirePackage();
-
                         var packageId = new PackageIdentity(Package.Name, new NuGetVersion(release.Version.Value));
-                        _queue.InstallQueue(packageId);
-                        NotificationService.ShowInformation(
-                            title: ExtensionsPage.PackageInstaller,
-                            message: string.Format(ExtensionsPage.PackageInstaller_ScheduledInstallation,
-                                packageId.Id));
+
+                        try
+                        {
+                            await DownloadAndLoadPackage(release, packageId);
+                            NotificationService.ShowInformation(
+                                title: ExtensionsPage.PackageInstaller,
+                                message: string.Format(ExtensionsPage.PackageInstaller_ScheduledInstallation,
+                                    packageId.Id));
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogWarning(ex, "Immediate install failed, falling back to queue.");
+                            _queue.InstallQueue(packageId);
+                            NotificationService.ShowInformation(
+                                title: ExtensionsPage.PackageInstaller,
+                                message: string.Format(ExtensionsPage.PackageInstaller_ScheduledInstallation,
+                                    packageId.Id));
+                        }
                     }
                 }
                 catch (Exception e)
@@ -112,12 +125,44 @@ public sealed class RemoteUserPackageViewModel : BaseViewModel, IUserPackageView
                         }
 
                         Release release = await AcquirePackage();
-
                         var packageId = new PackageIdentity(Package.Name, new NuGetVersion(release.Version.Value));
-                        _queue.InstallQueue(packageId);
-                        NotificationService.ShowInformation(
-                            title: ExtensionsPage.PackageInstaller,
-                            message: string.Format(ExtensionsPage.PackageInstaller_ScheduledUpdate, packageId.Id));
+
+                        try
+                        {
+                            // 旧バージョンをアンロード
+                            foreach (LocalPackage pkg in _packageManager.FindLoadedPackage(Package.Name))
+                            {
+                                _packageManager.Unload(pkg);
+                            }
+
+                            GC.Collect();
+                            GC.WaitForPendingFinalizers();
+
+                            // 旧バージョンのファイル削除
+                            foreach (PackageIdentity item in _installedPackageRepository.GetLocalPackages(Package.Name))
+                            {
+                                string directory = Helper.PackagePathResolver.GetInstalledPath(item);
+                                if (Directory.Exists(directory))
+                                {
+                                    PackageUninstallContext ctx = _packageInstaller.PrepareForUninstall(directory);
+                                    _packageInstaller.Uninstall(ctx, new Progress<double>());
+                                }
+                            }
+
+                            // 新バージョンをダウンロード・ロード
+                            await DownloadAndLoadPackage(release, packageId);
+                            NotificationService.ShowInformation(
+                                title: ExtensionsPage.PackageInstaller,
+                                message: string.Format(ExtensionsPage.PackageInstaller_ScheduledUpdate, packageId.Id));
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogWarning(ex, "Immediate update failed, falling back to queue.");
+                            _queue.InstallQueue(packageId);
+                            NotificationService.ShowInformation(
+                                title: ExtensionsPage.PackageInstaller,
+                                message: string.Format(ExtensionsPage.PackageInstaller_ScheduledUpdate, packageId.Id));
+                        }
                     }
                 }
                 catch (Exception e)
@@ -270,6 +315,21 @@ public sealed class RemoteUserPackageViewModel : BaseViewModel, IUserPackageView
         }
 
         return (await Package.GetReleasesAsync())[0];
+    }
+
+    private async Task DownloadAndLoadPackage(Release release, PackageIdentity packageId)
+    {
+        var context = await _packageInstaller.PrepareForInstall(release, force: true);
+        await _packageInstaller.DownloadPackageFile(context);
+        await _packageInstaller.VerifyPackageFile(context);
+        await _packageInstaller.ResolveDependencies(context, null);
+
+        _installedPackageRepository.UpgradePackages(packageId);
+
+        string directory = Helper.PackagePathResolver.GetInstalledPath(packageId);
+        PackageFolderReader reader = new(directory);
+        var localPackage = new LocalPackage(reader.NuspecReader) { InstalledPath = directory };
+        _packageManager.Load(localPackage);
     }
 
     public Package Package { get; }
