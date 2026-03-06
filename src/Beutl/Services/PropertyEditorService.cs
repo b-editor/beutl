@@ -10,6 +10,7 @@ using Beutl.Controls.PropertyEditors;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Transformation;
+using Beutl.ProjectSystem;
 using Beutl.Graphics3D.Models;
 using Beutl.Graphics3D.Textures;
 using Beutl.Media;
@@ -207,6 +208,7 @@ public static class PropertyEditorService
 
             new(typeof(Brush), new(_ => new BrushEditor(), s => new BrushEditorViewModel(s.ToTyped<Brush?>()))),
             new(typeof(Pen), new(_ => new PenEditor(), s => new PenEditorViewModel(s.ToTyped<Pen?>()))),
+            new(typeof(Scene), new(_ => new SceneEditor(), s => new SceneEditorViewModel(s.ToTyped<Scene?>()))),
             new(typeof(FilterEffect), new(_ => new FilterEffectEditor(), s => new FilterEffectEditorViewModel(s.ToTyped<FilterEffect?>()))),
             new(typeof(Geometry), new(_ => new GeometryEditor(), s => new GeometryEditorViewModel(s.ToTyped<Geometry?>()))),
             new(typeof(AudioEffect), new(_ => new AudioEffectEditor(), s => new AudioEffectEditorViewModel(s.ToTyped<AudioEffect?>()))),

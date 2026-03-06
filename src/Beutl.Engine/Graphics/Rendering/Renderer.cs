@@ -381,4 +381,9 @@ public class Renderer : IRenderer
     {
         return renderer._immediateCanvas;
     }
+
+    public static RenderTarget GetInternalRenderTarget(Renderer renderer)
+    {
+        return renderer._surface;
+    }
 }

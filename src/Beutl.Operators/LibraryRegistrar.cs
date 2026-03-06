@@ -112,6 +112,16 @@ public static class LibraryRegistrar
             );
 
         LibraryService.Current
+            .AddMultiple(Strings.SceneGraphicsReference, m => m
+                .BindDrawable<SceneDrawable>()
+            );
+
+        LibraryService.Current
+            .AddMultiple(Strings.SceneSoundReference, m => m
+                .BindSound<SceneSound>()
+            );
+
+        LibraryService.Current
             .AddMultiple(Strings.Decorator, m => m
                 .BindDrawable<DrawableDecorator>()
             );

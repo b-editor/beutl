@@ -79,6 +79,46 @@ public sealed class AudioContext : IDisposable
     }
 
     /// <summary>
+    /// Creates a node with parameters, factory, updater, and comparer for differential updates.
+    /// </summary>
+    /// <typeparam name="TNode">Type of the node to create.</typeparam>
+    /// <typeparam name="TParams">Type of the parameters for node creation and comparison.</typeparam>
+    /// <param name="parameters">The parameters for node creation and comparison.</param>
+    /// <param name="factory">The factory function to create a new node if needed.</param>
+    /// <param name="updater">The updater function to update an existing node if reused.</param>
+    /// <param name="comparer">The comparer function to determine if an existing node can be reused based on the parameters.</param>
+    /// <returns>The created or reused node.</returns>
+    public TNode CreateNode<TNode, TParams>(
+        TParams parameters,
+        Func<TParams, TNode> factory,
+        Action<TParams, TNode> updater,
+        Func<TParams, TNode, bool> comparer)
+        where TNode : AudioNode
+    {
+        ThrowIfDisposed();
+        ArgumentNullException.ThrowIfNull(factory, nameof(factory));
+        ArgumentNullException.ThrowIfNull(updater, nameof(updater));
+        ArgumentNullException.ThrowIfNull(comparer, nameof(comparer));
+
+        // Try to reuse from previous nodes
+        if (_previousNodes != null)
+        {
+            var existing = _previousNodes.OfType<TNode>()
+                .FirstOrDefault(n => comparer(parameters, n));
+            if (existing != null)
+            {
+                _previousNodes.Remove(existing);
+                existing.ClearInputs();
+                updater(parameters, existing);
+                return AddNode(existing);
+            }
+        }
+
+        var node = factory(parameters);
+        return AddNode(node);
+    }
+
+    /// <summary>
     /// Creates and adds a source node to the context.
     /// </summary>
     /// <param name="source">The sound source resource.</param>
