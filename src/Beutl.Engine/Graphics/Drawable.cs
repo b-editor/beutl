@@ -10,7 +10,9 @@ using Beutl.Serialization;
 
 namespace Beutl.Graphics;
 
-[DummyType(typeof(DummyDrawable))]
+public sealed partial class FallbackDrawable : Drawable, IFallback;
+
+[FallbackType(typeof(FallbackDrawable))]
 [PresenterType(typeof(DrawablePresenter))]
 public abstract partial class Drawable : EngineObject
 {

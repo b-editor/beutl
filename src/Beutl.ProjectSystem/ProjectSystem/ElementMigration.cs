@@ -99,15 +99,15 @@ internal static class ElementMigration
             }
             catch
             {
-                // デシリアライズ失敗時はDummyEngineObjectにJSON保存
-                var dummy = new DummyEngineObject();
+                // デシリアライズ失敗時はFallbackEngineObjectにJSON保存
+                var dummy = new FallbackEngineObject();
                 dummy.Json = valueObj.DeepClone().AsObject();
                 return dummy;
             }
         }
 
-        // 不明なOperator: DummyEngineObjectにJSON保存
-        var fallback = new DummyEngineObject();
+        // 不明なOperator: FallbackEngineObjectにJSON保存
+        var fallback = new FallbackEngineObject();
         fallback.Json = operatorObj.DeepClone().AsObject();
         return fallback;
     }

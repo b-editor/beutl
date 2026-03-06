@@ -4,12 +4,16 @@ using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Transformation;
 using Beutl.Language;
+using Beutl.Serialization;
 
 namespace Beutl.Media;
+
+public sealed partial class FallbackBrush : Brush, IFallback;
 
 /// <summary>
 /// Describes how an area is painted.
 /// </summary>
+[FallbackType(typeof(FallbackBrush))]
 [PresenterType(typeof(BrushPresenter))]
 public abstract partial class Brush : EngineObject
 {

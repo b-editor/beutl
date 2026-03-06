@@ -1,12 +1,12 @@
-﻿using Beutl.Serialization;
+using Beutl.Serialization;
 
 namespace Beutl.Editor.Components.Helpers;
 
-public static class DummyHelper
+public static class FallbackHelper
 {
     public static string GetTypeName(object? obj)
     {
-        if ((obj as IDummy)?.TryGetTypeName(out string? result) == true)
+        if ((obj as IFallback)?.TryGetTypeName(out string? result) == true)
         {
             return result;
         }

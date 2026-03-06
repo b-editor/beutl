@@ -4,10 +4,14 @@ using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Transformation;
 using Beutl.Language;
+using Beutl.Serialization;
 using SkiaSharp;
 
 namespace Beutl.Media;
 
+public sealed partial class FallbackGeometry : Geometry, IFallback;
+
+[FallbackType(typeof(FallbackGeometry))]
 public abstract partial class Geometry : EngineObject
 {
     public Geometry()

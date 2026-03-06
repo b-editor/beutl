@@ -1,9 +1,13 @@
 ﻿using Beutl.Composition;
 using Beutl.Engine;
+using Beutl.Serialization;
 
 namespace Beutl.Graphics.Transformation;
 
+public sealed partial class FallbackTransform : Transform, IFallback;
+
 [SuppressResourceClassGeneration]
+[FallbackType(typeof(FallbackTransform))]
 [PresenterType(typeof(TransformPresenter))]
 public abstract class Transform : EngineObject
 {
