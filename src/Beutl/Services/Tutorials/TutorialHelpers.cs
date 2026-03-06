@@ -1,4 +1,4 @@
-using Avalonia.Threading;
+﻿using Avalonia.Threading;
 using Beutl.Animation;
 using Beutl.Editor.Components.LibraryTab.ViewModels;
 using Beutl.Engine;

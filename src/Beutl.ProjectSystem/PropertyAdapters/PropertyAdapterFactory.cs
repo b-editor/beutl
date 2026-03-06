@@ -1,4 +1,4 @@
-using Beutl.Engine;
+﻿using Beutl.Engine;
 using Beutl.Extensibility;
 
 namespace Beutl.PropertyAdapters;

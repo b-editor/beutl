@@ -1,4 +1,4 @@
-using Avalonia.Media;
+﻿using Avalonia.Media;
 using Avalonia.Media.Immutable;
 
 namespace Beutl.Editor.Components.Views;

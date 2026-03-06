@@ -1,4 +1,4 @@
-namespace Beutl.Services.Tutorials;
+﻿namespace Beutl.Services.Tutorials;
 
 public sealed class TargetElementDefinition
 {

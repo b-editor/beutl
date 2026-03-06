@@ -1,4 +1,4 @@
-using Beutl.Editor.Components.PropertyEditors.Services;
+﻿using Beutl.Editor.Components.PropertyEditors.Services;
 using Beutl.Media;
 using Beutl.ProjectSystem;
 

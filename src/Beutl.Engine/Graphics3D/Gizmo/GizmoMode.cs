@@ -1,4 +1,4 @@
-namespace Beutl.Graphics3D.Gizmo;
+﻿namespace Beutl.Graphics3D.Gizmo;
 
 /// <summary>
 /// Defines the mode for 3D gizmo visualization.

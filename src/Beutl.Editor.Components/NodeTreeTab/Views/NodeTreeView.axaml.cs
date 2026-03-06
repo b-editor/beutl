@@ -6,9 +6,8 @@ using Avalonia.Controls.Shapes;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Beutl.Editor.Components.Helpers;
-using Beutl.NodeTree;
 using Beutl.Editor.Components.NodeTreeTab.ViewModels;
-
+using Beutl.NodeTree;
 using Reactive.Bindings.Extensions;
 
 namespace Beutl.Editor.Components.NodeTreeTab.Views;

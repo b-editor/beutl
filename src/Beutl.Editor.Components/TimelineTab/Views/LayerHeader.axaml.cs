@@ -1,5 +1,4 @@
 ﻿using System.Runtime.InteropServices;
-
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
@@ -7,9 +6,8 @@ using Avalonia.LogicalTree;
 using Avalonia.Media;
 using Beutl.Editor;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
-using Microsoft.Extensions.DependencyInjection;
-
 using FluentAvalonia.UI.Controls;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.Editor.Components.TimelineTab.Views;
 

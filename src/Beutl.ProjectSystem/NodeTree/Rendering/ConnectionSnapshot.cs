@@ -1,4 +1,4 @@
-namespace Beutl.NodeTree.Rendering;
+﻿namespace Beutl.NodeTree.Rendering;
 
 public struct ConnectionSnapshot
 {

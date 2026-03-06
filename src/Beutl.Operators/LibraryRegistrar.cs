@@ -1,4 +1,4 @@
-using Beutl.Audio;
+﻿using Beutl.Audio;
 using Beutl.Audio.Effects;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;

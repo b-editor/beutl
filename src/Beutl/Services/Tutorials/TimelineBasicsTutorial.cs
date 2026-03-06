@@ -1,11 +1,11 @@
-using Avalonia.Controls;
+﻿using Avalonia.Controls;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Beutl.Animation;
 using Beutl.Controls.PropertyEditors;
+using Beutl.Editor.Components.ElementPropertyTab;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.LibraryTab;
-using Beutl.Editor.Components.ElementPropertyTab;
 using Beutl.Engine;
 using Beutl.Graphics.Shapes;
 using Beutl.ProjectSystem;

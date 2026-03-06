@@ -1,4 +1,4 @@
-namespace Beutl.Graphics.Backend;
+﻿namespace Beutl.Graphics.Backend;
 
 /// <summary>
 /// Options for creating a graphics pipeline.

@@ -2,8 +2,8 @@
 using Avalonia;
 using Beutl.NodeTree;
 using Beutl.NodeTree.Nodes.Group;
-using Reactive.Bindings;
 using Microsoft.Extensions.DependencyInjection;
+using Reactive.Bindings;
 
 namespace Beutl.Editor.Components.NodeTreeTab.ViewModels;
 

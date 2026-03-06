@@ -1,4 +1,4 @@
-using Avalonia;
+﻿using Avalonia;
 using Avalonia.Media;
 using Beutl.NodeTree;
 using Reactive.Bindings;

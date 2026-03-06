@@ -1,4 +1,4 @@
-using System.Reactive.Linq;
+﻿using System.Reactive.Linq;
 using Beutl.Controls.PropertyEditors;
 using DynamicData;
 using Reactive.Bindings;

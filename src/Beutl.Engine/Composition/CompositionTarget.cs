@@ -1,4 +1,4 @@
-namespace Beutl.Composition;
+﻿namespace Beutl.Composition;
 
 public enum CompositionTarget
 {

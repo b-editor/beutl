@@ -1,4 +1,4 @@
-using System.Collections.Immutable;
+﻿using System.Collections.Immutable;
 using System.ComponentModel.DataAnnotations;
 using Beutl.Engine;
 using Beutl.Graphics3D.Meshes;
@@ -27,7 +27,7 @@ public sealed partial class ModelMesh : Mesh
     public override void ApplyTo(Mesh.Resource resource, out Vertex3D[] vertices, out uint[] indices)
     {
         var r = (Resource)resource;
-        vertices = [..r.Vertices];
-        indices = [..r.Indices];
+        vertices = [.. r.Vertices];
+        indices = [.. r.Indices];
     }
 }

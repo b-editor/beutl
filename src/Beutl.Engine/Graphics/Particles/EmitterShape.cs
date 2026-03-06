@@ -1,4 +1,4 @@
-namespace Beutl.Graphics.Particles;
+﻿namespace Beutl.Graphics.Particles;
 
 public enum EmitterShape
 {

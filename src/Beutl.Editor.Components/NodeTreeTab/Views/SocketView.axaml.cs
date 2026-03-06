@@ -4,16 +4,13 @@ using Avalonia.Layout;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Avalonia.Xaml.Interactivity;
-
 using Beutl.Controls;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Editor.Components.Helpers;
-using Beutl.NodeTree;
 using Beutl.Editor.Components.NodeTreeTab.ViewModels;
-
+using Beutl.NodeTree;
 using FluentIcons.Common;
 using FluentIcons.FluentAvalonia;
-
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
 
@@ -337,42 +334,42 @@ public partial class SocketView : UserControl
         switch (monitorObj.Model?.ContentKind)
         {
             case NodeMonitorContentKind.Text:
-            {
-                var textBlock = new SelectableTextBlock
                 {
-                    FontFamily = new Avalonia.Media.FontFamily("Cascadia Mono, Consolas, monospace"),
-                    TextWrapping = Avalonia.Media.TextWrapping.Wrap
-                };
-                textBlock.Bind(TextBlock.TextProperty, monitorObj.DisplayText.ToBinding())
-                    .DisposeWith(_disposables);
-                Grid.SetColumn(textBlock, 1);
-                grid.Children.Add(textBlock);
-                break;
-            }
-            case NodeMonitorContentKind.Image:
-            {
-                var image = new Image
-                {
-                    MaxHeight = 200,
-                    MaxWidth = 200,
-                    Stretch = Avalonia.Media.Stretch.Uniform,
-                    Source = monitorObj.DisplayBitmap
-                };
-
-                void OnImageInvalidated(object? sender, EventArgs e)
-                {
-                    image.Source = monitorObj.DisplayBitmap;
-                    image.InvalidateVisual();
+                    var textBlock = new SelectableTextBlock
+                    {
+                        FontFamily = new Avalonia.Media.FontFamily("Cascadia Mono, Consolas, monospace"),
+                        TextWrapping = Avalonia.Media.TextWrapping.Wrap
+                    };
+                    textBlock.Bind(TextBlock.TextProperty, monitorObj.DisplayText.ToBinding())
+                        .DisposeWith(_disposables);
+                    Grid.SetColumn(textBlock, 1);
+                    grid.Children.Add(textBlock);
+                    break;
                 }
+            case NodeMonitorContentKind.Image:
+                {
+                    var image = new Image
+                    {
+                        MaxHeight = 200,
+                        MaxWidth = 200,
+                        Stretch = Avalonia.Media.Stretch.Uniform,
+                        Source = monitorObj.DisplayBitmap
+                    };
 
-                monitorObj.ImageInvalidated += OnImageInvalidated;
-                Disposable.Create(() => monitorObj.ImageInvalidated -= OnImageInvalidated)
-                    .DisposeWith(_disposables);
+                    void OnImageInvalidated(object? sender, EventArgs e)
+                    {
+                        image.Source = monitorObj.DisplayBitmap;
+                        image.InvalidateVisual();
+                    }
 
-                Grid.SetColumn(image, 1);
-                grid.Children.Add(image);
-                break;
-            }
+                    monitorObj.ImageInvalidated += OnImageInvalidated;
+                    Disposable.Create(() => monitorObj.ImageInvalidated -= OnImageInvalidated)
+                        .DisposeWith(_disposables);
+
+                    Grid.SetColumn(image, 1);
+                    grid.Children.Add(image);
+                    break;
+                }
         }
     }
 
