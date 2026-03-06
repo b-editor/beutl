@@ -203,19 +203,22 @@ public sealed class LibraryPageViewModel : BasePageViewModel, ISupportRefreshVie
         DiscoverService discover = _clients.GetResource<DiscoverService>();
         List<Package> own = auth ? await LoadAll() : [];
         Packages.Clear();
+        var installed = await manager.GetPackages();
 
-        foreach (var item in await manager.GetPackages())
+        foreach (var name in own.Select(i => i.Name).Union(installed.Select(i => i.Name)))
         {
-            var remote = own.FirstOrDefault(i => i.Name == item.Name);
+            var remote = own.FirstOrDefault(i => i.Name == name);
             if (remote == null)
             {
                 try
                 {
-                    remote = await discover.GetPackage(item.Name);
+                    remote = await discover.GetPackage(name);
                 }
                 catch
                 {
-                    Packages.Add(new LocalUserPackageViewModel(item, _clients));
+                    var item = installed.FirstOrDefault(i => i.Name == name);
+                    if (item != null)
+                        Packages.Add(new LocalUserPackageViewModel(item, _clients));
                 }
             }
 
