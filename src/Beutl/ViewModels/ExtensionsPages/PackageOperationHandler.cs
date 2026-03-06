@@ -45,6 +45,21 @@ internal class PackageOperationHandler
         _packageManager.Load(localPackage);
     }
 
+    public async Task DownloadAndLoadPackage(PackageIdentity packageId)
+    {
+        PackageInstallContext context = _packageInstaller.PrepareForInstall(packageId.Id, packageId.Version.ToString(), force: true);
+        await _packageInstaller.DownloadPackageFile(context);
+        await _packageInstaller.VerifyPackageFile(context);
+        await _packageInstaller.ResolveDependencies(context, null);
+
+        _installedPackageRepository.UpgradePackages(packageId);
+
+        string directory = Helper.PackagePathResolver.GetInstalledPath(packageId);
+        PackageFolderReader reader = new(directory);
+        var localPackage = new LocalPackage(reader.NuspecReader) { InstalledPath = directory };
+        _packageManager.Load(localPackage);
+    }
+
     public bool UnloadPackages(string packageName)
     {
         bool result = true;

@@ -57,11 +57,24 @@ public sealed class LocalUserPackageViewModel : BaseViewModel, IUserPackageViewM
                 {
                     IsBusy.Value = true;
                     StatusText.Value = ExtensionsPage.Installing;
-                    _handler.Queue.InstallQueue(_packageIdentity);
-                    NotificationService.ShowInformation(
-                        title: ExtensionsPage.PackageInstaller,
-                        message: string.Format(ExtensionsPage.PackageInstaller_ScheduledInstallation,
-                            _packageIdentity.Id));
+
+                    try
+                    {
+                        await _handler.DownloadAndLoadPackage(_packageIdentity);
+                        NotificationService.ShowInformation(
+                            title: ExtensionsPage.PackageInstaller,
+                            message: string.Format(ExtensionsPage.PackageInstaller_ScheduledInstallation,
+                                _packageIdentity.Id));
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Immediate install failed, falling back to queue.");
+                        _handler.Queue.InstallQueue(_packageIdentity);
+                        NotificationService.ShowInformation(
+                            title: ExtensionsPage.PackageInstaller,
+                            message: string.Format(ExtensionsPage.PackageInstaller_ScheduledInstallation,
+                                _packageIdentity.Id));
+                    }
                 }
                 catch (Exception e)
                 {
@@ -90,10 +103,24 @@ public sealed class LocalUserPackageViewModel : BaseViewModel, IUserPackageViewM
                     {
                         var packageId = new PackageIdentity(Package.Name,
                             new NuGetVersion(LatestRelease.Value.Version.Value));
-                        _handler.Queue.InstallQueue(packageId);
-                        NotificationService.ShowInformation(
-                            title: ExtensionsPage.PackageInstaller,
-                            message: string.Format(ExtensionsPage.PackageInstaller_ScheduledUpdate, packageId.Id));
+
+                        try
+                        {
+                            _handler.UnloadPackages(Package.Name);
+                            _handler.DeleteOldVersionFiles(Package.Name);
+                            await _handler.DownloadAndLoadPackage(LatestRelease.Value, packageId);
+                            NotificationService.ShowInformation(
+                                title: ExtensionsPage.PackageInstaller,
+                                message: string.Format(ExtensionsPage.PackageInstaller_ScheduledUpdate, packageId.Id));
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogWarning(ex, "Immediate update failed, falling back to queue.");
+                            _handler.Queue.InstallQueue(packageId);
+                            NotificationService.ShowInformation(
+                                title: ExtensionsPage.PackageInstaller,
+                                message: string.Format(ExtensionsPage.PackageInstaller_ScheduledUpdate, packageId.Id));
+                        }
                     }
                 }
                 catch (Exception e)
