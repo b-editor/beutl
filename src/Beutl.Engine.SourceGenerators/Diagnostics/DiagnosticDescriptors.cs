@@ -11,4 +11,12 @@ public static class DiagnosticDescriptors
         category: "Beutl.Engine.SourceGenerators",
         defaultSeverity: DiagnosticSeverity.Warning,
         isEnabledByDefault: true);
+
+    public static readonly DiagnosticDescriptor FallbackMissingPartial = new(
+        id: "BESG002",
+        title: "Partial declaration required for IFallback",
+        messageFormat: "Type '{0}' must be declared partial to generate IFallback implementation",
+        category: "Beutl.Engine.SourceGenerators",
+        defaultSeverity: DiagnosticSeverity.Warning,
+        isEnabledByDefault: true);
 }
