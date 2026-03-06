@@ -98,21 +98,11 @@ internal static class PenHelper
 
     internal static SKPathEffect? CreateTrimEffect(Pen.Resource pen)
     {
-        if (pen.TrimStart == 0f && pen.TrimEnd == 100f && pen.TrimOffset == 0f)
+        if (pen.TrimStart == 0f && pen.TrimEnd == 100f)
             return null;
 
         float start = ((pen.TrimStart + pen.TrimOffset) % 100f) / 100f;
-        float stop;
-        if (pen.TrimEnd == 100f)
-        {
-            // Treat TrimEnd = 100 as the end of the path (1.0 in normalized space),
-            // so it is not wrapped back to 0 by the modulo operation.
-            stop = 1f;
-        }
-        else
-        {
-            stop = ((pen.TrimEnd + pen.TrimOffset) % 100f) / 100f;
-        }
+        float stop = ((pen.TrimEnd + pen.TrimOffset) % 100f) / 100f;
         if (start <= 0) start += 1f;
         if (stop <= 0) stop += 1f;
 
