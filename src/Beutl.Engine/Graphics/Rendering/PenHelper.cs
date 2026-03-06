@@ -103,10 +103,10 @@ internal static class PenHelper
 
         float start = ((pen.TrimStart + pen.TrimOffset) % 100f) / 100f;
         float stop = ((pen.TrimEnd + pen.TrimOffset) % 100f) / 100f;
-        if (start < 0) start += 1f;
-        if (stop < 0) stop += 1f;
+        if (start <= 0) start += 1f;
+        if (stop <= 0) stop += 1f;
 
-        return SKPathEffect.CreateTrim(start, stop, SKTrimPathEffectMode.Normal);
+        return SKPathEffect.CreateTrim(Math.Min(start, stop), Math.Max(start, stop), start <= stop ? SKTrimPathEffectMode.Normal : SKTrimPathEffectMode.Inverted);
     }
 
     internal static SKPathEffect? CombineEffects(SKPathEffect? outer, SKPathEffect? inner)
