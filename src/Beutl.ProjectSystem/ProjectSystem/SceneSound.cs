@@ -67,9 +67,21 @@ public sealed partial class SceneSound : Sound
 
     public partial class Resource
     {
+        private static readonly AsyncLocal<HashSet<Scene>?> s_evaluatingScenes = new();
         internal SceneCompositor? _compositor;
 
         public override SoundSource.Resource? GetSoundSource() => null;
+
+        internal static bool Enter(Scene scene)
+        {
+            var set = s_evaluatingScenes.Value ??= new(ReferenceEqualityComparer.Instance);
+            return set.Add(scene);
+        }
+
+        internal static void Exit(Scene scene)
+        {
+            s_evaluatingScenes.Value?.Remove(scene);
+        }
 
         partial void PostUpdate(SceneSound obj, CompositionContext context)
         {
@@ -106,20 +118,32 @@ public sealed partial class SceneSound : Sound
                 return new AudioBuffer(context.SampleRate, 2, context.GetSampleCount());
             }
 
-            if (_composer?.SampleRate != context.SampleRate)
+            if (!Resource.Enter(scene))
             {
-                _composer?.Dispose();
-                _composer = new Composer { SampleRate = context.SampleRate };
+                throw new InvalidOperationException("A circular reference was detected.");
             }
 
-            var frame = compositor.EvaluateAudio(context.TimeRange);
-            var buffer = _composer.Compose(context.TimeRange, frame);
-            if (buffer == null)
+            try
             {
-                return new AudioBuffer(context.SampleRate, 2, context.GetSampleCount());
-            }
+                if (_composer?.SampleRate != context.SampleRate)
+                {
+                    _composer?.Dispose();
+                    _composer = new Composer { SampleRate = context.SampleRate };
+                }
 
-            return buffer;
+                var frame = compositor.EvaluateAudio(context.TimeRange);
+                var buffer = _composer.Compose(context.TimeRange, frame);
+                if (buffer == null)
+                {
+                    return new AudioBuffer(context.SampleRate, 2, context.GetSampleCount());
+                }
+
+                return buffer;
+            }
+            finally
+            {
+                Resource.Exit(scene);
+            }
         }
 
         protected override void Dispose(bool disposing)

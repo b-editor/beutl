@@ -67,10 +67,22 @@ public sealed partial class SceneDrawable : Drawable
 
     public partial class Resource
     {
+        private static readonly AsyncLocal<HashSet<Scene>?> s_evaluatingScenes = new();
         private SceneCompositor? _compositor;
         private TimeSpan _start;
 
         public CompositionFrame? Frame { get; set; }
+
+        private static bool Enter(Scene scene)
+        {
+            var set = s_evaluatingScenes.Value ??= new(ReferenceEqualityComparer.Instance);
+            return set.Add(scene);
+        }
+
+        private static void Exit(Scene scene)
+        {
+            s_evaluatingScenes.Value?.Remove(scene);
+        }
 
         partial void PostUpdate(SceneDrawable obj, CompositionContext context)
         {
@@ -92,21 +104,34 @@ public sealed partial class SceneDrawable : Drawable
                 _compositor = new SceneCompositor(ReferencedScene);
             }
 
-            CapturedCompositionFrame? oldFrame = Frame != null ? new CapturedCompositionFrame(Frame.Value) : null;
-            Frame = _compositor?.EvaluateGraphics(context.Time - obj.Start);
-
-            if (oldFrame.HasValue && Frame.HasValue)
+            if (ReferencedScene != null && !Enter(ReferencedScene))
             {
-                changed |= oldFrame.Value.IsSame(Frame.Value);
-            }
-            else if (oldFrame.HasValue != Frame.HasValue)
-            {
-                changed = true;
+                throw new InvalidOperationException("A circular reference was detected.");
             }
 
-            if (changed)
+            try
             {
-                Version++;
+                CapturedCompositionFrame? oldFrame = Frame != null ? new CapturedCompositionFrame(Frame.Value) : null;
+                Frame = _compositor?.EvaluateGraphics(context.Time - obj.Start);
+
+                if (oldFrame.HasValue && Frame.HasValue)
+                {
+                    changed |= oldFrame.Value.IsSame(Frame.Value);
+                }
+                else if (oldFrame.HasValue != Frame.HasValue)
+                {
+                    changed = true;
+                }
+
+                if (changed)
+                {
+                    Version++;
+                }
+            }
+            finally
+            {
+                if (ReferencedScene != null)
+                    Exit(ReferencedScene);
             }
         }
 
