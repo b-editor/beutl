@@ -1,4 +1,4 @@
-namespace Beutl.Editor.Components.FileBrowserTab.ViewModels;
+﻿namespace Beutl.Editor.Components.FileBrowserTab.ViewModels;
 
 public sealed class BreadcrumbPathItem
 {

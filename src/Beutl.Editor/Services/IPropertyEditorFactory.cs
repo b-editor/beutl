@@ -1,4 +1,4 @@
-using Beutl.Extensibility;
+﻿using Beutl.Extensibility;
 
 namespace Beutl.Editor.Services;
 

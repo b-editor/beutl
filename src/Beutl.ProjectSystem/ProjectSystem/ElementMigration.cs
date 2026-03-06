@@ -1,4 +1,4 @@
-using System.Collections.Frozen;
+﻿using System.Collections.Frozen;
 using System.Text.Json.Nodes;
 using Beutl.Audio;
 using Beutl.Engine;

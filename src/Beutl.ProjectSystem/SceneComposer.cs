@@ -1,4 +1,4 @@
-using Beutl.Audio;
+﻿using Beutl.Audio;
 using Beutl.Audio.Composing;
 using Beutl.Media;
 using Beutl.ProjectSystem;

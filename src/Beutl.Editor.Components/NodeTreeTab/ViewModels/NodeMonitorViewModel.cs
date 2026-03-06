@@ -1,4 +1,4 @@
-using Avalonia;
+﻿using Avalonia;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using Beutl.Editor.Services;

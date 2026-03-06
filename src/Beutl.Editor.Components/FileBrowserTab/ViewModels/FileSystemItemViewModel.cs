@@ -1,4 +1,4 @@
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using Avalonia.Media.Imaging;
 using Beutl.Editor.Components.FileBrowserTab.Services;
 using Reactive.Bindings;

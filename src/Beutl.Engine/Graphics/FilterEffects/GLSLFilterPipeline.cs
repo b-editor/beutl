@@ -1,8 +1,6 @@
-using System.Runtime.InteropServices;
-
-using Beutl.Logging;
+﻿using System.Runtime.InteropServices;
 using Beutl.Graphics.Backend;
-
+using Beutl.Logging;
 using Microsoft.Extensions.Logging;
 
 namespace Beutl.Graphics.Effects;

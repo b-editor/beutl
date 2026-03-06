@@ -1,4 +1,4 @@
-namespace Beutl.Engine;
+﻿namespace Beutl.Engine;
 
 public interface IOriginalDurationProvider
 {

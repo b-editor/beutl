@@ -1,4 +1,4 @@
-using Beutl.Composition;
+﻿using Beutl.Composition;
 using Beutl.Graphics.Rendering.Cache;
 using Beutl.Media;
 using Beutl.Media.Pixel;

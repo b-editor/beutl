@@ -27,7 +27,7 @@ public class InputSocket<T> : Socket<T>, IInputSocket
     protected override void OnPropertyChanged(PropertyChangedEventArgs args)
     {
         base.OnPropertyChanged(args);
-        if(args is CorePropertyChangedEventArgs coreArgs && coreArgs.Property.Id == ConnectionProperty.Id)
+        if (args is CorePropertyChangedEventArgs coreArgs && coreArgs.Property.Id == ConnectionProperty.Id)
         {
             RaiseTopologyChanged();
             RaiseEdited();

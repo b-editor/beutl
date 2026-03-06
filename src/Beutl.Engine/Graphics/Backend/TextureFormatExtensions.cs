@@ -1,4 +1,4 @@
-using Silk.NET.Vulkan;
+﻿using Silk.NET.Vulkan;
 using SkiaSharp;
 
 namespace Beutl.Graphics.Backend;

@@ -1,4 +1,4 @@
-using System.ComponentModel;
+﻿using System.ComponentModel;
 
 using Avalonia;
 using Beutl.Editor.Components.Helpers;

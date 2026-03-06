@@ -1,4 +1,4 @@
-namespace Beutl.NodeTree;
+﻿namespace Beutl.NodeTree;
 
 public class NodeMonitor<T> : NodeItem<T>, INodeMonitor
 {

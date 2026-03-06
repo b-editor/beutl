@@ -1,4 +1,4 @@
-using System.Runtime.InteropServices;
+﻿using System.Runtime.InteropServices;
 
 using Beutl.Graphics.Effects;
 using Beutl.Media;
@@ -267,14 +267,14 @@ internal sealed class ParticleSimulator
                 y = 0;
                 break;
             case EmitterShape.Circle:
-            {
-                float radius = width / 2f;
-                float r = MathF.Sqrt(rng.NextSingle()) * radius;
-                float angle = rng.NextSingle() * MathF.PI * 2f;
-                x = MathF.Cos(angle) * r;
-                y = MathF.Sin(angle) * r;
-                break;
-            }
+                {
+                    float radius = width / 2f;
+                    float r = MathF.Sqrt(rng.NextSingle()) * radius;
+                    float angle = rng.NextSingle() * MathF.PI * 2f;
+                    x = MathF.Cos(angle) * r;
+                    y = MathF.Sin(angle) * r;
+                    break;
+                }
             case EmitterShape.Box:
                 x = (rng.NextSingle() - 0.5f) * width;
                 y = (rng.NextSingle() - 0.5f) * height;

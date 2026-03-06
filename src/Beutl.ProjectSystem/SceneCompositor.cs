@@ -1,4 +1,4 @@
-using System.Runtime.CompilerServices;
+﻿using System.Runtime.CompilerServices;
 using Beutl.Collections.Pooled;
 using Beutl.Composition;
 using Beutl.Engine;

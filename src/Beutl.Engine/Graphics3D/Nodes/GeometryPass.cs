@@ -1,4 +1,4 @@
-using System.Numerics;
+﻿using System.Numerics;
 using System.Runtime.InteropServices;
 using Beutl.Composition;
 using Beutl.Graphics.Backend;

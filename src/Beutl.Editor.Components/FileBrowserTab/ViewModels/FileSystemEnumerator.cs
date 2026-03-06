@@ -1,4 +1,4 @@
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 
 namespace Beutl.Editor.Components.FileBrowserTab.ViewModels;
 

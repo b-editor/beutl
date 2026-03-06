@@ -1,13 +1,21 @@
-﻿using Avalonia.Controls;
+﻿using System.Numerics;
+using Avalonia.Controls;
 using Avalonia.Input;
-using Avalonia.Threading;
 using Avalonia.Platform.Storage;
+using Avalonia.Threading;
 using Beutl.Animation;
+using Beutl.Composition;
 using Beutl.Controls;
+using Beutl.Editor.Components.ElementPropertyTab.ViewModels;
+using Beutl.Editor.Components.Helpers;
+using Beutl.Editor.Components.Views;
 using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Transformation;
+using Beutl.Graphics3D;
+using Beutl.Graphics3D.Camera;
+using Beutl.Graphics3D.Gizmo;
 using Beutl.Helpers;
 using Beutl.Logging;
 using Beutl.Media;
@@ -16,19 +24,11 @@ using Beutl.ProjectSystem;
 using Beutl.Services;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Editors;
-using Beutl.Editor.Components.ElementPropertyTab.ViewModels;
 using FluentAvalonia.UI.Controls;
 using Microsoft.Extensions.Logging;
-using System.Numerics;
-using Beutl.Composition;
-using Beutl.Graphics3D;
-using Beutl.Graphics3D.Camera;
-using Beutl.Graphics3D.Gizmo;
 using AvaImage = Avalonia.Controls.Image;
 using AvaPoint = Avalonia.Point;
 using AvaRect = Avalonia.Rect;
-using Beutl.Editor.Components.Helpers;
-using Beutl.Editor.Components.Views;
 
 namespace Beutl.Views;
 
@@ -464,11 +464,13 @@ public partial class PlayerView
                 {
                     var copyAsString = new MenuFlyoutItem()
                     {
-                        Text = Strings.Copy, IconSource = new SymbolIconSource() { Symbol = Symbol.Copy }
+                        Text = Strings.Copy,
+                        IconSource = new SymbolIconSource() { Symbol = Symbol.Copy }
                     };
                     var saveAsImage = new MenuFlyoutItem()
                     {
-                        Text = Strings.SaveAsImage, IconSource = new SymbolIconSource() { Symbol = Symbol.SaveAs }
+                        Text = Strings.SaveAsImage,
+                        IconSource = new SymbolIconSource() { Symbol = Symbol.SaveAs }
                     };
                     copyAsString.Click += (s, e) =>
                     {

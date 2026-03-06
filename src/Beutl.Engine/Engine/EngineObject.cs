@@ -343,13 +343,13 @@ public class EngineObject : Hierarchical, INotifyEdited
     protected void ReorderProperties(params IProperty[] ordered)
     {
         EnsureDisplayProperties();
-        _displayProperties = [..ordered, .._displayProperties.Except(ordered)];
+        _displayProperties = [.. ordered, .. _displayProperties.Except(ordered)];
     }
 
     [MemberNotNull(nameof(_displayProperties))]
     private void EnsureDisplayProperties()
     {
-        _displayProperties ??= [.._properties];
+        _displayProperties ??= [.. _properties];
     }
 
     private void OnPropertyEdited(object? sender, EventArgs e)

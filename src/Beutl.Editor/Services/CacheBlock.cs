@@ -1,4 +1,4 @@
-namespace Beutl.Editor.Services;
+﻿namespace Beutl.Editor.Services;
 
 public sealed class CacheBlock(int rate, int start, int length, bool isLocked)
 {
