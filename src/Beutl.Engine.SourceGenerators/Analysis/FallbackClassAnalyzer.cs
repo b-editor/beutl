@@ -39,15 +39,8 @@ public static class FallbackClassAnalyzer
             return null;
         }
 
-        bool implementsIFallback = false;
-        foreach (INamedTypeSymbol iface in symbol.AllInterfaces)
-        {
-            if (SymbolEqualityComparer.Default.Equals(iface, iFallbackSymbol))
-            {
-                implementsIFallback = true;
-                break;
-            }
-        }
+        bool implementsIFallback = symbol.AllInterfaces
+            .Any(iface => SymbolEqualityComparer.Default.Equals(iface, iFallbackSymbol));
 
         if (!implementsIFallback)
         {
@@ -73,32 +66,25 @@ public static class FallbackClassAnalyzer
         var abstractMethods = new Dictionary<string, IMethodSymbol>();
         for (INamedTypeSymbol? current = symbol.BaseType; current is not null; current = current.BaseType)
         {
-            foreach (ISymbol member in current.GetMembers())
+            foreach (IMethodSymbol method in current.GetMembers()
+                .OfType<IMethodSymbol>()
+                .Where(m => m is { IsAbstract: true, MethodKind: MethodKind.Ordinary, IsStatic: false }))
             {
-                if (member is IMethodSymbol method
-                    && method.IsAbstract
-                    && method.MethodKind == MethodKind.Ordinary
-                    && !method.IsStatic)
+                string key = GetMethodSignatureKey(method);
+                if (!abstractMethods.ContainsKey(key))
                 {
-                    string key = GetMethodSignatureKey(method);
-                    if (!abstractMethods.ContainsKey(key))
-                    {
-                        abstractMethods[key] = method;
-                    }
+                    abstractMethods[key] = method;
                 }
             }
         }
 
         // Remove methods already overridden in the user's partial declaration
-        foreach (ISymbol member in symbol.GetMembers())
+        foreach (IMethodSymbol method in symbol.GetMembers()
+            .OfType<IMethodSymbol>()
+            .Where(m => m is { IsOverride: true, MethodKind: MethodKind.Ordinary }))
         {
-            if (member is IMethodSymbol method
-                && method.IsOverride
-                && method.MethodKind == MethodKind.Ordinary)
-            {
-                string key = GetMethodSignatureKey(method);
-                abstractMethods.Remove(key);
-            }
+            string key = GetMethodSignatureKey(method);
+            abstractMethods.Remove(key);
         }
 
         foreach (var kvp in abstractMethods)
@@ -118,15 +104,11 @@ public static class FallbackClassAnalyzer
         {
             foreach (INamedTypeSymbol nestedType in current.GetTypeMembers("Resource"))
             {
-                foreach (ISymbol member in nestedType.GetMembers())
+                foreach (IMethodSymbol method in nestedType.GetMembers()
+                    .OfType<IMethodSymbol>()
+                    .Where(m => m is { IsAbstract: true, MethodKind: MethodKind.Ordinary, IsStatic: false }))
                 {
-                    if (member is IMethodSymbol method
-                        && method.IsAbstract
-                        && method.MethodKind == MethodKind.Ordinary
-                        && !method.IsStatic)
-                    {
-                        result.Add(new AbstractMethodInfo(method, method.DeclaredAccessibility));
-                    }
+                    result.Add(new AbstractMethodInfo(method, method.DeclaredAccessibility));
                 }
             }
         }
@@ -134,15 +116,12 @@ public static class FallbackClassAnalyzer
         // Remove methods already overridden in the user's Resource partial declaration
         foreach (INamedTypeSymbol nestedType in symbol.GetTypeMembers("Resource"))
         {
-            foreach (ISymbol member in nestedType.GetMembers())
+            foreach (IMethodSymbol method in nestedType.GetMembers()
+                .OfType<IMethodSymbol>()
+                .Where(m => m is { IsOverride: true, MethodKind: MethodKind.Ordinary }))
             {
-                if (member is IMethodSymbol method
-                    && method.IsOverride
-                    && method.MethodKind == MethodKind.Ordinary)
-                {
-                    string key = GetMethodSignatureKey(method);
-                    result.RemoveAll(info => GetMethodSignatureKey(info.Method) == key);
-                }
+                string key = GetMethodSignatureKey(method);
+                result.RemoveAll(info => GetMethodSignatureKey(info.Method) == key);
             }
         }
 
