@@ -52,8 +52,8 @@ public partial class JsonSerializationContext
 
         JsonObject obj = innerContext.GetJsonObject();
 
-        // 型判別子を書き込む（Dummyでなく、sealedでない場合）
-        if (coreSerializable is not IDummy && !baseType.IsSealed)
+        // 型判別子を書き込む（Fallbackでなく、sealedでない場合）
+        if (coreSerializable is not IFallback && !baseType.IsSealed)
         {
             obj.WriteDiscriminator(actualType);
         }
