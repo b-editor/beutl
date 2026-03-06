@@ -1064,6 +1064,15 @@
   <data name="Pen_StrokeAlignment" xml:space="preserve">
     <value>位置</value>
   </data>
+  <data name="Pen_TrimStart" xml:space="preserve">
+    <value>トリム開始</value>
+  </data>
+  <data name="Pen_TrimEnd" xml:space="preserve">
+    <value>トリム終了</value>
+  </data>
+  <data name="Pen_TrimOffset" xml:space="preserve">
+    <value>トリムオフセット</value>
+  </data>
   <data name="StrokeAlignment_Center" xml:space="preserve">
     <value>中央</value>
   </data>

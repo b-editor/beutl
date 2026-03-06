@@ -73,6 +73,7 @@ internal static class PenHelper
         paint.StrokeCap = (SKStrokeCap)pen.StrokeCap;
         paint.StrokeJoin = (SKStrokeJoin)pen.StrokeJoin;
         paint.StrokeMiter = pen.MiterLimit;
+        SKPathEffect? dashEffect = null;
         if (pen.DashArray != null && pen.DashArray.Count > 0)
         {
             IReadOnlyList<float> srcDashes = pen.DashArray;
@@ -88,10 +89,39 @@ internal static class PenHelper
 
             float offset = (float)((pen.DashOffset / 100f) * thickness);
 
-            var pe = SKPathEffect.CreateDash(dashesArray, offset);
-
-            paint.PathEffect = pe;
+            dashEffect = SKPathEffect.CreateDash(dashesArray, offset);
         }
+
+        SKPathEffect? trimEffect = CreateTrimEffect(pen);
+        paint.PathEffect = CombineEffects(dashEffect, trimEffect);
+    }
+
+    internal static SKPathEffect? CreateTrimEffect(Pen.Resource pen)
+    {
+        if (pen.TrimStart == 0f && pen.TrimEnd == 100f)
+            return null;
+
+        float start = ((pen.TrimStart + pen.TrimOffset) % 100f) / 100f;
+        float stop = ((pen.TrimEnd + pen.TrimOffset) % 100f) / 100f;
+        if (start <= 0) start += 1f;
+        if (stop <= 0) stop += 1f;
+
+        return SKPathEffect.CreateTrim(
+            Math.Min(start, stop),
+            Math.Max(start, stop),
+            start <= stop ? SKTrimPathEffectMode.Normal : SKTrimPathEffectMode.Inverted);
+    }
+
+    internal static SKPathEffect? CombineEffects(SKPathEffect? outer, SKPathEffect? inner)
+    {
+        if (outer != null && inner != null)
+        {
+            var composed = SKPathEffect.CreateCompose(outer, inner);
+            outer.Dispose();
+            inner.Dispose();
+            return composed;
+        }
+        return outer ?? inner;
     }
 
     public static SKPath CreateStrokePath(SKPath fillPath, Pen.Resource pen, Rect bounds)

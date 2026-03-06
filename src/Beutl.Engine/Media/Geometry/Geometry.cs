@@ -39,6 +39,8 @@ public abstract partial class Geometry : EngineObject
             if (_capturedVersion != Version || _cachedPath == null)
             {
                 _capturedVersion = Version;
+                _cachedStrokePath?.Dispose();
+                _cachedStrokePath = null;
                 _cachedPath?.Dispose();
                 var geometry = GetOriginal();
 
@@ -56,7 +58,9 @@ public abstract partial class Geometry : EngineObject
         internal SKPath GetCachedStrokePath(Pen.Resource pen)
         {
             ObjectDisposedException.ThrowIf(IsDisposed, this);
-            if (_cachedStrokePath == null
+            if (_capturedVersion != Version
+                || _cachedPath == null 
+                || _cachedStrokePath == null
                 || _cachedPen == null
                 || _cachedPen?.Resource.GetOriginal() != pen.GetOriginal()
                 || _cachedPen?.Version != pen.Version)

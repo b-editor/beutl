@@ -161,7 +161,6 @@ public partial class ImmediateCanvas : ICanvas
         VerifyAccess();
         var size = new Size(bmp.Width, bmp.Height);
         ConfigureFillPaint(new(size), fill);
-        ConfigureStrokePaint(new Rect(size), pen);
 
         if (bmp is Bitmap<Bgra8888>)
         {
@@ -211,18 +210,10 @@ public partial class ImmediateCanvas : ICanvas
 
         if (pen != null && pen.Thickness != 0)
         {
-            if (pen.StrokeAlignment == StrokeAlignment.Center)
+            using (var path = new SKPath())
             {
-                ConfigureStrokePaint(rect, pen);
-                Canvas.DrawOval(rect.ToSKRect(), _sharedStrokePaint);
-            }
-            else
-            {
-                using (var path = new SKPath())
-                {
-                    path.AddOval(rect.ToSKRect());
-                    DrawSKPath(path, true, fill, pen);
-                }
+                path.AddOval(rect.ToSKRect());
+                DrawSKPath(path, true, fill, pen);
             }
         }
     }
@@ -235,18 +226,10 @@ public partial class ImmediateCanvas : ICanvas
 
         if (pen != null && pen.Thickness != 0)
         {
-            if (pen.StrokeAlignment == StrokeAlignment.Center)
+            using (var path = new SKPath())
             {
-                ConfigureStrokePaint(rect, pen);
-                Canvas.DrawRect(rect.ToSKRect(), _sharedStrokePaint);
-            }
-            else
-            {
-                using (var path = new SKPath())
-                {
-                    path.AddRect(rect.ToSKRect());
-                    DrawSKPath(path, true, fill, pen);
-                }
+                path.AddRect(rect.ToSKRect());
+                DrawSKPath(path, true, fill, pen);
             }
         }
     }
@@ -264,7 +247,6 @@ public partial class ImmediateCanvas : ICanvas
             && text.GetStrokePath() is { } stroke)
         {
             ConfigureStrokePaint(new(text.Bounds.Size), pen);
-            _sharedStrokePaint.IsStroke = false;
             Canvas.DrawPath(stroke, _sharedStrokePaint);
         }
     }
@@ -284,7 +266,6 @@ public partial class ImmediateCanvas : ICanvas
             ConfigureStrokePaint(rect, pen);
 
             using SKPath strokePath = PenHelper.CreateStrokePath(skPath, pen, rect);
-            _sharedStrokePaint.IsStroke = false;
             Canvas.DrawPath(strokePath, _sharedStrokePaint);
         }
     }
@@ -301,7 +282,6 @@ public partial class ImmediateCanvas : ICanvas
         if (pen != null && pen.Thickness > 0)
         {
             ConfigureStrokePaint(rect, pen);
-            _sharedStrokePaint.IsStroke = false;
             SKPath? stroke = geometry.GetCachedStrokePath(pen);
             if (stroke != null)
             {
@@ -467,56 +447,8 @@ public partial class ImmediateCanvas : ICanvas
 
         if (pen != null && pen.Thickness != 0)
         {
-            Rect original = bounds;
-            float thickness = pen.Thickness;
-
-            switch (pen.StrokeAlignment)
-            {
-                case StrokeAlignment.Center:
-                    bounds = bounds.Inflate(thickness / 2);
-                    break;
-
-                case StrokeAlignment.Outside:
-                    bounds = bounds.Inflate(thickness);
-                    thickness *= 2;
-                    break;
-
-                case StrokeAlignment.Inside:
-                    thickness *= 2;
-                    float maxAspect = Math.Max(bounds.Width, bounds.Height);
-                    thickness = Math.Min(thickness, maxAspect);
-                    break;
-
-                default:
-                    break;
-            }
-
-            _sharedStrokePaint.IsStroke = true;
-            _sharedStrokePaint.StrokeWidth = thickness;
-            _sharedStrokePaint.StrokeCap = (SKStrokeCap)pen.StrokeCap;
-            _sharedStrokePaint.StrokeJoin = (SKStrokeJoin)pen.StrokeJoin;
-            _sharedStrokePaint.StrokeMiter = pen.MiterLimit;
-            if (pen.DashArray != null && pen.DashArray.Count > 0)
-            {
-                IReadOnlyList<float> srcDashes = pen.DashArray;
-
-                int count = srcDashes.Count % 2 == 0 ? srcDashes.Count : srcDashes.Count * 2;
-
-                float[] dashesArray = new float[count];
-
-                for (int i = 0; i < count; ++i)
-                {
-                    dashesArray[i] = (float)srcDashes[i % srcDashes.Count] * thickness;
-                }
-
-                float offset = (float)(pen.DashOffset * thickness);
-
-                var pe = SKPathEffect.CreateDash(dashesArray, offset);
-
-                _sharedStrokePaint.PathEffect = pe;
-            }
-
-            new BrushConstructor(original, pen.Brush, blendMode).ConfigurePaint(_sharedStrokePaint);
+            _sharedStrokePaint.IsStroke = false;
+            new BrushConstructor(bounds, pen.Brush, blendMode).ConfigurePaint(_sharedStrokePaint);
         }
     }
 

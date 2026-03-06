@@ -4657,6 +4657,33 @@ namespace Beutl.Language {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to Trim start.
+        /// </summary>
+        public static string Pen_TrimStart {
+            get {
+                return ResourceManager.GetString("Pen_TrimStart", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Trim end.
+        /// </summary>
+        public static string Pen_TrimEnd {
+            get {
+                return ResourceManager.GetString("Pen_TrimEnd", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Trim offset.
+        /// </summary>
+        public static string Pen_TrimOffset {
+            get {
+                return ResourceManager.GetString("Pen_TrimOffset", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to Cap style.
         /// </summary>
         public static string Pen_StrokeCap {
