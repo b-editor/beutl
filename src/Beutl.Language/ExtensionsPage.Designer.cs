@@ -230,5 +230,23 @@ namespace Beutl.Language {
                 return ResourceManager.GetString("This_extension_does_not_support_your_Beutl_version", resourceCulture);
             }
         }
+
+        public static string Installing {
+            get {
+                return ResourceManager.GetString("Installing", resourceCulture);
+            }
+        }
+
+        public static string Updating {
+            get {
+                return ResourceManager.GetString("Updating", resourceCulture);
+            }
+        }
+
+        public static string Uninstalling {
+            get {
+                return ResourceManager.GetString("Uninstalling", resourceCulture);
+            }
+        }
     }
 }

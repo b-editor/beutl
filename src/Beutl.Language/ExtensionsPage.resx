@@ -215,4 +215,13 @@ To apply the package changes, exit Beutl.</value>
     <value>This extension does not support your Beutl version.
 To force installation, use the CLI tool.</value>
   </data>
+  <data name="Installing" xml:space="preserve">
+    <value>Installing...</value>
+  </data>
+  <data name="Updating" xml:space="preserve">
+    <value>Updating...</value>
+  </data>
+  <data name="Uninstalling" xml:space="preserve">
+    <value>Uninstalling...</value>
+  </data>
 </root>

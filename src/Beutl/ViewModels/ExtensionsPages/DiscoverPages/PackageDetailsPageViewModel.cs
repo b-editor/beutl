@@ -4,7 +4,6 @@ using Beutl.Api.Services;
 using Beutl.Logging;
 using Beutl.Services;
 using Microsoft.Extensions.Logging;
-using NuGet.Packaging;
 using NuGet.Packaging.Core;
 using NuGet.Versioning;
 using Reactive.Bindings;
@@ -16,10 +15,7 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
 {
     private readonly ILogger _logger = Log.CreateLogger<PackageDetailsPageViewModel>();
     private readonly CompositeDisposable _disposables = [];
-    private readonly InstalledPackageRepository _installedPackageRepository;
-    private readonly PackageChangesQueue _queue;
-    private readonly PackageManager _packageManager;
-    private readonly PackageInstaller _packageInstaller;
+    private readonly PackageOperationHandler _handler;
     private readonly LibraryService _library;
     private readonly BeutlApiApplication _app;
 
@@ -27,10 +23,7 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
     {
         Package = package;
         _app = app;
-        _installedPackageRepository = app.GetResource<InstalledPackageRepository>();
-        _queue = app.GetResource<PackageChangesQueue>();
-        _packageManager = app.GetResource<PackageManager>();
-        _packageInstaller = app.GetResource<PackageInstaller>();
+        _handler = new PackageOperationHandler(app);
         _library = app.GetResource<LibraryService>();
 
         DisplayName = package.DisplayName
@@ -71,9 +64,9 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
                             prevCount = array.Length;
                         } while (prevCount == 30);
 
-                        if (_installedPackageRepository.ExistsPackage(package.Name))
+                        if (_handler.InstalledPackageRepository.ExistsPackage(package.Name))
                         {
-                            PackageIdentity mostLatested = _installedPackageRepository.GetLocalPackages(package.Name)
+                            PackageIdentity mostLatested = _handler.InstalledPackageRepository.GetLocalPackages(package.Name)
                                 .Aggregate((x, y) => x.Version > y.Version ? x : y);
 
                             CurrentRelease.Value = await package.GetReleaseAsync(mostLatested.Version.ToString());
@@ -95,7 +88,7 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
 
         Refresh.Execute();
 
-        IObservable<PackageChangesQueue.EventType> observable = _queue.GetObservable(package.Name);
+        IObservable<PackageChangesQueue.EventType> observable = _handler.Queue.GetObservable(package.Name);
         CanCancel = observable.Select(x => x != PackageChangesQueue.EventType.None)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
@@ -118,7 +111,7 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        IObservable<bool> installed = _installedPackageRepository.GetObservable(package.Name);
+        IObservable<bool> installed = _handler.InstalledPackageRepository.GetObservable(package.Name);
         IsInstallButtonVisible = installed.Not()
             .AreTrue(CanCancel.Not(), CanInstallOrUpdate)
             .ToReadOnlyReactivePropertySlim()
@@ -163,7 +156,7 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
 
                 try
                 {
-                    IsBusy.Value = true;
+                    StatusText.Value = ExtensionsPage.Installing;
                     using (await _app.Lock.LockAsync())
                     {
                         activity?.AddEvent(new("Entered_AsyncLock"));
@@ -172,7 +165,7 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
 
                         try
                         {
-                            await DownloadAndLoadPackage(release, packageId);
+                            await _handler.DownloadAndLoadPackage(release, packageId);
                             NotificationService.ShowInformation(
                                 title: ExtensionsPage.PackageInstaller,
                                 message: string.Format(ExtensionsPage.PackageInstaller_ScheduledInstallation,
@@ -181,7 +174,7 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
                         catch (Exception ex)
                         {
                             _logger.LogWarning(ex, "Immediate install failed, falling back to queue.");
-                            _queue.InstallQueue(packageId);
+                            _handler.Queue.InstallQueue(packageId);
                             NotificationService.ShowInformation(
                                 title: ExtensionsPage.PackageInstaller,
                                 message: string.Format(ExtensionsPage.PackageInstaller_ScheduledInstallation,
@@ -197,7 +190,7 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
                 }
                 finally
                 {
-                    IsBusy.Value = false;
+                    StatusText.Value = null;
                 }
             })
             .DisposeWith(_disposables);
@@ -209,7 +202,7 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
 
                 try
                 {
-                    IsBusy.Value = true;
+                    StatusText.Value = ExtensionsPage.Updating;
                     using (await _app.Lock.LockAsync())
                     {
                         activity?.AddEvent(new("Entered_AsyncLock"));
@@ -218,28 +211,11 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
 
                         try
                         {
-                            // 旧バージョンをアンロード
-                            foreach (LocalPackage pkg in _packageManager.FindLoadedPackage(Package.Name))
-                            {
-                                _packageManager.Unload(pkg);
-                            }
+                            _handler.UnloadPackages(Package.Name);
 
-                            GC.Collect();
-                            GC.WaitForPendingFinalizers();
+                            _handler.DeleteOldVersionFiles(Package.Name);
 
-                            // 旧バージョンのファイル削除
-                            foreach (PackageIdentity item in _installedPackageRepository.GetLocalPackages(Package.Name))
-                            {
-                                string directory = Helper.PackagePathResolver.GetInstalledPath(item);
-                                if (Directory.Exists(directory))
-                                {
-                                    PackageUninstallContext ctx = _packageInstaller.PrepareForUninstall(directory);
-                                    _packageInstaller.Uninstall(ctx, new Progress<double>());
-                                }
-                            }
-
-                            // 新バージョンをダウンロード・ロード
-                            await DownloadAndLoadPackage(release, packageId);
+                            await _handler.DownloadAndLoadPackage(release, packageId);
                             NotificationService.ShowInformation(
                                 title: ExtensionsPage.PackageInstaller,
                                 message: string.Format(ExtensionsPage.PackageInstaller_ScheduledUpdate, packageId.Id));
@@ -247,7 +223,7 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
                         catch (Exception ex)
                         {
                             _logger.LogWarning(ex, "Immediate update failed, falling back to queue.");
-                            _queue.InstallQueue(packageId);
+                            _handler.Queue.InstallQueue(packageId);
                             NotificationService.ShowInformation(
                                 title: ExtensionsPage.PackageInstaller,
                                 message: string.Format(ExtensionsPage.PackageInstaller_ScheduledUpdate, packageId.Id));
@@ -262,7 +238,7 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
                 }
                 finally
                 {
-                    IsBusy.Value = false;
+                    StatusText.Value = null;
                 }
             })
             .DisposeWith(_disposables);
@@ -272,60 +248,31 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
             {
                 try
                 {
-                    IsBusy.Value = true;
+                    StatusText.Value = ExtensionsPage.Uninstalling;
 
-                    bool unloadResult = true;
-                    foreach (LocalPackage pkg in _packageManager.FindLoadedPackage(Package.Name))
-                    {
-                        unloadResult &= _packageManager.Unload(pkg);
-                    }
-
-                    if (!unloadResult)
+                    if (!_handler.UnloadPackages(Package.Name))
                     {
                         throw new Exception("Failed to unload the package. It may still be in use. Uninstallation has been scheduled.");
                     }
 
-                    foreach (PackageIdentity item in _installedPackageRepository.GetLocalPackages(Package.Name))
+                    if (!_handler.UninstallWithFallback(Package.Name))
                     {
-                        try
-                        {
-                            string directory = Helper.PackagePathResolver.GetInstalledPath(item);
-                            if (Directory.Exists(directory))
-                            {
-                                var ctx = _packageInstaller.PrepareForUninstall(directory);
-                                _packageInstaller.Uninstall(ctx, new Progress<double>());
-
-                                if (ctx.FailedPackages is { Count: > 0 })
-                                {
-                                    _queue.UninstallQueue(item);
-                                }
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            _logger.LogWarning(ex, "Immediate uninstall failed for {PackageId}, falling back to queue.", item.Id);
-                            _queue.UninstallQueue(item);
-                        }
+                        NotificationService.ShowInformation(
+                            title: ExtensionsPage.PackageInstaller,
+                            message: string.Format(ExtensionsPage.PackageInstaller_ScheduledUninstallation, Package.Name));
                     }
-
-                    NotificationService.ShowInformation(
-                        title: ExtensionsPage.PackageInstaller,
-                        message: string.Format(ExtensionsPage.PackageInstaller_ScheduledUninstallation, Package.Name));
                 }
                 catch (Exception e)
                 {
                     _logger.LogWarning(e, "Immediate uninstall failed, falling back to queue.");
-                    foreach (PackageIdentity item in _installedPackageRepository.GetLocalPackages(Package.Name))
-                    {
-                        _queue.UninstallQueue(item);
-                    }
+                    _handler.QueueUninstallAll(Package.Name);
                     NotificationService.ShowInformation(
                         title: ExtensionsPage.PackageInstaller,
                         message: string.Format(ExtensionsPage.PackageInstaller_ScheduledUninstallation, Package.Name));
                 }
                 finally
                 {
-                    IsBusy.Value = false;
+                    StatusText.Value = null;
                 }
             })
             .DisposeWith(_disposables);
@@ -336,7 +283,7 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
                 try
                 {
                     IsBusy.Value = true;
-                    _queue.Cancel(Package.Name);
+                    _handler.Cancel(Package.Name);
                 }
                 catch (Exception e)
                 {
@@ -365,21 +312,6 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
         }
 
         return (await Package.GetReleasesAsync())[0];
-    }
-
-    private async Task DownloadAndLoadPackage(Release release, PackageIdentity packageId)
-    {
-        PackageInstallContext context = await _packageInstaller.PrepareForInstall(release, force: true);
-        await _packageInstaller.DownloadPackageFile(context);
-        await _packageInstaller.VerifyPackageFile(context);
-        await _packageInstaller.ResolveDependencies(context, null);
-
-        _installedPackageRepository.UpgradePackages(packageId);
-
-        string directory = Helper.PackagePathResolver.GetInstalledPath(packageId);
-        PackageFolderReader reader = new(directory);
-        var localPackage = new LocalPackage(reader.NuspecReader) { InstalledPath = directory };
-        _packageManager.Load(localPackage);
     }
 
     public Package Package { get; }
@@ -417,6 +349,8 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
     public AsyncReactiveCommand Cancel { get; }
 
     public ReactivePropertySlim<bool> IsBusy { get; } = new();
+
+    public ReactivePropertySlim<string?> StatusText { get; } = new();
 
     public AsyncReactiveCommand Refresh { get; }
 
