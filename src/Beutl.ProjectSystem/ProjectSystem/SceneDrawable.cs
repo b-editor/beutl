@@ -170,19 +170,19 @@ public sealed partial class SceneDrawable : Drawable
             if (frame == null)
                 return [];
 
-            if (_renderer?.FrameSize != frame.Size)
+            if (_renderer?.FrameSize != frame.Value.Size)
             {
                 _renderer?.Dispose();
-                _renderer = new Renderer(frame.Size.Width, frame.Size.Height);
+                _renderer = new Renderer(frame.Value.Size.Width, frame.Value.Size.Height);
             }
 
             return
             [
                 RenderNodeOperation.CreateLambda(
-                    new Rect(0, 0, frame.Size.Width, frame.Size.Height),
+                    new Rect(0, 0, frame.Value.Size.Width, frame.Value.Size.Height),
                     canvas =>
                     {
-                        _renderer.Render(frame);
+                        _renderer.Render(frame.Value);
                         RenderTarget renderTarget = Renderer.GetInternalRenderTarget(_renderer);
                         canvas.DrawRenderTarget(renderTarget, default);
                     })
