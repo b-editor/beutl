@@ -20,16 +20,15 @@ public sealed class SceneEditorViewModel : ValueEditorViewModel<Scene?>
 
     public void SetTarget(Scene? target)
     {
+        if (target == null)
+        {
+            SetNull();
+            return;
+        }
+
         if (PropertyAdapter is IExpressionPropertyAdapter<Scene?> exp)
         {
-            if (target != null)
-            {
-                exp.Expression = Expression.CreateReference<Scene>(target.Id);
-            }
-            else
-            {
-                exp.Expression = null;
-            }
+            exp.Expression = target != null ? Expression.CreateReference<Scene>(target.Id) : null;
 
             Commit();
         }

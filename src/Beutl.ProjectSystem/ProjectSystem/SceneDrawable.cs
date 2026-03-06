@@ -116,7 +116,7 @@ public sealed partial class SceneDrawable : Drawable
 
                 if (oldFrame.HasValue && Frame.HasValue)
                 {
-                    changed |= oldFrame.Value.IsSame(Frame.Value);
+                    changed |= !oldFrame.Value.IsSame(Frame.Value);
                 }
                 else if (oldFrame.HasValue != Frame.HasValue)
                 {
@@ -154,8 +154,9 @@ public sealed partial class SceneDrawable : Drawable
 
         public bool Update(Resource resource)
         {
-            if (resource.Compare(Scene))
+            if (!resource.Compare(Scene))
             {
+                Scene = resource.Capture();
                 HasChanges = true;
                 return true;
             }
@@ -165,10 +166,10 @@ public sealed partial class SceneDrawable : Drawable
 
         public override RenderNodeOperation[] Process(RenderNodeContext context)
         {
-            if (Scene?.Resource.Frame == null)
+            var frame = Scene?.Resource.Frame;
+            if (frame == null)
                 return [];
 
-            var frame = Scene.Value.Resource.Frame.Value;
             if (_renderer?.FrameSize != frame.Size)
             {
                 _renderer?.Dispose();
