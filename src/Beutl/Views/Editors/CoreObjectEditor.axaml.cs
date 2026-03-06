@@ -9,6 +9,7 @@ using Beutl.Controls.PropertyEditors;
 using Beutl.Editor.Components.ObjectPropertyTab.ViewModels;
 using Beutl.Engine;
 using Beutl.Services;
+using Beutl.Editor.Components.Views;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Dialogs;
 using Beutl.ViewModels.Editors;
@@ -20,6 +21,7 @@ public partial class CoreObjectEditor : UserControl
 {
     private static readonly CrossFade s_transition = new(TimeSpan.FromMilliseconds(250));
     private CancellationTokenSource? _lastTransitionCts;
+    private UnknownObjectView? _unknownObjectView;
 
     public CoreObjectEditor()
     {
@@ -39,6 +41,18 @@ public partial class CoreObjectEditor : UserControl
                 {
                     await s_transition.Start(content, null, localToken);
                 }
+            });
+
+        this.GetObservable(DataContextProperty)
+            .Select(x => x as IUnknownObjectViewModel)
+            .Select(x => x?.IsFallback.Select(_ => x) ?? Observable.ReturnThenNever<IUnknownObjectViewModel?>(null))
+            .Switch()
+            .Where(v => v?.IsFallback.Value == true)
+            .Take(1)
+            .Subscribe(_ =>
+            {
+                _unknownObjectView = new UnknownObjectView();
+                content.Children.Add(_unknownObjectView);
             });
     }
 

@@ -3,6 +3,7 @@ using Avalonia.Animation;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Interactivity;
+using Beutl.Editor.Components.Views;
 using Beutl.Language;
 using Beutl.Logging;
 using Beutl.Media;
@@ -19,6 +20,7 @@ public partial class GeometryEditor : UserControl
     private readonly ILogger _logger = Log.CreateLogger<GeometryEditor>();
 
     private CancellationTokenSource? _lastTransitionCts;
+    private UnknownObjectView? _unknownObjectView;
 
     public GeometryEditor()
     {
@@ -38,6 +40,18 @@ public partial class GeometryEditor : UserControl
                 {
                     await s_transition.Start(content, null, localToken);
                 }
+            });
+
+        this.GetObservable(DataContextProperty)
+            .Select(x => x as GeometryEditorViewModel)
+            .Select(x => x?.IsFallback.Select(_ => x) ?? Observable.ReturnThenNever<GeometryEditorViewModel?>(null))
+            .Switch()
+            .Where(v => v?.IsFallback.Value == true)
+            .Take(1)
+            .Subscribe(_ =>
+            {
+                _unknownObjectView = new UnknownObjectView();
+                content.Children.Add(_unknownObjectView);
             });
     }
 

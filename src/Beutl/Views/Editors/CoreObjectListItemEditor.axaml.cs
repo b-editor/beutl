@@ -8,6 +8,7 @@ using Avalonia.Threading;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Engine;
 using Beutl.Services;
+using Beutl.Editor.Components.Views;
 using Beutl.ViewModels.Dialogs;
 using Beutl.ViewModels.Editors;
 
@@ -17,6 +18,7 @@ public partial class CoreObjectListItemEditor : UserControl, IListItemEditor
 {
     private static readonly CrossFade s_transition = new(TimeSpan.FromMilliseconds(167));
     private CancellationTokenSource? _lastTransitionCts;
+    private UnknownObjectView? _unknownObjectView;
 
     public CoreObjectListItemEditor()
     {
@@ -36,6 +38,18 @@ public partial class CoreObjectListItemEditor : UserControl, IListItemEditor
                 {
                     await s_transition.Start(content, null, localToken);
                 }
+            });
+
+        this.GetObservable(DataContextProperty)
+            .Select(x => x as IUnknownObjectViewModel)
+            .Select(x => x?.IsFallback.Select(_ => x) ?? Observable.ReturnThenNever<IUnknownObjectViewModel?>(null))
+            .Switch()
+            .Where(v => v?.IsFallback.Value == true)
+            .Take(1)
+            .Subscribe(_ =>
+            {
+                _unknownObjectView = new UnknownObjectView();
+                content.Children.Add(_unknownObjectView);
             });
     }
 

@@ -48,9 +48,9 @@ public partial class FilterEffectEditor : UserControl
 
         this.GetObservable(DataContextProperty)
             .Select(x => x as FilterEffectEditorViewModel)
-            .Select(x => x?.IsDummy.Select(_ => x) ?? Observable.ReturnThenNever<FilterEffectEditorViewModel?>(null))
+            .Select(x => x?.IsFallback.Select(_ => x) ?? Observable.ReturnThenNever<FilterEffectEditorViewModel?>(null))
             .Switch()
-            .Where(v => v?.IsDummy.Value == true)
+            .Where(v => v?.IsFallback.Value == true)
             .Take(1)
             .Subscribe(_ =>
             {

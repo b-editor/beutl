@@ -1,10 +1,10 @@
-﻿using Reactive.Bindings;
+using Reactive.Bindings;
 
 namespace Beutl.Editor.Services;
 
 public interface IUnknownObjectViewModel
 {
-    IReadOnlyReactiveProperty<bool> IsDummy { get; }
+    IReadOnlyReactiveProperty<bool> IsFallback { get; }
 
     IReadOnlyReactiveProperty<string> ActualTypeName { get; }
 

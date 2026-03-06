@@ -12,7 +12,7 @@
              x:DataType="services:IUnknownObjectViewModel"
              mc:Ignorable="d">
     <StackPanel Margin="8"
-                IsVisible="{Binding IsDummy.Value}"
+                IsVisible="{Binding IsFallback.Value}"
                 Spacing="8"
                 TextBlock.TextWrapping="WrapWithOverflow">
 

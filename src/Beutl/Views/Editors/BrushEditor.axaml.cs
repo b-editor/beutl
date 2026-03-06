@@ -6,6 +6,7 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Beutl.Controls;
 using Beutl.Controls.PropertyEditors;
+using Beutl.Editor.Components.Views;
 using Beutl.Editor.Components.ObjectPropertyTab.ViewModels;
 using Beutl.Engine;
 using Beutl.Graphics;
@@ -33,6 +34,7 @@ public sealed partial class BrushEditor : UserControl
     private CancellationTokenSource? _lastTransitionCts;
 
     private BrushEditorFlyout? _flyout;
+    private UnknownObjectView? _unknownObjectView;
     private bool _flyoutOpen;
 
     public BrushEditor()
@@ -53,6 +55,18 @@ public sealed partial class BrushEditor : UserControl
                 {
                     await s_transition.Start(content, null, localToken);
                 }
+            });
+
+        this.GetObservable(DataContextProperty)
+            .Select(x => x as BrushEditorViewModel)
+            .Select(x => x?.IsFallback.Select(_ => x) ?? Observable.ReturnThenNever<BrushEditorViewModel?>(null))
+            .Switch()
+            .Where(v => v?.IsFallback.Value == true)
+            .Take(1)
+            .Subscribe(_ =>
+            {
+                _unknownObjectView = new UnknownObjectView();
+                (content.Child as Panel)?.Children.Add(_unknownObjectView);
             });
     }
 

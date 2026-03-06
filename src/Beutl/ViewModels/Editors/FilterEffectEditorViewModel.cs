@@ -17,11 +17,11 @@ public sealed class FilterEffectEditorViewModel : ValueEditorViewModel<FilterEff
     public FilterEffectEditorViewModel(IPropertyAdapter<FilterEffect?> property)
         : base(property)
     {
-        IsDummy = Value.Select(v => v is IDummy)
+        IsFallback = Value.Select(v => v is IFallback)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 
-        ActualTypeName = Value.Select(DummyHelper.GetTypeName)
+        ActualTypeName = Value.Select(FallbackHelper.GetTypeName)
             .ToReadOnlyReactivePropertySlim(Strings.Unknown)
             .DisposeWith(Disposables);
 
@@ -129,7 +129,7 @@ public sealed class FilterEffectEditorViewModel : ValueEditorViewModel<FilterEff
 
     public ReactiveProperty<bool> IsEnabled { get; }
 
-    public IReadOnlyReactiveProperty<bool> IsDummy { get; }
+    public IReadOnlyReactiveProperty<bool> IsFallback { get; }
 
     public IReadOnlyReactiveProperty<string> ActualTypeName { get; }
 
@@ -291,7 +291,7 @@ public sealed class FilterEffectEditorViewModel : ValueEditorViewModel<FilterEff
     {
         return Value.Select(v =>
         {
-            if (v is DummyFilterEffect { Json: JsonObject json })
+            if (v is FallbackFilterEffect { Json: JsonObject json })
             {
                 return json.ToJsonString(JsonHelper.SerializerOptions);
             }

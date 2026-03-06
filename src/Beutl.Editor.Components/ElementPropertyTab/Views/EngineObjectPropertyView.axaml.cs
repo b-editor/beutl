@@ -83,7 +83,7 @@ public sealed partial class EngineObjectPropertyView : UserControl
         base.OnDataContextChanged(e);
         if (DataContext is EngineObjectPropertyViewModel viewModel)
         {
-            if (!viewModel.IsDummy.Value)
+            if (!viewModel.IsFallback.Value)
             {
                 EngineObject obj = viewModel.Model;
                 Type type = obj.GetType();

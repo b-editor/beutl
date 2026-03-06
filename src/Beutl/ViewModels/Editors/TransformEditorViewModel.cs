@@ -5,6 +5,7 @@ using Beutl.Engine;
 using Beutl.Engine.Expressions;
 using Beutl.Graphics.Transformation;
 using Beutl.PropertyAdapters;
+using Beutl.Serialization;
 using Microsoft.Extensions.DependencyInjection;
 
 using Reactive.Bindings;
@@ -23,7 +24,7 @@ public enum KnownTransformType
     Presenter
 }
 
-public sealed class TransformEditorViewModel : ValueEditorViewModel<Transform?>
+public sealed class TransformEditorViewModel : ValueEditorViewModel<Transform?>, IUnknownObjectViewModel
 {
     private static KnownTransformType GetTransformType(Transform? obj)
     {
@@ -73,6 +74,14 @@ public sealed class TransformEditorViewModel : ValueEditorViewModel<Transform?>
     public TransformEditorViewModel(IPropertyAdapter<Transform?> property)
         : base(property)
     {
+        IsFallback = Value.Select(v => v is IFallback)
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(Disposables);
+
+        ActualTypeName = Value.Select(FallbackHelper.GetTypeName)
+            .ToReadOnlyReactivePropertySlim(Strings.Unknown)
+            .DisposeWith(Disposables);
+
         TransformType = Value.Select(GetTransformType)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
@@ -181,6 +190,43 @@ public sealed class TransformEditorViewModel : ValueEditorViewModel<Transform?>
     public ReadOnlyReactivePropertySlim<bool> IsPresenter { get; }
 
     public ReadOnlyReactivePropertySlim<string?> CurrentTargetName { get; }
+
+    public IReadOnlyReactiveProperty<bool> IsFallback { get; }
+
+    public IReadOnlyReactiveProperty<string> ActualTypeName { get; }
+
+    public IObservable<string?> GetJsonString()
+    {
+        return Value.Select(v =>
+        {
+            if (v is FallbackTransform { Json: JsonObject json })
+            {
+                return json.ToJsonString(JsonHelper.SerializerOptions);
+            }
+
+            return null;
+        });
+    }
+
+    public void SetJsonString(string? str)
+    {
+        string message = Strings.InvalidJson;
+        _ = str ?? throw new Exception(message);
+        JsonObject json = (JsonNode.Parse(str) as JsonObject) ?? throw new Exception(message);
+
+        Type? type = json.GetDiscriminator();
+        Transform? instance = null;
+        if (type?.IsAssignableTo(typeof(Transform)) ?? false)
+        {
+            instance = Activator.CreateInstance(type) as Transform;
+        }
+
+        if (instance == null) throw new Exception(message);
+
+        CoreSerializer.PopulateFromJsonObject(instance, type!, json);
+
+        SetValue(Value.Value, instance);
+    }
 
     public override void Accept(IPropertyEditorContextVisitor visitor)
     {
