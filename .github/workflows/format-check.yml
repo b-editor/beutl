@@ -1,0 +1,20 @@
+name: Format check
+
+on:
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  dotnet-format:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      - name: Check format
+        run: dotnet format Beutl.slnx --verify-no-changes --verbosity diagnostic
