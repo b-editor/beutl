@@ -156,9 +156,6 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
 
                 try
                 {
-                    if (!await PackageOperationHandler.EnsureProjectClosed())
-                        return;
-
                     StatusText.Value = ExtensionsPage.Installing;
                     using (await _app.Lock.LockAsync())
                     {

@@ -58,8 +58,6 @@ public sealed class RemoteUserPackageViewModel : BaseViewModel, IUserPackageView
                 try
                 {
                     IsBusy.Value = true;
-                    if (!await PackageOperationHandler.EnsureProjectClosed())
-                        return;
 
                     StatusText.Value = ExtensionsPage.Installing;
                     using (await _app.Lock.LockAsync())
