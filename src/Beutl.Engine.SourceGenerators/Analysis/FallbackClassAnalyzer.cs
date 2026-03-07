@@ -79,11 +79,11 @@ public static class FallbackClassAnalyzer
         }
 
         // Remove methods already overridden in the user's partial declaration
-        foreach (IMethodSymbol method in symbol.GetMembers()
+        foreach (string key in symbol.GetMembers()
             .OfType<IMethodSymbol>()
-            .Where(m => m is { IsOverride: true, MethodKind: MethodKind.Ordinary }))
+            .Where(m => m is { IsOverride: true, MethodKind: MethodKind.Ordinary })
+            .Select(GetMethodSignatureKey))
         {
-            string key = GetMethodSignatureKey(method);
             abstractMethods.Remove(key);
         }
 
