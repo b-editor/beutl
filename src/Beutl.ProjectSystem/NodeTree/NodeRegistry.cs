@@ -8,6 +8,12 @@ public class NodeRegistry
     private static readonly List<BaseRegistryItem> s_nodes = [];
     internal static int s_totalCount;
 
+    static NodeRegistry()
+    {
+        TypeUnloadNotifier.TypesUnloading += Unregister;
+    }
+
+
     public static void RegisterNode<
         [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] T>(
         string displayName)
@@ -88,7 +94,7 @@ public class NodeRegistry
         return null;
     }
 
-    public static void Unregister(Type[] types)
+    private static void Unregister(Type[] types)
     {
         for (int i = s_nodes.Count - 1; i >= 0; i--)
         {
@@ -106,7 +112,7 @@ public class NodeRegistry
                     s_totalCount += groupable.Count();
                 }
             }
-            else if (item is RegistryItem registryItem && types.Contains(registryItem.Type))
+            else if (item is RegistryItem registryItem && types.Any(t => TypeUnloadNotifier.ContainsTypeRecursive(registryItem.Type, t)))
             {
                 s_totalCount--;
                 s_nodes.RemoveAt(i);
@@ -179,7 +185,7 @@ public class NodeRegistry
                         Items.RemoveAt(i);
                     }
                 }
-                else if (item is RegistryItem registryItem && types.Contains(registryItem.Type))
+                else if (item is RegistryItem registryItem && types.Any(t => TypeUnloadNotifier.ContainsTypeRecursive(registryItem.Type, t)))
                 {
                     Items.RemoveAt(i);
                 }

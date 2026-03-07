@@ -5,6 +5,11 @@ namespace Beutl.Serialization;
 
 internal static class ArrayTypeHelpers
 {
+    static ArrayTypeHelpers()
+    {
+        TypeUnloadNotifier.TypesUnloading += Unregister;
+    }
+
     private static readonly ConditionalWeakTable<Type, Type> s_elementTypes = [];
     private static readonly ConditionalWeakTable<Type, Tuple<Type, Type>> s_genericArgsTypes = [];
 
@@ -115,7 +120,7 @@ internal static class ArrayTypeHelpers
         return default;
     }
 
-    public static void Unregister(Type[] types)
+    private static void Unregister(Type[] types)
     {
         lock (s_elementTypes)
         {

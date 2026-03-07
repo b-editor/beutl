@@ -190,6 +190,12 @@ public sealed class LibraryService
     private readonly object _lock = new();
     internal int _totalCount;
 
+    private LibraryService()
+    {
+        TypeUnloadNotifier.TypesUnloading += Unregister;
+    }
+
+
     public static LibraryService Current { get; } = new();
 
     public IReadOnlyList<LibraryItem> Items => _items;
@@ -324,7 +330,7 @@ public sealed class LibraryService
         }
     }
 
-    public void Unregister(Type[] types)
+    private void Unregister(Type[] types)
     {
         lock (_lock)
         {

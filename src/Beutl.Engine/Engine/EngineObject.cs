@@ -563,6 +563,12 @@ public class EngineObject : Hierarchical, INotifyEdited
     {
         public static readonly ConditionalWeakTable<Type, CacheEntry> Cache = [];
 
+        static ReflectionCache()
+        {
+            TypeUnloadNotifier.TypesUnloading += Unregister;
+        }
+
+
         public static ConcurrentDictionary<PropertyInfo, Func<object, IProperty?>> GetProperties(Type type)
         {
             return Cache.GetValue(type, _ => new CacheEntry()).Properties;
@@ -573,7 +579,7 @@ public class EngineObject : Hierarchical, INotifyEdited
             return Cache.GetValue(type, _ => new CacheEntry()).Validators;
         }
 
-        public static void Unregister(Type[] types)
+        private static void Unregister(Type[] types)
         {
             foreach (Type type in types)
             {
@@ -584,30 +590,12 @@ public class EngineObject : Hierarchical, INotifyEdited
             {
                 foreach (Type t in types)
                 {
-                    if (ContainsTypeRecursive(kvp.Key, t))
+                    if (TypeUnloadNotifier.ContainsTypeRecursive(kvp.Key, t))
                     {
                         Cache.Remove(kvp.Key);
                     }
                 }
             }
-        }
-
-        // typeのジェネリクス引数にtargetが含まれるか
-        private static bool ContainsTypeRecursive(Type type, Type target)
-        {
-            if (type == target)
-                return true;
-
-            if (type.IsGenericType)
-            {
-                foreach (Type arg in type.GetGenericArguments())
-                {
-                    if (ContainsTypeRecursive(arg, target))
-                        return true;
-                }
-            }
-
-            return false;
         }
     }
 }

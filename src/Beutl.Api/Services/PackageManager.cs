@@ -9,9 +9,7 @@ using Beutl.Api.Objects;
 using Beutl.Engine;
 using Beutl.Extensibility;
 using Beutl.Logging;
-using Beutl.NodeTree;
 using Beutl.Reactive;
-using Beutl.Serialization;
 using Microsoft.Extensions.Logging;
 using NuGet.Packaging;
 using NuGet.Packaging.Core;
@@ -333,13 +331,7 @@ public sealed class PackageManager(
             try
             {
                 var types = loadContext.Assemblies.SelectMany(a => a.GetTypes()).ToArray();
-                Beutl.Services.LibraryService.Current.Unregister(types);
-                PropertyRegistry.Unregister(types);
-                NodeRegistry.Unregister(types);
-                TypeDisplayHelpers.Unregister(types);
-                EngineObject.ReflectionCache.Unregister(types);
-                ArrayTypeHelpers.Unregister(types);
-                DefaultValueHelpers.Unregister(types);
+                TypeUnloadNotifier.NotifyUnloading(types);
                 AvaloniaPropertyRegistry.Instance.UnregisterByModule(types);
                 foreach (string name in loadContext.Assemblies.Select(a => a.GetName().Name).OfType<string>())
                 {

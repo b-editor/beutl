@@ -6,6 +6,11 @@ namespace Beutl;
 
 public static class TypeDisplayHelpers
 {
+    static TypeDisplayHelpers()
+    {
+        TypeUnloadNotifier.TypesUnloading += Unregister;
+    }
+
     private static readonly ConditionalWeakTable<Type, string> s_typeNameCache = new();
     private static readonly ConditionalWeakTable<MemberInfo, string> s_memberNameCache = new();
 
@@ -31,7 +36,7 @@ public static class TypeDisplayHelpers
         });
     }
 
-    public static void Unregister(Type[] types)
+    private static void Unregister(Type[] types)
     {
         foreach (Type type in types)
         {

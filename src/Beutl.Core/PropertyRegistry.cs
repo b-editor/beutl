@@ -4,6 +4,11 @@ namespace Beutl;
 
 public static class PropertyRegistry
 {
+    static PropertyRegistry()
+    {
+        TypeUnloadNotifier.TypesUnloading += Unregister;
+    }
+
     private static readonly Dictionary<int, CoreProperty> s_properties = [];
     private static readonly Dictionary<Type, Dictionary<int, CoreProperty>> s_registered = [];
     private static readonly Dictionary<Type, List<CoreProperty>> s_registeredCache = [];
@@ -151,7 +156,7 @@ public static class PropertyRegistry
         }
     }
 
-    public static void Unregister(Type[] types)
+    private static void Unregister(Type[] types)
     {
         lock (s_properties)
         {
@@ -164,7 +169,7 @@ public static class PropertyRegistry
                 foreach (Type t in types)
                 {
                     kvp.Value.RemoveMetadataOverride(t);
-                    if (ContainsTypeRecursive(kvp.Value.PropertyType, t) || ContainsTypeRecursive(kvp.Value.OwnerType, t))
+                    if (TypeUnloadNotifier.ContainsTypeRecursive(kvp.Value.PropertyType, t) || TypeUnloadNotifier.ContainsTypeRecursive(kvp.Value.OwnerType, t))
                     {
                         s_properties.Remove(kvp.Key);
                         s_registered.Remove(kvp.Value.OwnerType);
@@ -174,21 +179,4 @@ public static class PropertyRegistry
         }
     }
 
-    // typeのジェネリクス引数にtargetが含まれるか
-    private static bool ContainsTypeRecursive(Type type, Type target)
-    {
-        if (type == target)
-            return true;
-
-        if (type.IsGenericType)
-        {
-            foreach (Type arg in type.GetGenericArguments())
-            {
-                if (ContainsTypeRecursive(arg, target))
-                    return true;
-            }
-        }
-
-        return false;
-    }
 }

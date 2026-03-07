@@ -4,6 +4,11 @@ namespace Beutl.Serialization;
 
 internal static class DefaultValueHelpers
 {
+    static DefaultValueHelpers()
+    {
+        TypeUnloadNotifier.TypesUnloading += Unregister;
+    }
+
     private static readonly ConditionalWeakTable<Type, Type> s_optionalToGenericTypeCache = new();
 
     private static Type? GetOptionalGenericType(Type type)
@@ -48,7 +53,7 @@ internal static class DefaultValueHelpers
         return GetDefault(type);
     }
 
-    public static void Unregister(Type[] types)
+    private static void Unregister(Type[] types)
     {
         foreach (Type type in types)
         {
