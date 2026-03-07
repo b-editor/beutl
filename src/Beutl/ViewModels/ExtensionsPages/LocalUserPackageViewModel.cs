@@ -112,7 +112,7 @@ public sealed class LocalUserPackageViewModel : BaseViewModel, IUserPackageViewM
 
                         try
                         {
-                            _handler.UnloadPackages(Package.Name);
+                            await _handler.UnloadPackages(Package.Name);
                             _handler.DeleteOldVersionFiles(Package.Name);
                             await _handler.DownloadAndLoadPackage(LatestRelease.Value, packageId);
                             NotificationService.ShowInformation(
@@ -156,7 +156,7 @@ public sealed class LocalUserPackageViewModel : BaseViewModel, IUserPackageViewM
 
                     StatusText.Value = ExtensionsPage.Uninstalling;
 
-                    if (!_handler.UnloadPackages(Package.Name))
+                    if (!await _handler.UnloadPackages(Package.Name))
                     {
                         throw new Exception("Failed to unload the package. It may still be in use. Uninstallation has been scheduled.");
                     }

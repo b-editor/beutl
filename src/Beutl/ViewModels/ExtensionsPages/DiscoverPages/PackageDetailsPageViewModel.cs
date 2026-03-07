@@ -217,7 +217,7 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
 
                         try
                         {
-                            _handler.UnloadPackages(Package.Name);
+                            await _handler.UnloadPackages(Package.Name);
 
                             _handler.DeleteOldVersionFiles(Package.Name);
 
@@ -259,7 +259,7 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
 
                     StatusText.Value = ExtensionsPage.Uninstalling;
 
-                    if (!_handler.UnloadPackages(Package.Name))
+                    if (!await _handler.UnloadPackages(Package.Name))
                     {
                         throw new Exception("Failed to unload the package. It may still be in use. Uninstallation has been scheduled.");
                     }

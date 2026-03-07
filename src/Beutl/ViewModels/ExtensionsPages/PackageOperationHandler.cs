@@ -62,12 +62,12 @@ internal class PackageOperationHandler
         _packageManager.Load(localPackage);
     }
 
-    public bool UnloadPackages(string packageName)
+    public async ValueTask<bool> UnloadPackages(string packageName)
     {
         bool result = true;
         foreach (LocalPackage pkg in _packageManager.FindLoadedPackage(packageName))
         {
-            result &= _packageManager.Unload(pkg);
+            result &= await _packageManager.Unload(pkg);
         }
 
         GC.Collect();

@@ -267,7 +267,7 @@ public sealed class PackageManager(
         }
     }
 
-    public bool Unload(LocalPackage package)
+    public async ValueTask<bool> Unload(LocalPackage package)
     {
         using (Activity? activity = Telemetry.ActivitySource.StartActivity("Unload"))
         {
@@ -282,6 +282,7 @@ public sealed class PackageManager(
                 GC.Collect();
                 GC.WaitForFullGCComplete(-1);
                 GC.WaitForPendingFinalizers();
+                await Task.Delay(100).ConfigureAwait(false);
             }
 
             return !weakReference.IsAlive;
