@@ -393,6 +393,21 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
         }
     }
 
+    public void SetValue(T? newValue)
+    {
+        if (EditingKeyFrame.Value is { } kf)
+        {
+            kf.Value = newValue!;
+        }
+        else
+        {
+            IPropertyAdapter<T> prop = PropertyAdapter;
+            prop.SetValue(newValue);
+        }
+
+        Commit();
+    }
+
     public T? SetCurrentValueAndGetCoerced(T? value)
     {
         if (EditingKeyFrame.Value != null)

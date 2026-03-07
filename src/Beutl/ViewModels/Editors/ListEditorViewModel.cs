@@ -64,7 +64,19 @@ public interface IListItemEditorViewModel : IJsonSerializable
 
 public interface IListEditorViewModel
 {
+    Type ItemType { get; }
+
+    bool IsListNull { get; }
+
+    bool IsDisposed { get; }
+
     void MoveItem(int oldIndex, int newIndex);
+
+    void Initialize();
+
+    void Delete();
+
+    void AddItem(Type type);
 }
 
 public sealed class ListItemEditorViewModel<TItem> : IDisposable, IListItemEditorViewModel
@@ -151,6 +163,10 @@ public sealed class ListEditorViewModel<TItem> : BaseEditorViewModel, IListEdito
                     .DisposeWith(Disposables))
             .DisposeWith(Disposables);
     }
+
+    public Type ItemType => typeof(TItem);
+
+    public bool IsListNull => List.Value == null;
 
     public ReadOnlyReactivePropertySlim<IList<TItem?>?> List { get; }
 
@@ -301,6 +317,14 @@ public sealed class ListEditorViewModel<TItem> : BaseEditorViewModel, IListEdito
         }
     }
 
+    public void AddItem(Type type)
+    {
+        if (Activator.CreateInstance(type) is TItem item)
+        {
+            AddItem(item);
+        }
+    }
+
     public void AddItem(TItem? item)
     {
         List.Value!.Add(item);
@@ -325,6 +349,7 @@ public sealed class ListEditorViewModel<TItem> : BaseEditorViewModel, IListEdito
             List.Value!.RemoveAt(oldIndex);
             List.Value!.Insert(newIndex, item);
         }
+
         Commit();
     }
 

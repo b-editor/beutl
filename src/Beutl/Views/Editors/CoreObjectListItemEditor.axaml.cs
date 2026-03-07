@@ -1,11 +1,8 @@
-﻿using System.Reflection;
-using Avalonia;
+﻿using Avalonia;
 using Avalonia.Animation;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Interactivity;
-using Avalonia.Threading;
-using Beutl.Controls.PropertyEditors;
 using Beutl.Editor.Components.Views;
 using Beutl.Engine;
 using Beutl.Services;
@@ -19,6 +16,7 @@ public partial class CoreObjectListItemEditor : UserControl, IListItemEditor
     private static readonly CrossFade s_transition = new(TimeSpan.FromMilliseconds(167));
     private CancellationTokenSource? _lastTransitionCts;
     private FallbackObjectView? _fallbackObjectView;
+    private bool _flyoutOpen;
 
     public CoreObjectListItemEditor()
     {
@@ -62,42 +60,15 @@ public partial class CoreObjectListItemEditor : UserControl, IListItemEditor
         DeleteRequested?.Invoke(this, EventArgs.Empty);
     }
 
-    private void NewClick(object? sender, RoutedEventArgs e)
+    private async void NewClick(object? sender, RoutedEventArgs e)
     {
-        OnNew();
-    }
-
-    protected virtual void OnNew()
-    {
-    }
-
-    protected virtual void OnSelectTargetRequested()
-    {
-    }
-
-    private void SelectTarget_Requested(object? sender, RoutedEventArgs e)
-    {
-        OnSelectTargetRequested();
-    }
-}
-
-public sealed class CoreObjectListItemEditor<T> : CoreObjectListItemEditor
-    where T : CoreObject
-{
-    private bool _flyoutOpen;
-
-    protected override async void OnNew()
-    {
-        if (DataContext is not CoreObjectEditorViewModel<T> { IsDisposed: false } viewModel) return;
+        if (DataContext is not ICoreObjectEditorViewModel { IsDisposed: false } viewModel) return;
 
         Type propertyType = viewModel.PropertyAdapter.PropertyType;
 
         if (propertyType.IsSealed)
         {
-            if (propertyType.GetConstructor([])?.Invoke(null) is T typed)
-            {
-                viewModel.SetValue(viewModel.Value.Value, typed);
-            }
+            viewModel.SetNewInstance(propertyType);
             return;
         }
 
@@ -106,26 +77,50 @@ public sealed class CoreObjectListItemEditor<T> : CoreObjectListItemEditor
         switch (result)
         {
             case Type selectedType:
-                if (selectedType.GetConstructor([])?.Invoke(null) is T typed)
-                {
-                    viewModel.SetValue(viewModel.Value.Value, typed);
-                }
+                viewModel.SetNewInstance(selectedType);
                 break;
-            case T target:
-                Type? presenterType = PresenterTypeAttribute.GetPresenterType(propertyType);
-                if (presenterType?.GetConstructor([])?.Invoke(null) is T presenterInstance)
-                {
-                    viewModel.SetValue(viewModel.Value.Value, presenterInstance);
-                    viewModel.SetTarget(target);
-                }
+            case CoreObject target:
+                viewModel.SetTarget(target);
                 break;
+        }
+    }
+
+    private async void SelectTarget_Requested(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not ICoreObjectEditorViewModel { IsDisposed: false } vm) return;
+        if (_flyoutOpen) return;
+
+        try
+        {
+            _flyoutOpen = true;
+            var targets = vm.GetAvailableTargets();
+            var pickerVm = new TargetPickerFlyoutViewModel();
+            pickerVm.Initialize(targets);
+
+            var flyout = new TargetPickerFlyout(pickerVm);
+            flyout.ShowAt(this);
+
+            var tcs = new TaskCompletionSource<CoreObject?>();
+            flyout.Dismissed += (_, _) => tcs.TrySetResult(null);
+            flyout.Confirmed += (_, _) => tcs.TrySetResult(
+                (pickerVm.SelectedItem.Value?.UserData as TargetObjectInfo)?.Object);
+
+            var result = await tcs.Task;
+            if (result != null)
+            {
+                vm.SetTarget(result);
+            }
+        }
+        finally
+        {
+            _flyoutOpen = false;
         }
     }
 
     private async Task<object?> SelectTypeOrReference()
     {
         if (_flyoutOpen) return null;
-        if (DataContext is not CoreObjectEditorViewModel<T> { IsDisposed: false } viewModel) return null;
+        if (DataContext is not ICoreObjectEditorViewModel { IsDisposed: false } viewModel) return null;
 
         try
         {
@@ -166,38 +161,6 @@ public sealed class CoreObjectListItemEditor<T> : CoreObjectListItemEditor
             };
 
             return await tcs.Task;
-        }
-        finally
-        {
-            _flyoutOpen = false;
-        }
-    }
-
-    protected override async void OnSelectTargetRequested()
-    {
-        if (DataContext is not CoreObjectEditorViewModel<T> { IsDisposed: false } vm) return;
-        if (_flyoutOpen) return;
-
-        try
-        {
-            _flyoutOpen = true;
-            var targets = vm.GetAvailableTargets();
-            var pickerVm = new TargetPickerFlyoutViewModel();
-            pickerVm.Initialize(targets);
-
-            var flyout = new TargetPickerFlyout(pickerVm);
-            flyout.ShowAt(this);
-
-            var tcs = new TaskCompletionSource<T?>();
-            flyout.Dismissed += (_, _) => tcs.TrySetResult(null);
-            flyout.Confirmed += (_, _) => tcs.TrySetResult(
-                (pickerVm.SelectedItem.Value?.UserData as TargetObjectInfo)?.Object as T);
-
-            var result = await tcs.Task;
-            if (result != null)
-            {
-                vm.SetTarget(result);
-            }
         }
         finally
         {

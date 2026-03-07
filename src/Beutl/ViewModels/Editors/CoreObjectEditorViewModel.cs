@@ -10,9 +10,11 @@ using Reactive.Bindings.Extensions;
 
 namespace Beutl.ViewModels.Editors;
 
-public interface ICoreObjectEditorViewModel
+public interface ICoreObjectEditorViewModel : IServiceProvider
 {
     string Header { get; }
+
+    IReadOnlyReactiveProperty<CoreObject?> Value { get; }
 
     ReadOnlyReactivePropertySlim<PropertiesEditorViewModel?> Properties { get; }
 
@@ -28,7 +30,19 @@ public interface ICoreObjectEditorViewModel
 
     ReadOnlyReactivePropertySlim<string?> CurrentTargetName { get; }
 
+    IPropertyAdapter PropertyAdapter { get; }
+
     bool CanWrite { get; }
+
+    bool IsDisposed { get; }
+
+    void SetNewInstance(Type type);
+
+    void SetTarget(CoreObject? target);
+
+    void SetNull();
+
+    IReadOnlyList<TargetObjectInfo> GetAvailableTargets();
 }
 
 public sealed class CoreObjectEditorViewModel<T> : BaseEditorViewModel<T>, ICoreObjectEditorViewModel, IFallbackObjectViewModel
@@ -108,6 +122,8 @@ public sealed class CoreObjectEditorViewModel<T> : BaseEditorViewModel<T>, ICore
 
     public ReadOnlyReactivePropertySlim<string?> CurrentTargetName { get; }
 
+    IReadOnlyReactiveProperty<CoreObject?> ICoreObjectEditorViewModel.Value => Value;
+
     public bool CanWrite { get; }
 
     public IReadOnlyReactiveProperty<bool> IsFallback { get; }
@@ -154,23 +170,37 @@ public sealed class CoreObjectEditorViewModel<T> : BaseEditorViewModel<T>, ICore
         SetValue(Value.Value, null);
     }
 
-    public void SetTarget(T? target)
+    public void SetNewInstance(Type type)
     {
-        if (Value.Value is IPresenter<T> presenter)
+        if (Activator.CreateInstance(type) is T typed)
         {
-            if (target != null)
-            {
-                var expression = Expression.CreateReference<T>(target.Id);
-                presenter.Target.Expression = expression;
-            }
-            else
-            {
-                presenter.Target.Expression = null;
-                presenter.Target.CurrentValue = null;
-            }
-
-            Commit();
+            SetValue(Value.Value, typed);
         }
+    }
+
+    public void SetTarget(CoreObject? target)
+    {
+        if (Value.Value is not IPresenter<T> presenter)
+        {
+            Type? presenterType = PresenterTypeAttribute.GetPresenterType(PropertyAdapter.PropertyType);
+            if(presenterType == null)return;
+            if(Activator.CreateInstance(presenterType) is not IPresenter<T> p)return;
+            presenter = p;
+            PropertyAdapter.SetValue(presenter);
+        }
+
+        if (target is T)
+        {
+            var expression = Expression.CreateReference<T>(target.Id);
+            presenter.Target.Expression = expression;
+        }
+        else
+        {
+            presenter.Target.Expression = null;
+            presenter.Target.CurrentValue = null;
+        }
+
+        Commit();
     }
 
     public IReadOnlyList<TargetObjectInfo> GetAvailableTargets()
@@ -183,11 +213,10 @@ public sealed class CoreObjectEditorViewModel<T> : BaseEditorViewModel<T>, ICore
 
         return searcher.SearchAll()
             .Cast<T>()
-            .Select(obj => new TargetObjectInfo(CoreObjectHelper.GetDisplayName(obj), obj, CoreObjectHelper.GetOwnerElement(obj)))
+            .Select(obj =>
+                new TargetObjectInfo(CoreObjectHelper.GetDisplayName(obj), obj, CoreObjectHelper.GetOwnerElement(obj)))
             .ToList();
     }
-
-
 
     private void AcceptProperties(PropertiesEditorViewModel? obj)
     {

@@ -44,30 +44,10 @@ public static class PropertyEditorService
         return default;
     }
 
-    private static Control? CreateEnumEditor(IPropertyAdapter s)
-    {
-        Type type = typeof(EnumEditor<>).MakeGenericType(s.PropertyType);
-        return (Control?)Activator.CreateInstance(type);
-    }
-
     private static BaseEditorViewModel? CreateEnumViewModel(IPropertyAdapter s)
     {
         Type type = typeof(EnumEditorViewModel<>).MakeGenericType(s.PropertyType);
         return Activator.CreateInstance(type, s) as BaseEditorViewModel;
-    }
-
-    private static Control? CreateCoreObjectEditor(IPropertyAdapter s)
-    {
-        Type controlType = typeof(CoreObjectEditor<>);
-        controlType = controlType.MakeGenericType(s.PropertyType);
-        return Activator.CreateInstance(controlType) as Control;
-    }
-
-    private static IListItemEditor? CreateCoreObjectListItemEditor(IPropertyAdapter s)
-    {
-        Type controlType = typeof(CoreObjectListItemEditor<>);
-        controlType = controlType.MakeGenericType(s.PropertyType);
-        return Activator.CreateInstance(controlType) as IListItemEditor;
     }
 
     private static BaseEditorViewModel? CreateCoreObjectEditorViewModel(IPropertyAdapter s)
@@ -77,33 +57,11 @@ public static class PropertyEditorService
         return Activator.CreateInstance(viewModelType, s) as BaseEditorViewModel;
     }
 
-    private static Control? CreateParsableEditor(IPropertyAdapter s)
-    {
-        Type controlType = typeof(ParsableEditor<>);
-        controlType = controlType.MakeGenericType(s.PropertyType);
-        return Activator.CreateInstance(controlType) as Control;
-    }
-
     private static BaseEditorViewModel? CreateParsableEditorViewModel(IPropertyAdapter s)
     {
         Type viewModelType = typeof(ParsableEditorViewModel<>);
         viewModelType = viewModelType.MakeGenericType(s.PropertyType);
         return Activator.CreateInstance(viewModelType, s) as BaseEditorViewModel;
-    }
-
-    private static Control? CreateListEditor(IPropertyAdapter s)
-    {
-        Type? itemtype = GetItemTypeFromListType(s.PropertyType);
-        if (itemtype != null)
-        {
-            Type controlType = typeof(ListEditor<>);
-            controlType = controlType.MakeGenericType(itemtype);
-            return Activator.CreateInstance(controlType) as Control;
-        }
-        else
-        {
-            return null;
-        }
     }
 
     private static BaseEditorViewModel? CreateListEditorViewModel(IPropertyAdapter s)
@@ -146,7 +104,7 @@ public static class PropertyEditorService
             { typeof(PathFigure), new(_ => new PathFigureListItemEditor(), s => new PathFigureEditorViewModel(s.ToTyped<PathFigure>())) },
             { typeof(AudioEffect), new(_ => new AudioEffectListItemEditor(), s => new AudioEffectEditorViewModel(s.ToTyped<AudioEffect?>())) },
             { typeof(Transform), new(_ => new TransformListItemEditor(), s => new TransformEditorViewModel(s.ToTyped<Transform?>())) },
-            { typeof(CoreObject), new(CreateCoreObjectListItemEditor, CreateCoreObjectEditorViewModel) }
+            { typeof(CoreObject), new(_ => new CoreObjectListItemEditor(), CreateCoreObjectEditorViewModel) }
         };
 
         private static readonly Dictionary<int, Editor> s_editorsOverride =
@@ -176,7 +134,7 @@ public static class PropertyEditorService
 
             new(typeof(AlignmentX), new(_ => new AlignmentXEditor(), s => new AlignmentXEditorViewModel(s.ToTyped<AlignmentX>()))),
             new(typeof(AlignmentY), new(_ => new AlignmentYEditor(), s => new AlignmentYEditorViewModel(s.ToTyped<AlignmentY>()))),
-            new(typeof(Enum), new(CreateEnumEditor, CreateEnumViewModel)),
+            new(typeof(Enum), new(_ => new EnumEditor(), CreateEnumViewModel)),
             new(typeof(FontFamily), new(_ => new FontFamilyEditor(), s => new FontFamilyEditorViewModel(s.ToTyped<FontFamily?>()))),
             new(typeof(FileInfo), new(_ => new StorageFileEditor(), s => new StorageFileEditorViewModel(s.ToTyped<FileInfo>()))),
 
@@ -216,10 +174,10 @@ public static class PropertyEditorService
             new(typeof(CurveMap), new(_ => new CurveMapEditor(), s => new CurveMapEditorViewModel(s.ToTyped<CurveMap>()))),
             new(typeof(ICoreList<GradientStop>), new(_ => new GradientStopsEditor(), s => new GradientStopsEditorViewModel(s.ToTyped<ICoreList<GradientStop>>()))),
             new(typeof(DisplacementMapTransform), new(_ => new DisplacementMapTransformEditor(), s => new DisplacementMapTransformEditorViewModel(s.ToTyped<DisplacementMapTransform?>()))),
-            new(typeof(IList), new(CreateListEditor, CreateListEditorViewModel)),
+            new(typeof(IList), new(_ => new ListEditor(), CreateListEditorViewModel)),
             new(typeof(NodeTreeModel), new(_ => new NodeTreeModelEditor(), s => new NodeTreeModelEditorViewModel(s.ToTyped<NodeTreeModel?>()))),
-            new(typeof(CoreObject), new(CreateCoreObjectEditor, CreateCoreObjectEditorViewModel)),
-            new(typeof(IParsable<>), new(CreateParsableEditor, CreateParsableEditorViewModel)),
+            new(typeof(CoreObject), new(_ => new CoreObjectEditor(), CreateCoreObjectEditorViewModel)),
+            new(typeof(IParsable<>), new(_ => new ParsableEditor(), CreateParsableEditorViewModel))
         }.ToFrozenDictionary();
 
         public IEnumerable<IPropertyAdapter> MatchProperty(IReadOnlyList<IPropertyAdapter> properties)

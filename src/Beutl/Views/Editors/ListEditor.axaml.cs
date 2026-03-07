@@ -10,8 +10,10 @@ using Avalonia.Media.Transformation;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Avalonia.Xaml.Interactivity;
+using Beutl.Engine;
 using Beutl.Language;
 using Beutl.Services;
+using Beutl.ViewModels.Dialogs;
 using Beutl.ViewModels.Editors;
 using FluentAvalonia.UI.Controls;
 
@@ -311,6 +313,7 @@ public partial class ListEditor : UserControl
 {
     private static readonly Lazy<CrossFade> s_crossFade = new(() => new(TimeSpan.FromSeconds(0.25)));
     private CancellationTokenSource? _lastTransitionCts;
+    private bool _flyoutOpen;
 
     public ListEditor()
     {
@@ -336,38 +339,7 @@ public partial class ListEditor : UserControl
 
     private void InitializeClick(object? sender, RoutedEventArgs e)
     {
-        OnInitializeClick();
-    }
-
-    private void DeleteClick(object? sender, RoutedEventArgs e)
-    {
-        OnDeleteClick();
-    }
-
-    private async void Add_Click(object? sender, RoutedEventArgs e)
-    {
-        await OnAddClick(sender);
-    }
-
-    protected virtual void OnInitializeClick()
-    {
-    }
-
-    protected virtual void OnDeleteClick()
-    {
-    }
-
-    protected virtual ValueTask OnAddClick(object? sender)
-    {
-        return ValueTask.CompletedTask;
-    }
-}
-
-public sealed class ListEditor<TItem> : ListEditor
-{
-    protected override void OnInitializeClick()
-    {
-        if (DataContext is ListEditorViewModel<TItem> viewModel)
+        if (DataContext is IListEditorViewModel viewModel)
         {
             try
             {
@@ -380,9 +352,9 @@ public sealed class ListEditor<TItem> : ListEditor
         }
     }
 
-    protected override void OnDeleteClick()
+    private void DeleteClick(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is ListEditorViewModel<TItem> viewModel)
+        if (DataContext is IListEditorViewModel viewModel)
         {
             try
             {
@@ -395,22 +367,64 @@ public sealed class ListEditor<TItem> : ListEditor
         }
     }
 
-    protected override async ValueTask OnAddClick(object? sender)
+    private async Task<object?> SelectTypeOrReference()
     {
-        if (DataContext is ListEditorViewModel<TItem> { IsDisposed: false } viewModel)
+        if (_flyoutOpen) return null;
+        if (DataContext is not IListEditorViewModel { IsDisposed: false } viewModel) return null;
+
+        try
         {
-            if (viewModel.List.Value == null && sender is Button btn)
+            _flyoutOpen = true;
+            Type propertyType = viewModel.ItemType;
+            string format = propertyType.FullName!;
+            var selectVm = new SelectLibraryItemDialogViewModel(format, propertyType);
+
+            var dialog = new LibraryItemPickerFlyout(selectVm);
+            dialog.ShowAt(this);
+            var tcs = new TaskCompletionSource<object?>();
+            dialog.Pinned += (_, item) => selectVm.Pin(item);
+            dialog.Unpinned += (_, item) => selectVm.Unpin(item);
+            dialog.Dismissed += (_, _) => tcs.SetResult(null);
+            dialog.Confirmed += (_, _) =>
+            {
+                switch (selectVm.SelectedItem.Value?.UserData)
+                {
+                    case SingleTypeLibraryItem single:
+                        tcs.SetResult(single.ImplementationType);
+                        break;
+                    case MultipleTypeLibraryItem multi:
+                        tcs.SetResult(multi.Types.GetValueOrDefault(format));
+                        break;
+                    default:
+                        tcs.SetResult(null);
+                        break;
+                }
+            };
+
+            return await tcs.Task;
+        }
+        finally
+        {
+            _flyoutOpen = false;
+        }
+    }
+
+    private async void Add_Click(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is IListEditorViewModel { IsDisposed: false } viewModel)
+        {
+            if (viewModel.IsListNull && sender is Button btn)
             {
                 btn.ContextFlyout?.ShowAt(btn);
             }
-            else if (viewModel.List.Value != null)
+            else if (!viewModel.IsListNull)
             {
                 progress.IsVisible = progress.IsIndeterminate = true;
 
-                await Task.Run(async () =>
+                var availableTypes = await Task.Run(() =>
                 {
-                    Type itemType = typeof(TItem);
-                    Type[]? availableTypes = null;
+                    Type itemType = viewModel.ItemType;
+                    Type[]? availableTypes;
 
                     if (itemType.IsSealed
                         && (itemType.GetConstructor([]) != null
@@ -430,48 +444,32 @@ public sealed class ListEditor<TItem> : ListEditor
                             .ToArray();
                     }
 
-                    Type? selectedType = null;
-
-                    if (availableTypes.Length == 1)
-                    {
-                        selectedType = availableTypes[0];
-                    }
-                    else if (availableTypes.Length > 1)
-                    {
-                        selectedType = await Dispatcher.UIThread.InvokeAsync(async () =>
-                        {
-                            var combobox = new ComboBox { ItemsSource = availableTypes, SelectedIndex = 0 };
-
-                            var dialog = new ContentDialog
-                            {
-                                Content = combobox,
-                                Title = Message.MultipleTypesAreAvailable,
-                                PrimaryButtonText = Strings.OK,
-                                CloseButtonText = Strings.Cancel
-                            };
-
-                            if (await dialog.ShowAsync() == ContentDialogResult.Primary)
-                            {
-                                return combobox.SelectedItem as Type;
-                            }
-                            else
-                            {
-                                return null;
-                            }
-                        });
-                    }
-
-                    if (selectedType != null && Activator.CreateInstance(selectedType) is TItem item)
-                    {
-                        await Dispatcher.UIThread.InvokeAsync(() => viewModel.AddItem(item));
-                    }
-                    else
-                    {
-                        NotificationService.ShowError(Strings.Error, "ListEditor<TItem>.OnAddClick");
-                    }
+                    return availableTypes;
                 });
 
                 progress.IsVisible = progress.IsIndeterminate = false;
+
+                Type? selectedType = null;
+
+                if (availableTypes.Length == 1)
+                {
+                    selectedType = availableTypes[0];
+                }
+                else if (availableTypes.Length > 1)
+                {
+                    var result = await SelectTypeOrReference();
+                    if (result is Type t)
+                        selectedType = t;
+                }
+
+                if (selectedType != null)
+                {
+                    viewModel.AddItem(selectedType);
+                }
+                else
+                {
+                    NotificationService.ShowError(Strings.Error, "ListEditor<TItem>.OnAddClick");
+                }
             }
         }
     }

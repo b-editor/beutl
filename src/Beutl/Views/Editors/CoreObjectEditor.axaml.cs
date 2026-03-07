@@ -1,11 +1,8 @@
-﻿using System.Reflection;
-using Avalonia;
+﻿using Avalonia;
 using Avalonia.Animation;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Interactivity;
-using Avalonia.Threading;
-using Beutl.Controls.PropertyEditors;
 using Beutl.Editor.Components.ObjectPropertyTab.ViewModels;
 using Beutl.Editor.Components.Views;
 using Beutl.Engine;
@@ -22,6 +19,7 @@ public partial class CoreObjectEditor : UserControl
     private static readonly CrossFade s_transition = new(TimeSpan.FromMilliseconds(250));
     private CancellationTokenSource? _lastTransitionCts;
     private FallbackObjectView? _fallbackObjectView;
+    private bool _flyoutOpen;
 
     public CoreObjectEditor()
     {
@@ -56,59 +54,9 @@ public partial class CoreObjectEditor : UserControl
             });
     }
 
-    protected virtual void OnNavigate()
-    {
-    }
-
-    protected virtual void OnNew()
-    {
-    }
-
-    protected virtual void OnDelete()
-    {
-    }
-
-    protected virtual void OnSelectTargetRequested()
-    {
-    }
-
     private void Navigate_Click(object? sender, RoutedEventArgs e)
     {
-        OnNavigate();
-    }
-
-    private void Menu_Click(object? sender, RoutedEventArgs e)
-    {
-        if (sender is Button button)
-        {
-            button.ContextMenu?.Open();
-        }
-    }
-
-    private void NewClick(object? sender, RoutedEventArgs e)
-    {
-        OnNew();
-    }
-
-    private void SetNullClick(object? sender, RoutedEventArgs e)
-    {
-        OnDelete();
-    }
-
-    private void SelectTarget_Requested(object? sender, RoutedEventArgs e)
-    {
-        OnSelectTargetRequested();
-    }
-}
-
-public sealed class CoreObjectEditor<T> : CoreObjectEditor
-    where T : CoreObject
-{
-    private bool _flyoutOpen;
-
-    protected override void OnNavigate()
-    {
-        if (DataContext is not CoreObjectEditorViewModel<T> { IsDisposed: false } viewModel) return;
+        if (DataContext is not ICoreObjectEditorViewModel { IsDisposed: false } viewModel) return;
         if (viewModel.GetService<EditViewModel>() is not { } editViewModel) return;
 
         ObjectPropertyTabViewModel objViewModel
@@ -120,18 +68,23 @@ public sealed class CoreObjectEditor<T> : CoreObjectEditor
         editViewModel.OpenToolTab(objViewModel);
     }
 
-    protected override async void OnNew()
+    private void Menu_Click(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is not CoreObjectEditorViewModel<T> { IsDisposed: false } viewModel) return;
+        if (sender is Button button)
+        {
+            button.ContextMenu?.Open();
+        }
+    }
+
+    private async void NewClick(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not ICoreObjectEditorViewModel { IsDisposed: false } viewModel) return;
 
         Type propertyType = viewModel.PropertyAdapter.PropertyType;
 
         if (propertyType.IsSealed)
         {
-            if (propertyType.GetConstructor([])?.Invoke(null) is T typed)
-            {
-                viewModel.SetValue(viewModel.Value.Value, typed);
-            }
+            viewModel.SetNewInstance(propertyType);
             return;
         }
 
@@ -140,26 +93,30 @@ public sealed class CoreObjectEditor<T> : CoreObjectEditor
         switch (result)
         {
             case Type selectedType:
-                if (selectedType.GetConstructor([])?.Invoke(null) is T typed)
-                {
-                    viewModel.SetValue(viewModel.Value.Value, typed);
-                }
+                viewModel.SetNewInstance(selectedType);
                 break;
-            case T target:
-                Type? presenterType = PresenterTypeAttribute.GetPresenterType(propertyType);
-                if (presenterType?.GetConstructor([])?.Invoke(null) is T presenterInstance)
-                {
-                    viewModel.SetValue(viewModel.Value.Value, presenterInstance);
-                    viewModel.SetTarget(target);
-                }
+            case CoreObject target:
+                viewModel.SetTarget(target);
                 break;
         }
+    }
+
+    private void SetNullClick(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not ICoreObjectEditorViewModel { IsDisposed: false } viewModel) return;
+
+        viewModel.SetNull();
+    }
+
+    private void SelectTarget_Requested(object? sender, RoutedEventArgs e)
+    {
+        OnSelectTargetRequested();
     }
 
     private async Task<object?> SelectTypeOrReference()
     {
         if (_flyoutOpen) return null;
-        if (DataContext is not CoreObjectEditorViewModel<T> { IsDisposed: false } viewModel) return null;
+        if (DataContext is not ICoreObjectEditorViewModel { IsDisposed: false } viewModel) return null;
 
         try
         {
@@ -207,16 +164,9 @@ public sealed class CoreObjectEditor<T> : CoreObjectEditor
         }
     }
 
-    protected override void OnDelete()
+    private async void OnSelectTargetRequested()
     {
-        if (DataContext is not CoreObjectEditorViewModel<T> { IsDisposed: false } viewModel) return;
-
-        viewModel.SetNull();
-    }
-
-    protected override async void OnSelectTargetRequested()
-    {
-        if (DataContext is not CoreObjectEditorViewModel<T> { IsDisposed: false } vm) return;
+        if (DataContext is not ICoreObjectEditorViewModel { IsDisposed: false } vm) return;
         if (_flyoutOpen) return;
 
         try
@@ -229,10 +179,10 @@ public sealed class CoreObjectEditor<T> : CoreObjectEditor
             var flyout = new TargetPickerFlyout(pickerVm);
             flyout.ShowAt(this);
 
-            var tcs = new TaskCompletionSource<T?>();
+            var tcs = new TaskCompletionSource<CoreObject?>();
             flyout.Dismissed += (_, _) => tcs.TrySetResult(null);
             flyout.Confirmed += (_, _) => tcs.TrySetResult(
-                (pickerVm.SelectedItem.Value?.UserData as TargetObjectInfo)?.Object as T);
+                (pickerVm.SelectedItem.Value?.UserData as TargetObjectInfo)?.Object);
 
             var result = await tcs.Task;
             if (result != null)
