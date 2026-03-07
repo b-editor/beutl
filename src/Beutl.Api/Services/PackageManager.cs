@@ -3,10 +3,14 @@ using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Reactive.Subjects;
 using System.Reflection;
+using Avalonia;
 using Beutl.Api.Objects;
+using Beutl.Engine;
 using Beutl.Extensibility;
 using Beutl.Logging;
+using Beutl.NodeTree;
 using Beutl.Reactive;
+using Beutl.Serialization;
 using Microsoft.Extensions.Logging;
 using NuGet.Packaging;
 using NuGet.Packaging.Core;
@@ -276,6 +280,7 @@ public sealed class PackageManager(
             for (int i = 0; weakReference.IsAlive && (i < 10); i++)
             {
                 GC.Collect();
+                GC.WaitForFullGCComplete(-1);
                 GC.WaitForPendingFinalizers();
             }
 
@@ -325,6 +330,15 @@ public sealed class PackageManager(
         {
             try
             {
+                var types = loadContext.Assemblies.SelectMany(a => a.GetTypes()).ToArray();
+                Beutl.Services.LibraryService.Current.Unregister(types);
+                PropertyRegistry.Unregister(types);
+                NodeRegistry.Unregister(types);
+                TypeDisplayHelpers.Unregister(types);
+                EngineObject.ReflectionCache.Unregister(types);
+                ArrayTypeHelpers.Unregister(types);
+                DefaultValueHelpers.Unregister(types);
+                var r = AvaloniaPropertyRegistry.Instance.UnregisterByModule(types);
                 loadContext.Unload();
                 _logger.LogInformation("AssemblyLoadContext unloaded for {PackageName}.", package.Name);
             }

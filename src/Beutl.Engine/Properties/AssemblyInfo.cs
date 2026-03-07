@@ -7,3 +7,4 @@
 [assembly: InternalsVisibleTo("Beutl.ProjectSystem")]
 [assembly: InternalsVisibleTo("Beutl.UnitTests")]
 [assembly: InternalsVisibleTo("Beutl.Benchmarks")]
+[assembly: InternalsVisibleTo("Beutl.Api")]

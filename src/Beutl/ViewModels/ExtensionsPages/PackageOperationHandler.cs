@@ -71,6 +71,7 @@ internal class PackageOperationHandler
         }
 
         GC.Collect();
+        GC.WaitForFullGCComplete(-1);
         GC.WaitForPendingFinalizers();
 
         return result;

@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics.CodeAnalysis;
+using System.Runtime.CompilerServices;
 using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -10,7 +11,7 @@ namespace Beutl;
 
 public static class JsonHelper
 {
-    private static readonly Dictionary<Type, JsonConverter> s_converters = [];
+    private static readonly ConditionalWeakTable<Type, JsonConverter> s_converters = [];
 
     public static JsonWriterOptions WriterOptions { get; } = new()
     {

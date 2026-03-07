@@ -3,6 +3,7 @@ using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
 using System.Reactive.Disposables;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Text.Json.Nodes;
 using Beutl.Animation;
 using Beutl.Composition;
@@ -243,7 +244,8 @@ public class EngineObject : Hierarchical, INotifyEdited
             PropertyInfo propertyInfo = propertyInfos[index];
             if (!typeof(IProperty).IsAssignableFrom(propertyInfo.PropertyType)) continue;
 
-            if (!ReflectionCache<T>.Properties.TryGetValue(propertyInfo, out var func))
+            var propertiesCache = ReflectionCache.GetProperties(type);
+            if (!propertiesCache.TryGetValue(propertyInfo, out var func))
             {
                 var param = LinqExpression.Parameter(typeof(object), "o");
                 var cast = LinqExpression.Convert(param, type);
@@ -251,16 +253,17 @@ public class EngineObject : Hierarchical, INotifyEdited
                 var convertResult = LinqExpression.Convert(propertyAccess, typeof(IProperty));
                 var lambda = LinqExpression.Lambda<Func<object, IProperty?>>(convertResult, param);
                 func = lambda.Compile();
-                ReflectionCache<T>.Properties[propertyInfo] = func;
+                propertiesCache[propertyInfo] = func;
             }
 
             var property = func(this);
             if (property != null)
             {
-                if (!ReflectionCache<T>.Validators.TryGetValue(propertyInfo.Name, out IValidator? validator))
+                var validatorsCache = ReflectionCache.GetValidators(type);
+                if (!validatorsCache.TryGetValue(propertyInfo.Name, out IValidator? validator))
                 {
                     validator = property.CreateValidator(propertyInfo);
-                    ReflectionCache<T>.Validators[propertyInfo.Name] = validator;
+                    validatorsCache[propertyInfo.Name] = validator;
                 }
 
                 RegisterProperty(property, index);
@@ -550,9 +553,61 @@ public class EngineObject : Hierarchical, INotifyEdited
         }
     }
 
-    private static class ReflectionCache<T>
+    internal class CacheEntry
     {
-        public static readonly ConcurrentDictionary<PropertyInfo, Func<object, IProperty?>> Properties = new();
-        public static readonly ConcurrentDictionary<string, IValidator> Validators = new();
+        public readonly ConcurrentDictionary<PropertyInfo, Func<object, IProperty?>> Properties = new();
+        public readonly ConcurrentDictionary<string, IValidator> Validators = new();
+    }
+
+    internal static class ReflectionCache
+    {
+        public static readonly ConditionalWeakTable<Type, CacheEntry> Cache = [];
+
+        public static ConcurrentDictionary<PropertyInfo, Func<object, IProperty?>> GetProperties(Type type)
+        {
+            return Cache.GetValue(type, _ => new CacheEntry()).Properties;
+        }
+
+        public static ConcurrentDictionary<string, IValidator> GetValidators(Type type)
+        {
+            return Cache.GetValue(type, _ => new CacheEntry()).Validators;
+        }
+
+        public static void Unregister(Type[] types)
+        {
+            foreach (Type type in types)
+            {
+                Cache.Remove(type);
+            }
+
+            foreach (KeyValuePair<Type, CacheEntry> kvp in Cache.ToArray())
+            {
+                foreach (Type t in types)
+                {
+                    if (ContainsTypeRecursive(kvp.Key, t))
+                    {
+                        Cache.Remove(kvp.Key);
+                    }
+                }
+            }
+        }
+
+        // typeのジェネリクス引数にtargetが含まれるか
+        private static bool ContainsTypeRecursive(Type type, Type target)
+        {
+            if (type == target)
+                return true;
+
+            if (type.IsGenericType)
+            {
+                foreach (Type arg in type.GetGenericArguments())
+                {
+                    if (ContainsTypeRecursive(arg, target))
+                        return true;
+                }
+            }
+
+            return false;
+        }
     }
 }

@@ -137,7 +137,7 @@ public sealed class ExtensionProvider : IBeutlApiResource
             if (_allExtensions.Remove(id, out Extension[]? extensions))
             {
                 _extensions.RemoveAll(extensions);
-                InvalidateCache();
+                _cache.Clear();
                 return extensions;
             }
             return [];

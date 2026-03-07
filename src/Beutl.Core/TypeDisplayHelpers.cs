@@ -1,44 +1,45 @@
-﻿using System.Collections.Concurrent;
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 
 namespace Beutl;
 
 public static class TypeDisplayHelpers
 {
-    private static readonly ConcurrentDictionary<Type, string> s_typeNameCache = new();
-    private static readonly ConcurrentDictionary<MemberInfo, string> s_memberNameCache = new();
+    private static readonly ConditionalWeakTable<Type, string> s_typeNameCache = new();
+    private static readonly ConditionalWeakTable<MemberInfo, string> s_memberNameCache = new();
 
     public static string GetLocalizedName(Type type)
     {
         ArgumentNullException.ThrowIfNull(type);
 
-        if (s_typeNameCache.TryGetValue(type, out string? cachedName))
+        return s_typeNameCache.GetOrAdd(type, t =>
         {
-            return cachedName;
-        }
-
-        var displayAttribute = type.GetCustomAttributes(typeof(DisplayAttribute), false)
-            .FirstOrDefault() as DisplayAttribute;
-        string name = displayAttribute?.GetName() ?? type.Name;
-
-        s_typeNameCache.TryAdd(type, name);
-        return name;
+            var displayAttribute = t.GetCustomAttribute<DisplayAttribute>();
+            return displayAttribute?.GetName() ?? t.Name;
+        });
     }
 
     public static string GetLocalizedName(MemberInfo member)
     {
         ArgumentNullException.ThrowIfNull(member);
 
-        if (s_memberNameCache.TryGetValue(member, out string? cachedName))
+        return s_memberNameCache.GetOrAdd(member, m =>
         {
-            return cachedName;
+            var displayAttribute = m.GetCustomAttribute<DisplayAttribute>();
+            return displayAttribute?.GetName() ?? m.Name;
+        });
+    }
+
+    public static void Unregister(Type[] types)
+    {
+        foreach (Type type in types)
+        {
+            s_typeNameCache.Remove(type);
+            foreach (var kvp in s_memberNameCache.Where(kvp => kvp.Key.DeclaringType == type))
+            {
+                s_memberNameCache.Remove(kvp.Key);
+            }
         }
-
-        var displayAttribute = member.GetCustomAttribute<DisplayAttribute>();
-        string name = displayAttribute?.GetName() ?? member.Name;
-
-        s_memberNameCache.TryAdd(member, name);
-        return name;
     }
 }

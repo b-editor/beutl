@@ -1,10 +1,10 @@
-﻿using System.Collections.Concurrent;
+﻿using System.Runtime.CompilerServices;
 
 namespace Beutl.Serialization;
 
 internal static class DefaultValueHelpers
 {
-    private static readonly ConcurrentDictionary<Type, Type> s_optionalToGenericTypeCache = new();
+    private static readonly ConditionalWeakTable<Type, Type> s_optionalToGenericTypeCache = new();
 
     private static Type? GetOptionalGenericType(Type type)
     {
@@ -46,5 +46,16 @@ internal static class DefaultValueHelpers
         }
 
         return GetDefault(type);
+    }
+
+    public static void Unregister(Type[] types)
+    {
+        foreach (Type type in types)
+        {
+            if (s_optionalToGenericTypeCache.FirstOrDefault(e=>e.Value == type).Key is { } key)
+            {
+                s_optionalToGenericTypeCache.Remove(key);
+            }
+        }
     }
 }

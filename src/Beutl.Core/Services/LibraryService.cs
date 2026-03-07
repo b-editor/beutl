@@ -323,4 +323,31 @@ public sealed class LibraryService
             return Find(_items, type);
         }
     }
+
+    public void Unregister(Type[] types)
+    {
+        lock (_lock)
+        {
+            _items.RemoveAll(item =>
+            {
+                if (item is SingleTypeLibraryItem single)
+                {
+                    return types.Contains(single.ImplementationType);
+                }
+                else if (item is MultipleTypeLibraryItem multi)
+                {
+                    return multi.Types.Values.Any(t => types.Contains(t));
+                }
+                else
+                {
+                    return false;
+                }
+            });
+
+            foreach (HashSet<Type> hashSet in _formatToType.Values)
+            {
+                hashSet.RemoveWhere(t => types.Contains(t));
+            }
+        }
+    }
 }

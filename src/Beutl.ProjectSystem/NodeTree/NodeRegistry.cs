@@ -88,6 +88,32 @@ public class NodeRegistry
         return null;
     }
 
+    public static void Unregister(Type[] types)
+    {
+        for (int i = s_nodes.Count - 1; i >= 0; i--)
+        {
+            var item = s_nodes[i];
+            if (item is GroupableRegistryItem groupable)
+            {
+                var count = groupable.Count();
+                s_totalCount -= count;
+                if (groupable.Unregister(types))
+                {
+                    s_nodes.RemoveAt(i);
+                }
+                else
+                {
+                    s_totalCount += groupable.Count();
+                }
+            }
+            else if (item is RegistryItem registryItem && types.Contains(registryItem.Type))
+            {
+                s_totalCount--;
+                s_nodes.RemoveAt(i);
+            }
+        }
+    }
+
     private static void Register(BaseRegistryItem item)
     {
         if (item is GroupableRegistryItem groupable)
@@ -138,6 +164,28 @@ public class NodeRegistry
                     Items.Add(item);
                 }
             }
+        }
+
+        internal bool Unregister(Type[] types)
+        {
+            for (int i = Items.Count - 1; i >= 0; i--)
+            {
+                BaseRegistryItem item = Items[i];
+
+                if (item is GroupableRegistryItem groupable)
+                {
+                    if (groupable.Unregister(types))
+                    {
+                        Items.RemoveAt(i);
+                    }
+                }
+                else if (item is RegistryItem registryItem && types.Contains(registryItem.Type))
+                {
+                    Items.RemoveAt(i);
+                }
+            }
+
+            return Items.Count == 0;
         }
 
         internal int Count()
