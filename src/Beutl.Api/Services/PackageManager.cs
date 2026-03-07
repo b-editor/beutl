@@ -4,6 +4,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Reactive.Subjects;
 using System.Reflection;
 using Avalonia;
+using Avalonia.Platform;
 using Beutl.Api.Objects;
 using Beutl.Engine;
 using Beutl.Extensibility;
@@ -339,7 +340,12 @@ public sealed class PackageManager(
                 EngineObject.ReflectionCache.Unregister(types);
                 ArrayTypeHelpers.Unregister(types);
                 DefaultValueHelpers.Unregister(types);
-                var r = AvaloniaPropertyRegistry.Instance.UnregisterByModule(types);
+                AvaloniaPropertyRegistry.Instance.UnregisterByModule(types);
+                foreach (string name in loadContext.Assemblies.Select(a => a.GetName().Name).OfType<string>())
+                {
+                    AssetLoader.InvalidateAssemblyCache(name);
+                }
+
                 loadContext.Unload();
                 _logger.LogInformation("AssemblyLoadContext unloaded for {PackageName}.", package.Name);
             }
