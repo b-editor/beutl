@@ -10,12 +10,12 @@ using Beutl.Controls.PropertyEditors;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Transformation;
-using Beutl.ProjectSystem;
 using Beutl.Graphics3D.Models;
 using Beutl.Graphics3D.Textures;
 using Beutl.Media;
 using Beutl.Media.Source;
 using Beutl.NodeTree;
+using Beutl.ProjectSystem;
 using Beutl.ViewModels.Editors;
 using Beutl.Views.Editors;
 

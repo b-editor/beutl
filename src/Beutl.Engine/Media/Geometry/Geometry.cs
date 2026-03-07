@@ -59,7 +59,7 @@ public abstract partial class Geometry : EngineObject
         {
             ObjectDisposedException.ThrowIf(IsDisposed, this);
             if (_capturedVersion != Version
-                || _cachedPath == null 
+                || _cachedPath == null
                 || _cachedStrokePath == null
                 || _cachedPen == null
                 || _cachedPen?.Resource.GetOriginal() != pen.GetOriginal()

@@ -1,4 +1,4 @@
-using Avalonia.Controls;
+﻿using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Beutl.ProjectSystem;
 using Beutl.ViewModels.Editors;
