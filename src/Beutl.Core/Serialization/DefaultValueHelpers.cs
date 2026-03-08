@@ -57,7 +57,7 @@ internal static class DefaultValueHelpers
     {
         foreach (Type type in types)
         {
-            if (s_optionalToGenericTypeCache.FirstOrDefault(e=>e.Value == type).Key is { } key)
+            if (s_optionalToGenericTypeCache.FirstOrDefault(e => e.Value == type).Key is { } key)
             {
                 s_optionalToGenericTypeCache.Remove(key);
             }

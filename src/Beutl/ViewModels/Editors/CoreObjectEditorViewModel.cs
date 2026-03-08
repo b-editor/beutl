@@ -183,8 +183,8 @@ public sealed class CoreObjectEditorViewModel<T> : BaseEditorViewModel<T>, ICore
         if (Value.Value is not IPresenter<T> presenter)
         {
             Type? presenterType = PresenterTypeAttribute.GetPresenterType(PropertyAdapter.PropertyType);
-            if(presenterType == null)return;
-            if(Activator.CreateInstance(presenterType) is not IPresenter<T> p)return;
+            if (presenterType == null) return;
+            if (Activator.CreateInstance(presenterType) is not IPresenter<T> p) return;
             presenter = p;
             PropertyAdapter.SetValue(presenter);
         }
