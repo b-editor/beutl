@@ -16,5 +16,14 @@ jobs:
         with:
           global-json-file: global.json
 
-      - name: Check format
-        run: dotnet format Beutl.slnx --verify-no-changes --verbosity diagnostic
+      - name: Run dotnet format
+        run: dotnet format Beutl.slnx --verbosity diagnostic
+
+      - name: Check for formatting changes
+        run: |
+          if [ -n "$(git diff --name-only)" ]; then
+            echo "::error::Formatting issues detected. Please run 'dotnet format' locally and commit the changes."
+            git diff --stat
+            git diff
+            exit 1
+          fi
