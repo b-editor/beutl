@@ -1,5 +1,5 @@
 ﻿using Beutl.Graphics.Rendering;
-
+using Beutl.Media;
 using SkiaSharp;
 
 namespace Beutl.Graphics.Effects;
@@ -31,11 +31,13 @@ public sealed class FilterEffectActivator(EffectTargets targets, SKImageFilterBu
                 if (surface != null)
                 {
                     using (var canvas = new ImmediateCanvas(surface))
-                    using (canvas.PushTransform(Matrix.CreateTranslation(-target.OriginalBounds.X, -target.OriginalBounds.Y)))
-                    using (paint != null ? canvas.PushPaint(paint) : default)
                     {
                         canvas.Clear();
-                        target.Draw(canvas);
+                        using (canvas.PushTransform(Matrix.CreateTranslation(-target.OriginalBounds.X, -target.OriginalBounds.Y)))
+                        using (paint != null ? canvas.PushPaint(paint) : default)
+                        {
+                            target.Draw(canvas);
+                        }
                     }
 
                     var newTarget = new EffectTarget(surface, target.Bounds)
@@ -89,7 +91,6 @@ public sealed class FilterEffectActivator(EffectTargets targets, SKImageFilterBu
 
                         foreach (EffectTarget t in CurrentTargets)
                         {
-                            //t.Bounds = item.TransformBounds(t.Bounds);
                             t.OriginalBounds = t.Bounds.WithX(0).WithY(0);
                         }
 

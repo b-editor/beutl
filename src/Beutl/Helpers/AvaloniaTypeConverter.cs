@@ -37,6 +37,7 @@ public static class AvaloniaTypeConverter
         where TResource : EngineObject.Resource
     {
         return obj.SubscribeEngineVersionedResource(time, createResource)
+            .ObserveOnUIDispatcher()
             .Subscribe(t => onUpdated(t.Resource));
     }
 

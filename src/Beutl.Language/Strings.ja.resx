@@ -1343,6 +1343,9 @@
   <data name="ShakeEffect" xml:space="preserve">
     <value>振動</value>
   </data>
+  <data name="DelayAnimationEffect" xml:space="preserve">
+    <value>遅延アニメーション</value>
+  </data>
   <data name="StrengthX" xml:space="preserve">
     <value>強さX</value>
   </data>

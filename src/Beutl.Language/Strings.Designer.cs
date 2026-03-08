@@ -5647,6 +5647,15 @@ namespace Beutl.Language {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to Delay Animation.
+        /// </summary>
+        public static string DelayAnimationEffect {
+            get {
+                return ResourceManager.GetString("DelayAnimationEffect", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to Shininess.
         /// </summary>
         public static string Shininess {

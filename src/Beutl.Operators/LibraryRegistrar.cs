@@ -185,6 +185,7 @@ public static class LibraryRegistrar
                 .AddFilterEffect<DisplacementMapEffect>(Strings.DisplacementMap)
                 .AddFilterEffect<PathFollowEffect>(Strings.PathFollowEffect)
                 .AddFilterEffect<LayerEffect>(Strings.Layer)
+                .AddFilterEffect<DelayAnimationEffect>(Strings.DelayAnimationEffect)
                 .AddGroup(Strings.Script, gg => gg
                     .AddFilterEffect<CSharpScriptEffect>(Strings.CSharpScriptEffect)
                     .AddFilterEffect<SKSLScriptEffect>(Strings.SKSLScriptEffect)
