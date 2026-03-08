@@ -4,7 +4,6 @@ using Beutl.Api.Services;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Logging;
 using Beutl.Services.PrimitiveImpls;
-using FluentAvalonia.Core;
 using FluentAvalonia.UI.Controls;
 using Microsoft.Extensions.Logging;
 
@@ -56,29 +55,36 @@ public sealed class CheckForPackageUpdatesTask : StartupTask
 
     private static async void OpenExtensionsPage()
     {
-        await Dispatcher.UIThread.InvokeAsync(async () =>
+        try
         {
-            if (AppHelper.GetTopLevel() is not Window topLevel)
-                return;
+            await Dispatcher.UIThread.InvokeAsync(async () =>
+            {
+                if (AppHelper.GetTopLevel() is not Window topLevel)
+                    return;
 
-            var pageExtension = ExtensionsPageExtension.Instance;
-            var control = pageExtension.CreateControl();
-            var dataContext = pageExtension.CreateContext();
-            control.DataContext = dataContext;
-            if (control is Pages.ExtensionsPage page)
-            {
-                page.nav.SelectedItem = page.nav.MenuItemsSource.Cast<NavigationViewItem>().ElementAtOrDefault(1);
-            }
+                var pageExtension = ExtensionsPageExtension.Instance;
+                var control = pageExtension.CreateControl();
+                var dataContext = pageExtension.CreateContext();
+                control.DataContext = dataContext;
+                if (control is Pages.ExtensionsPage page)
+                {
+                    page.nav.SelectedItem = page.nav.MenuItemsSource.Cast<NavigationViewItem>().ElementAtOrDefault(1);
+                }
 
-            if (control is Window dialog)
-            {
-                await dialog.ShowDialog(topLevel);
-            }
-            else
-            {
-                var window = new Window { Content = control, Title = dataContext.Header };
-                await window.ShowDialog(topLevel);
-            }
-        });
+                if (control is Window dialog)
+                {
+                    await dialog.ShowDialog(topLevel);
+                }
+                else
+                {
+                    var window = new Window { Content = control, Title = dataContext.Header };
+                    await window.ShowDialog(topLevel);
+                }
+            });
+        }
+        catch (Exception ex)
+        {
+            await ex.Handle();
+        }
     }
 }
