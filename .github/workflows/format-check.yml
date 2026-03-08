@@ -21,9 +21,10 @@ jobs:
 
       - name: Check for formatting changes
         run: |
-          if [ -n "$(git diff --name-only)" ]; then
+          if ! git diff --quiet; then
             echo "::error::Formatting issues detected. Please run 'dotnet format' locally and commit the changes."
             git diff --stat
-            git diff
+            echo "Showing first 200 lines of formatting diff (truncated):"
+            git diff | head -n 200
             exit 1
           fi
