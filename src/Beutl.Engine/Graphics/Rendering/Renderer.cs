@@ -163,7 +163,7 @@ public class Renderer : IRenderer
         }
 
         RevalidateAll(entry.Node);
-        var processor = new RenderNodeProcessor(entry.Node, true);
+        var processor = new RenderNodeProcessor(entry.Node, _cacheContext.CacheOptions.IsEnabled);
         var ops = processor.PullToRoot();
         Rect bounds = Rect.Empty;
         foreach (var op in ops)
@@ -271,7 +271,7 @@ public class Renderer : IRenderer
         for (int i = _allCurrentEntries.Count - 1; i >= 0; i--)
         {
             Entry entry = _allCurrentEntries[i];
-            var processor = new RenderNodeProcessor(entry.Node, false);
+            var processor = new RenderNodeProcessor(entry.Node, _cacheContext.CacheOptions.IsEnabled);
             var arr = processor.PullToRoot();
             try
             {
@@ -301,7 +301,7 @@ public class Renderer : IRenderer
     {
         return [.. _allCurrentEntries.Where(e => e.Node.Drawable?.Resource.GetOriginal().ZIndex == zIndex).Select(e =>
         {
-            var processor = new RenderNodeProcessor(e.Node, true);
+            var processor = new RenderNodeProcessor(e.Node, _cacheContext.CacheOptions.IsEnabled);
             var ops = processor.PullToRoot();
             Rect bounds = Rect.Empty;
             foreach (var op in ops)
