@@ -1,4 +1,4 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using Beutl.Audio;
 using Beutl.Audio.Composing;
 using Beutl.Audio.Graph;
