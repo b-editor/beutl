@@ -2,7 +2,6 @@ using System.ComponentModel.DataAnnotations;
 using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Language;
-using SkiaSharp;
 
 namespace Beutl.Graphics.Effects;
 
@@ -13,6 +12,7 @@ public class DelayAnimationEffect : FilterEffect
     public DelayAnimationEffect()
     {
         ScanProperties<DelayAnimationEffect>();
+        Effect.CurrentValue = new FilterEffectGroup();
     }
 
     [Display(Name = nameof(Strings.Delay), ResourceType = typeof(Strings))]
