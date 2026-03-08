@@ -1,81 +1,10 @@
-﻿using System.Reflection;
-
-using Avalonia;
+﻿using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Data;
 using Avalonia.Interactivity;
 
 namespace Beutl.Controls.PropertyEditors;
-
-public class EnumEditor<TEnum> : EnumEditor
-    where TEnum : struct, Enum
-{
-#pragma warning disable AVP1002 // AvaloniaProperty objects should not be owned by a generic type
-    public static readonly DirectProperty<EnumEditor<TEnum>, TEnum> SelectedValueProperty =
-        AvaloniaProperty.RegisterDirect<EnumEditor<TEnum>, TEnum>(
-            nameof(SelectedValue),
-            o => o.SelectedValue,
-            (o, v) => o.SelectedValue = v,
-            defaultBindingMode: BindingMode.TwoWay);
-#pragma warning restore AVP1002 // AvaloniaProperty objects should not be owned by a generic type
-
-    private static readonly string[] s_enumStrings;
-    private static readonly TEnum[] s_enumValues;
-    private TEnum _selectedValue;
-
-    static EnumEditor()
-    {
-        s_enumValues = Enum.GetValues<TEnum>();
-        s_enumStrings = Enum.GetNames<TEnum>()
-            .Select(typeof(TEnum).GetField)
-            .Where(x => x != null)
-            .Select(x => TypeDisplayHelpers.GetLocalizedName(x!))
-            .ToArray();
-
-        ItemsProperty.OverrideDefaultValue<EnumEditor<TEnum>>(s_enumStrings);
-    }
-
-    public TEnum SelectedValue
-    {
-        get => _selectedValue;
-        set
-        {
-            if (SetAndRaise(SelectedValueProperty, ref _selectedValue, value))
-            {
-                SelectedIndex = Array.IndexOf(s_enumValues, value);
-            }
-        }
-    }
-
-    public override int SelectedIndex
-    {
-        get => base.SelectedIndex;
-        set
-        {
-            value = Math.Clamp(value, 0, s_enumValues.Length - 1);
-            base.SelectedIndex = value;
-            SetAndRaise(SelectedValueProperty, ref _selectedValue, s_enumValues[value]);
-        }
-    }
-
-    protected override Type StyleKeyOverride => typeof(EnumEditor);
-
-    protected override void OnComboBoxSelectionChanged(object sender, SelectionChangedEventArgs e)
-    {
-        // 必ず選択されている
-        if (e.AddedItems.Count > 0)
-        {
-            int newIndex = Math.Clamp(InnerComboBox.SelectedIndex, 0, s_enumValues.Length - 1);
-            int oldIndex = Math.Clamp(PrevSelectedIndex, 0, s_enumValues.Length - 1);
-            RaiseEvent(new PropertyEditorValueChangedEventArgs<TEnum>(
-                s_enumValues[newIndex],
-                s_enumValues[oldIndex],
-                ValueConfirmedEvent));
-            PrevSelectedIndex = SelectedIndex;
-        }
-    }
-}
 
 public class EnumEditor : PropertyEditor
 {

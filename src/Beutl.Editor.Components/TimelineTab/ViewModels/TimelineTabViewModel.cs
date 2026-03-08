@@ -138,7 +138,8 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler
         EditorConfig editorConfig = GlobalConfiguration.Instance.EditorConfig;
 
         AutoAdjustSceneDuration = editorConfig.GetObservable(EditorConfig.AutoAdjustSceneDurationProperty)
-            .ToReactiveProperty();
+            .ToReactiveProperty()
+            .DisposeWith(_disposables);
         AutoAdjustSceneDuration.Subscribe(b =>
         {
             _logger.LogDebug("AutoAdjustSceneDuration changed to {Value}.", b);

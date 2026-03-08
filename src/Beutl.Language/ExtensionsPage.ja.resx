@@ -172,6 +172,15 @@ URLが不審な場合、開かないことをお勧めします。</value>
   <data name="Could_not_find_a_package_from_remote" xml:space="preserve">
     <value>リモートから '{0}' が見つかりませんでした。</value>
   </data>
+  <data name="PackageInstaller_Installed" xml:space="preserve">
+    <value>'{0}'をインストールしました。</value>
+  </data>
+  <data name="PackageInstaller_Updated" xml:space="preserve">
+    <value>'{0}'を更新しました。</value>
+  </data>
+  <data name="PackageInstaller_Uninstalled" xml:space="preserve">
+    <value>'{0}'をアンインストールしました。</value>
+  </data>
   <data name="PackageInstaller_ScheduledInstallation" xml:space="preserve">
     <value>'{0}'のインストールを予約しました。
 パッケージの変更を適用するには、Beutlを終了してください。</value>
@@ -186,6 +195,12 @@ URLが不審な場合、開かないことをお勧めします。</value>
   <data name="PackageInstaller_ScheduledUninstallation" xml:space="preserve">
     <value>'{0}'のアンインストールを予約しました。
 パッケージの変更を適用するには、Beutlを終了してください。</value>
+  </data>
+  <data name="PackageInstaller_CloseProjectConfirmation" xml:space="preserve">
+    <value>プロジェクトが開かれています。パッケージを変更するにはプロジェクトを閉じる必要があります。閉じますか？</value>
+  </data>
+  <data name="PackageInstaller_SaveAndClose" xml:space="preserve">
+    <value>保存して閉じる</value>
   </data>
   <data name="AuthorizationIsRequired" xml:space="preserve">
     <value>認証が必要です。</value>
@@ -214,5 +229,14 @@ URLが不審な場合、開かないことをお勧めします。</value>
   <data name="This_extension_does_not_support_your_Beutl_version" xml:space="preserve">
     <value>この拡張機能は、お客様の Beutl バージョンに対応していません。
 強制的にインストールする場合、CLIツールをご利用ください。</value>
+  </data>
+  <data name="Installing" xml:space="preserve">
+    <value>インストール中...</value>
+  </data>
+  <data name="Updating" xml:space="preserve">
+    <value>更新中...</value>
+  </data>
+  <data name="Uninstalling" xml:space="preserve">
+    <value>アンインストール中...</value>
   </data>
 </root>

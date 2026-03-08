@@ -8,6 +8,8 @@ public interface ITutorialService
 
     void Register(TutorialDefinition tutorial);
 
+    void Unregister(string tutorialId);
+
     Task StartTutorial(string tutorialId, bool autoFulfillPrerequisites = false);
 
     void AdvanceStep();

@@ -31,4 +31,6 @@ public interface IUserPackageViewModel : IDisposable
     AsyncReactiveCommand Cancel { get; }
 
     ReactivePropertySlim<bool> IsBusy { get; }
+
+    ReactivePropertySlim<string?> StatusText { get; }
 }

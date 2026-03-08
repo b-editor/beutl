@@ -189,6 +189,18 @@ public abstract class CoreProperty : ICoreProperty
         }
     }
 
+    internal void RemoveMetadataOverride(Type type)
+    {
+        lock (_metadataLock)
+        {
+            if (_metadata.Remove(type))
+            {
+                _metadataCache.Clear();
+                _hasMetadataOverrides = _metadata.Count > 1;
+            }
+        }
+    }
+
     public override bool Equals(object? obj)
     {
         return obj is CoreProperty property && Id == property.Id;

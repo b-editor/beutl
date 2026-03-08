@@ -92,6 +92,15 @@
                                 Command="{Binding Cancel}"
                                 Content="{x:Static lang:Strings.Cancel}"
                                 IsVisible="{Binding CanCancel.Value}" />
+
+                        <StackPanel IsVisible="{Binding StatusText.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                    Spacing="4">
+                            <ProgressBar IsIndeterminate="True"
+                                         HorizontalAlignment="Stretch" />
+                            <TextBlock HorizontalAlignment="Center"
+                                       Text="{Binding StatusText.Value}"
+                                       Theme="{StaticResource CaptionTextBlockStyle}" />
+                        </StackPanel>
                     </StackPanel>
 
                     <TextBlock Margin="0,16,0,0"

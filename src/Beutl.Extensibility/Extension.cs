@@ -9,7 +9,13 @@ public abstract class Extension
 
     public virtual ExtensionSettings? Settings { get; }
 
+    internal EventHandler? SettingsChangedHandler { get; set; }
+
     public virtual void Load()
+    {
+    }
+
+    public virtual void Unload()
     {
     }
 }

@@ -5,10 +5,12 @@ using NuGet.Packaging;
 
 namespace Beutl.Api.Services;
 
+public record struct PackageLoadResult(Assembly[] Assemblies, PluginLoadContext LoadContext);
+
 public abstract class PackageLoader : IBeutlApiResource
 {
 #pragma warning disable CA1822
-    protected Assembly[] Load(string installedPath)
+    protected PackageLoadResult Load(string installedPath)
 #pragma warning restore CA1822
     {
         NuGetFramework framework = Helper.GetFrameworkName();
@@ -32,11 +34,11 @@ public abstract class PackageLoader : IBeutlApiResource
             assemblies[index++] = loadContext.LoadFromAssemblyPath(asmFile);
         }
 
-        return assemblies;
+        return new PackageLoadResult(assemblies, loadContext);
     }
 
 #pragma warning disable CA1822
-    protected Assembly[] SideLoad(string installedPath)
+    protected PackageLoadResult SideLoad(string installedPath)
 #pragma warning restore CA1822
     {
         string mainDirectory = Path.Combine(installedPath);
@@ -45,6 +47,6 @@ public abstract class PackageLoader : IBeutlApiResource
         string name = Path.GetFileName(mainDirectory);
         string asmFile = Path.Combine(mainDirectory, $"{name}.dll");
 
-        return [loadContext.LoadFromAssemblyPath(asmFile)];
+        return new PackageLoadResult([loadContext.LoadFromAssemblyPath(asmFile)], loadContext);
     }
 }

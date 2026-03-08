@@ -4,11 +4,14 @@ namespace Beutl;
 
 public static class PropertyRegistry
 {
+    static PropertyRegistry()
+    {
+        TypeUnloadNotifier.TypesUnloading += Unregister;
+    }
+
     private static readonly Dictionary<int, CoreProperty> s_properties = [];
     private static readonly Dictionary<Type, Dictionary<int, CoreProperty>> s_registered = [];
-    private static readonly Dictionary<Type, Dictionary<int, CoreProperty>> s_attached = [];
     private static readonly Dictionary<Type, List<CoreProperty>> s_registeredCache = [];
-    private static readonly Dictionary<Type, List<CoreProperty>> s_attachedCache = [];
 
     public static IReadOnlyList<CoreProperty> GetRegistered(Type type)
     {
@@ -36,34 +39,6 @@ public static class PropertyRegistry
             }
 
             s_registeredCache.Add(type, result);
-            return result;
-        }
-    }
-
-    public static IReadOnlyList<CoreProperty> GetRegisteredAttached(Type type)
-    {
-        lock (s_properties)
-        {
-            ArgumentNullException.ThrowIfNull(type);
-            if (s_attachedCache.TryGetValue(type, out List<CoreProperty>? result))
-            {
-                return result;
-            }
-
-            Type? t = type;
-            result = [];
-
-            while (t != null)
-            {
-                if (s_attached.TryGetValue(t, out Dictionary<int, CoreProperty>? attached))
-                {
-                    result.AddRange(attached.Values);
-                }
-
-                t = t.BaseType;
-            }
-
-            s_attachedCache.Add(type, result);
             return result;
         }
     }
@@ -140,8 +115,7 @@ public static class PropertyRegistry
             ArgumentNullException.ThrowIfNull(type);
             ArgumentNullException.ThrowIfNull(property);
 
-            return ContainsProperty(GetRegistered(type), property) ||
-                   ContainsProperty(GetRegisteredAttached(type), property);
+            return ContainsProperty(GetRegistered(type), property);
         }
     }
 
@@ -182,31 +156,27 @@ public static class PropertyRegistry
         }
     }
 
-    //public static void RegisterAttached(Type type, CoreProperty property)
-    //{
-    //    if (!property.IsAttached)
-    //    {
-    //        throw new InvalidOperationException("Cannot register a non-attached property as attached.");
-    //    }
+    private static void Unregister(Type[] types)
+    {
+        lock (s_properties)
+        {
+            ArgumentNullException.ThrowIfNull(types);
+            s_registeredCache.Clear();
 
-    //    if (!s_attached.TryGetValue(type, out Dictionary<int, CoreProperty>? inner))
-    //    {
-    //        inner = new Dictionary<int, CoreProperty>
-    //        {
-    //            { property.Id, property },
-    //        };
-    //        s_attached.Add(type, inner);
-    //    }
-    //    else
-    //    {
-    //        inner.Add(property.Id, property);
-    //    }
+            var allProperties = s_properties.ToArray();
+            foreach (KeyValuePair<int, CoreProperty> kvp in allProperties)
+            {
+                foreach (Type t in types)
+                {
+                    kvp.Value.RemoveMetadataOverride(t);
+                    if (TypeUnloadNotifier.ContainsTypeRecursive(kvp.Value.PropertyType, t) || TypeUnloadNotifier.ContainsTypeRecursive(kvp.Value.OwnerType, t))
+                    {
+                        s_properties.Remove(kvp.Key);
+                        s_registered.Remove(kvp.Value.OwnerType);
+                    }
+                }
+            }
+        }
+    }
 
-    //    if (!s_properties.ContainsKey(property.Id))
-    //    {
-    //        s_properties.Add(property.Id, property);
-    //    }
-
-    //    s_attachedCache.Clear();
-    //}
 }

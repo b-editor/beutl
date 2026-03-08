@@ -14,8 +14,7 @@ public sealed class LocalUserPackageViewModel : BaseViewModel, IUserPackageViewM
 {
     private readonly ILogger _logger = Log.CreateLogger<LocalUserPackageViewModel>();
     private readonly CompositeDisposable _disposables = [];
-    private readonly InstalledPackageRepository _installedPackageRepository;
-    private readonly PackageChangesQueue _queue;
+    private readonly PackageOperationHandler _handler;
     private readonly PackageIdentity _packageIdentity;
 
     public LocalUserPackageViewModel(LocalPackage package, BeutlApiApplication app)
@@ -25,15 +24,14 @@ public sealed class LocalUserPackageViewModel : BaseViewModel, IUserPackageViewM
         DisplayName = new ReactivePropertySlim<string>(package.DisplayName);
         LogoUrl = new ReactivePropertySlim<string>(package.Logo);
 
-        _installedPackageRepository = app.GetResource<InstalledPackageRepository>();
-        _queue = app.GetResource<PackageChangesQueue>();
+        _handler = new PackageOperationHandler(app);
 
-        IObservable<PackageChangesQueue.EventType> observable = _queue.GetObservable(package.Name);
+        IObservable<PackageChangesQueue.EventType> observable = _handler.Queue.GetObservable(package.Name);
         CanCancel = observable.Select(x => x != PackageChangesQueue.EventType.None)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        IObservable<bool> installed = _installedPackageRepository.GetObservable(package.Name);
+        IObservable<bool> installed = _handler.InstalledPackageRepository.GetObservable(package.Name);
         IsInstallButtonVisible = installed
             .AnyTrue(CanCancel)
             .Not()
@@ -58,11 +56,26 @@ public sealed class LocalUserPackageViewModel : BaseViewModel, IUserPackageViewM
                 try
                 {
                     IsBusy.Value = true;
-                    _queue.InstallQueue(_packageIdentity);
-                    NotificationService.ShowInformation(
-                        title: ExtensionsPage.PackageInstaller,
-                        message: string.Format(ExtensionsPage.PackageInstaller_ScheduledInstallation,
-                            _packageIdentity.Id));
+
+                    StatusText.Value = ExtensionsPage.Installing;
+
+                    try
+                    {
+                        await _handler.DownloadAndLoadPackage(_packageIdentity);
+                        NotificationService.ShowInformation(
+                            title: ExtensionsPage.PackageInstaller,
+                            message: string.Format(ExtensionsPage.PackageInstaller_Installed,
+                                _packageIdentity.Id));
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Immediate install failed, falling back to queue.");
+                        _handler.Queue.InstallQueue(_packageIdentity);
+                        NotificationService.ShowInformation(
+                            title: ExtensionsPage.PackageInstaller,
+                            message: string.Format(ExtensionsPage.PackageInstaller_ScheduledInstallation,
+                                _packageIdentity.Id));
+                    }
                 }
                 catch (Exception e)
                 {
@@ -72,6 +85,7 @@ public sealed class LocalUserPackageViewModel : BaseViewModel, IUserPackageViewM
                 }
                 finally
                 {
+                    StatusText.Value = null;
                     IsBusy.Value = false;
                 }
             })
@@ -85,14 +99,32 @@ public sealed class LocalUserPackageViewModel : BaseViewModel, IUserPackageViewM
                 try
                 {
                     IsBusy.Value = true;
+                    if (!await PackageOperationHandler.EnsureProjectClosed())
+                        return;
+
+                    StatusText.Value = ExtensionsPage.Updating;
                     if (LatestRelease.Value != null)
                     {
                         var packageId = new PackageIdentity(Package.Name,
                             new NuGetVersion(LatestRelease.Value.Version.Value));
-                        _queue.InstallQueue(packageId);
-                        NotificationService.ShowInformation(
-                            title: ExtensionsPage.PackageInstaller,
-                            message: string.Format(ExtensionsPage.PackageInstaller_ScheduledUpdate, packageId.Id));
+
+                        try
+                        {
+                            await _handler.UnloadPackages(Package.Name);
+                            _handler.DeleteOldVersionFiles(Package.Name);
+                            await _handler.DownloadAndLoadPackage(LatestRelease.Value, packageId);
+                            NotificationService.ShowInformation(
+                                title: ExtensionsPage.PackageInstaller,
+                                message: string.Format(ExtensionsPage.PackageInstaller_Updated, packageId.Id));
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogWarning(ex, "Immediate update failed, falling back to queue.");
+                            _handler.Queue.InstallQueue(packageId);
+                            NotificationService.ShowInformation(
+                                title: ExtensionsPage.PackageInstaller,
+                                message: string.Format(ExtensionsPage.PackageInstaller_ScheduledUpdate, packageId.Id));
+                        }
                     }
                 }
                 catch (Exception e)
@@ -103,6 +135,7 @@ public sealed class LocalUserPackageViewModel : BaseViewModel, IUserPackageViewM
                 }
                 finally
                 {
+                    StatusText.Value = null;
                     IsBusy.Value = false;
                 }
             })
@@ -116,20 +149,44 @@ public sealed class LocalUserPackageViewModel : BaseViewModel, IUserPackageViewM
                 try
                 {
                     IsBusy.Value = true;
-                    _queue.UninstallQueue(_packageIdentity);
+                    if (!await PackageOperationHandler.EnsureProjectClosed())
+                        return;
+
+                    StatusText.Value = ExtensionsPage.Uninstalling;
+
+                    if (!await _handler.UnloadPackages(Package.Name))
+                    {
+                        throw new Exception("Failed to unload the package. It may still be in use. Uninstallation has been scheduled.");
+                    }
+
+                    if (!_handler.UninstallSinglePackage(Package.InstalledPath, _packageIdentity))
+                    {
+                        NotificationService.ShowInformation(
+                            title: ExtensionsPage.PackageInstaller,
+                            message: string.Format(ExtensionsPage.PackageInstaller_ScheduledUninstallation,
+                                _packageIdentity.Id));
+                    }
+                    else
+                    {
+                        NotificationService.ShowInformation(
+                            title: ExtensionsPage.PackageInstaller,
+                            message: string.Format(ExtensionsPage.PackageInstaller_Uninstalled,
+                                _packageIdentity.Id));
+                    }
+                }
+                catch (Exception e)
+                {
+                    activity?.SetStatus(ActivityStatusCode.Error);
+                    _logger.LogWarning(e, "Immediate uninstall failed, falling back to queue.");
+                    _handler.Queue.UninstallQueue(_packageIdentity);
                     NotificationService.ShowInformation(
                         title: ExtensionsPage.PackageInstaller,
                         message: string.Format(ExtensionsPage.PackageInstaller_ScheduledUninstallation,
                             _packageIdentity.Id));
                 }
-                catch (Exception e)
-                {
-                    activity?.SetStatus(ActivityStatusCode.Error);
-                    await e.Handle();
-                    _logger.LogError(e, "An unexpected error has occurred.");
-                }
                 finally
                 {
+                    StatusText.Value = null;
                     IsBusy.Value = false;
                 }
             })
@@ -141,7 +198,7 @@ public sealed class LocalUserPackageViewModel : BaseViewModel, IUserPackageViewM
                 try
                 {
                     IsBusy.Value = true;
-                    _queue.Cancel(_packageIdentity.Id);
+                    _handler.Cancel(_packageIdentity.Id);
                 }
                 catch (Exception e)
                 {
@@ -185,6 +242,8 @@ public sealed class LocalUserPackageViewModel : BaseViewModel, IUserPackageViewM
     public AsyncReactiveCommand Cancel { get; }
 
     public ReactivePropertySlim<bool> IsBusy { get; } = new();
+
+    public ReactivePropertySlim<string?> StatusText { get; } = new();
 
     IReadOnlyReactiveProperty<bool> IUserPackageViewModel.IsUpdateButtonVisible => IsUpdateButtonVisible;
 

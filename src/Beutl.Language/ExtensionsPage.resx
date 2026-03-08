@@ -175,6 +175,15 @@ If the URL is ɑn suspicious, we recommend that you do not open it.</value>
   <data name="PackageInstaller" xml:space="preserve">
     <value>Package Installer</value>
   </data>
+  <data name="PackageInstaller_Installed" xml:space="preserve">
+    <value>'{0}' has been installed successfully.</value>
+  </data>
+  <data name="PackageInstaller_Updated" xml:space="preserve">
+    <value>'{0}' has been updated successfully.</value>
+  </data>
+  <data name="PackageInstaller_Uninstalled" xml:space="preserve">
+    <value>'{0}' has been uninstalled successfully.</value>
+  </data>
   <data name="PackageInstaller_ScheduledInstallation" xml:space="preserve">
     <value>'{0}' installation is scheduled.
 To apply the package changes, exit Beutl.</value>
@@ -186,6 +195,12 @@ To apply the package changes, exit Beutl.</value>
   <data name="PackageInstaller_ScheduledUninstallation" xml:space="preserve">
     <value>'{0}' uninstallation is scheduled.
 To apply the package changes, exit Beutl.</value>
+  </data>
+  <data name="PackageInstaller_CloseProjectConfirmation" xml:space="preserve">
+    <value>A project is currently open. It needs to be closed before modifying packages. Do you want to close it?</value>
+  </data>
+  <data name="PackageInstaller_SaveAndClose" xml:space="preserve">
+    <value>Save and close</value>
   </data>
   <data name="AuthorizationIsRequired" xml:space="preserve">
     <value>Authorization is required.</value>
@@ -214,5 +229,14 @@ To apply the package changes, exit Beutl.</value>
   <data name="This_extension_does_not_support_your_Beutl_version" xml:space="preserve">
     <value>This extension does not support your Beutl version.
 To force installation, use the CLI tool.</value>
+  </data>
+  <data name="Installing" xml:space="preserve">
+    <value>Installing...</value>
+  </data>
+  <data name="Updating" xml:space="preserve">
+    <value>Updating...</value>
+  </data>
+  <data name="Uninstalling" xml:space="preserve">
+    <value>Uninstalling...</value>
   </data>
 </root>

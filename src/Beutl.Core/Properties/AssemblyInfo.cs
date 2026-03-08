@@ -9,3 +9,4 @@
 [assembly: InternalsVisibleTo("Beutl.ProjectSystem")]
 [assembly: InternalsVisibleTo("Beutl.PackageTools")]
 [assembly: InternalsVisibleTo("Beutl.PackageTools.UI")]
+[assembly: InternalsVisibleTo("Beutl.Api")]

@@ -131,6 +131,11 @@ public class ContextCommandManager(
         _entries[extension.GetType()] = definitions;
     }
 
+    public void Unregister(ViewExtension extension)
+    {
+        _entries.Remove(extension.GetType());
+    }
+
     public IEnumerable<ContextCommandEntry> GetDefinitions(Type type)
     {
         return _entries.GetValueOrDefault(type) ?? [];

@@ -14,4 +14,13 @@ public abstract class TutorialExtension : Extension
             TutorialService.Current.Register(tutorial);
         }
     }
+
+    public override void Unload()
+    {
+        foreach (TutorialDefinition tutorial in GetTutorials())
+        {
+            TutorialService.Current.Unregister(tutorial.Id);
+        }
+        base.Unload();
+    }
 }

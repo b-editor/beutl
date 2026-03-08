@@ -21,6 +21,22 @@
             <Setter Property="Theme" Value="{StaticResource BaseTextBlockStyle}" />
             <Setter Property="FontSize" Value="16" />
         </Style>
+        <Style Selector="Button.shimmer">
+            <Setter Property="IsEnabled" Value="False" />
+            <Style.Animations>
+                <Animation Duration="0:0:1.5" IterationCount="INFINITE">
+                    <KeyFrame Cue="0%">
+                        <Setter Property="Opacity" Value="0.6" />
+                    </KeyFrame>
+                    <KeyFrame Cue="50%">
+                        <Setter Property="Opacity" Value="1.0" />
+                    </KeyFrame>
+                    <KeyFrame Cue="100%">
+                        <Setter Property="Opacity" Value="0.6" />
+                    </KeyFrame>
+                </Animation>
+            </Style.Animations>
+        </Style>
     </UserControl.Styles>
 
     <UserControl.KeyBindings>
@@ -66,25 +82,28 @@
                                         Padding="40,5,40,6"
                                         HorizontalAlignment="Stretch"
                                         Classes.transparent="{Binding !IsInstallButtonVisible.Value}"
+                                        Classes.shimmer="{Binding IsBusy.Value}"
                                         Click="ActionButton_Click"
                                         Command="{Binding Install}"
-                                        Content="{x:Static lang:ExtensionsPage.Install}" />
+                                        Content="{Binding StatusText.Value, TargetNullValue={x:Static lang:ExtensionsPage.Install}}" />
 
                                 <Button Grid.Column="4"
                                         Padding="40,5,40,6"
                                         HorizontalAlignment="Stretch"
                                         Classes.transparent="{Binding !IsUninstallButtonVisible.Value}"
+                                        Classes.shimmer="{Binding IsBusy.Value}"
                                         Click="ActionButton_Click"
                                         Command="{Binding Uninstall}"
-                                        Content="{x:Static lang:ExtensionsPage.Uninstall}" />
+                                        Content="{Binding StatusText.Value, TargetNullValue={x:Static lang:ExtensionsPage.Uninstall}}" />
 
                                 <Button Grid.Column="4"
                                         Padding="40,5,40,6"
                                         HorizontalAlignment="Stretch"
                                         Classes.transparent="{Binding !IsUpdateButtonVisible.Value}"
+                                        Classes.shimmer="{Binding IsBusy.Value}"
                                         Click="ActionButton_Click"
                                         Command="{Binding Update}"
-                                        Content="{x:Static lang:ExtensionsPage.Update}" />
+                                        Content="{Binding StatusText.Value, TargetNullValue={x:Static lang:ExtensionsPage.Update}}" />
 
                                 <Button Grid.Column="4"
                                         Padding="40,5,40,6"

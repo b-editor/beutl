@@ -159,6 +159,24 @@ namespace Beutl.Language {
             }
         }
         
+        public static string PackageInstaller_Installed {
+            get {
+                return ResourceManager.GetString("PackageInstaller_Installed", resourceCulture);
+            }
+        }
+
+        public static string PackageInstaller_Updated {
+            get {
+                return ResourceManager.GetString("PackageInstaller_Updated", resourceCulture);
+            }
+        }
+
+        public static string PackageInstaller_Uninstalled {
+            get {
+                return ResourceManager.GetString("PackageInstaller_Uninstalled", resourceCulture);
+            }
+        }
+
         public static string PackageInstaller_ScheduledInstallation {
             get {
                 return ResourceManager.GetString("PackageInstaller_ScheduledInstallation", resourceCulture);
@@ -177,6 +195,18 @@ namespace Beutl.Language {
             }
         }
         
+        public static string PackageInstaller_CloseProjectConfirmation {
+            get {
+                return ResourceManager.GetString("PackageInstaller_CloseProjectConfirmation", resourceCulture);
+            }
+        }
+
+        public static string PackageInstaller_SaveAndClose {
+            get {
+                return ResourceManager.GetString("PackageInstaller_SaveAndClose", resourceCulture);
+            }
+        }
+
         public static string AuthorizationIsRequired {
             get {
                 return ResourceManager.GetString("AuthorizationIsRequired", resourceCulture);
@@ -228,6 +258,24 @@ namespace Beutl.Language {
         public static string This_extension_does_not_support_your_Beutl_version {
             get {
                 return ResourceManager.GetString("This_extension_does_not_support_your_Beutl_version", resourceCulture);
+            }
+        }
+
+        public static string Installing {
+            get {
+                return ResourceManager.GetString("Installing", resourceCulture);
+            }
+        }
+
+        public static string Updating {
+            get {
+                return ResourceManager.GetString("Updating", resourceCulture);
+            }
+        }
+
+        public static string Uninstalling {
+            get {
+                return ResourceManager.GetString("Uninstalling", resourceCulture);
             }
         }
     }
