@@ -116,11 +116,11 @@ public static class FallbackClassAnalyzer
         // Remove methods already overridden in the user's Resource partial declaration
         foreach (INamedTypeSymbol nestedType in symbol.GetTypeMembers("Resource"))
         {
-            foreach (IMethodSymbol method in nestedType.GetMembers()
+            foreach (string key in nestedType.GetMembers()
                 .OfType<IMethodSymbol>()
-                .Where(m => m is { IsOverride: true, MethodKind: MethodKind.Ordinary }))
+                .Where(m => m is { IsOverride: true, MethodKind: MethodKind.Ordinary })
+                .Select(GetMethodSignatureKey))
             {
-                string key = GetMethodSignatureKey(method);
                 result.RemoveAll(info => GetMethodSignatureKey(info.Method) == key);
             }
         }
