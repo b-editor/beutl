@@ -1,4 +1,4 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Language;
@@ -119,6 +119,12 @@ public class DelayAnimationEffect : FilterEffect
             var typed = (DelayAnimationEffect)obj;
             CompareAndUpdate(context, typed.Delay, ref _delay, ref updateOnly);
             CompareAndUpdateObject(context, typed.Effect, ref _effect, ref updateOnly);
+            if (_delayedResources.Count > 0 && _delayedResources[0].GetOriginal() != Effect?.GetOriginal())
+            {
+                foreach (var r in _delayedResources)
+                    r.Dispose();
+                _delayedResources.Clear();
+            }
 
             TimeSpan oldTime = _globalTime;
             _globalTime = context.Time;
