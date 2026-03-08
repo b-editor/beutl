@@ -1338,6 +1338,9 @@
   <data name="ShakeEffect" xml:space="preserve">
     <value>Shake</value>
   </data>
+  <data name="DelayAnimationEffect" xml:space="preserve">
+    <value>Delay Animation</value>
+  </data>
   <data name="StrengthX" xml:space="preserve">
     <value>Strength X</value>
   </data>
