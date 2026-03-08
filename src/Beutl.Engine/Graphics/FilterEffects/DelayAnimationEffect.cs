@@ -64,20 +64,22 @@ public class DelayAnimationEffect : FilterEffect
                     using var childFEContext = new FilterEffectContext(target.Bounds);
                     data.childEffect.ApplyTo(childFEContext, data.cache[i]);
 
-                    using var singleTargets = new EffectTargets { target.Clone() };
+                    target.OriginalBounds = target.Bounds.WithX(0).WithY(0);
+                    using var singleTargets = new EffectTargets();
+                    singleTargets.Add(target.Clone());
                     using var builder = new SKImageFilterBuilder();
                     using var activator = new FilterEffectActivator(singleTargets, builder);
                     activator.Apply(childFEContext);
-                    activator.Flush();
+                    activator.Flush(false);
 
                     if (singleTargets.Count > 0)
                     {
+                        effectContext.Targets[i] = singleTargets[0].Clone();
                         target.Dispose();
-                        effectContext.Targets[i] = singleTargets[0];
 
                         for (int j = 1; j < singleTargets.Count; j++)
                         {
-                            effectContext.Targets.Insert(i + j, singleTargets[j]);
+                            effectContext.Targets.Insert(i + j, singleTargets[j].Clone());
                         }
 
                         i += singleTargets.Count - 1;
