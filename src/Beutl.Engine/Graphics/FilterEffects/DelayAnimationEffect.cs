@@ -48,21 +48,21 @@ public class DelayAnimationEffect : FilterEffect
                     data.cache.RemoveAt(data.cache.Count - 1);
                 }
 
-                for (int i = 0; i < targetCount; i++)
+                for (int i = 0, j = 0; i < targetCount; i++, j++)
                 {
                     EffectTarget target = effectContext.Targets[i];
                     if (target.IsEmpty) continue;
 
                     // 既存Resourceを遅延時刻で更新
-                    TimeSpan delayedTime = data.globalTime - TimeSpan.FromMilliseconds(data.delay * i);
+                    TimeSpan delayedTime = data.globalTime - TimeSpan.FromMilliseconds(data.delay * j);
                     var delayedContext = new CompositionContext(delayedTime);
                     var updateOnly = false;
-                    data.cache[i].Update(data.childEffect, delayedContext, ref updateOnly);
+                    data.cache[j].Update(data.childEffect, delayedContext, ref updateOnly);
 
-                    if (!data.cache[i].IsEnabled) continue;
+                    if (!data.cache[j].IsEnabled) continue;
 
                     using var childFEContext = new FilterEffectContext(target.Bounds);
-                    data.childEffect.ApplyTo(childFEContext, data.cache[i]);
+                    data.childEffect.ApplyTo(childFEContext, data.cache[j]);
 
                     target.OriginalBounds = target.Bounds.WithX(0).WithY(0);
                     using var singleTargets = new EffectTargets();
@@ -77,9 +77,9 @@ public class DelayAnimationEffect : FilterEffect
                         effectContext.Targets[i] = singleTargets[0].Clone();
                         target.Dispose();
 
-                        for (int j = 1; j < singleTargets.Count; j++)
+                        for (int k = 1; k < singleTargets.Count; k++)
                         {
-                            effectContext.Targets.Insert(i + j, singleTargets[j].Clone());
+                            effectContext.Targets.Insert(i + k, singleTargets[k].Clone());
                         }
 
                         i += singleTargets.Count - 1;
