@@ -104,9 +104,9 @@ public sealed class DiscoverPageViewModel : BasePageViewModel, ISupportRefreshVi
         using (await _discover.Lock.LockAsync())
         {
             activity?.AddEvent(new("Entered_AsyncLock"));
-            if (_apiApp.AuthorizedUser.Value != null)
+            if (_apiApp.AuthenticatedUser.Value != null)
             {
-                await _apiApp.AuthorizedUser.Value.RefreshAsync();
+                await _apiApp.AuthenticatedUser.Value.RefreshAsync();
             }
 
             return await _discover.GetFeatured(start, count);

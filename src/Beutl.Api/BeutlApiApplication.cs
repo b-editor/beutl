@@ -27,7 +27,7 @@ public class BeutlApiApplication
     // private const string BaseUrl = "http://localhost:3000";
     private const string BaseUrl = "https://beutl.beditor.net";
     private readonly HttpClient _httpClient;
-    private readonly ReactivePropertySlim<AuthorizedUser?> _authorizedUser = new();
+    private readonly ReactivePropertySlim<AuthenticatedUser?> _authenticatedUser = new();
     private readonly Dictionary<Type, Lazy<object>> _services = [];
     private static readonly ILogger s_logger = Log.CreateLogger<BeutlApiApplication>();
     private static readonly AsyncLazy<AssetMetadataJson?> s_metadata = new(async () =>
@@ -90,7 +90,7 @@ public class BeutlApiApplication
 
     public MyAsyncLock Lock { get; } = new();
 
-    public IReadOnlyReactiveProperty<AuthorizedUser?> AuthorizedUser => _authorizedUser;
+    public IReadOnlyReactiveProperty<AuthenticatedUser?> AuthenticatedUser => _authenticatedUser;
 
     // 更新があるかどうかをチェックします
     // このアプリケーションがアセットメタデータを持っている場合は、AppUpdateResponseを返します
@@ -156,7 +156,7 @@ public class BeutlApiApplication
 
     public void SignOut(bool deleteFile = true)
     {
-        _authorizedUser.Value = null;
+        _authenticatedUser.Value = null;
         if (deleteFile)
         {
             string fileName = Path.Combine(Helper.AppRoot, "user.json");
@@ -167,17 +167,17 @@ public class BeutlApiApplication
         }
     }
 
-    public Task<AuthorizedUser> SignInWithGoogleAsync(CancellationToken cancellationToken)
+    public Task<AuthenticatedUser> SignInWithGoogleAsync(CancellationToken cancellationToken)
     {
         return SignInExternalAsync("Google", cancellationToken);
     }
 
-    public Task<AuthorizedUser> SignInWithGitHubAsync(CancellationToken cancellationToken)
+    public Task<AuthenticatedUser> SignInWithGitHubAsync(CancellationToken cancellationToken)
     {
         return SignInExternalAsync("GitHub", cancellationToken);
     }
 
-    private async Task<AuthorizedUser> SignInExternalAsync(string provider, CancellationToken cancellationToken)
+    private async Task<AuthenticatedUser> SignInExternalAsync(string provider, CancellationToken cancellationToken)
     {
         using (Activity? activity = ActivitySource.StartActivity("SignInExternalAsync", ActivityKind.Client))
         {
@@ -213,14 +213,14 @@ public class BeutlApiApplication
             ProfileResponse profileResponse = await Users.GetSelf();
             var profile = new Profile(profileResponse, this);
 
-            _authorizedUser.Value = new AuthorizedUser(profile, authResponse, this, _httpClient, DateTime.UtcNow);
+            _authenticatedUser.Value = new AuthenticatedUser(profile, authResponse, this, _httpClient, DateTime.UtcNow);
             SaveUser();
             activity?.AddEvent(new("Saved_User"));
-            return _authorizedUser.Value;
+            return _authenticatedUser.Value;
         }
     }
 
-    public async Task<AuthorizedUser> SignInAsync(CancellationToken cancellationToken)
+    public async Task<AuthenticatedUser> SignInAsync(CancellationToken cancellationToken)
     {
         using (Activity? activity = ActivitySource.StartActivity("SignInAsync", ActivityKind.Client))
         {
@@ -258,10 +258,10 @@ public class BeutlApiApplication
                 ProfileResponse profileResponse = await Users.GetSelf();
                 var profile = new Profile(profileResponse, this);
 
-                _authorizedUser.Value = new AuthorizedUser(profile, authResponse, this, _httpClient, DateTime.UtcNow);
+                _authenticatedUser.Value = new AuthenticatedUser(profile, authResponse, this, _httpClient, DateTime.UtcNow);
                 SaveUser();
                 activity?.AddEvent(new("Saved_User"));
-                return _authorizedUser.Value;
+                return _authenticatedUser.Value;
             }
         }
     }
@@ -273,7 +273,7 @@ public class BeutlApiApplication
 
     public void SaveUser()
     {
-        if (_authorizedUser.Value is { } user)
+        if (_authenticatedUser.Value is { } user)
         {
             string fileName = Path.Combine(Helper.AppRoot, "user.json");
             using (FileStream stream = File.Create(fileName))
@@ -300,20 +300,20 @@ public class BeutlApiApplication
         {
             activity?.AddEvent(new("Entered_AsyncLock"));
 
-            AuthorizedUser? user = await ReadUserAsync();
+            AuthenticatedUser? user = await ReadUserAsync();
             if (user != null)
             {
                 await user.RefreshAsync();
 
                 _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", user.Token);
                 await user.Profile.RefreshAsync(true);
-                _authorizedUser.Value = user;
+                _authenticatedUser.Value = user;
                 SaveUser();
             }
         }
     }
 
-    public async ValueTask<AuthorizedUser?> ReadUserAsync()
+    public async ValueTask<AuthenticatedUser?> ReadUserAsync()
     {
         string fileName = Path.Combine(Helper.AppRoot, "user.json");
         if (File.Exists(fileName))
@@ -333,7 +333,7 @@ public class BeutlApiApplication
                     && refreshToken != null
                     && expiration.HasValue)
                 {
-                    return new AuthorizedUser(
+                    return new AuthenticatedUser(
                         new Profile(profile, this),
                         new AuthResponse { Expiration = expiration.Value, RefreshToken = refreshToken, Token = token },
                         this,

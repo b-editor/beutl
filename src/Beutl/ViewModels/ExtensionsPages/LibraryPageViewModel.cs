@@ -14,12 +14,12 @@ namespace Beutl.ViewModels.ExtensionsPages;
 public sealed class LibraryPageViewModel : BasePageViewModel, ISupportRefreshViewModel
 {
     private readonly ILogger _logger = Log.CreateLogger<LibraryPageViewModel>();
-    private readonly AuthorizedUser? _user;
+    private readonly AuthenticatedUser? _user;
     private readonly BeutlApiApplication _clients;
     private readonly CompositeDisposable _disposables = [];
     private readonly LibraryService _service;
 
-    public LibraryPageViewModel(AuthorizedUser? user, BeutlApiApplication clients)
+    public LibraryPageViewModel(AuthenticatedUser? user, BeutlApiApplication clients)
     {
         _user = user;
         _clients = clients;

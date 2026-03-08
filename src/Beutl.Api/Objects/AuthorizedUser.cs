@@ -5,7 +5,7 @@ using Beutl.Api.Services;
 
 namespace Beutl.Api.Objects;
 
-public class AuthorizedUser(
+public class AuthenticatedUser(
     Profile profile,
     AuthResponse response,
     BeutlApiApplication clients,
@@ -31,7 +31,7 @@ public class AuthorizedUser(
 
     public async ValueTask RefreshAsync(bool force = false)
     {
-        using Activity? activity = clients.ActivitySource.StartActivity("AuthorizedUser.Refresh", ActivityKind.Client);
+        using Activity? activity = clients.ActivitySource.StartActivity("AuthenticatedUser.Refresh", ActivityKind.Client);
 
         string fileName = Path.Combine(Helper.AppRoot, "user.json");
         if (File.Exists(fileName))
@@ -39,7 +39,7 @@ public class AuthorizedUser(
             DateTime lastWriteTime = File.GetLastWriteTimeUtc(fileName);
             if (_writeTime < lastWriteTime)
             {
-                AuthorizedUser? fileUser = await clients.ReadUserAsync();
+                AuthenticatedUser? fileUser = await clients.ReadUserAsync();
                 if (fileUser?.Profile?.Id == Profile.Id)
                 {
                     _response = fileUser._response;
@@ -67,7 +67,7 @@ public class AuthorizedUser(
             activity?.AddEvent(new("Refreshed"));
             httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", Token);
 
-            if (clients.AuthorizedUser.Value == this)
+            if (clients.AuthenticatedUser.Value == this)
             {
                 clients.SaveUser();
                 activity?.AddEvent(new("Saved"));

@@ -39,21 +39,21 @@ public sealed class AccountSettingsPageViewModel : BasePageViewModel
         Cancel = new(SigningIn);
         Cancel.Subscribe(() => _cts.Value!.Cancel());
 
-        SignedIn = clients.AuthorizedUser.Select(x => x != null)
+        SignedIn = clients.AuthenticatedUser.Select(x => x != null)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        ProfileImage = _clients.AuthorizedUser
+        ProfileImage = _clients.AuthenticatedUser
             .SelectMany(x => x?.Profile?.AvatarUrl ?? Observable.ReturnThenNever<string?>(null))
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        Name = _clients.AuthorizedUser
+        Name = _clients.AuthenticatedUser
             .Select(x => x?.Profile?.Name)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        DisplayName = _clients.AuthorizedUser
+        DisplayName = _clients.AuthenticatedUser
             .SelectMany(x => x?.Profile?.DisplayName ?? Observable.ReturnThenNever<string?>(null))
             .Zip(Name, (x, y) => string.IsNullOrEmpty(x) ? y : x)
             .ToReadOnlyReactivePropertySlim()
@@ -73,7 +73,7 @@ public sealed class AccountSettingsPageViewModel : BasePageViewModel
                 try
                 {
                     IsLoading.Value = true;
-                    if (_clients.AuthorizedUser.Value is { } user)
+                    if (_clients.AuthenticatedUser.Value is { } user)
                     {
                         using (await user.Lock.LockAsync())
                         {
@@ -138,7 +138,7 @@ public sealed class AccountSettingsPageViewModel : BasePageViewModel
             try
             {
                 _cts.Value = new CancellationTokenSource();
-                AuthorizedUser? user = provider switch
+                AuthenticatedUser? user = provider switch
                 {
                     "Google" => await _clients.SignInWithGoogleAsync(_cts.Value.Token),
                     "GitHub" => await _clients.SignInWithGitHubAsync(_cts.Value.Token),

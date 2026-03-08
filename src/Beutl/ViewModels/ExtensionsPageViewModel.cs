@@ -14,12 +14,12 @@ public sealed class ExtensionsPageViewModel : IPageContext
 
     public ExtensionsPageViewModel(BeutlApiApplication clients)
     {
-        IsAuthorized = clients.AuthorizedUser
+        IsAuthenticated = clients.AuthenticatedUser
             .Select(x => x != null)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        clients.AuthorizedUser.Subscribe(user =>
+        clients.AuthenticatedUser.Subscribe(user =>
             {
                 _authDisposables.Clear();
                 _discover = new(() => new DiscoverPageViewModel(clients)
@@ -31,7 +31,7 @@ public sealed class ExtensionsPageViewModel : IPageContext
             .DisposeWith(_disposables);
     }
 
-    public ReadOnlyReactivePropertySlim<bool> IsAuthorized { get; }
+    public ReadOnlyReactivePropertySlim<bool> IsAuthenticated { get; }
 
     public DiscoverPageViewModel Discover => _discover!.Value;
 

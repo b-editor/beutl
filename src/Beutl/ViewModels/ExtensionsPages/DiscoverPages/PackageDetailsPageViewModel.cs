@@ -312,9 +312,9 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
 
     private async Task<Release> AcquireRelease()
     {
-        if (_app.AuthorizedUser.Value != null)
+        if (_app.AuthenticatedUser.Value != null)
         {
-            await _app.AuthorizedUser.Value.RefreshAsync();
+            await _app.AuthenticatedUser.Value.RefreshAsync();
             await _library.Acquire(Package);
         }
 
