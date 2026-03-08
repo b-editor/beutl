@@ -608,5 +608,17 @@ namespace Beutl.Language {
                 return ResourceManager.GetString("ExpressionIsSet", resourceCulture);
             }
         }
+
+        public static string Package_updates_available {
+            get {
+                return ResourceManager.GetString("Package_updates_available", resourceCulture);
+            }
+        }
+
+        public static string N_packages_can_be_updated {
+            get {
+                return ResourceManager.GetString("N_packages_can_be_updated", resourceCulture);
+            }
+        }
     }
 }
