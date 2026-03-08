@@ -407,4 +407,10 @@
   <data name="ExpressionIsSet" xml:space="preserve">
     <value>式が設定されています</value>
   </data>
+  <data name="Package_updates_available" xml:space="preserve">
+    <value>パッケージの更新が利用可能です。</value>
+  </data>
+  <data name="N_packages_can_be_updated" xml:space="preserve">
+    <value>{0}個のパッケージを更新できます。</value>
+  </data>
 </root>

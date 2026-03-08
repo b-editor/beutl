@@ -407,4 +407,10 @@ Do you want to restart the application?</value>
   <data name="ExpressionIsSet" xml:space="preserve">
     <value>Expression is set</value>
   </data>
+  <data name="Package_updates_available" xml:space="preserve">
+    <value>Package updates are available.</value>
+  </data>
+  <data name="N_packages_can_be_updated" xml:space="preserve">
+    <value>{0} package(s) can be updated.</value>
+  </data>
 </root>
