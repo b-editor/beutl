@@ -6,9 +6,9 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
 using Beutl.Controls.PropertyEditors;
+using Beutl.Editor.Components.Views;
 using Beutl.Engine;
 using Beutl.Services;
-using Beutl.Editor.Components.Views;
 using Beutl.ViewModels.Dialogs;
 using Beutl.ViewModels.Editors;
 
