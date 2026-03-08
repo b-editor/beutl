@@ -80,10 +80,10 @@ public sealed class CreateNewProjectViewModel
                 else return false;
             })
             .ToReadOnlyReactivePropertySlim();
-        Create = new ReactiveCommand(CanCreate);
-        Create.Subscribe(() =>
+        Create = new AsyncReactiveCommand(CanCreate);
+        Create.Subscribe(async () =>
         {
-            var proj = ProjectService.Current.CreateProject(
+            var proj = await ProjectService.Current.CreateProject(
                 Size.Value.Width, Size.Value.Height,
                 FrameRate.Value, SampleRate.Value,
                 Name.Value,
@@ -105,7 +105,7 @@ public sealed class CreateNewProjectViewModel
 
     public ReadOnlyReactivePropertySlim<bool> CanCreate { get; }
 
-    public ReactiveCommand Create { get; }
+    public AsyncReactiveCommand Create { get; }
 
     private static string GetDefaultLocation()
     {
