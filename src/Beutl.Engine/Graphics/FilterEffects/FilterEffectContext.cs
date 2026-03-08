@@ -192,6 +192,7 @@ public sealed class FilterEffectContext : IDisposable
                         EffectTarget newTarget = context.CreateTarget(target.Bounds);
                         using (ImmediateCanvas canvas = context.Open(newTarget))
                         {
+                            canvas.Clear();
                             using var blur = SKImageFilter.CreateBlur(data.sigma.Width, data.sigma.Height);
                             using var blend = SKColorFilter.CreateBlendMode(data.color.ToSKColor(), SKBlendMode.SrcOut);
                             using var filter = SKImageFilter.CreateColorFilter(blend, blur);
@@ -484,14 +485,16 @@ public sealed class FilterEffectContext : IDisposable
                 {
                     Size size = target.Bounds.Size;
                     EffectTarget newTarget = context.CreateTarget(target.Bounds);
-                    using ImmediateCanvas newCanvas = context.Open(newTarget);
-
                     var c = new BrushConstructor(new(size), data.Brush, data.BlendMode);
                     using var brushPaint = new SKPaint();
                     c.ConfigurePaint(brushPaint);
 
-                    newCanvas.DrawRenderTarget(target.RenderTarget, default);
-                    newCanvas.Canvas.DrawRect(SKRect.Create(size.ToSKSize()), brushPaint);
+                    using (ImmediateCanvas newCanvas = context.Open(newTarget))
+                    {
+                        newCanvas.Clear();
+                        newCanvas.DrawRenderTarget(target.RenderTarget, default);
+                        newCanvas.Canvas.DrawRect(SKRect.Create(size.ToSKSize()), brushPaint);
+                    }
 
                     target.Dispose();
                     context.Targets[i] = newTarget;
