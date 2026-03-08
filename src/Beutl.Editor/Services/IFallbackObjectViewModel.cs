@@ -2,11 +2,13 @@
 
 namespace Beutl.Editor.Services;
 
-public interface IUnknownObjectViewModel
+public interface IFallbackObjectViewModel
 {
-    IReadOnlyReactiveProperty<bool> IsDummy { get; }
+    IReadOnlyReactiveProperty<bool> IsFallback { get; }
 
     IReadOnlyReactiveProperty<string> ActualTypeName { get; }
+
+    IReadOnlyReactiveProperty<string> FallbackMessage { get; }
 
     IObservable<string?> GetJsonString();
 

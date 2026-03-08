@@ -12,17 +12,21 @@ using Reactive.Bindings;
 
 namespace Beutl.ViewModels.Editors;
 
-public sealed class FilterEffectEditorViewModel : ValueEditorViewModel<FilterEffect?>, IUnknownObjectViewModel
+public sealed class FilterEffectEditorViewModel : ValueEditorViewModel<FilterEffect?>, IFallbackObjectViewModel
 {
     public FilterEffectEditorViewModel(IPropertyAdapter<FilterEffect?> property)
         : base(property)
     {
-        IsDummy = Value.Select(v => v is IDummy)
+        IsFallback = Value.Select(v => v is IFallback)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 
-        ActualTypeName = Value.Select(DummyHelper.GetTypeName)
+        ActualTypeName = Value.Select(FallbackHelper.GetTypeName)
             .ToReadOnlyReactivePropertySlim(Strings.Unknown)
+            .DisposeWith(Disposables);
+
+        FallbackMessage = Value.Select(FallbackHelper.GetFallbackMessage)
+            .ToReadOnlyReactivePropertySlim(Message.Could_not_restore_because_type_could_not_be_found)
             .DisposeWith(Disposables);
 
         FilterName = Value.Select(v =>
@@ -129,9 +133,11 @@ public sealed class FilterEffectEditorViewModel : ValueEditorViewModel<FilterEff
 
     public ReactiveProperty<bool> IsEnabled { get; }
 
-    public IReadOnlyReactiveProperty<bool> IsDummy { get; }
+    public IReadOnlyReactiveProperty<bool> IsFallback { get; }
 
     public IReadOnlyReactiveProperty<string> ActualTypeName { get; }
+
+    public IReadOnlyReactiveProperty<string> FallbackMessage { get; }
 
     public ReactivePropertySlim<PropertiesEditorViewModel?> Properties { get; } = new();
 
@@ -291,7 +297,7 @@ public sealed class FilterEffectEditorViewModel : ValueEditorViewModel<FilterEff
     {
         return Value.Select(v =>
         {
-            if (v is DummyFilterEffect { Json: JsonObject json })
+            if (v is FallbackFilterEffect { Json: JsonObject json })
             {
                 return json.ToJsonString(JsonHelper.SerializerOptions);
             }

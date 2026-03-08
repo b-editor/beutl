@@ -83,7 +83,7 @@ public sealed partial class EngineObjectPropertyView : UserControl
         base.OnDataContextChanged(e);
         if (DataContext is EngineObjectPropertyViewModel viewModel)
         {
-            if (!viewModel.IsDummy.Value)
+            if (!viewModel.IsFallback.Value)
             {
                 EngineObject obj = viewModel.Model;
                 Type type = obj.GetType();
@@ -100,7 +100,7 @@ public sealed partial class EngineObjectPropertyView : UserControl
 
                 if (panel.Children.Count == 1)
                 {
-                    panel.Children.Add(new UnknownObjectView());
+                    panel.Children.Add(new FallbackObjectView());
                 }
             }
         }

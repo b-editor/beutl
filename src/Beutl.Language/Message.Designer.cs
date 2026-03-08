@@ -278,7 +278,13 @@ namespace Beutl.Language {
                 return ResourceManager.GetString("Could_not_restore_because_type_could_not_be_found", resourceCulture);
             }
         }
-        
+
+        public static string Could_not_restore_because_an_exception_occurred {
+            get {
+                return ResourceManager.GetString("Could_not_restore_because_an_exception_occurred", resourceCulture);
+            }
+        }
+
         public static string Must_upgrade_for_continued_use {
             get {
                 return ResourceManager.GetString("Must_upgrade_for_continued_use", resourceCulture);

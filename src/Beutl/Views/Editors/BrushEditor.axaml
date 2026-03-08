@@ -152,9 +152,18 @@
 
                 <local:PropertiesEditor Padding="0"
                                         DataContext="{Binding ChildContext.Value}"
-                                        IsEnabled="{ReflectionBinding #root.DataContext.CanEdit.Value}"
-                                        IsVisible="{ReflectionBinding #root.DataContext.Value.Value,
-                                                                      Converter={x:Static ObjectConverters.IsNotNull}}" />
+                                        IsEnabled="{ReflectionBinding #root.DataContext.CanEdit.Value}">
+                    <local:PropertiesEditor.IsVisible>
+                        <MultiBinding Converter="{x:Static BoolConverters.And}">
+                            <Binding Converter="{x:Static ObjectConverters.IsNotNull}"
+                                     ElementName="root"
+                                     Path="DataContext.Value.Value" />
+                            <Binding Converter="{x:Static BoolConverters.Not}"
+                                     ElementName="root"
+                                     Path="DataContext.IsFallback.Value" />
+                        </MultiBinding>
+                    </local:PropertiesEditor.IsVisible>
+                </local:PropertiesEditor>
             </Panel>
         </controls:TreeLineDecorator>
     </Grid>

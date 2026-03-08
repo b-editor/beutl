@@ -5,9 +5,13 @@ using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Language;
 using Beutl.Media.Source;
+using Beutl.Serialization;
 
 namespace Beutl.Audio;
 
+public sealed partial class FallbackSound : Sound, IFallback;
+
+[FallbackType(typeof(FallbackSound))]
 public abstract partial class Sound : EngineObject
 {
     public Sound()

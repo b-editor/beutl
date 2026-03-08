@@ -86,27 +86,41 @@ public partial class JsonSerializationContext
 
         if (actualType?.IsAssignableTo(typeof(ICoreSerializable)) != true) return false;
 
-        var instance = Activator.CreateInstance(actualType) as ICoreSerializable
-                       ?? throw new InvalidOperationException(
-                           $"Could not create instance of type {actualType.FullName}.");
-
-        CoreSerializerOptions? options = null;
-        CoreSerializer.ReflectUri(obj, instance, parent, ref options);
-
-        var context = new JsonSerializationContext(
-            ownerType: actualType,
-            parent: parent,
-            json: obj,
-            options: options);
-
-        using (ThreadLocalSerializationContext.Enter(context))
+        try
         {
-            instance.Deserialize(context);
-            context.AfterDeserialized(instance);
-        }
+            var instance = Activator.CreateInstance(actualType) as ICoreSerializable
+                           ?? throw new InvalidOperationException(
+                               $"Could not create instance of type {actualType.FullName}.");
 
-        result = instance;
-        return true;
+            CoreSerializerOptions? options = null;
+            CoreSerializer.ReflectUri(obj, instance, parent, ref options);
+
+            var context = new JsonSerializationContext(
+                ownerType: actualType,
+                parent: parent,
+                json: obj,
+                options: options);
+
+            using (ThreadLocalSerializationContext.Enter(context))
+            {
+                instance.Deserialize(context);
+                context.AfterDeserialized(instance);
+            }
+
+            if (instance is IFallback fallbackObj)
+            {
+                fallbackObj.Reason = FallbackReason.TypeNotFound;
+            }
+
+            result = instance;
+            return true;
+        }
+        catch (Exception ex) when (FallbackDeserializationHelper.TryCreateFallback(
+            baseType, actualType, obj, ex) is { } fallback)
+        {
+            result = fallback;
+            return true;
+        }
     }
 
     private static object? DeserializeArray(

@@ -3,6 +3,7 @@ using Beutl.Composition;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Engine;
 using Beutl.Engine.Expressions;
+using Beutl.Serialization;
 using Microsoft.Extensions.DependencyInjection;
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
@@ -30,7 +31,7 @@ public interface ICoreObjectEditorViewModel
     bool CanWrite { get; }
 }
 
-public sealed class CoreObjectEditorViewModel<T> : BaseEditorViewModel<T>, ICoreObjectEditorViewModel
+public sealed class CoreObjectEditorViewModel<T> : BaseEditorViewModel<T>, ICoreObjectEditorViewModel, IFallbackObjectViewModel
     where T : CoreObject
 {
     public CoreObjectEditorViewModel(IPropertyAdapter<T> property)
@@ -79,6 +80,18 @@ public sealed class CoreObjectEditorViewModel<T> : BaseEditorViewModel<T>, ICore
             .Select(obj => obj != null ? CoreObjectHelper.GetDisplayName(obj) : Message.Property_is_unset)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
+
+        IsFallback = Value.Select(v => v is IFallback)
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(Disposables);
+
+        ActualTypeName = Value.Select(FallbackHelper.GetTypeName)
+            .ToReadOnlyReactivePropertySlim(Strings.Unknown)
+            .DisposeWith(Disposables);
+
+        FallbackMessage = Value.Select(FallbackHelper.GetFallbackMessage)
+            .ToReadOnlyReactivePropertySlim(Message.Could_not_restore_because_type_could_not_be_found)
+            .DisposeWith(Disposables);
     }
 
     public ReadOnlyReactivePropertySlim<T?> Value { get; }
@@ -96,6 +109,45 @@ public sealed class CoreObjectEditorViewModel<T> : BaseEditorViewModel<T>, ICore
     public ReadOnlyReactivePropertySlim<string?> CurrentTargetName { get; }
 
     public bool CanWrite { get; }
+
+    public IReadOnlyReactiveProperty<bool> IsFallback { get; }
+
+    public IReadOnlyReactiveProperty<string> ActualTypeName { get; }
+
+    public IReadOnlyReactiveProperty<string> FallbackMessage { get; }
+
+    public IObservable<string?> GetJsonString()
+    {
+        return Value.Select(v =>
+        {
+            if (v is IFallback { Json: JsonObject json })
+            {
+                return json.ToJsonString(JsonHelper.SerializerOptions);
+            }
+
+            return null;
+        });
+    }
+
+    public void SetJsonString(string? str)
+    {
+        string message = Strings.InvalidJson;
+        _ = str ?? throw new Exception(message);
+        JsonObject json = (JsonNode.Parse(str) as JsonObject) ?? throw new Exception(message);
+
+        Type? type = json.GetDiscriminator();
+        T? instance = null;
+        if (type?.IsAssignableTo(typeof(T)) ?? false)
+        {
+            instance = Activator.CreateInstance(type) as T;
+        }
+
+        if (instance == null) throw new Exception(message);
+
+        CoreSerializer.PopulateFromJsonObject(instance, type!, json);
+
+        SetValue(Value.Value, instance);
+    }
 
     public void SetNull()
     {

@@ -65,20 +65,33 @@ public static class CoreSerializer
             throw new InvalidOperationException("Discriminator not found in JSON object.");
         }
 
-        var obj = Activator.CreateInstance(actualType) as ICoreSerializable
-                  ?? throw new InvalidOperationException($"Could not create instance of type {actualType.FullName}.");
-
-        var parentContext = ThreadLocalSerializationContext.Current;
-        ReflectUri(json, obj, parentContext, ref options);
-
-        var context = new JsonSerializationContext(actualType, parentContext, json, options);
-        using (ThreadLocalSerializationContext.Enter(context))
+        try
         {
-            obj.Deserialize(context);
-            context.AfterDeserialized(obj);
-        }
+            var obj = Activator.CreateInstance(actualType) as ICoreSerializable
+                      ?? throw new InvalidOperationException($"Could not create instance of type {actualType.FullName}.");
 
-        return obj;
+            var parentContext = ThreadLocalSerializationContext.Current;
+            ReflectUri(json, obj, parentContext, ref options);
+
+            var context = new JsonSerializationContext(actualType, parentContext, json, options);
+            using (ThreadLocalSerializationContext.Enter(context))
+            {
+                obj.Deserialize(context);
+                context.AfterDeserialized(obj);
+            }
+
+            if (obj is IFallback fallbackObj)
+            {
+                fallbackObj.Reason = FallbackReason.TypeNotFound;
+            }
+
+            return obj;
+        }
+        catch (Exception ex) when (FallbackDeserializationHelper.TryCreateFallback(
+            baseType, actualType, json, ex) is { } fallback)
+        {
+            return fallback;
+        }
     }
 
     // CoreObjectにUriを反映させ，CoreSerializerOptionsのBaseUriも更新する
@@ -154,18 +167,31 @@ public static class CoreSerializer
             throw new InvalidOperationException("Discriminator not found in JSON object.");
         }
 
-        var obj = Activator.CreateInstance(actualType) as ICoreSerializable
-                  ?? throw new InvalidOperationException($"Could not create instance of type {actualType.FullName}.");
-
-        if (obj is CoreObject coreObj)
+        try
         {
-            coreObj.Uri = uri;
+            var obj = Activator.CreateInstance(actualType) as ICoreSerializable
+                      ?? throw new InvalidOperationException($"Could not create instance of type {actualType.FullName}.");
+
+            if (obj is CoreObject coreObj)
+            {
+                coreObj.Uri = uri;
+            }
+
+            var options = new CoreSerializerOptions { BaseUri = uri, Mode = CoreSerializationMode.Read };
+            PopulateFromJsonObject(obj, type, jsonObject, options);
+
+            if (obj is IFallback fallbackObj)
+            {
+                fallbackObj.Reason = FallbackReason.TypeNotFound;
+            }
+
+            return obj;
         }
-
-        var options = new CoreSerializerOptions { BaseUri = uri, Mode = CoreSerializationMode.Read };
-        PopulateFromJsonObject(obj, type, jsonObject, options);
-
-        return obj;
+        catch (Exception ex) when (FallbackDeserializationHelper.TryCreateFallback(
+            type, actualType, jsonObject, ex) is { } fallback)
+        {
+            return fallback;
+        }
     }
 
     public static void PopulateFromUri<T>(T obj, Uri uri)

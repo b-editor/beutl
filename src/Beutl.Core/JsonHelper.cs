@@ -120,9 +120,9 @@ public static class JsonHelper
         }
         else
         {
-            if (Attribute.GetCustomAttribute(baseType, typeof(DummyTypeAttribute)) is DummyTypeAttribute att)
+            if (Attribute.GetCustomAttribute(baseType, typeof(FallbackTypeAttribute)) is FallbackTypeAttribute att)
             {
-                return att.DummyType;
+                return att.FallbackType;
             }
             else
             {

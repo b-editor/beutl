@@ -4,6 +4,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Beutl.Editor.Components.Views;
 using Beutl.Graphics.Transformation;
 using Beutl.Models;
 using Beutl.Services;
@@ -16,6 +17,7 @@ public partial class TransformEditor : UserControl
 {
     private static readonly CrossFade s_transition = new(TimeSpan.FromMilliseconds(250));
     private CancellationTokenSource? _lastTransitionCts;
+    private FallbackObjectView? _fallbackObjectView;
 
     private static FAMenuFlyout? s_flyout;
     private static EventHandler<RoutedEventArgs>? s_handler;
@@ -42,6 +44,18 @@ public partial class TransformEditor : UserControl
 
         ChangeTypeMenu.ItemsSource = CreateMenuItems(TransformTypeClicked);
         PresenterChangeTypeMenu.ItemsSource = CreateMenuItems(TransformTypeClicked);
+
+        this.GetObservable(DataContextProperty)
+            .Select(x => x as TransformEditorViewModel)
+            .Select(x => x?.IsFallback.Select(_ => x) ?? Observable.ReturnThenNever<TransformEditorViewModel?>(null))
+            .Switch()
+            .Where(v => v?.IsFallback.Value == true)
+            .Take(1)
+            .Subscribe(_ =>
+            {
+                _fallbackObjectView = new FallbackObjectView();
+                content.Children.Add(_fallbackObjectView);
+            });
 
         DragDrop.SetAllowDrop(this, true);
         AddHandler(DragDrop.DragOverEvent, DragOver);

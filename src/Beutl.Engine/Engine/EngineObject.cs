@@ -14,7 +14,9 @@ using LinqExpression = System.Linq.Expressions.Expression;
 
 namespace Beutl.Engine;
 
-[DummyType(typeof(DummyEngineObject))]
+public sealed partial class FallbackEngineObject : EngineObject, IFallback;
+
+[FallbackType(typeof(FallbackEngineObject))]
 public class EngineObject : Hierarchical, INotifyEdited
 {
     // これらのプロパティは描画時ではなく編集時に更新されるべき

@@ -97,17 +97,19 @@ internal static class ElementMigration
 
                 throw new InvalidOperationException("Unknown type");
             }
-            catch
+            catch (Exception ex)
             {
-                // デシリアライズ失敗時はDummyEngineObjectにJSON保存
-                var dummy = new DummyEngineObject();
+                // デシリアライズ失敗時はFallbackEngineObjectにJSON保存
+                var dummy = new FallbackEngineObject();
                 dummy.Json = valueObj.DeepClone().AsObject();
+                dummy.Reason = FallbackReason.DeserializationFailed;
+                dummy.ErrorMessage = ex.Message;
                 return dummy;
             }
         }
 
-        // 不明なOperator: DummyEngineObjectにJSON保存
-        var fallback = new DummyEngineObject();
+        // 不明なOperator: FallbackEngineObjectにJSON保存
+        var fallback = new FallbackEngineObject();
         fallback.Json = operatorObj.DeepClone().AsObject();
         return fallback;
     }

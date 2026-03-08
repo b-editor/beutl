@@ -1,19 +1,33 @@
 ﻿using System.Text.Json.Nodes;
 
+using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.PropertyEditors.Services;
 using Beutl.Media;
 using Beutl.PropertyAdapters;
+using Beutl.Serialization;
 using Microsoft.Extensions.DependencyInjection;
 
 using Reactive.Bindings;
 
 namespace Beutl.ViewModels.Editors;
 
-public sealed class GeometryEditorViewModel : ValueEditorViewModel<Geometry?>, IGeometryEditorContext
+public sealed class GeometryEditorViewModel : ValueEditorViewModel<Geometry?>, IGeometryEditorContext, IFallbackObjectViewModel
 {
     public GeometryEditorViewModel(IPropertyAdapter<Geometry?> property)
         : base(property)
     {
+        IsFallback = Value.Select(v => v is IFallback)
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(Disposables);
+
+        ActualTypeName = Value.Select(FallbackHelper.GetTypeName)
+            .ToReadOnlyReactivePropertySlim(Strings.Unknown)
+            .DisposeWith(Disposables);
+
+        FallbackMessage = Value.Select(FallbackHelper.GetFallbackMessage)
+            .ToReadOnlyReactivePropertySlim(Message.Could_not_restore_because_type_could_not_be_found)
+            .DisposeWith(Disposables);
+
         IsGroup = Value.Select(v => v is PathGeometry)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
@@ -69,6 +83,45 @@ public sealed class GeometryEditorViewModel : ValueEditorViewModel<Geometry?>, I
     public ReactivePropertySlim<PropertiesEditorViewModel?> Properties { get; } = new();
 
     public ReactivePropertySlim<ListEditorViewModel<PathFigure>?> Group { get; } = new();
+
+    public IReadOnlyReactiveProperty<bool> IsFallback { get; }
+
+    public IReadOnlyReactiveProperty<string> ActualTypeName { get; }
+
+    public IReadOnlyReactiveProperty<string> FallbackMessage { get; }
+
+    public IObservable<string?> GetJsonString()
+    {
+        return Value.Select(v =>
+        {
+            if (v is FallbackGeometry { Json: JsonObject json })
+            {
+                return json.ToJsonString(JsonHelper.SerializerOptions);
+            }
+
+            return null;
+        });
+    }
+
+    public void SetJsonString(string? str)
+    {
+        string message = Strings.InvalidJson;
+        _ = str ?? throw new Exception(message);
+        JsonObject json = (JsonNode.Parse(str) as JsonObject) ?? throw new Exception(message);
+
+        Type? type = json.GetDiscriminator();
+        Geometry? instance = null;
+        if (type?.IsAssignableTo(typeof(Geometry)) ?? false)
+        {
+            instance = Activator.CreateInstance(type) as Geometry;
+        }
+
+        if (instance == null) throw new Exception(message);
+
+        CoreSerializer.PopulateFromJsonObject(instance, type!, json);
+
+        SetValue(Value.Value, instance);
+    }
 
     public override void Accept(IPropertyEditorContextVisitor visitor)
     {

@@ -12,17 +12,17 @@ using Microsoft.Extensions.Logging;
 
 namespace Beutl.Editor.Components.Views;
 
-public partial class UnknownObjectView : UserControl
+public partial class FallbackObjectView : UserControl
 {
     private static readonly CrossFade s_transition = new(TimeSpan.FromMilliseconds(250));
 
-    private readonly ILogger _logger = Log.CreateLogger<UnknownObjectView>();
+    private readonly ILogger _logger = Log.CreateLogger<FallbackObjectView>();
 
     private CancellationTokenSource? _lastTransitionCts;
 
     private IDisposable? _textBindingRevoker;
 
-    public UnknownObjectView()
+    public FallbackObjectView()
     {
         InitializeComponent();
         editJsonToggle.GetObservable(ToggleButton.IsCheckedProperty)
@@ -47,7 +47,7 @@ public partial class UnknownObjectView : UserControl
 
     private void OnSaveClick(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is IUnknownObjectViewModel viewModel)
+        if (DataContext is IFallbackObjectViewModel viewModel)
         {
             try
             {
@@ -71,7 +71,7 @@ public partial class UnknownObjectView : UserControl
 
     private async void Show(CancellationToken cts)
     {
-        if (DataContext is IUnknownObjectViewModel viewModel
+        if (DataContext is IFallbackObjectViewModel viewModel
             && _textBindingRevoker == null)
         {
             _textBindingRevoker = jsonTextBox.Bind(TextBox.TextProperty, viewModel.GetJsonString().ToBinding());

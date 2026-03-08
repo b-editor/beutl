@@ -10,7 +10,7 @@ using Reactive.Bindings;
 
 namespace Beutl.Editor.Components.ElementPropertyTab.ViewModels;
 
-public sealed class EngineObjectPropertyViewModel : IDisposable, IPropertyEditorContextVisitor, IServiceProvider, IUnknownObjectViewModel
+public sealed class EngineObjectPropertyViewModel : IDisposable, IPropertyEditorContextVisitor, IServiceProvider, IFallbackObjectViewModel
 {
     private ElementPropertyTabViewModel _parent;
 
@@ -32,10 +32,13 @@ public sealed class EngineObjectPropertyViewModel : IDisposable, IPropertyEditor
 
         Init();
 
-        IsDummy = Observable.ReturnThenNever(model is IDummy)
+        IsFallback = Observable.ReturnThenNever(model is IFallback)
             .ToReadOnlyReactivePropertySlim();
 
-        ActualTypeName = Observable.ReturnThenNever(DummyHelper.GetTypeName(model))
+        ActualTypeName = Observable.ReturnThenNever(FallbackHelper.GetTypeName(model))
+            .ToReadOnlyReactivePropertySlim()!;
+
+        FallbackMessage = Observable.ReturnThenNever(FallbackHelper.GetFallbackMessage(model))
             .ToReadOnlyReactivePropertySlim()!;
     }
 
@@ -47,9 +50,11 @@ public sealed class EngineObjectPropertyViewModel : IDisposable, IPropertyEditor
 
     public CoreList<IPropertyEditorContext?> Properties { get; } = [];
 
-    public IReadOnlyReactiveProperty<bool> IsDummy { get; }
+    public IReadOnlyReactiveProperty<bool> IsFallback { get; }
 
     public IReadOnlyReactiveProperty<string> ActualTypeName { get; }
+
+    public IReadOnlyReactiveProperty<string> FallbackMessage { get; }
 
     public void RestoreState(JsonNode json)
     {
@@ -133,7 +138,7 @@ public sealed class EngineObjectPropertyViewModel : IDisposable, IPropertyEditor
 
     public IObservable<string?> GetJsonString()
     {
-        if (Model is DummyEngineObject { Json: JsonObject json })
+        if (Model is FallbackEngineObject { Json: JsonObject json })
         {
             return Observable.ReturnThenNever(json.ToJsonString(JsonHelper.SerializerOptions));
         }

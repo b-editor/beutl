@@ -4,6 +4,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Beutl.Editor.Components.Views;
 using Beutl.Language;
 using Beutl.Models;
 using Beutl.Services;
@@ -17,6 +18,7 @@ public partial class AudioEffectEditor : UserControl
     private static readonly CrossFade s_transition = new(TimeSpan.FromMilliseconds(250));
 
     private CancellationTokenSource? _lastTransitionCts;
+    private FallbackObjectView? _fallbackObjectView;
     private bool _flyoutOpen;
 
     public AudioEffectEditor()
@@ -37,6 +39,18 @@ public partial class AudioEffectEditor : UserControl
                 {
                     await s_transition.Start(content, null, localToken);
                 }
+            });
+
+        this.GetObservable(DataContextProperty)
+            .Select(x => x as AudioEffectEditorViewModel)
+            .Select(x => x?.IsFallback.Select(_ => x) ?? Observable.ReturnThenNever<AudioEffectEditorViewModel?>(null))
+            .Switch()
+            .Where(v => v?.IsFallback.Value == true)
+            .Take(1)
+            .Subscribe(_ =>
+            {
+                _fallbackObjectView = new FallbackObjectView();
+                content.Children.Add(_fallbackObjectView);
             });
 
         DragDrop.SetAllowDrop(this, true);

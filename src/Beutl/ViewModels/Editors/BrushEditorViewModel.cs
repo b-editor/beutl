@@ -5,12 +5,13 @@ using Beutl.Engine;
 using Beutl.Engine.Expressions;
 using Beutl.Graphics;
 using Beutl.Media;
+using Beutl.Serialization;
 using Microsoft.Extensions.DependencyInjection;
 using Reactive.Bindings;
 
 namespace Beutl.ViewModels.Editors;
 
-public sealed class BrushEditorViewModel : BaseEditorViewModel
+public sealed class BrushEditorViewModel : BaseEditorViewModel, IFallbackObjectViewModel
 {
     private IDisposable? _revoker;
     private Action? _update;
@@ -58,6 +59,18 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel
 
         IsDrawable = Value.Select(v => v is DrawableBrush)
             .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(Disposables);
+
+        IsFallback = Value.Select(v => v is IFallback)
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(Disposables);
+
+        ActualTypeName = Value.Select(FallbackHelper.GetTypeName)
+            .ToReadOnlyReactivePropertySlim(Strings.Unknown)
+            .DisposeWith(Disposables);
+
+        FallbackMessage = Value.Select(FallbackHelper.GetFallbackMessage)
+            .ToReadOnlyReactivePropertySlim(Message.Could_not_restore_because_type_could_not_be_found)
             .DisposeWith(Disposables);
 
         Value.CombineWithPrevious()
@@ -124,6 +137,45 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel
     public ReadOnlyReactivePropertySlim<string?> CurrentTargetName { get; }
 
     public ReactivePropertySlim<bool> IsExpanded { get; } = new();
+
+    public IReadOnlyReactiveProperty<bool> IsFallback { get; }
+
+    public IReadOnlyReactiveProperty<string> ActualTypeName { get; }
+
+    public IReadOnlyReactiveProperty<string> FallbackMessage { get; }
+
+    public IObservable<string?> GetJsonString()
+    {
+        return Value.Select(v =>
+        {
+            if (v is FallbackBrush { Json: JsonObject json })
+            {
+                return json.ToJsonString(JsonHelper.SerializerOptions);
+            }
+
+            return null;
+        });
+    }
+
+    public void SetJsonString(string? str)
+    {
+        string message = Strings.InvalidJson;
+        _ = str ?? throw new Exception(message);
+        JsonObject json = (JsonNode.Parse(str) as JsonObject) ?? throw new Exception(message);
+
+        Type? type = json.GetDiscriminator();
+        Brush? instance = null;
+        if (type?.IsAssignableTo(typeof(Brush)) ?? false)
+        {
+            instance = Activator.CreateInstance(type) as Brush;
+        }
+
+        if (instance == null) throw new Exception(message);
+
+        CoreSerializer.PopulateFromJsonObject(instance, type!, json);
+
+        SetValue(Value.Value, instance);
+    }
 
     public void UpdateBrushPreview()
     {
