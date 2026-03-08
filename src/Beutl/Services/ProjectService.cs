@@ -51,6 +51,8 @@ public sealed class ProjectService
 
     public async Task OpenProject(string file)
     {
+        await App.WaitLoadingExtensions();
+
         using Activity? activity = Telemetry.StartActivity();
         try
         {
@@ -100,8 +102,10 @@ public sealed class ProjectService
         }
     }
 
-    public Project? CreateProject(int width, int height, int framerate, int samplerate, string name, string location)
+    public async Task<Project?> CreateProject(int width, int height, int framerate, int samplerate, string name, string location)
     {
+        await App.WaitLoadingExtensions();
+
         using Activity? activity = Telemetry.StartActivity();
         activity?.SetTag(nameof(width), width);
         activity?.SetTag(nameof(height), height);

@@ -41,7 +41,7 @@ public static class TutorialHelpers
             string fullProjectName = $"{projectName}_{DateTime.Now:yyyyMMddHHmmss}";
 
             // プロジェクト作成処理
-            currentProject = ProjectService.Current.CreateProject(
+            currentProject = await ProjectService.Current.CreateProject(
                 width: 1920,
                 height: 1080,
                 framerate: 30,
