@@ -59,7 +59,7 @@ public partial class FilterEffectNode<T> : ConfigureNode
             if (output == null || output.IsDisposed)
             {
                 resource = node.Object.ToResource(context);
-                OutputSocket = new FilterEffectRenderNode(resource);
+                OutputSocket = resource.CreateRenderNode();
             }
             else if (output is FilterEffectRenderNode { FilterEffect.Resource: { } filterEffect } fen)
             {

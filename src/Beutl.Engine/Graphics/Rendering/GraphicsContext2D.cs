@@ -527,7 +527,7 @@ public sealed class GraphicsContext2D(
 
                     if (next == null)
                     {
-                        AddAndPush(new FilterEffectRenderNode(effect));
+                        AddAndPush(effect.CreateRenderNode());
                     }
                     else
                     {
