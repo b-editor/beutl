@@ -1,4 +1,4 @@
-using Avalonia.Controls;
+﻿using Avalonia.Controls;
 using Avalonia.Threading;
 using Beutl.Api.Services;
 using Beutl.Editor.Components.Helpers;
