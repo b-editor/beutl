@@ -63,9 +63,9 @@ public sealed class RemoteUserPackageViewModel : BaseViewModel, IUserPackageView
                     using (await _app.Lock.LockAsync())
                     {
                         activity?.AddEvent(new("Entered_AsyncLock"));
-                        if (_app.AuthorizedUser.Value != null)
+                        if (_app.AuthenticatedUser.Value != null)
                         {
-                            await _app.AuthorizedUser.Value.RefreshAsync();
+                            await _app.AuthenticatedUser.Value.RefreshAsync();
                         }
 
                         Release release = await AcquirePackage();
@@ -119,9 +119,9 @@ public sealed class RemoteUserPackageViewModel : BaseViewModel, IUserPackageView
                     using (await _app.Lock.LockAsync())
                     {
                         activity?.AddEvent(new("Entered_AsyncLock"));
-                        if (_app.AuthorizedUser.Value != null)
+                        if (_app.AuthenticatedUser.Value != null)
                         {
-                            await _app.AuthorizedUser.Value.RefreshAsync();
+                            await _app.AuthenticatedUser.Value.RefreshAsync();
                         }
 
                         Release release = await AcquirePackage();
@@ -230,7 +230,7 @@ public sealed class RemoteUserPackageViewModel : BaseViewModel, IUserPackageView
             })
             .DisposeWith(_disposables);
 
-        RemoveFromLibrary = new AsyncReactiveCommand(IsBusy.Not().AreTrue(_app.AuthorizedUser.Select(i => i != null)))
+        RemoveFromLibrary = new AsyncReactiveCommand(IsBusy.Not().AreTrue(_app.AuthenticatedUser.Select(i => i != null)))
             .WithSubscribe(async () =>
             {
                 using Activity? activity = Telemetry.StartActivity("RemoteUserPackage.RemoveFromLibrary");
@@ -241,9 +241,9 @@ public sealed class RemoteUserPackageViewModel : BaseViewModel, IUserPackageView
                     using (await _app.Lock.LockAsync())
                     {
                         activity?.AddEvent(new("Entered_AsyncLock"));
-                        if (_app.AuthorizedUser.Value != null)
+                        if (_app.AuthenticatedUser.Value != null)
                         {
-                            await _app.AuthorizedUser.Value.RefreshAsync();
+                            await _app.AuthenticatedUser.Value.RefreshAsync();
                             await _library.RemovePackage(Package);
                         }
 
@@ -267,7 +267,7 @@ public sealed class RemoteUserPackageViewModel : BaseViewModel, IUserPackageView
 
     private async Task<Release> AcquirePackage()
     {
-        if (_app.AuthorizedUser.Value != null)
+        if (_app.AuthenticatedUser.Value != null)
         {
             return await _library.Acquire(Package);
         }

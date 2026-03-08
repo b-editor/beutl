@@ -17,12 +17,12 @@ namespace Beutl.ViewModels;
 public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
 {
     internal readonly BeutlApiApplication _beutlClients;
-    private readonly HttpClient _authorizedHttpClient;
+    private readonly HttpClient _authHttpClient;
 
     public MainViewModel()
     {
-        _authorizedHttpClient = new HttpClient();
-        _beutlClients = new BeutlApiApplication(_authorizedHttpClient);
+        _authHttpClient = new HttpClient();
+        _beutlClients = new BeutlApiApplication(_authHttpClient);
         ContextCommandManager = _beutlClients.GetResource<ContextCommandManager>();
 
         MenuBar = new MenuBarViewModel();
