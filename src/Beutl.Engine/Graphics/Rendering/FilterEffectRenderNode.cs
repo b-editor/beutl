@@ -4,7 +4,7 @@ using SkiaSharp;
 
 namespace Beutl.Graphics.Rendering;
 
-public sealed class FilterEffectRenderNode(FilterEffect.Resource filterEffect) : ContainerRenderNode
+public class FilterEffectRenderNode(FilterEffect.Resource filterEffect) : ContainerRenderNode
 {
     public (FilterEffect.Resource Resource, int Version)? FilterEffect { get; private set; } = filterEffect.Capture();
 
