@@ -1,6 +1,7 @@
 ﻿using Beutl.Animation;
 using Beutl.Editor;
 using Beutl.Editor.Operations;
+using Beutl.Engine;
 using Beutl.Engine.Expressions;
 using Beutl.Logging;
 using Beutl.NodeTree;
@@ -27,7 +28,8 @@ public class UpdateNodeItemOperationTests
 
     #region Helper Classes
 
-    private sealed class TestNodeItem<T> : NodeItem<T>
+    [SuppressResourceClassGeneration]
+    private sealed partial class TestNodeItem<T> : NodeItem<T>
     {
         public TestNodeItem(string name, T? value = default, IAnimation<T>? animation = null)
         {

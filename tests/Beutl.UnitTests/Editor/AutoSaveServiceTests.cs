@@ -786,7 +786,8 @@ public class AutoSaveServiceTests
         }
     }
 
-    private class TestNodeItem : NodeItem<string>
+    [SuppressResourceClassGeneration]
+    private partial class TestNodeItem : NodeItem<string>
     {
         public void SetUri(Uri uri)
         {

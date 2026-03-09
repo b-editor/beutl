@@ -4,6 +4,7 @@ using Beutl.Collections;
 using Beutl.Editor;
 using Beutl.Editor.Observers;
 using Beutl.Editor.Operations;
+using Beutl.Engine;
 using Beutl.Logging;
 using Beutl.NodeTree;
 using Microsoft.Extensions.Logging;
@@ -29,7 +30,8 @@ public class NodeItemOperationObserverTests
 
     #region Helper Classes
 
-    private sealed class TestNodeItem<T> : NodeItem<T>
+    [SuppressResourceClassGeneration]
+    private sealed partial class TestNodeItem<T> : NodeItem<T>
     {
         public TestNodeItem(string name, T? value = default, IAnimation<T>? animation = null)
         {
