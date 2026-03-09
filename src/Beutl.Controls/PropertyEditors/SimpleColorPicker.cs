@@ -52,9 +52,7 @@ public class SimpleColorPicker : TemplatedControl
     private TextBox? _opacityBox;
     private bool _ignoreColorChange;
     private Color2 _oldColor;
-#if WINDOWS
     private CancellationTokenSource? _cts;
-#endif
 
     public event TypedEventHandler<SimpleColorPicker, (Color2 OldValue, Color2 NewValue)>? ColorChanged;
 
@@ -163,15 +161,13 @@ public class SimpleColorPicker : TemplatedControl
             .Subscribe(_ => OnColorTypeChanged())
             .DisposeWith(_disposables);
 
-#if WINDOWS
-        if (_dropperButton != null)
+        if (ColorDropper.IsSupported && _dropperButton != null)
         {
             _dropperButton.AddDisposableHandler(Button.ClickEvent, OnDropperButtonClick)
                 .DisposeWith(_disposables);
 
             _dropperButton.IsVisible = true;
         }
-#endif
         if (_detailsButton != null)
         {
             _detailsButton.GetObservable(ToggleButton.IsCheckedProperty)
@@ -251,7 +247,6 @@ public class SimpleColorPicker : TemplatedControl
         }
     }
 
-#if WINDOWS
     private async void OnDropperButtonClick(object? sender, RoutedEventArgs e)
     {
         _cts?.Cancel();
@@ -285,7 +280,6 @@ public class SimpleColorPicker : TemplatedControl
             }
         }
     }
-#endif
 
     private void OnToggleDetailsButtonIsCheckedChanged(bool? value)
     {
