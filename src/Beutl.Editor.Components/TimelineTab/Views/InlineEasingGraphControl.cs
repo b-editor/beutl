@@ -59,25 +59,37 @@ public sealed class InlineEasingGraphControl : Control
     {
         if (_subscriptions == null) return;
 
-        CompositeDisposable itemSubscriptions = [];
-        itemSubscriptions.DisposeWith(_subscriptions);
+        var perItemDisposables = new Dictionary<InlineKeyFrameViewModel, IDisposable>();
+
+        Disposable.Create(() =>
+        {
+            foreach (var d in perItemDisposables.Values) d.Dispose();
+            perItemDisposables.Clear();
+        }).DisposeWith(_subscriptions);
 
         viewModel.Items.ForEachItem(
             (idx, item) =>
             {
-                item.Left.Subscribe(_ => InvalidateVisual()).DisposeWith(itemSubscriptions);
+                var d = new CompositeDisposable();
+                item.Left.Subscribe(_ => InvalidateVisual()).DisposeWith(d);
                 item.Model.Edited += OnKeyFrameEdited;
+                Disposable.Create(() => item.Model.Edited -= OnKeyFrameEdited).DisposeWith(d);
+                perItemDisposables[item] = d;
                 InvalidateVisual();
             },
             (idx, item) =>
             {
-                item.Model.Edited -= OnKeyFrameEdited;
-                // itemSubscriptions全体を再構築する代わりに、InvalidateVisualだけ呼ぶ
+                if (perItemDisposables.TryGetValue(item, out var d))
+                {
+                    d.Dispose();
+                    perItemDisposables.Remove(item);
+                }
                 InvalidateVisual();
             },
             () =>
             {
-                itemSubscriptions.Clear();
+                foreach (var d in perItemDisposables.Values) d.Dispose();
+                perItemDisposables.Clear();
                 InvalidateVisual();
             })
             .DisposeWith(_subscriptions);
