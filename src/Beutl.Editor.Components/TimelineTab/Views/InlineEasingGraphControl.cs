@@ -21,6 +21,7 @@ public sealed class InlineEasingGraphControl : Control
         Thickness = 1.5,
     };
 
+    private StreamGeometry? _geometry;
     private CompositeDisposable? _subscriptions;
 
     static InlineEasingGraphControl()
@@ -40,6 +41,7 @@ public sealed class InlineEasingGraphControl : Control
 
         _subscriptions?.Dispose();
         _subscriptions = null;
+        _geometry = null;
 
         if (DataContext is InlineAnimationLayerViewModel viewModel)
         {
@@ -53,6 +55,17 @@ public sealed class InlineEasingGraphControl : Control
         base.OnDetachedFromVisualTree(e);
         _subscriptions?.Dispose();
         _subscriptions = null;
+        _geometry = null;
+    }
+
+    protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
+    {
+        base.OnPropertyChanged(change);
+        // Bounds change bakes different pixel heights into y-coords, so the geometry must be rebuilt.
+        if (change.Property == BoundsProperty)
+        {
+            _geometry = null;
+        }
     }
 
     private void SubscribeToItems(InlineAnimationLayerViewModel viewModel)
@@ -65,26 +78,32 @@ public sealed class InlineEasingGraphControl : Control
         viewModel.Items.ForEachItem(
             (idx, item) =>
             {
-                item.Left.Subscribe(_ => InvalidateVisual()).DisposeWith(itemSubscriptions);
+                item.Left.Subscribe(_ => InvalidateGeometry()).DisposeWith(itemSubscriptions);
                 item.Model.Edited += OnKeyFrameEdited;
-                InvalidateVisual();
+                InvalidateGeometry();
             },
             (idx, item) =>
             {
                 item.Model.Edited -= OnKeyFrameEdited;
-                // itemSubscriptions全体を再構築する代わりに、InvalidateVisualだけ呼ぶ
-                InvalidateVisual();
+                // itemSubscriptions全体を再構築する代わりに、InvalidateGeometryだけ呼ぶ
+                InvalidateGeometry();
             },
             () =>
             {
                 itemSubscriptions.Clear();
-                InvalidateVisual();
+                InvalidateGeometry();
             })
             .DisposeWith(_subscriptions);
     }
 
     private void OnKeyFrameEdited(object? sender, EventArgs e)
     {
+        InvalidateGeometry();
+    }
+
+    private void InvalidateGeometry()
+    {
+        _geometry = null;
         InvalidateVisual();
     }
 
@@ -97,6 +116,21 @@ public sealed class InlineEasingGraphControl : Control
         CoreList<InlineKeyFrameViewModel> items = viewModel.Items;
         if (items.Count < 2) return;
 
+        double width = Bounds.Width;
+        double height = Bounds.Height;
+        double usableHeight = height - VerticalPadding * 2;
+        if (usableHeight <= 0) return;
+
+        _pen.Brush = Brush;
+
+        _geometry ??= BuildGeometry(items, width, height, usableHeight);
+
+        context.DrawGeometry(null, _pen, _geometry);
+    }
+
+    private static StreamGeometry BuildGeometry(
+        CoreList<InlineKeyFrameViewModel> items, double width, double height, double usableHeight)
+    {
         // Leftでソートしたスナップショットを作成
         var sorted = new (double left, IKeyFrame model)[items.Count];
         for (int i = 0; i < items.Count; i++)
@@ -105,14 +139,6 @@ public sealed class InlineEasingGraphControl : Control
         }
         Array.Sort(sorted, static (a, b) => a.left.CompareTo(b.left));
 
-        double width = Bounds.Width;
-        double height = Bounds.Height;
-        double usableHeight = height - VerticalPadding * 2;
-        if (usableHeight <= 0) return;
-
-        _pen.Brush = Brush;
-
-        // Build a single StreamGeometry with one figure per visible segment, then draw once.
         var geometry = new StreamGeometry();
         using (StreamGeometryContext ctx = geometry.Open())
         {
@@ -147,7 +173,7 @@ public sealed class InlineEasingGraphControl : Control
             }
         }
 
-        context.DrawGeometry(null, _pen, geometry);
+        return geometry;
     }
 
     private static double GetY(int comparison, float e, double height, double usableHeight)
