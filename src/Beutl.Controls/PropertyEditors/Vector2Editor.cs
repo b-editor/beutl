@@ -127,8 +127,8 @@ public class Vector2Editor<TElement> : Vector2Editor
         {
             Point point = e.GetPosition(headerText);
 
-            // 値を更新
-            Point move = point - _headerDragStart;
+            // ポインタロック + デルタ取得
+            Point move = PointerLockHelper.Moved(headerText, point, ref _headerDragStart);
             TElement delta = TElement.CreateTruncating(move.X);
 
             var newValues = (FirstValue, SecondValue);
@@ -152,9 +152,6 @@ public class Vector2Editor<TElement> : Vector2Editor
             (FirstValue, SecondValue) = newValues;
             RaiseEvent(new PropertyEditorValueChangedEventArgs<(TElement, TElement)>(
                 newValues, oldValues, ValueChangedEvent));
-
-            // ポインタロック
-            PointerLockHelper.Moved(headerText, point, ref _headerDragStart);
 
             e.Handled = true;
 
@@ -192,10 +189,8 @@ public class Vector2Editor<TElement> : Vector2Editor
             {
                 _oldFirstValue = FirstValue;
                 _oldSecondValue = SecondValue;
-
-                PointerLockHelper.Pressed();
-
                 _headerDragStart = pointerPoint.Position;
+                PointerLockHelper.Pressed(headerText, _headerDragStart);
                 _headerPressed = true;
                 e.Handled = true;
             }

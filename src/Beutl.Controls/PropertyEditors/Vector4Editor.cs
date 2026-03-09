@@ -179,8 +179,8 @@ public class Vector4Editor<TElement> : Vector4Editor
         {
             Point point = e.GetPosition(_headerText);
 
-            // 値を更新
-            Point move = point - _headerDragStart;
+            // ポインタロック + デルタ取得
+            Point move = PointerLockHelper.Moved(_headerText, point, ref _headerDragStart);
             TElement delta = TElement.CreateTruncating(move.X);
 
             var newValues = (FirstValue + delta, SecondValue + delta, ThirdValue + delta, FourthValue + delta);
@@ -189,9 +189,6 @@ public class Vector4Editor<TElement> : Vector4Editor
             (FirstValue, SecondValue, ThirdValue, FourthValue) = newValues;
             RaiseEvent(new PropertyEditorValueChangedEventArgs<(TElement, TElement, TElement, TElement)>(
                 newValues, oldValues, ValueChangedEvent));
-
-            // ポインタロック
-            PointerLockHelper.Moved(_headerText, point, ref _headerDragStart);
 
             e.Handled = true;
 
@@ -227,10 +224,8 @@ public class Vector4Editor<TElement> : Vector4Editor
         {
             _oldFirstValue = FirstValue;
             _oldSecondValue = SecondValue;
-
-            PointerLockHelper.Pressed();
-
             _headerDragStart = pointerPoint.Position;
+            PointerLockHelper.Pressed(_headerText, _headerDragStart);
             _headerPressed = true;
             e.Handled = true;
         }

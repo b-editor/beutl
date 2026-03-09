@@ -154,8 +154,8 @@ public class Vector3Editor<TElement> : Vector3Editor
         {
             Point point = e.GetPosition(headerText);
 
-            // 値を更新
-            Point move = point - _headerDragStart;
+            // ポインタロック + デルタ取得
+            Point move = PointerLockHelper.Moved(headerText, point, ref _headerDragStart);
             TElement delta = TElement.CreateTruncating(move.X);
 
             var newValues = (FirstValue, SecondValue, ThirdValue);
@@ -183,9 +183,6 @@ public class Vector3Editor<TElement> : Vector3Editor
             (FirstValue, SecondValue, ThirdValue) = newValues;
             RaiseEvent(new PropertyEditorValueChangedEventArgs<(TElement, TElement, TElement)>(
                 newValues, oldValues, ValueChangedEvent));
-
-            // ポインタロック
-            PointerLockHelper.Moved(headerText, point, ref _headerDragStart);
 
             e.Handled = true;
 
@@ -225,10 +222,8 @@ public class Vector3Editor<TElement> : Vector3Editor
                 _oldFirstValue = FirstValue;
                 _oldSecondValue = SecondValue;
                 _oldThirdValue = ThirdValue;
-
-                PointerLockHelper.Pressed();
-
                 _headerDragStart = pointerPoint.Position;
+                PointerLockHelper.Pressed(headerText, _headerDragStart);
                 _headerPressed = true;
                 e.Handled = true;
             }

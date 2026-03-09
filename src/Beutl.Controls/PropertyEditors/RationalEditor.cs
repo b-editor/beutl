@@ -69,8 +69,8 @@ public class RationalEditor : StringEditor
         {
             Point point = e.GetPosition(_headerText);
 
-            // 値を更新
-            Point move = point - _headerDragStart;
+            // ポインタロック + デルタ取得
+            Point move = PointerLockHelper.Moved(_headerText, point, ref _headerDragStart);
             var delta = new Rational((int)move.X, 1);
             Rational oldValue = Value;
             Rational newValue = Value + delta;
@@ -79,9 +79,6 @@ public class RationalEditor : StringEditor
                 Value = newValue;
                 RaiseEvent(new PropertyEditorValueChangedEventArgs<Rational>(newValue, oldValue, ValueChangedEvent));
             }
-
-            // ポインタロック
-            PointerLockHelper.Moved(_headerText, point, ref _headerDragStart);
 
             e.Handled = true;
 
@@ -112,9 +109,8 @@ public class RationalEditor : StringEditor
             && !DataValidationErrors.GetHasErrors(InnerTextBox))
         {
             _oldValue = Value;
-            PointerLockHelper.Pressed();
-
             _headerDragStart = pointerPoint.Position;
+            PointerLockHelper.Pressed(_headerText, _headerDragStart);
             _headerPressed = true;
             e.Handled = true;
         }

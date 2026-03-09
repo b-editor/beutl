@@ -72,8 +72,8 @@ public class NumberEditor<TValue> : StringEditor
         {
             Point point = e.GetPosition(_headerText);
 
-            // 値を更新
-            Point move = point - _headerDragStart;
+            // ポインタロック + デルタ取得
+            Point move = PointerLockHelper.Moved(_headerText, point, ref _headerDragStart);
             TValue delta = TValue.CreateTruncating(move.X);
             TValue oldValue = Value;
             TValue newValue = Value + delta;
@@ -82,9 +82,6 @@ public class NumberEditor<TValue> : StringEditor
                 Value = newValue;
                 RaiseEvent(new PropertyEditorValueChangedEventArgs<TValue>(newValue, oldValue, ValueChangedEvent));
             }
-
-            // ポインタロック
-            PointerLockHelper.Moved(_headerText, point, ref _headerDragStart);
 
             e.Handled = true;
 
@@ -115,9 +112,8 @@ public class NumberEditor<TValue> : StringEditor
             && !DataValidationErrors.GetHasErrors(InnerTextBox))
         {
             _oldValue = Value;
-            PointerLockHelper.Pressed();
-
             _headerDragStart = pointerPoint.Position;
+            PointerLockHelper.Pressed(_headerText, _headerDragStart);
             _headerPressed = true;
             e.Handled = true;
         }
