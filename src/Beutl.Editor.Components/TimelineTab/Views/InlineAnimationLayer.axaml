@@ -6,6 +6,7 @@
              xmlns:icons="using:FluentIcons.FluentAvalonia"
              xmlns:lang="using:Beutl.Language"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:views="using:Beutl.Editor.Components.TimelineTab.Views"
              xmlns:vm="using:Beutl.Editor.Components.TimelineTab.ViewModels"
              Height="{DynamicResource LayerHeight}"
              Margin="{Binding Margin.Value}"
@@ -46,6 +47,14 @@
                 BorderBrush="{CompiledBinding Element.Color.Value,
                                               Converter={StaticResource ColorToBrushConverter}}"
                 BorderThickness="1,0" />
+
+        <views:InlineEasingGraphControl Width="{CompiledBinding Element.Width.Value,
+                                                              Mode=OneWay}"
+                                        Margin="{Binding LeftMargin.Value}"
+                                        Brush="{DynamicResource TextControlForeground}"
+                                        HorizontalAlignment="Left"
+                                        VerticalAlignment="Stretch"
+                                        IsHitTestVisible="False" />
 
         <ItemsControl x:Name="items"
                       Margin="{Binding LeftMargin.Value}"
