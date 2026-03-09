@@ -5,7 +5,6 @@ using Avalonia.Data;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
-using Avalonia.Threading;
 using Beutl.Animation;
 using Beutl.Animation.Easings;
 using Beutl.Configuration;
@@ -144,32 +143,13 @@ public partial class GraphEditorView : UserControl
 
         float scale = viewModel.Options.Value.Scale;
         double seekBarPixel = currentTime.TimeToPixel(scale);
-        double viewportWidth = scroll.Viewport.Width;
-        double currentOffsetX = scroll.Offset.X;
-        double newOffsetX;
 
-        if (mode == TimelineAutoScrollMode.AlwaysFollow)
-        {
-            newOffsetX = seekBarPixel - (viewportWidth / 2);
-        }
-        else // PageScroll
-        {
-            if (seekBarPixel >= currentOffsetX && seekBarPixel <= currentOffsetX + viewportWidth)
-                return;
+        double? newOffsetX = TimelineHelper.CalculateAutoScrollOffset(
+            seekBarPixel, scroll.Viewport.Width, scroll.Offset.X, mode);
 
-            if (seekBarPixel > currentOffsetX + viewportWidth)
-            {
-                newOffsetX = seekBarPixel - (viewportWidth * 0.1);
-            }
-            else
-            {
-                newOffsetX = seekBarPixel - (viewportWidth * 0.9);
-            }
-        }
+        if (newOffsetX is not { } offsetX) return;
 
-        newOffsetX = Math.Max(0, newOffsetX);
-
-        scroll.Offset = new Vector(newOffsetX, scroll.Offset.Y);
+        scroll.Offset = new Vector(offsetX, scroll.Offset.Y);
     }
 
     private static float Zoom(float delta, float scale)

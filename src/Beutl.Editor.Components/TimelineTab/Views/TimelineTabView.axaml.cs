@@ -9,7 +9,6 @@ using Avalonia.Platform.Storage;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using Beutl.Configuration;
-using Beutl.Editor;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.SceneSettingsTab.ViewModels;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
@@ -691,32 +690,13 @@ public sealed partial class TimelineTabView : UserControl
 
         float scale = ViewModel.Options.Value.Scale;
         double seekBarPixel = currentTime.TimeToPixel(scale);
-        double viewportWidth = ContentScroll.Viewport.Width;
-        double currentOffsetX = ContentScroll.Offset.X;
-        double newOffsetX;
 
-        if (mode == TimelineAutoScrollMode.AlwaysFollow)
-        {
-            newOffsetX = seekBarPixel - (viewportWidth / 2);
-        }
-        else // PageScroll
-        {
-            if (seekBarPixel >= currentOffsetX && seekBarPixel <= currentOffsetX + viewportWidth)
-                return;
+        double? newOffsetX = TimelineHelper.CalculateAutoScrollOffset(
+            seekBarPixel, ContentScroll.Viewport.Width, ContentScroll.Offset.X, mode);
 
-            if (seekBarPixel > currentOffsetX + viewportWidth)
-            {
-                newOffsetX = seekBarPixel - (viewportWidth * 0.1);
-            }
-            else
-            {
-                newOffsetX = seekBarPixel - (viewportWidth * 0.9);
-            }
-        }
+        if (newOffsetX is not { } offsetX) return;
 
-        newOffsetX = Math.Max(0, newOffsetX);
-
-        ContentScroll.Offset = new Avalonia.Vector(newOffsetX, ContentScroll.Offset.Y);
+        ContentScroll.Offset = new Avalonia.Vector(offsetX, ContentScroll.Offset.Y);
     }
 
     private async void ScrollTimelinePosition(TimeRange range, int zindex)

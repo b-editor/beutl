@@ -1,9 +1,41 @@
 ﻿using Avalonia;
 
+using Beutl.Configuration;
+
 namespace Beutl.Editor.Components.Helpers;
 
 public static class TimelineHelper
 {
+    public static double? CalculateAutoScrollOffset(
+        double seekBarPixel,
+        double viewportWidth,
+        double currentOffsetX,
+        TimelineAutoScrollMode mode)
+    {
+        double newOffsetX;
+
+        if (mode == TimelineAutoScrollMode.AlwaysFollow)
+        {
+            newOffsetX = seekBarPixel - (viewportWidth / 2);
+        }
+        else // PageScroll
+        {
+            if (seekBarPixel >= currentOffsetX && seekBarPixel <= currentOffsetX + viewportWidth)
+                return null;
+
+            if (seekBarPixel > currentOffsetX + viewportWidth)
+            {
+                newOffsetX = seekBarPixel - (viewportWidth * 0.1);
+            }
+            else
+            {
+                newOffsetX = seekBarPixel - (viewportWidth * 0.9);
+            }
+        }
+
+        return Math.Max(0, newOffsetX);
+    }
+
     public enum MouseFlags
     {
         Free,
