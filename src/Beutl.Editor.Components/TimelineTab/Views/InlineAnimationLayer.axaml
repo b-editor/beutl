@@ -48,7 +48,9 @@
                                               Converter={StaticResource ColorToBrushConverter}}"
                 BorderThickness="1,0" />
 
-        <views:InlineEasingGraphControl Margin="{Binding LeftMargin.Value}"
+        <views:InlineEasingGraphControl Width="{CompiledBinding Element.Width.Value,
+                                                              Mode=OneWay}"
+                                        Margin="{Binding LeftMargin.Value}"
                                         Brush="{DynamicResource TextControlForeground}"
                                         HorizontalAlignment="Left"
                                         VerticalAlignment="Stretch"
