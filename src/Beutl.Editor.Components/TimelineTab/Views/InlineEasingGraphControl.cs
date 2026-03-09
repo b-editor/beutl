@@ -9,7 +9,10 @@ namespace Beutl.Editor.Components.TimelineTab.Views;
 
 public sealed class InlineEasingGraphControl : Control
 {
-    private const double VerticalPadding = 3.0;
+    public static readonly StyledProperty<IBrush?> BrushProperty =
+        AvaloniaProperty.Register<InlineEasingGraphControl, IBrush?>(nameof(Brush), Brushes.White);
+
+    private const double VerticalPadding = 1.0;
 
     private readonly Pen _pen = new()
     {
@@ -19,6 +22,17 @@ public sealed class InlineEasingGraphControl : Control
     };
 
     private CompositeDisposable? _subscriptions;
+
+    static InlineEasingGraphControl()
+    {
+        AffectsRender<InlineEasingGraphControl>(BrushProperty);
+    }
+
+    public IBrush? Brush
+    {
+        get => GetValue(BrushProperty);
+        set => SetValue(BrushProperty, value);
+    }
 
     protected override void OnDataContextChanged(EventArgs e)
     {
@@ -95,7 +109,7 @@ public sealed class InlineEasingGraphControl : Control
         double usableHeight = height - VerticalPadding * 2;
         if (usableHeight <= 0) return;
 
-        _pen.Brush = new SolidColorBrush(Color.FromArgb(128, 255, 255, 255));
+        _pen.Brush = Brush;
 
         for (int i = 0; i < sorted.Length - 1; i++)
         {
@@ -106,9 +120,9 @@ public sealed class InlineEasingGraphControl : Control
             if (segmentWidth < 2) continue;
 
             Easing easing = sorted[i + 1].model.Easing;
-            bool descending = IsDescending(sorted[i].model.Value, sorted[i + 1].model.Value);
+            int comparison = Compare(sorted[i].model.Value, sorted[i + 1].model.Value);
 
-            int sampleCount = Math.Clamp((int)segmentWidth, 2, 50);
+            int sampleCount = Math.Clamp((int)segmentWidth, 2, 100);
 
             for (int j = 0; j < sampleCount; j++)
             {
@@ -122,15 +136,20 @@ public sealed class InlineEasingGraphControl : Control
                 double x2 = left + t2 * segmentWidth;
 
                 double y1, y2;
-                if (descending)
+                if (comparison > 0)
                 {
                     y1 = VerticalPadding + e1 * usableHeight;
                     y2 = VerticalPadding + e2 * usableHeight;
                 }
-                else
+                else if (comparison < 0)
                 {
                     y1 = height - VerticalPadding - e1 * usableHeight;
                     y2 = height - VerticalPadding - e2 * usableHeight;
+                }
+                else
+                {
+                    y1 = height / 2;
+                    y2 = height / 2;
                 }
 
                 context.DrawLine(_pen, new Point(x1, y1), new Point(x2, y2));
@@ -138,13 +157,13 @@ public sealed class InlineEasingGraphControl : Control
         }
     }
 
-    private static bool IsDescending(object? prevValue, object? nextValue)
+    private static int Compare(object? prevValue, object? nextValue)
     {
         if (prevValue is IComparable comparable && nextValue != null)
         {
             try
             {
-                return comparable.CompareTo(nextValue) > 0;
+                return comparable.CompareTo(nextValue);
             }
             catch
             {
@@ -152,6 +171,6 @@ public sealed class InlineEasingGraphControl : Control
             }
         }
 
-        return false;
+        return 1;
     }
 }

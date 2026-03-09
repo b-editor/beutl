@@ -49,9 +49,10 @@
                 BorderThickness="1,0" />
 
         <views:InlineEasingGraphControl Margin="{Binding LeftMargin.Value}"
-                                          HorizontalAlignment="Left"
-                                          VerticalAlignment="Stretch"
-                                          IsHitTestVisible="False" />
+                                        Brush="{DynamicResource TextControlForeground}"
+                                        HorizontalAlignment="Left"
+                                        VerticalAlignment="Stretch"
+                                        IsHitTestVisible="False" />
 
         <ItemsControl x:Name="items"
                       Margin="{Binding LeftMargin.Value}"
