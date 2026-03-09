@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 
 using Avalonia.Threading;
 
@@ -22,12 +22,15 @@ public partial class ColorDropper : IDisposable
     public static bool IsSupported =>
         OperatingSystem.IsWindows() || OperatingSystem.IsMacOS();
 
-    public static Task<(Color2, int X, int Y)> Run(CancellationToken ct = default)
+    public static async Task<(Color2, int X, int Y)> Run(CancellationToken ct = default)
     {
+        if (!IsSupported)
+            throw new PlatformNotSupportedException();
+
         var tcs = new TaskCompletionSource<(Color2, int X, int Y)>();
         var dropper = new ColorDropper(tcs, ct);
         dropper.Start();
-        return tcs.Task;
+        return await tcs.Task;
     }
 
     public void Start()
