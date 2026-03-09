@@ -1,4 +1,4 @@
-#if WINDOWS
+﻿#if WINDOWS
 #nullable enable
 
 using System.Drawing;
