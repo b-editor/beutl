@@ -77,6 +77,17 @@
                     </ctrls:OptionsDisplayItem.ActionButton>
                 </ctrls:OptionsDisplayItem>
 
+                <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsPage.TimelineAutoScrollMode_Description}"
+                                          Header="{x:Static lang:SettingsPage.TimelineAutoScrollMode}">
+                    <ctrls:OptionsDisplayItem.ActionButton>
+                        <ComboBox MinWidth="250" SelectedIndex="{CompiledBinding TimelineAutoScrollMode.Value}">
+                            <ComboBoxItem Content="{x:Static lang:SettingsPage.TimelineAutoScrollMode_None}" />
+                            <ComboBoxItem Content="{x:Static lang:SettingsPage.TimelineAutoScrollMode_AlwaysFollow}" />
+                            <ComboBoxItem Content="{x:Static lang:SettingsPage.TimelineAutoScrollMode_PageScroll}" />
+                        </ComboBox>
+                    </ctrls:OptionsDisplayItem.ActionButton>
+                </ctrls:OptionsDisplayItem>
+
                 <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsPage.ClampResizeToOriginalLength_Description}" Header="{x:Static lang:SettingsPage.ClampResizeToOriginalLength}">
                     <ctrls:OptionsDisplayItem.ActionButton>
                         <ToggleSwitch Classes="left"

@@ -356,6 +356,26 @@
     <value>Swap the scroll direction of the timeline</value>
     <comment/>
   </data>
+  <data name="TimelineAutoScrollMode" xml:space="preserve">
+    <value>Timeline auto-scroll during playback</value>
+    <comment/>
+  </data>
+  <data name="TimelineAutoScrollMode_Description" xml:space="preserve">
+    <value>Automatically scroll the timeline to follow the playback position</value>
+    <comment/>
+  </data>
+  <data name="TimelineAutoScrollMode_None" xml:space="preserve">
+    <value>Off</value>
+    <comment/>
+  </data>
+  <data name="TimelineAutoScrollMode_AlwaysFollow" xml:space="preserve">
+    <value>Always follow</value>
+    <comment/>
+  </data>
+  <data name="TimelineAutoScrollMode_PageScroll" xml:space="preserve">
+    <value>Page scroll</value>
+    <comment/>
+  </data>
   <data name="ClampResizeToOriginalLength" xml:space="preserve">
     <value>Clamp resize to original media length</value>
     <comment/>
