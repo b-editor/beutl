@@ -1,4 +1,4 @@
-using Beutl.Collections;
+﻿using Beutl.Collections;
 using Beutl.Collections.Pooled;
 using Beutl.Media;
 using Beutl.Media.Pixel;
