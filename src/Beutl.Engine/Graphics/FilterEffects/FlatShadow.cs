@@ -6,7 +6,6 @@ using Beutl.Media;
 using Beutl.Media.Pixel;
 using Beutl.Utilities;
 using SkiaSharp;
-using Cv = OpenCvSharp;
 
 namespace Beutl.Graphics.Effects;
 
@@ -56,38 +55,19 @@ public partial class FlatShadow : FilterEffect
     private static void Apply((float Angle, float Length, Brush.Resource? Brush, bool ShadowOnly) data,
         CustomFilterEffectContext context)
     {
-        static Cv.Point[][] FindPoints(Bitmap<Bgra8888> src)
+        static SKPath CreatePath(Bitmap<Bgra8888> src)
         {
-            using Cv.Mat srcMat = src.ToMat();
-            using Cv.Mat alphaMat = srcMat.ExtractChannel(3);
+            using var contours = ContourTracer.FindContours(src);
 
-            // 輪郭検出
-            alphaMat.FindContours(
-                out Cv.Point[][] points,
-                out Cv.HierarchyIndex[] h,
-                Cv.RetrievalModes.List,
-                Cv.ContourApproximationModes.ApproxSimple);
-
-            return points;
-        }
-
-        static SKPath CreatePath(Cv.Point[][] points)
-        {
             var skpath = new SKPath();
-            foreach (Cv.Point[] inner in points)
+            foreach (var contour in contours)
             {
-                bool first = true;
-                foreach (Cv.Point item in inner)
+                for (int j = 0; j < contour.Count; j++)
                 {
-                    if (first)
-                    {
-                        skpath.MoveTo(item.X, item.Y);
-                        first = false;
-                    }
+                    if (j == 0)
+                        skpath.MoveTo(contour[j].X, contour[j].Y);
                     else
-                    {
-                        skpath.LineTo(item.X, item.Y);
-                    }
+                        skpath.LineTo(contour[j].X, contour[j].Y);
                 }
 
                 skpath.Close();
@@ -104,7 +84,6 @@ public partial class FlatShadow : FilterEffect
         {
             var target = context.Targets[ii];
             using var srcBitmap = target.RenderTarget!.Snapshot();
-            Cv.Point[][] points = FindPoints(srcBitmap);
 
             float x1 = MathF.Cos(radian);
             float y1 = MathF.Sin(radian);
@@ -122,7 +101,7 @@ public partial class FlatShadow : FilterEffect
                     (size.Height + y2Abs)));
             using (var paint = new SKPaint { Color = SKColors.White, IsAntialias = true, Style = SKPaintStyle.Fill })
             using (var brushPaint = new SKPaint())
-            using (SKPath path = CreatePath(points))
+            using (SKPath path = CreatePath(srcBitmap))
             using (ImmediateCanvas newCanvas = context.Open(newTarget))
             {
                 newCanvas.Clear();

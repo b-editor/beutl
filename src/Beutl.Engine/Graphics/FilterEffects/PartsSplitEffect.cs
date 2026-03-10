@@ -2,9 +2,8 @@
 using System.Reactive;
 using Beutl.Graphics.Rendering;
 using Beutl.Language;
+using Beutl.Media;
 using SkiaSharp;
-
-using Cv = OpenCvSharp;
 
 namespace Beutl.Graphics.Effects;
 
@@ -23,101 +22,92 @@ public partial class PartsSplitEffect : FilterEffect
             EffectTarget target = context.Targets[i];
             RenderTarget srcRenderTarget = target.RenderTarget!;
             using var src = srcRenderTarget.Snapshot();
-            using Cv.Mat srcMat = src.ToMat();
-            using Cv.Mat alphaMat = srcMat.ExtractChannel(3);
 
-            // 輪郭検出
-            alphaMat.FindContours(
-                out Cv.Point[][] points,
-                out Cv.HierarchyIndex[] h,
-                Cv.RetrievalModes.Tree,
-                Cv.ContourApproximationModes.ApproxSimple);
-
-            var newTargets = new EffectTargets();
-
-            try
+            // 輪郭検出（階層付き）
+            ContourTracer.FindContoursWithHierarchy(src, out var points, out var parentIndices);
+            using (points)
+            using (parentIndices)
             {
-                var pathes = new List<(SKPath, int Parent, int Index)>(h.Length);
-                for (int i1 = 0; i1 < points.Length; i1++)
+                var newTargets = new EffectTargets();
+
+                try
                 {
-                    Cv.Point[] inner = points[i1];
-                    int parent = h[i1].Parent;
-                    var skpath = new SKPath();
-                    bool first = true;
-                    foreach (Cv.Point item in inner)
+                    var pathes = new List<(SKPath Path, int Parent, int Index)>(points.Count);
+                    for (int i1 = 0; i1 < points.Count; i1++)
                     {
-                        if (first)
+                        ReadOnlySpan<PixelPoint> inner = points[i1];
+                        int parent = parentIndices[i1];
+                        var skpath = new SKPath();
+                        for (int j = 0; j < inner.Length; j++)
                         {
-                            skpath.MoveTo(item.X, item.Y);
-                            first = false;
+                            if (j == 0)
+                                skpath.MoveTo(inner[j].X, inner[j].Y);
+                            else
+                                skpath.LineTo(inner[j].X, inner[j].Y);
                         }
-                        else
-                        {
-                            skpath.LineTo(item.X, item.Y);
-                        }
+
+                        skpath.Close();
+                        pathes.Add((skpath, parent, i1));
                     }
 
-                    skpath.Close();
-                    pathes.Add((skpath, parent, i1));
-                }
-
-                for (int j = 0; j < pathes.Count; j++)
-                {
-                    (SKPath Path, int Parent, int Index) item = pathes[j];
-                    if (0 <= item.Parent)
+                    for (int j = 0; j < pathes.Count; j++)
                     {
-                        int parentIndex = pathes.FindIndex(v => v.Index == item.Parent);
-                        if (parentIndex >= 0)
+                        (SKPath Path, int Parent, int Index) item = pathes[j];
+                        if (0 <= item.Parent)
                         {
-                            (SKPath, int Parent, int Index) parent = pathes[parentIndex];
-                            SKPath newPath = parent.Item1.Op(item.Path, SKPathOp.Xor);
-                            if (newPath != null)
+                            int parentIndex = pathes.FindIndex(v => v.Index == item.Parent);
+                            if (parentIndex >= 0)
                             {
-                                item.Path.Dispose();
-                                parent.Item1.Dispose();
-                                pathes[parentIndex] = (newPath, parent.Parent, parent.Index);
-
-                                pathes.RemoveAt(j);
-                                if (parentIndex < j)
+                                (SKPath, int Parent, int Index) parent = pathes[parentIndex];
+                                SKPath? newPath = parent.Item1.Op(item.Path, SKPathOp.Xor);
+                                if (newPath != null)
                                 {
-                                    j--;
+                                    item.Path.Dispose();
+                                    parent.Item1.Dispose();
+                                    pathes[parentIndex] = (newPath, parent.Parent, parent.Index);
+
+                                    pathes.RemoveAt(j);
+                                    if (parentIndex < j)
+                                    {
+                                        j--;
+                                    }
                                 }
                             }
                         }
                     }
-                }
 
-                foreach ((SKPath skpath, _, _) in pathes)
-                {
-                    SKRect pathBounds = skpath.TightBounds;
-                    var bounds = new Rect(
-                        target.Bounds.X + pathBounds.Left,
-                        target.Bounds.Y + pathBounds.Top,
-                        pathBounds.Width,
-                        pathBounds.Height);
-                    EffectTarget newTarget = context.CreateTarget(bounds);
-                    using (ImmediateCanvas newCanvas = context.Open(newTarget))
-                    using (newCanvas.PushTransform(Matrix.CreateTranslation(-pathBounds.Left, -pathBounds.Top)))
+                    foreach ((SKPath skpath, _, _) in pathes)
                     {
-                        newCanvas.Clear();
-                        newCanvas.Canvas.ClipPath(skpath, antialias: true);
+                        SKRect pathBounds = skpath.TightBounds;
+                        var bounds = new Rect(
+                            target.Bounds.X + pathBounds.Left,
+                            target.Bounds.Y + pathBounds.Top,
+                            pathBounds.Width,
+                            pathBounds.Height);
+                        EffectTarget newTarget = context.CreateTarget(bounds);
+                        using (ImmediateCanvas newCanvas = context.Open(newTarget))
+                        using (newCanvas.PushTransform(Matrix.CreateTranslation(-pathBounds.Left, -pathBounds.Top)))
+                        {
+                            newCanvas.Clear();
+                            newCanvas.Canvas.ClipPath(skpath, antialias: true);
 
-                        newCanvas.DrawRenderTarget(srcRenderTarget, default);
+                            newCanvas.DrawRenderTarget(srcRenderTarget, default);
+                        }
+
+                        newTargets.Add(newTarget);
+
+                        skpath.Dispose();
                     }
 
-                    newTargets.Add(newTarget);
-
-                    skpath.Dispose();
+                    srcRenderTarget.Dispose();
+                    context.Targets.RemoveAt(i);
+                    context.Targets.InsertRange(i, newTargets);
+                    i += newTargets.Count - 1;
                 }
-
-                srcRenderTarget.Dispose();
-                context.Targets.RemoveAt(i);
-                context.Targets.InsertRange(i, newTargets);
-                i += newTargets.Count - 1;
-            }
-            catch
-            {
-                newTargets.Dispose();
+                catch
+                {
+                    newTargets.Dispose();
+                }
             }
         }
     }
