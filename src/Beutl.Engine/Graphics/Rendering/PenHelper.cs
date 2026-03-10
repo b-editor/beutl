@@ -141,6 +141,7 @@ internal static class PenHelper
             StrokeWidth = Math.Abs(pen.Offset) * 2,
             StrokeJoin = (SKStrokeJoin)pen.StrokeJoin,
             StrokeCap = (SKStrokeCap)pen.StrokeCap,
+            StrokeMiter = pen.MiterLimit,
             Style = SKPaintStyle.Stroke,
         };
         CreateStrokePath(fillPath, offsetPath, offsetPaint, bounds);
