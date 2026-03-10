@@ -259,7 +259,7 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
         {
             if (item.Context.Value is EditViewModel editViewModel)
             {
-                editViewModel.Renderer.Value.GetCacheContext().CacheOptions = RenderCacheOptions.Disabled;
+                editViewModel.Renderer.Value.CacheOptions = RenderCacheOptions.Disabled;
                 editViewModel.FrameCacheManager.Value.Clear();
             }
         }
@@ -271,8 +271,7 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
         {
             if (item.Context.Value is EditViewModel editViewModel)
             {
-                editViewModel.Renderer.Value.GetCacheContext().CacheOptions =
-                    RenderCacheOptions.CreateFromGlobalConfiguration();
+                editViewModel.Renderer.Value.CacheOptions = RenderCacheOptions.CreateFromGlobalConfiguration();
             }
         }
     }

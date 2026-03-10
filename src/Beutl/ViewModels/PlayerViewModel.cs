@@ -888,9 +888,8 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
             if (Scene == null) throw new Exception("Scene is null.");
             SceneRenderer renderer = EditViewModel.Renderer.Value;
 
-            RenderNodeCacheContext cacheContext = renderer.GetCacheContext();
-            RenderCacheOptions restoreCacheOptions = cacheContext.CacheOptions;
-            cacheContext.CacheOptions = RenderCacheOptions.Disabled;
+            RenderCacheOptions restoreCacheOptions = renderer.CacheOptions;
+            renderer.CacheOptions = RenderCacheOptions.Disabled;
 
             try
             {
@@ -901,7 +900,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
             }
             finally
             {
-                cacheContext.CacheOptions = restoreCacheOptions;
+                renderer.CacheOptions = restoreCacheOptions;
             }
         });
     }

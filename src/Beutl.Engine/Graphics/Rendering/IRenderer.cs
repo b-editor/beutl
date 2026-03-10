@@ -29,5 +29,5 @@ public interface IRenderer : IDisposable
 
     DrawableRenderNode? FindRenderNode(Drawable drawable);
 
-    RenderNodeCacheContext GetCacheContext();
+    RenderCacheOptions CacheOptions { get; set; }
 }

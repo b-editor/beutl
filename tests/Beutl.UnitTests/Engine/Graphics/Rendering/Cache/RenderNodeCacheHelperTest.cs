@@ -1,33 +1,12 @@
-﻿using Beutl.Graphics;
+using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Cache;
 using Beutl.Media;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Cache;
 
-public class RenderNodeCacheContextTest
+public class RenderNodeCacheHelperTest
 {
-    private RenderNodeCacheContext? _context;
-
-    [SetUp]
-    public void Setup()
-    {
-        _context = new RenderNodeCacheContext(() => { });
-    }
-
-    [Test]
-    public void CacheOptions_Setter_ShouldClearCache()
-    {
-        // Arrange
-        var newCacheOptions = new RenderCacheOptions(true, RenderCacheRules.Default);
-
-        // Act
-        _context!.CacheOptions = newCacheOptions;
-
-        // Assert
-        Assert.That(_context.CacheOptions, Is.EqualTo(newCacheOptions));
-    }
-
     [Test]
     public void CanCacheRecursive_ShouldReturnFalse_WhenCacheCannotCache()
     {
@@ -37,7 +16,7 @@ public class RenderNodeCacheContextTest
         containerNode.AddChild(childNode);
 
         // Act
-        bool result = RenderNodeCacheContext.CanCacheRecursive(containerNode);
+        bool result = RenderNodeCacheHelper.CanCacheRecursive(containerNode);
 
         // Assert
         Assert.That(result, Is.False);
@@ -54,7 +33,7 @@ public class RenderNodeCacheContextTest
         containerNode.Cache.ReportRenderCount(3);
 
         // Act
-        bool result = RenderNodeCacheContext.CanCacheRecursive(containerNode);
+        bool result = RenderNodeCacheHelper.CanCacheRecursive(containerNode);
 
         // Assert
         Assert.That(result, Is.True);
@@ -72,7 +51,7 @@ public class RenderNodeCacheContextTest
         containerNode.AddChild(new EllipseRenderNode(new Rect(0, 0, 100, 100), Brushes.Resource.White, null));
 
         // Act
-        bool result = RenderNodeCacheContext.CanCacheRecursive(containerNode);
+        bool result = RenderNodeCacheHelper.CanCacheRecursive(containerNode);
 
         // Assert
         Assert.That(result, Is.False);
@@ -90,7 +69,7 @@ public class RenderNodeCacheContextTest
         containerNode.SetChild(0, new EllipseRenderNode(new Rect(0, 0, 100, 100), Brushes.Resource.White, null));
 
         // Act
-        bool result = RenderNodeCacheContext.CanCacheRecursive(containerNode);
+        bool result = RenderNodeCacheHelper.CanCacheRecursive(containerNode);
 
         // Assert
         Assert.That(result, Is.False);
@@ -106,7 +85,7 @@ public class RenderNodeCacheContextTest
         containerNode.Cache.ReportRenderCount(3);
 
         // Act
-        var result = RenderNodeCacheContext.CanCacheRecursiveChildrenOnly(containerNode);
+        var result = RenderNodeCacheHelper.CanCacheRecursiveChildrenOnly(containerNode);
 
         // Assert
         Assert.That(result, Is.False);
@@ -122,7 +101,7 @@ public class RenderNodeCacheContextTest
         childNode.Cache.ReportRenderCount(3);
 
         // Act
-        bool result = RenderNodeCacheContext.CanCacheRecursiveChildrenOnly(containerNode);
+        bool result = RenderNodeCacheHelper.CanCacheRecursiveChildrenOnly(containerNode);
 
         // Assert
         Assert.That(result, Is.True);
@@ -139,7 +118,7 @@ public class RenderNodeCacheContextTest
         }
 
         // Act
-        RenderNodeCacheContext.ClearCache(node);
+        RenderNodeCacheHelper.ClearCache(node);
 
         // Assert
         Assert.That(node.Cache.IsCached, Is.False);
@@ -158,7 +137,7 @@ public class RenderNodeCacheContextTest
         node.AddChild(childNode);
 
         // Act
-        RenderNodeCacheContext.ClearCache(node);
+        RenderNodeCacheHelper.ClearCache(node);
 
         // Assert
         Assert.That(childNode.Cache.IsCached, Is.False);
@@ -173,10 +152,10 @@ public class RenderNodeCacheContextTest
         containerNode.AddChild(childNode);
         childNode.Cache.ReportRenderCount(3);
         containerNode.Cache.ReportRenderCount(3);
-        _context!.CacheOptions = new RenderCacheOptions(true, RenderCacheRules.Default);
+        var cacheOptions = new RenderCacheOptions(true, RenderCacheRules.Default);
 
         // Act
-        _context.MakeCache(containerNode);
+        RenderNodeCacheHelper.MakeCache(containerNode, cacheOptions);
 
         // Assert
         Assert.That(containerNode.Cache.IsCached, Is.True);
@@ -191,10 +170,10 @@ public class RenderNodeCacheContextTest
         containerNode.AddChild(childNode);
         childNode.Cache.ReportRenderCount(3);
         containerNode.Cache.ReportRenderCount(3);
-        _context!.CacheOptions = new RenderCacheOptions(false, RenderCacheRules.Default);
+        var cacheOptions = new RenderCacheOptions(false, RenderCacheRules.Default);
 
         // Act
-        _context.MakeCache(containerNode);
+        RenderNodeCacheHelper.MakeCache(containerNode, cacheOptions);
 
         // Assert
         Assert.That(containerNode.Cache.IsCached, Is.False);
@@ -208,10 +187,10 @@ public class RenderNodeCacheContextTest
         var containerNode = new ContainerRenderNode();
         containerNode.AddChild(childNode);
         containerNode.Cache.ReportRenderCount(3);
-        _context!.CacheOptions = new RenderCacheOptions(true, RenderCacheRules.Default);
+        var cacheOptions = new RenderCacheOptions(true, RenderCacheRules.Default);
 
         // Act
-        _context.MakeCache(containerNode);
+        RenderNodeCacheHelper.MakeCache(containerNode, cacheOptions);
 
         // Assert
         Assert.That(containerNode.Cache.IsCached, Is.False);
@@ -226,10 +205,10 @@ public class RenderNodeCacheContextTest
         containerNode.AddChild(childNode);
         childNode.Cache.ReportRenderCount(3);
         containerNode.Cache.ReportRenderCount(3);
-        _context!.CacheOptions = new RenderCacheOptions(true, new RenderCacheRules(10000, 1));
+        var cacheOptions = new RenderCacheOptions(true, new RenderCacheRules(10000, 1));
 
         // Act
-        _context.CreateDefaultCache(containerNode);
+        RenderNodeCacheHelper.CreateDefaultCache(containerNode, cacheOptions);
 
         // Assert
         Assert.That(containerNode.Cache.IsCached, Is.True);
@@ -242,10 +221,10 @@ public class RenderNodeCacheContextTest
         var childNode = new EllipseRenderNode(new Rect(0, 0, 100, 100), Brushes.Resource.White, null);
         var containerNode = new ContainerRenderNode();
         containerNode.AddChild(childNode);
-        _context!.CacheOptions = new RenderCacheOptions(true, new RenderCacheRules(1, 1));
+        var cacheOptions = new RenderCacheOptions(true, new RenderCacheRules(1, 1));
 
         // Act
-        _context.CreateDefaultCache(containerNode);
+        RenderNodeCacheHelper.CreateDefaultCache(containerNode, cacheOptions);
 
         // Assert
         Assert.That(containerNode.Cache.IsCached, Is.False);
