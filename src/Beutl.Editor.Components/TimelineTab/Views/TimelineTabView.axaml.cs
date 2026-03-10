@@ -9,7 +9,6 @@ using Avalonia.Platform.Storage;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using Beutl.Configuration;
-using Beutl.Editor;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.SceneSettingsTab.ViewModels;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
@@ -21,6 +20,7 @@ using Beutl.Services;
 using FluentAvalonia.UI.Controls;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Reactive.Bindings.Extensions;
 using MouseFlags = Beutl.Editor.Components.Helpers.TimelineHelper.MouseFlags;
 
 namespace Beutl.Editor.Components.TimelineTab.Views;
@@ -92,6 +92,11 @@ public sealed partial class TimelineTabView : UserControl
             .DisposeWith(_disposables);
 
         ViewModel.ScrollTo.Subscribe(v => ScrollTimelinePosition(v.Range, v.ZIndex))
+            .DisposeWith(_disposables);
+
+        vm.CurrentTime
+            .ObserveOnUIDispatcher()
+            .Subscribe(OnCurrentTimeChangedForAutoScroll)
             .DisposeWith(_disposables);
 
         ViewModel.EditorContext.GetRequiredService<Beutl.Editor.Services.IEditorSelection>().SelectedObject.Subscribe(e =>
@@ -671,6 +676,27 @@ public sealed partial class TimelineTabView : UserControl
             offset.X = (float)((pointerPos / oldScale * zoom) - deltaLeft);
             ViewModel.Options.Value = ViewModel.Options.Value with { Scale = zoom, Offset = offset };
         }
+    }
+
+    private void OnCurrentTimeChangedForAutoScroll(TimeSpan currentTime)
+    {
+        if (ViewModel == null) return;
+
+        var mode = GlobalConfiguration.Instance.EditorConfig.TimelineAutoScrollMode;
+        if (mode == TimelineAutoScrollMode.None) return;
+
+        var previewPlayer = ViewModel.EditorContext.GetService<IPreviewPlayer>();
+        if (previewPlayer == null || !previewPlayer.IsPlaying.Value) return;
+
+        float scale = ViewModel.Options.Value.Scale;
+        double seekBarPixel = currentTime.TimeToPixel(scale);
+
+        double? newOffsetX = TimelineHelper.CalculateAutoScrollOffset(
+            seekBarPixel, ContentScroll.Viewport.Width, ContentScroll.Offset.X, mode);
+
+        if (newOffsetX is not { } offsetX) return;
+
+        ContentScroll.Offset = new Avalonia.Vector(offsetX, ContentScroll.Offset.Y);
     }
 
     private async void ScrollTimelinePosition(TimeRange range, int zindex)

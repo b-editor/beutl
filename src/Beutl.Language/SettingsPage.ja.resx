@@ -358,6 +358,26 @@
     <value>タイムラインのスクロール方向を入れ替える</value>
     <comment/>
   </data>
+  <data name="TimelineAutoScrollMode" xml:space="preserve">
+    <value>再生時のタイムライン自動スクロール</value>
+    <comment/>
+  </data>
+  <data name="TimelineAutoScrollMode_Description" xml:space="preserve">
+    <value>再生中に再生位置に合わせてタイムラインを自動的にスクロールします</value>
+    <comment/>
+  </data>
+  <data name="TimelineAutoScrollMode_None" xml:space="preserve">
+    <value>オフ</value>
+    <comment/>
+  </data>
+  <data name="TimelineAutoScrollMode_AlwaysFollow" xml:space="preserve">
+    <value>常に追従</value>
+    <comment/>
+  </data>
+  <data name="TimelineAutoScrollMode_PageScroll" xml:space="preserve">
+    <value>ページスクロール</value>
+    <comment/>
+  </data>
   <data name="ClampResizeToOriginalLength" xml:space="preserve">
     <value>リサイズをメディアの元の長さに制限する</value>
     <comment/>

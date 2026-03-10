@@ -32,6 +32,15 @@ public enum FrameCacheConfigColorType
     YUV
 }
 
+public enum TimelineAutoScrollMode
+{
+    None,
+
+    AlwaysFollow,
+
+    PageScroll
+}
+
 public sealed partial class EditorConfig : ConfigurationBase
 {
     public static readonly CoreProperty<bool> AutoAdjustSceneDurationProperty;
@@ -46,6 +55,7 @@ public sealed partial class EditorConfig : ConfigurationBase
     public static readonly CoreProperty<int> NodeCacheMinPixelsProperty;
     public static readonly CoreProperty<bool> SwapTimelineScrollDirectionProperty;
     public static readonly CoreProperty<bool> ClampResizeToOriginalLengthProperty;
+    public static readonly CoreProperty<TimelineAutoScrollMode> TimelineAutoScrollModeProperty;
 
     static EditorConfig()
     {
@@ -102,6 +112,10 @@ public sealed partial class EditorConfig : ConfigurationBase
 
         ClampResizeToOriginalLengthProperty = ConfigureProperty<bool, EditorConfig>(nameof(ClampResizeToOriginalLength))
             .DefaultValue(true)
+            .Register();
+
+        TimelineAutoScrollModeProperty = ConfigureProperty<TimelineAutoScrollMode, EditorConfig>(nameof(TimelineAutoScrollMode))
+            .DefaultValue(TimelineAutoScrollMode.PageScroll)
             .Register();
 
     }
@@ -181,6 +195,12 @@ public sealed partial class EditorConfig : ConfigurationBase
     {
         get => GetValue(ClampResizeToOriginalLengthProperty);
         set => SetValue(ClampResizeToOriginalLengthProperty, value);
+    }
+
+    public TimelineAutoScrollMode TimelineAutoScrollMode
+    {
+        get => GetValue(TimelineAutoScrollModeProperty);
+        set => SetValue(TimelineAutoScrollModeProperty, value);
     }
 
     public CoreDictionary<string, LibraryTabDisplayMode> LibraryTabDisplayModes { get; } = new()

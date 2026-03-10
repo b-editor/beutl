@@ -10,6 +10,8 @@ using Beutl.Animation.Easings;
 using Beutl.Configuration;
 using Beutl.Editor.Components.GraphEditorTab.ViewModels;
 using Beutl.Editor.Components.Helpers;
+using Beutl.Editor.Services;
+using Microsoft.Extensions.DependencyInjection;
 using Reactive.Bindings.Extensions;
 using Path = Avalonia.Controls.Shapes.Path;
 using Shape = Avalonia.Controls.Shapes.Shape;
@@ -104,6 +106,11 @@ public partial class GraphEditorView : UserControl
             .ObserveOnUIDispatcher()
             .Subscribe(v => graphPanel.Height = Math.Max(v.First, v.Second.Height))
             .DisposeWith(_disposables);
+
+        obj.CurrentTime
+            .ObserveOnUIDispatcher()
+            .Subscribe(time => OnCurrentTimeChangedForAutoScroll(obj, time))
+            .DisposeWith(_disposables);
     }
 
     protected override void OnLoaded(RoutedEventArgs e)
@@ -124,6 +131,25 @@ public partial class GraphEditorView : UserControl
         {
             viewModel.ScrollOffset.Value = scroll.Offset;
         }
+    }
+
+    private void OnCurrentTimeChangedForAutoScroll(GraphEditorViewModel viewModel, TimeSpan currentTime)
+    {
+        var mode = GlobalConfiguration.Instance.EditorConfig.TimelineAutoScrollMode;
+        if (mode == TimelineAutoScrollMode.None) return;
+
+        var previewPlayer = viewModel.EditorContext.GetService<IPreviewPlayer>();
+        if (previewPlayer == null || !previewPlayer.IsPlaying.Value) return;
+
+        float scale = viewModel.Options.Value.Scale;
+        double seekBarPixel = currentTime.TimeToPixel(scale);
+
+        double? newOffsetX = TimelineHelper.CalculateAutoScrollOffset(
+            seekBarPixel, scroll.Viewport.Width, scroll.Offset.X, mode);
+
+        if (newOffsetX is not { } offsetX) return;
+
+        scroll.Offset = new Vector(offsetX, scroll.Offset.Y);
     }
 
     private static float Zoom(float delta, float scale)

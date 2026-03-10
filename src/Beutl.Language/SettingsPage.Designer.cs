@@ -398,7 +398,37 @@ namespace Beutl.Language {
                 return ResourceManager.GetString("SwapTimelineScrollDirection", resourceCulture);
             }
         }
-        
+
+        public static string TimelineAutoScrollMode {
+            get {
+                return ResourceManager.GetString("TimelineAutoScrollMode", resourceCulture);
+            }
+        }
+
+        public static string TimelineAutoScrollMode_Description {
+            get {
+                return ResourceManager.GetString("TimelineAutoScrollMode_Description", resourceCulture);
+            }
+        }
+
+        public static string TimelineAutoScrollMode_None {
+            get {
+                return ResourceManager.GetString("TimelineAutoScrollMode_None", resourceCulture);
+            }
+        }
+
+        public static string TimelineAutoScrollMode_AlwaysFollow {
+            get {
+                return ResourceManager.GetString("TimelineAutoScrollMode_AlwaysFollow", resourceCulture);
+            }
+        }
+
+        public static string TimelineAutoScrollMode_PageScroll {
+            get {
+                return ResourceManager.GetString("TimelineAutoScrollMode_PageScroll", resourceCulture);
+            }
+        }
+
         public static string ClampResizeToOriginalLength {
             get {
                 return ResourceManager.GetString("ClampResizeToOriginalLength", resourceCulture);
