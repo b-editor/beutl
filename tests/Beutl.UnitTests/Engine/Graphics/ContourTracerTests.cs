@@ -285,9 +285,7 @@ public class ContourTracerTests
     [Test]
     public void FindContours_DiagonalPixels_ReturnsContours()
     {
-        // Diagonal line of single pixels - each should be a separate contour
-        // (since they are 4-connected separated but 8-connected adjacent,
-        // behavior depends on implementation)
+        // Diagonal line of single pixels - each should be a single contour
         using var bitmap = CreateBitmap(5, 5, b =>
         {
             b[0, 0] = new Bgra8888(255, 255, 255, 255);
@@ -297,8 +295,7 @@ public class ContourTracerTests
 
         using var contours = ContourTracer.FindContours(bitmap);
 
-        // Should find at least one contour
-        Assert.That(contours.List, Has.Count.GreaterThanOrEqualTo(1));
+        Assert.That(contours.List, Has.Count.EqualTo(1));
     }
 
     [Test]
