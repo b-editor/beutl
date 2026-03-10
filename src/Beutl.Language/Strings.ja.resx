@@ -1073,6 +1073,9 @@
   <data name="Pen_TrimOffset" xml:space="preserve">
     <value>トリムオフセット</value>
   </data>
+  <data name="Pen_Offset" xml:space="preserve">
+    <value>オフセット</value>
+  </data>
   <data name="StrokeAlignment_Center" xml:space="preserve">
     <value>中央</value>
   </data>

@@ -4684,6 +4684,15 @@ namespace Beutl.Language {
         }
 
         /// <summary>
+        ///   Looks up a localized string similar to Offset.
+        /// </summary>
+        public static string Pen_Offset {
+            get {
+                return ResourceManager.GetString("Pen_Offset", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to Cap style.
         /// </summary>
         public static string Pen_StrokeCap {

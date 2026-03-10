@@ -18,6 +18,11 @@ internal static class PenHelper
                 StrokeAlignment.Outside => rect.Inflate(thickness),
                 _ => rect,
             };
+
+            if (pen.Offset > 0)
+            {
+                rect = rect.Inflate(pen.Offset);
+            }
         }
 
         return rect;
@@ -124,67 +129,102 @@ internal static class PenHelper
         return outer ?? inner;
     }
 
+    internal static SKPath? CreateOffsetPath(SKPath fillPath, Pen.Resource pen, Rect bounds)
+    {
+        if (pen.Offset == 0)
+            return null;
+
+        var offsetPath = new SKPath();
+        using var offsetPaint = new SKPaint
+        {
+            IsStroke = true,
+            StrokeWidth = Math.Abs(pen.Offset) * 2,
+            StrokeJoin = (SKStrokeJoin)pen.StrokeJoin,
+            StrokeCap = (SKStrokeCap)pen.StrokeCap,
+            Style = SKPaintStyle.Stroke,
+        };
+        CreateStrokePath(fillPath, offsetPath, offsetPaint, bounds);
+
+        if (pen.Offset > 0)
+        {
+            using var copy = new SKPath(offsetPath);
+            copy.Op(fillPath, SKPathOp.Union, offsetPath);
+        }
+        else
+        {
+            using var copy = new SKPath(fillPath);
+            copy.Op(offsetPath, SKPathOp.Difference, offsetPath);
+        }
+
+        return offsetPath;
+    }
+
+    // StrokeWidthが大きすぎる場合、元の内側に空間ができてしまうため、複数回に分けてStrokePathを生成する
+    private static void CreateStrokePath(SKPath fillPath, SKPath strokePath, SKPaint paint, Rect bounds)
+    {
+        float thickness = paint.StrokeWidth;
+        float maxAspect = Math.Max(bounds.Width, bounds.Height);
+        if (maxAspect < thickness)
+        {
+            paint.StrokeWidth = maxAspect;
+            bool first = true;
+
+            while (maxAspect < thickness)
+            {
+                using SKPath tmp = paint.GetFillPath(first ? fillPath : strokePath);
+                if (tmp == null) break;
+
+                if (!first)
+                {
+                    using (var copy = new SKPath(strokePath))
+                        tmp.Op(copy, SKPathOp.Union, strokePath);
+                }
+                else
+                {
+                    strokePath.AddPath(tmp);
+                    first = false;
+                }
+
+                thickness -= maxAspect;
+            }
+
+            if (thickness > 0)
+            {
+                paint.StrokeWidth = thickness;
+                using SKPath tmp2 = paint.GetFillPath(strokePath);
+                if (tmp2 != null)
+                {
+                    using var copy = new SKPath(strokePath);
+                    tmp2.Op(copy, SKPathOp.Union, strokePath);
+                }
+            }
+        }
+        else
+        {
+            paint.GetFillPath(fillPath, strokePath);
+        }
+    }
+
     public static SKPath CreateStrokePath(SKPath fillPath, Pen.Resource pen, Rect bounds)
     {
+        SKPath? offsetFillPath = CreateOffsetPath(fillPath, pen, bounds);
+        if (offsetFillPath != null)
+            fillPath = offsetFillPath;
+
         var strokePath = new SKPath();
 
         using (var paint = new SKPaint())
         {
             ConfigureStrokePaint(pen, paint, bounds.Size);
 
-            void CreateStrokePath(SKPath strokePath, SKPaint paint)
-            {
-                float thickness = paint.StrokeWidth;
-                float maxAspect = Math.Max(bounds.Width, bounds.Height);
-                if (maxAspect < thickness)
-                {
-                    paint.StrokeWidth = maxAspect;
-                    bool first = true;
-
-                    while (maxAspect < thickness)
-                    {
-                        using SKPath tmp = paint.GetFillPath(first ? fillPath : strokePath);
-                        if (tmp == null) break;
-
-                        if (!first)
-                        {
-                            using (var copy = new SKPath(strokePath))
-                                tmp.Op(copy, SKPathOp.Union, strokePath);
-                        }
-                        else
-                        {
-                            strokePath.AddPath(tmp);
-                            first = false;
-                        }
-
-                        thickness -= maxAspect;
-                    }
-
-                    if (thickness > 0)
-                    {
-                        paint.StrokeWidth = thickness;
-                        using SKPath tmp2 = paint.GetFillPath(strokePath);
-                        if (tmp2 != null)
-                        {
-                            using var copy = new SKPath(strokePath);
-                            tmp2.Op(copy, SKPathOp.Union, strokePath);
-                        }
-                    }
-                }
-                else
-                {
-                    paint.GetFillPath(fillPath, strokePath);
-                }
-            }
-
             switch (pen.StrokeAlignment)
             {
                 case StrokeAlignment.Center:
-                    CreateStrokePath(strokePath, paint);
+                    CreateStrokePath(fillPath, strokePath, paint, bounds);
                     break;
 
                 case StrokeAlignment.Outside:
-                    CreateStrokePath(strokePath, paint);
+                    CreateStrokePath(fillPath, strokePath, paint, bounds);
 
                     using (var strokePathCopy = new SKPath(strokePath))
                     {
@@ -207,6 +247,7 @@ internal static class PenHelper
             }
         }
 
+        offsetFillPath?.Dispose();
         return strokePath;
     }
 }
