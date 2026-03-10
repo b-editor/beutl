@@ -29,6 +29,8 @@ internal class PointerLockHelper
             s_savedScreenPosition = visual.PointToScreen(dragStart);
             CoreGraphics.CGDisplayHideCursor(s_macDisplay);
             CoreGraphics.CGAssociateMouseAndMouseCursorPosition(false);
+            // ここでCGGetLastMouseDeltaを呼び出さない場合、最初のMovedで大きなデルタが発生してしまう
+            CoreGraphics.CGGetLastMouseDelta(out _, out _);
         }
     }
 
