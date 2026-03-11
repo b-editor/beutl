@@ -1,4 +1,4 @@
-namespace Beutl.Graphics.Effects;
+﻿namespace Beutl.Graphics.Effects;
 
 public enum PixelSortDirection
 {

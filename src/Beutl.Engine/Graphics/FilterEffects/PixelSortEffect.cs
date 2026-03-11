@@ -1,4 +1,4 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using System.Runtime.InteropServices;
 using Beutl.Engine;
 using Beutl.Graphics.Backend;
