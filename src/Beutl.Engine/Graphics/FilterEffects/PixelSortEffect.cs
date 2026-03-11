@@ -226,12 +226,12 @@ public sealed partial class PixelSortEffect : FilterEffect
     public IProperty<PixelSortKey> SortKey { get; } = Property.Create(PixelSortKey.Luminance);
 
     [Display(Name = nameof(Strings.ThresholdMin), ResourceType = typeof(Strings))]
-    [Range(0f, 1f)]
-    public IProperty<float> ThresholdMin { get; } = Property.CreateAnimatable(0.25f);
+    [Range(0f, 100f)]
+    public IProperty<float> ThresholdMin { get; } = Property.CreateAnimatable(25f);
 
     [Display(Name = nameof(Strings.ThresholdMax), ResourceType = typeof(Strings))]
-    [Range(0f, 1f)]
-    public IProperty<float> ThresholdMax { get; } = Property.CreateAnimatable(0.8f);
+    [Range(0f, 100f)]
+    public IProperty<float> ThresholdMax { get; } = Property.CreateAnimatable(80f);
 
     [Display(Name = nameof(Strings.Ascending), ResourceType = typeof(Strings))]
     public IProperty<bool> Ascending { get; } = Property.Create(true);
@@ -273,7 +273,7 @@ public sealed partial class PixelSortEffect : FilterEffect
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {
         var r = (Resource)resource;
-        var data = new EffectData(r.Direction, r.SortKey, r.ThresholdMin, r.ThresholdMax, r.Ascending);
+        var data = new EffectData(r.Direction, r.SortKey, r.ThresholdMin / 100f, r.ThresholdMax / 100f, r.Ascending);
         context.CustomEffect(data, static (d, ctx) => OnApplyTo(d, ctx), static (_, b) => b);
     }
 
