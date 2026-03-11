@@ -8,7 +8,7 @@ using Beutl.Media.Source;
 
 namespace Beutl.Audio;
 
-[Display(Name = nameof(Strings.SoundGroup), ResourceType = typeof(Strings))]
+[Display(Name = nameof(AudioStrings.SoundGroup), ResourceType = typeof(AudioStrings))]
 public sealed partial class SoundGroup : Sound, IFlowOperator
 {
     public SoundGroup()

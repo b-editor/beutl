@@ -20,6 +20,7 @@
     <EmbeddedResource Update="SettingsStrings.resx" />
     <EmbeddedResource Update="Strings.resx" />
     <EmbeddedResource Update="TutorialStrings.resx" />
+    <EmbeddedResource Update="AudioStrings.resx" />
   </ItemGroup>
 
 </Project>

@@ -618,9 +618,6 @@
   <data name="Group" xml:space="preserve">
     <value>グループ</value>
   </data>
-  <data name="SoundGroup" xml:space="preserve">
-    <value>サウンドグループ</value>
-  </data>
   <data name="IsNotValid" xml:space="preserve">
     <value>{0}は無効です。</value>
   </data>
@@ -641,9 +638,6 @@
   </data>
   <data name="Image" xml:space="preserve">
     <value>画像</value>
-  </data>
-  <data name="Sound" xml:space="preserve">
-    <value>サウンド</value>
   </data>
   <data name="FilterEffect" xml:space="preserve">
     <value>フィルタエフェクト</value>
@@ -1546,18 +1540,6 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="Decorator" xml:space="preserve">
     <value>デコレーター</value>
   </data>
-  <data name="DelayTime" xml:space="preserve">
-    <value>ディレイタイム (ms)</value>
-  </data>
-  <data name="Feedback" xml:space="preserve">
-    <value>フィードバック (%)</value>
-  </data>
-  <data name="DryMix" xml:space="preserve">
-    <value>ドライミックス (%)</value>
-  </data>
-  <data name="WetMix" xml:space="preserve">
-    <value>ウェットミックス (%)</value>
-  </data>
   <data name="AVFoundationEncoder" xml:space="preserve">
     <value>AVFoundation エンコーダー</value>
   </data>
@@ -1752,12 +1734,6 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   </data>
   <data name="MatrixTransform" xml:space="preserve">
     <value>行列変形</value>
-  </data>
-  <data name="OffsetPosition" xml:space="preserve">
-    <value>オフセット位置</value>
-  </data>
-  <data name="Effect" xml:space="preserve">
-    <value>エフェクト</value>
   </data>
   <data name="RedOffset" xml:space="preserve">
     <value>赤オフセット</value>

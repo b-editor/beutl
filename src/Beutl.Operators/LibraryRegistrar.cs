@@ -64,7 +64,7 @@ public static class LibraryRegistrar
             );
 
         LibraryService.Current
-            .AddMultiple(Strings.Sound, m => m
+            .AddMultiple(AudioStrings.SourceSound, m => m
                 .BindSound<SourceSound>()
             );
 
@@ -132,7 +132,7 @@ public static class LibraryRegistrar
             );
 
         LibraryService.Current
-            .AddMultiple(Strings.SoundGroup, m => m
+            .AddMultiple(AudioStrings.SoundGroup, m => m
                 .BindSound<SoundGroup>()
             );
 
@@ -201,7 +201,7 @@ public static class LibraryRegistrar
 
         LibraryService.Current
             .RegisterGroup(Strings.AudioEffect, g => g
-                .AddAudioEffect<DelayEffect>(Strings.Delay)
+                .AddAudioEffect<DelayEffect>(AudioStrings.DelayEffect)
             );
     }
 }

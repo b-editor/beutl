@@ -623,9 +623,6 @@
   <data name="Group" xml:space="preserve">
     <value>Group</value>
   </data>
-  <data name="SoundGroup" xml:space="preserve">
-    <value>Sound Group</value>
-  </data>
   <data name="IsNotValid" xml:space="preserve">
     <value>{0} is not a valid.</value>
   </data>
@@ -646,9 +643,6 @@
   </data>
   <data name="Image" xml:space="preserve">
     <value>Image</value>
-  </data>
-  <data name="Sound" xml:space="preserve">
-    <value>Sound</value>
   </data>
   <data name="FilterEffect" xml:space="preserve">
     <value>Filter Effect</value>
@@ -1551,18 +1545,6 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="Decorator" xml:space="preserve">
     <value>Decorator</value>
   </data>
-  <data name="DelayTime" xml:space="preserve">
-    <value>Delay Time (ms)</value>
-  </data>
-  <data name="Feedback" xml:space="preserve">
-    <value>Feedback (%)</value>
-  </data>
-  <data name="DryMix" xml:space="preserve">
-    <value>Dry Mix (%)</value>
-  </data>
-  <data name="WetMix" xml:space="preserve">
-    <value>Wet Mix (%)</value>
-  </data>
   <data name="AVFoundationEncoder" xml:space="preserve">
     <value>AVFoundation Encoder</value>
   </data>
@@ -1757,12 +1739,6 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   </data>
   <data name="MatrixTransform" xml:space="preserve">
     <value>Matrix Transform</value>
-  </data>
-  <data name="OffsetPosition" xml:space="preserve">
-    <value>Offset Position</value>
-  </data>
-  <data name="Effect" xml:space="preserve">
-    <value>Effect</value>
   </data>
   <data name="RedOffset" xml:space="preserve">
     <value>Red Offset</value>

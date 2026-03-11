@@ -6,7 +6,7 @@ using Beutl.Language;
 
 namespace Beutl.Audio.Effects;
 
-[Display(Name = nameof(Strings.Delay), ResourceType = typeof(Strings))]
+[Display(Name = nameof(AudioStrings.DelayEffect), ResourceType = typeof(AudioStrings))]
 public sealed partial class DelayEffect : AudioEffect
 {
     private const float MaxDelayTime = 5000f; // 5 seconds in milliseconds
@@ -17,22 +17,22 @@ public sealed partial class DelayEffect : AudioEffect
     }
 
     [Range(0, MaxDelayTime)]
-    [Display(Name = nameof(Strings.DelayTime), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(AudioStrings.DelayEffect_DelayTime), ResourceType = typeof(AudioStrings))]
     [SuppressResourceClassGeneration]
     public IProperty<float> DelayTime { get; } = Property.CreateAnimatable(200f);
 
     [Range(0, 100)]
-    [Display(Name = nameof(Strings.Feedback), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(AudioStrings.DelayEffect_Feedback), ResourceType = typeof(AudioStrings))]
     [SuppressResourceClassGeneration]
     public IProperty<float> Feedback { get; } = Property.CreateAnimatable(50f);
 
     [Range(0, 100)]
-    [Display(Name = nameof(Strings.DryMix), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(AudioStrings.DelayEffect_DryMix), ResourceType = typeof(AudioStrings))]
     [SuppressResourceClassGeneration]
     public IProperty<float> DryMix { get; } = Property.CreateAnimatable(60f);
 
     [Range(0, 100)]
-    [Display(Name = nameof(Strings.WetMix), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(AudioStrings.DelayEffect_WetMix), ResourceType = typeof(AudioStrings))]
     [SuppressResourceClassGeneration]
     public IProperty<float> WetMix { get; } = Property.CreateAnimatable(40f);
 
