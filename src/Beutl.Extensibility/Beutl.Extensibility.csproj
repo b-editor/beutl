@@ -9,6 +9,7 @@
     <PackageReference Include="Avalonia" />
     <PackageReference Include="FluentAvaloniaUI" />
   <PackageReference Include="Microsoft.Extensions.DependencyInjection" VersionOverride="10.0.3" />
+  <PackageReference Include="Microsoft.Extensions.DependencyModel" />
   <PackageReference Include="Microsoft.Extensions.Logging" VersionOverride="10.0.3" />
     <PackageReference Include="ReactiveProperty" />
 
