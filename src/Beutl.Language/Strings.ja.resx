@@ -2329,4 +2329,22 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="SceneGraphicsReference" xml:space="preserve">
     <value>シーン参照 (動画)</value>
   </data>
+  <data name="PixelSort" xml:space="preserve">
+    <value>ピクセルソート</value>
+  </data>
+  <data name="SortDirection" xml:space="preserve">
+    <value>ソート方向</value>
+  </data>
+  <data name="SortKey" xml:space="preserve">
+    <value>ソートキー</value>
+  </data>
+  <data name="ThresholdMin" xml:space="preserve">
+    <value>閾値最小</value>
+  </data>
+  <data name="ThresholdMax" xml:space="preserve">
+    <value>閾値最大</value>
+  </data>
+  <data name="Ascending" xml:space="preserve">
+    <value>昇順</value>
+  </data>
 </root>
