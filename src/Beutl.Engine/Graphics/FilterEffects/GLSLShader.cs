@@ -98,6 +98,9 @@ public sealed class GLSLShader : IDisposable
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
+        if (_pipeline.HasMaskTexture)
+            throw new InvalidOperationException("Cannot use single-texture Apply on a dual-texture shader. Use ExecuteSingleTargetWithMask instead.");
+
         IGraphicsContext? graphicsContext = GraphicsContextFactory.SharedContext;
         if (graphicsContext == null || !graphicsContext.Supports3DRendering)
             return;
@@ -201,41 +204,72 @@ public sealed class GLSLShader : IDisposable
             using ITexture2D pongTexture = graphicsContext.CreateTexture2D(width, height, TextureFormat.BGRA8Unorm);
             using ITexture2D depthTexture = graphicsContext.CreateTexture2D(width, height, TextureFormat.Depth32Float);
 
-            // Copy source into ping buffer as the initial state
+            // Run first shader pass (pass 0) from source into ping buffer as the initial state
             sourceTexture.PrepareForSampling();
+
+            if (passCount == 1)
+            {
+                // Single pass: write directly to the new EffectTarget
+                EffectTarget newTarget = context.CreateTarget(target.Bounds);
+                RenderTarget? newRenderTarget = newTarget.RenderTarget;
+
+                if (newRenderTarget?.Texture == null)
+                {
+                    newTarget.Dispose();
+                    continue;
+                }
+
+                try
+                {
+                    _pipeline.Execute(sourceTexture, newRenderTarget.Texture, depthTexture, createPushConstants(0, target));
+
+                    target.Dispose();
+                    context.Targets[i] = newTarget;
+                }
+                catch
+                {
+                    newTarget.Dispose();
+                    throw;
+                }
+
+                continue;
+            }
+
             _pipeline.Execute(sourceTexture, pingTexture, depthTexture, createPushConstants(0, target));
 
             ITexture2D current = pingTexture;
             ITexture2D next = pongTexture;
 
-            // Run remaining passes with ping-pong
-            for (int pass = 1; pass < passCount; pass++)
+            // Run intermediate passes with ping-pong (passes 1 to passCount-2)
+            for (int pass = 1; pass < passCount - 1; pass++)
             {
                 _pipeline.Execute(current, next, depthTexture, createPushConstants(pass, target));
                 (current, next) = (next, current);
             }
 
-            // Write final result to a new EffectTarget
-            EffectTarget newTarget = context.CreateTarget(target.Bounds);
-            RenderTarget? newRenderTarget = newTarget.RenderTarget;
-
-            if (newRenderTarget?.Texture == null)
+            // Final pass: write directly to the new EffectTarget
             {
-                newTarget.Dispose();
-                continue;
-            }
+                EffectTarget newTarget = context.CreateTarget(target.Bounds);
+                RenderTarget? newRenderTarget = newTarget.RenderTarget;
 
-            try
-            {
-                _pipeline.Execute(current, newRenderTarget.Texture, depthTexture, createPushConstants(passCount, target));
+                if (newRenderTarget?.Texture == null)
+                {
+                    newTarget.Dispose();
+                    continue;
+                }
 
-                target.Dispose();
-                context.Targets[i] = newTarget;
-            }
-            catch
-            {
-                newTarget.Dispose();
-                throw;
+                try
+                {
+                    _pipeline.Execute(current, newRenderTarget.Texture, depthTexture, createPushConstants(passCount - 1, target));
+
+                    target.Dispose();
+                    context.Targets[i] = newTarget;
+                }
+                catch
+                {
+                    newTarget.Dispose();
+                    throw;
+                }
             }
         }
     }

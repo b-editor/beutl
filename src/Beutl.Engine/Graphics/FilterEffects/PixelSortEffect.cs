@@ -68,7 +68,7 @@ public sealed partial class PixelSortEffect : FilterEffect
             vec4 color = texelFetch(srcTexture, coord, 0);
             float key = computeKey(color);
             bool isAnchor = (key < pc.thresholdMin || key > pc.thresholdMax);
-            float encodedKey = isAnchor ? 0.0 : (key * 0.998 + 0.001);
+            float encodedKey = isAnchor ? 0.0 : max(1.0 / 255.0, key * 0.998 + 0.001);
             outColor = vec4(color.rgb, encodedKey);
         }
         """;
@@ -239,7 +239,6 @@ public sealed partial class PixelSortEffect : FilterEffect
     private static void EnsureShadersInitialized()
     {
         if (s_shadersInitialized) return;
-        s_shadersInitialized = true;
 
         IGraphicsContext? context = GraphicsContextFactory.SharedContext;
         if (context == null || !context.Supports3DRendering)
@@ -253,6 +252,7 @@ public sealed partial class PixelSortEffect : FilterEffect
             s_prepareShader = GLSLShader.Create(PrepareShaderSource);
             s_rankShader = GLSLShader.Create(RankShaderSource);
             s_gatherShader = GLSLShader.CreateDualTexture(GatherRestoreShaderSource);
+            s_shadersInitialized = true;
         }
         catch (Exception ex)
         {
@@ -260,6 +260,7 @@ public sealed partial class PixelSortEffect : FilterEffect
             s_prepareShader = null;
             s_rankShader = null;
             s_gatherShader = null;
+            s_shadersInitialized = true;
         }
     }
 

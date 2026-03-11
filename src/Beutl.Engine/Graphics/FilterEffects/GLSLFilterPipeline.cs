@@ -45,6 +45,8 @@ internal sealed class GLSLFilterPipeline : IDisposable
 
     private readonly bool _hasMaskTexture;
 
+    internal bool HasMaskTexture => _hasMaskTexture;
+
     private GLSLFilterPipeline(
         IGraphicsContext context,
         IRenderPass3D renderPass,
@@ -135,6 +137,9 @@ internal sealed class GLSLFilterPipeline : IDisposable
         T pushConstants) where T : unmanaged
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
+
+        if (_hasMaskTexture)
+            throw new InvalidOperationException("This pipeline requires a mask texture. Use the dual-texture Execute overload.");
 
         // Prepare textures for their respective operations
         sourceTexture.PrepareForSampling();
