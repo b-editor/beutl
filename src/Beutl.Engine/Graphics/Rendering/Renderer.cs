@@ -13,7 +13,7 @@ public class Renderer : IRenderer
     private readonly FpsText _fpsText = new();
     private readonly ConditionalWeakTable<Drawable, Entry> _nodeCache = new();
     private readonly List<Entry> _allCurrentEntries = [];
-    private readonly RenderNodeCacheContext _cacheContext;
+    private RenderCacheOptions _cacheOptions = RenderCacheOptions.CreateFromGlobalConfiguration();
 
     private class Entry(DrawableRenderNode node) : IDisposable
     {
@@ -42,7 +42,6 @@ public class Renderer : IRenderer
     public Renderer(int width, int height)
     {
         FrameSize = new PixelSize(width, height);
-        _cacheContext = new RenderNodeCacheContext(ClearAllCaches);
         (_immediateCanvas, _surface) = RenderThread.Dispatcher.Invoke(() =>
         {
             RenderTarget surface = RenderTarget.Create(width, height)
@@ -78,6 +77,17 @@ public class Renderer : IRenderer
         set => _fpsText.DrawFps = value;
     }
 
+    public RenderCacheOptions CacheOptions
+    {
+        get => _cacheOptions;
+        set
+        {
+            ArgumentNullException.ThrowIfNull(value);
+            ClearAllCaches();
+            _cacheOptions = value;
+        }
+    }
+
     public TimeSpan Time { get; internal set; }
 
     public PixelSize FrameSize { get; }
@@ -95,11 +105,6 @@ public class Renderer : IRenderer
 
             IsDisposed = true;
         }
-    }
-
-    public RenderNodeCacheContext GetCacheContext()
-    {
-        return _cacheContext;
     }
 
     protected virtual void OnDispose(bool disposing)
@@ -163,7 +168,7 @@ public class Renderer : IRenderer
         }
 
         RevalidateAll(entry.Node);
-        var processor = new RenderNodeProcessor(entry.Node, _cacheContext.CacheOptions.IsEnabled);
+        var processor = new RenderNodeProcessor(entry.Node, CacheOptions.IsEnabled);
         var ops = processor.PullToRoot();
         Rect bounds = Rect.Empty;
         foreach (var op in ops)
@@ -174,7 +179,7 @@ public class Renderer : IRenderer
         }
 
         entry.Bounds = bounds;
-        _cacheContext.MakeCache(entry.Node);
+        RenderNodeCacheHelper.MakeCache(entry.Node, CacheOptions);
         return entry;
     }
 
@@ -189,7 +194,7 @@ public class Renderer : IRenderer
             if (weakRef.TryGetTarget(out Renderer? renderer)
                 && renderer._nodeCache.TryGetValue(senderDrawable, out Entry? entry))
             {
-                RenderNodeCacheContext.ClearCache(entry.Node);
+                RenderNodeCacheHelper.ClearCache(entry.Node);
                 entry.Dispose();
                 renderer._nodeCache.Remove(senderDrawable);
             }
@@ -214,7 +219,7 @@ public class Renderer : IRenderer
 
         cache.IncrementRenderCount();
         current.HasChanges = false;
-        if (cache.IsCached && !RenderNodeCacheContext.CanCacheRecursive(current))
+        if (cache.IsCached && !RenderNodeCacheHelper.CanCacheRecursive(current))
         {
             cache.Invalidate();
         }
@@ -271,7 +276,7 @@ public class Renderer : IRenderer
         for (int i = _allCurrentEntries.Count - 1; i >= 0; i--)
         {
             Entry entry = _allCurrentEntries[i];
-            var processor = new RenderNodeProcessor(entry.Node, _cacheContext.CacheOptions.IsEnabled);
+            var processor = new RenderNodeProcessor(entry.Node, CacheOptions.IsEnabled);
             var arr = processor.PullToRoot();
             try
             {
@@ -301,7 +306,7 @@ public class Renderer : IRenderer
     {
         return [.. _allCurrentEntries.Where(e => e.Node.Drawable?.Resource.GetOriginal().ZIndex == zIndex).Select(e =>
         {
-            var processor = new RenderNodeProcessor(e.Node, _cacheContext.CacheOptions.IsEnabled);
+            var processor = new RenderNodeProcessor(e.Node, CacheOptions.IsEnabled);
             var ops = processor.PullToRoot();
             Rect bounds = Rect.Empty;
             foreach (var op in ops)
@@ -364,7 +369,7 @@ public class Renderer : IRenderer
     {
         foreach (var item in _nodeCache)
         {
-            RenderNodeCacheContext.ClearCache(item.Value.Node);
+            RenderNodeCacheHelper.ClearCache(item.Value.Node);
         }
     }
 

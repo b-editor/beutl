@@ -52,7 +52,7 @@ public sealed class RenderNodeCache(RenderNode node) : IDisposable
     {
         if (_cache.Count != 0)
         {
-            RenderNodeCacheContext._logger.LogInformation("Invalidating Cache for {Node}",
+            RenderNodeCacheHelper._logger.LogInformation("Invalidating Cache for {Node}",
                 _node.TryGetTarget(out RenderNode? node) ? node : null);
         }
 

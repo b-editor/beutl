@@ -6,23 +6,9 @@ using Microsoft.Extensions.Logging;
 
 namespace Beutl.Graphics.Rendering.Cache;
 
-// TODO: インスタンスのあるクラスである必要はないので、近々削除する
-public sealed class RenderNodeCacheContext(Action clearAllCaches)
+public static class RenderNodeCacheHelper
 {
     internal static readonly ILogger _logger = Log.CreateLogger("RenderNodeCache");
-
-    private RenderCacheOptions _cacheOptions = RenderCacheOptions.CreateFromGlobalConfiguration();
-
-    public RenderCacheOptions CacheOptions
-    {
-        get => _cacheOptions;
-        set
-        {
-            ArgumentNullException.ThrowIfNull(value);
-            clearAllCaches();
-            _cacheOptions = value;
-        }
-    }
 
     public static bool CanCacheRecursive(RenderNode node)
     {
@@ -76,9 +62,9 @@ public sealed class RenderNodeCacheContext(Action clearAllCaches)
     }
 
     // 再帰呼び出し
-    public void MakeCache(RenderNode node)
+    public static void MakeCache(RenderNode node, RenderCacheOptions cacheOptions)
     {
-        if (!_cacheOptions.IsEnabled)
+        if (!cacheOptions.IsEnabled)
             return;
 
         RenderNodeCache cache = node.Cache;
@@ -88,7 +74,7 @@ public sealed class RenderNodeCacheContext(Action clearAllCaches)
         {
             if (!cache.IsCached)
             {
-                CreateDefaultCache(node);
+                CreateDefaultCache(node, cacheOptions);
             }
         }
         else if (node is ContainerRenderNode containerNode)
@@ -96,12 +82,12 @@ public sealed class RenderNodeCacheContext(Action clearAllCaches)
             cache.Invalidate();
             foreach (RenderNode item in containerNode.Children)
             {
-                MakeCache(item);
+                MakeCache(item, cacheOptions);
             }
         }
     }
 
-    public void CreateDefaultCache(RenderNode node)
+    public static void CreateDefaultCache(RenderNode node, RenderCacheOptions cacheOptions)
     {
         var processor = new RenderNodeProcessor(node, false);
         var list = processor.RasterizeToRenderTargets();
@@ -110,7 +96,7 @@ public sealed class RenderNodeCacheContext(Action clearAllCaches)
             var pr = PixelRect.FromRect(i.Bounds);
             return pr.Width * pr.Height;
         });
-        if (!_cacheOptions.Rules.Match(pixels))
+        if (!cacheOptions.Rules.Match(pixels))
             return;
 
         // nodeの子要素のキャッシュをすべて削除
