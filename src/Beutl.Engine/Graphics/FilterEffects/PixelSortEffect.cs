@@ -10,16 +10,15 @@ using Microsoft.Extensions.Logging;
 namespace Beutl.Graphics.Effects;
 
 /// <summary>
-/// Pixel sort filter effect using GPU-accelerated odd-even transposition sort via GLSL fragment shaders.
+/// Pixel sort filter effect using rank-based gather sort via GLSL fragment shaders.
+/// Only 3 draw calls regardless of image size: Prepare → Rank → Gather+Restore.
+/// Each pixel computes its rank within its segment in O(L) where L is segment length.
 /// </summary>
 [Display(Name = nameof(Strings.PixelSort), ResourceType = typeof(Strings))]
 public sealed partial class PixelSortEffect : FilterEffect
 {
     private static readonly ILogger s_logger = Log.CreateLogger<PixelSortEffect>();
 
-    // Prepare shader: encodes sort key into alpha channel.
-    // - Anchor pixels (key outside threshold) get alpha=0.0 (sentinel)
-    // - Sortable pixels get alpha = key * 0.998 + 0.001  (range: 0.001 ~ 0.999)
     private const string PrepareShaderSource = """
         #version 450
 
@@ -32,7 +31,7 @@ public sealed partial class PixelSortEffect : FilterEffect
             float thresholdMin;
             float thresholdMax;
             int   sortKeyType;
-            int   padding;
+            int   sortDir;
             float width;
             float height;
         } pc;
@@ -61,11 +60,12 @@ public sealed partial class PixelSortEffect : FilterEffect
             else if (pc.sortKeyType == 3) return c.r;
             else if (pc.sortKeyType == 4) return c.g;
             else if (pc.sortKeyType == 5) return c.b;
-            return dot(c.rgb, vec3(0.2126, 0.7152, 0.0722)); // 0 = Luminance
+            return dot(c.rgb, vec3(0.2126, 0.7152, 0.0722));
         }
 
         void main() {
-            vec4 color = texture(srcTexture, fragCoord);
+            ivec2 coord = ivec2(fragCoord * vec2(pc.width, pc.height));
+            vec4 color = texelFetch(srcTexture, coord, 0);
             float key = computeKey(color);
             bool isAnchor = (key < pc.thresholdMin || key > pc.thresholdMax);
             float encodedKey = isAnchor ? 0.0 : (key * 0.998 + 0.001);
@@ -73,12 +73,7 @@ public sealed partial class PixelSortEffect : FilterEffect
         }
         """;
 
-    // Odd-even transposition sort shader: one compare-and-swap pass.
-    // Each pass alternates between even phase (pairs 0-1, 2-3, 4-5, ...)
-    // and odd phase (pairs 1-2, 3-4, 5-6, ...).
-    // Only adjacent pixels are compared, so anchor pixels (alpha ≈ 0) naturally
-    // act as segment boundaries - no pixel can be swapped past an anchor.
-    private const string OddEvenSortShaderSource = """
+    private const string RankShaderSource = """
         #version 450
 
         layout(location = 0) in vec2 fragCoord;
@@ -87,94 +82,136 @@ public sealed partial class PixelSortEffect : FilterEffect
         layout(set = 0, binding = 0) uniform sampler2D srcTexture;
 
         layout(push_constant) uniform PushConstants {
-            int   phase;      // 0 = even phase, 1 = odd phase
-            int   sortDir;    // 0 = horizontal, 1 = vertical
-            int   ascending;  // 1 = ascending, 0 = descending
-            int   padding;
+            int   sortDir;
             float width;
             float height;
         } pc;
 
         void main() {
-            ivec2 texSize  = ivec2(int(pc.width), int(pc.height));
-            ivec2 texCoord = ivec2(fragCoord * vec2(pc.width, pc.height));
+            ivec2 coord = ivec2(fragCoord * vec2(pc.width, pc.height));
+            int idx     = (pc.sortDir == 0) ? coord.x : coord.y;
+            int lineIdx = (pc.sortDir == 0) ? coord.y : coord.x;
+            int maxIdx  = (pc.sortDir == 0) ? int(pc.width) : int(pc.height);
 
-            int idx     = (pc.sortDir == 0) ? texCoord.x : texCoord.y;
-            int lineIdx = (pc.sortDir == 0) ? texCoord.y : texCoord.x;
-            int maxIdx  = (pc.sortDir == 0) ? texSize.x  : texSize.y;
+            float myKey = texelFetch(srcTexture, coord, 0).a;
 
-            // Determine partner based on phase
-            // Even phase: pairs (0,1), (2,3), (4,5), ...
-            // Odd phase:  pairs (1,2), (3,4), (5,6), ...
-            bool isFirstInPair = ((idx - pc.phase) >= 0) && (((idx - pc.phase) & 1) == 0);
-            int partnerIdx = isFirstInPair ? (idx + 1) : (idx - 1);
-
-            ivec2 myCoord = (pc.sortDir == 0) ? ivec2(idx, lineIdx) : ivec2(lineIdx, idx);
-            vec4 myColor = texelFetch(srcTexture, myCoord, 0);
-
-            // Out-of-bounds partner: keep current pixel
-            if (partnerIdx < 0 || partnerIdx >= maxIdx) {
-                outColor = myColor;
+            // Anchor → output zero marker
+            if (myKey < 0.0005) {
+                outColor = vec4(0.0);
                 return;
             }
 
-            ivec2 partnerCoord = (pc.sortDir == 0)
-                ? ivec2(partnerIdx, lineIdx)
-                : ivec2(lineIdx, partnerIdx);
-            vec4 partnerColor = texelFetch(srcTexture, partnerCoord, 0);
-
-            float myKey      = myColor.a;
-            float partnerKey = partnerColor.a;
-
-            // Anchors (alpha ≈ 0) block swaps - this creates natural segment boundaries
-            if (myKey < 0.0005 || partnerKey < 0.0005) {
-                outColor = myColor;
-                return;
+            // Find segment start
+            int segStart = idx;
+            for (int s = idx - 1; s >= 0; s--) {
+                ivec2 c = (pc.sortDir == 0) ? ivec2(s, lineIdx) : ivec2(lineIdx, s);
+                if (texelFetch(srcTexture, c, 0).a < 0.0005) break;
+                segStart = s;
             }
 
-            // Compare-and-swap: first element keeps min (ascending) or max (descending)
-            bool shouldSwap;
-            if (pc.ascending == 1) {
-                shouldSwap = isFirstInPair ? (myKey > partnerKey) : (myKey < partnerKey);
-            } else {
-                shouldSwap = isFirstInPair ? (myKey < partnerKey) : (myKey > partnerKey);
+            // Find segment end
+            int segEnd = idx;
+            for (int s = idx + 1; s < maxIdx; s++) {
+                ivec2 c = (pc.sortDir == 0) ? ivec2(s, lineIdx) : ivec2(lineIdx, s);
+                if (texelFetch(srcTexture, c, 0).a < 0.0005) break;
+                segEnd = s;
             }
 
-            outColor = shouldSwap ? partnerColor : myColor;
+            // Compute rank: count elements with strictly smaller key,
+            // or same key but lower index (stable sort)
+            int rank = 0;
+            for (int j = segStart; j <= segEnd; j++) {
+                if (j == idx) continue;
+                ivec2 c = (pc.sortDir == 0) ? ivec2(j, lineIdx) : ivec2(lineIdx, j);
+                float otherKey = texelFetch(srcTexture, c, 0).a;
+                if (otherKey < myKey || (otherKey == myKey && j < idx)) {
+                    rank++;
+                }
+            }
+
+            // Encode: R = rank low byte, G = rank high byte, B = 1.0 (sortable marker)
+            outColor = vec4(
+                float(rank & 255) / 255.0,
+                float((rank >> 8) & 255) / 255.0,
+                1.0,
+                0.0
+            );
         }
         """;
 
-    // Restore shader: replaces anchor positions with original pixel data.
-    // binding 0 = sortedTexture, binding 1 = originalTexture
-    private const string RestoreShaderSource = """
+    private const string GatherRestoreShaderSource = """
         #version 450
 
         layout(location = 0) in vec2 fragCoord;
         layout(location = 0) out vec4 outColor;
 
-        layout(set = 0, binding = 0) uniform sampler2D sortedTexture;
+        layout(set = 0, binding = 0) uniform sampler2D rankTexture;
         layout(set = 0, binding = 1) uniform sampler2D originalTexture;
 
         layout(push_constant) uniform PushConstants {
+            int   sortDir;
+            int   ascending;
             float width;
             float height;
         } pc;
 
         void main() {
-            ivec2 coord   = ivec2(fragCoord * vec2(pc.width, pc.height));
-            vec4 sorted   = texelFetch(sortedTexture,   coord, 0);
-            vec4 original = texelFetch(originalTexture, coord, 0);
+            ivec2 coord = ivec2(fragCoord * vec2(pc.width, pc.height));
+            int idx     = (pc.sortDir == 0) ? coord.x : coord.y;
+            int lineIdx = (pc.sortDir == 0) ? coord.y : coord.x;
+            int maxIdx  = (pc.sortDir == 0) ? int(pc.width) : int(pc.height);
 
-            // sorted.a < 0.0005 means anchor position -> restore original
-            outColor = (sorted.a < 0.0005)
-                ? original
-                : vec4(sorted.rgb, original.a);
+            vec4 rankData = texelFetch(rankTexture, coord, 0);
+
+            // Anchor → output original
+            if (rankData.b < 0.5) {
+                outColor = texelFetch(originalTexture, coord, 0);
+                return;
+            }
+
+            // Find segment boundaries using B channel
+            int segStart = idx;
+            for (int s = idx - 1; s >= 0; s--) {
+                ivec2 c = (pc.sortDir == 0) ? ivec2(s, lineIdx) : ivec2(lineIdx, s);
+                if (texelFetch(rankTexture, c, 0).b < 0.5) break;
+                segStart = s;
+            }
+
+            int segEnd = idx;
+            for (int s = idx + 1; s < maxIdx; s++) {
+                ivec2 c = (pc.sortDir == 0) ? ivec2(s, lineIdx) : ivec2(lineIdx, s);
+                if (texelFetch(rankTexture, c, 0).b < 0.5) break;
+                segEnd = s;
+            }
+
+            // Target rank for this output position
+            int targetRank = (pc.ascending == 1)
+                ? (idx - segStart)
+                : (segEnd - idx);
+
+            // Find the element whose rank == targetRank
+            vec4 originalAtIdx = texelFetch(originalTexture, coord, 0);
+
+            for (int j = segStart; j <= segEnd; j++) {
+                ivec2 cj = (pc.sortDir == 0) ? ivec2(j, lineIdx) : ivec2(lineIdx, j);
+                vec4 rd = texelFetch(rankTexture, cj, 0);
+                int rank = int(rd.r * 255.0 + 0.5) + int(rd.g * 255.0 + 0.5) * 256;
+
+                if (rank == targetRank) {
+                    vec4 srcColor = texelFetch(originalTexture, cj, 0);
+                    outColor = vec4(srcColor.rgb, originalAtIdx.a);
+                    return;
+                }
+            }
+
+            // Fallback
+            outColor = originalAtIdx;
         }
         """;
 
     private static GLSLShader? s_prepareShader;
-    private static GLSLShader? s_sortShader;
-    private static GLSLShader? s_restoreShader;
+    private static GLSLShader? s_rankShader;
+    private static GLSLShader? s_gatherShader;
     private static bool s_shadersInitialized;
 
     public PixelSortEffect()
@@ -214,15 +251,15 @@ public sealed partial class PixelSortEffect : FilterEffect
         try
         {
             s_prepareShader = GLSLShader.Create(PrepareShaderSource);
-            s_sortShader    = GLSLShader.Create(OddEvenSortShaderSource);
-            s_restoreShader = GLSLShader.CreateDualTexture(RestoreShaderSource);
+            s_rankShader    = GLSLShader.Create(RankShaderSource);
+            s_gatherShader  = GLSLShader.CreateDualTexture(GatherRestoreShaderSource);
         }
         catch (Exception ex)
         {
             s_logger.LogError(ex, "Failed to initialize PixelSort GLSL shaders.");
             s_prepareShader = null;
-            s_sortShader    = null;
-            s_restoreShader = null;
+            s_rankShader    = null;
+            s_gatherShader  = null;
         }
     }
 
@@ -244,7 +281,7 @@ public sealed partial class PixelSortEffect : FilterEffect
     {
         EnsureShadersInitialized();
 
-        if (s_prepareShader == null || s_sortShader == null || s_restoreShader == null)
+        if (s_prepareShader == null || s_rankShader == null || s_gatherShader == null)
             return;
 
         IGraphicsContext? gfx = GraphicsContextFactory.SharedContext;
@@ -261,70 +298,37 @@ public sealed partial class PixelSortEffect : FilterEffect
             int width  = originalTexture.Width;
             int height = originalTexture.Height;
 
-            // Odd-even transposition sort needs N iterations for N elements (worst case).
-            // For pixel sorting, the effective iteration count is bounded by the
-            // longest segment between anchors, which is typically much smaller than N.
-            int sortLen = r.Direction == PixelSortDirection.Horizontal ? width : height;
-
-            ITexture2D pingTexture = gfx.CreateTexture2D(width, height, TextureFormat.BGRA8Unorm);
-            ITexture2D pongTexture = gfx.CreateTexture2D(width, height, TextureFormat.BGRA8Unorm);
+            ITexture2D prepTexture = gfx.CreateTexture2D(width, height, TextureFormat.BGRA8Unorm);
+            ITexture2D rankTexture = gfx.CreateTexture2D(width, height, TextureFormat.BGRA8Unorm);
 
             try
             {
-                using ITexture2D depthTexture = gfx.CreateTexture2D(width, height, TextureFormat.Depth32Float);
+                using ITexture2D depth = gfx.CreateTexture2D(width, height, TextureFormat.Depth32Float);
 
                 // Pass 1: Prepare - encode sort key into alpha
                 s_prepareShader.ExecuteSingleTarget(
-                    originalTexture, pingTexture, depthTexture,
+                    originalTexture, prepTexture, depth,
                     new PreparePushConstants
                     {
                         ThresholdMin = r.ThresholdMin,
                         ThresholdMax = r.ThresholdMax,
                         SortKeyType  = (int)r.SortKey,
-                        Padding      = 0,
+                        SortDir      = (int)r.Direction,
                         Width        = width,
                         Height       = height,
                     });
 
-                // Passes 2..N: Odd-even transposition sort with ping-pong
-                // Each iteration runs one even phase + one odd phase = 2 draw calls.
-                // sortLen/2 iterations is sufficient for a full sort.
-                ITexture2D current = pingTexture;
-                ITexture2D next    = pongTexture;
-                int iterations = (sortLen + 1) / 2;
+                // Pass 2: Rank - compute each pixel's rank within its segment
+                s_rankShader.ExecuteSingleTarget(
+                    prepTexture, rankTexture, depth,
+                    new RankPushConstants
+                    {
+                        SortDir = (int)r.Direction,
+                        Width   = width,
+                        Height  = height,
+                    });
 
-                for (int iter = 0; iter < iterations; iter++)
-                {
-                    // Even phase (phase = 0)
-                    s_sortShader.ExecuteSingleTarget(
-                        current, next, depthTexture,
-                        new SortPushConstants
-                        {
-                            Phase     = 0,
-                            SortDir   = (int)r.Direction,
-                            Ascending = r.Ascending ? 1 : 0,
-                            Padding   = 0,
-                            Width     = width,
-                            Height    = height,
-                        });
-                    (current, next) = (next, current);
-
-                    // Odd phase (phase = 1)
-                    s_sortShader.ExecuteSingleTarget(
-                        current, next, depthTexture,
-                        new SortPushConstants
-                        {
-                            Phase     = 1,
-                            SortDir   = (int)r.Direction,
-                            Ascending = r.Ascending ? 1 : 0,
-                            Padding   = 0,
-                            Width     = width,
-                            Height    = height,
-                        });
-                    (current, next) = (next, current);
-                }
-
-                // Final pass: Restore anchor pixels from original image
+                // Pass 3: Gather + Restore - place pixels by rank, restore anchors
                 EffectTarget newTarget = ctx.CreateTarget(target.Bounds);
                 RenderTarget? newRenderTarget = newTarget.RenderTarget;
 
@@ -334,12 +338,16 @@ public sealed partial class PixelSortEffect : FilterEffect
                     continue;
                 }
 
-                s_restoreShader.ExecuteSingleTargetWithMask(
-                    current, originalTexture, newRenderTarget.Texture, depthTexture,
-                    new RestorePushConstants
+                using ITexture2D gatherDepth = gfx.CreateTexture2D(width, height, TextureFormat.Depth32Float);
+
+                s_gatherShader.ExecuteSingleTargetWithMask(
+                    rankTexture, originalTexture, newRenderTarget.Texture, gatherDepth,
+                    new GatherPushConstants
                     {
-                        Width  = width,
-                        Height = height,
+                        SortDir   = (int)r.Direction,
+                        Ascending = r.Ascending ? 1 : 0,
+                        Width     = width,
+                        Height    = height,
                     });
 
                 target.Dispose();
@@ -347,8 +355,8 @@ public sealed partial class PixelSortEffect : FilterEffect
             }
             finally
             {
-                pingTexture.Dispose();
-                pongTexture.Dispose();
+                prepTexture.Dispose();
+                rankTexture.Dispose();
             }
         }
     }
@@ -359,25 +367,24 @@ public sealed partial class PixelSortEffect : FilterEffect
         public float ThresholdMin;
         public float ThresholdMax;
         public int   SortKeyType;
-        public int   Padding;
+        public int   SortDir;
         public float Width;
         public float Height;
     }
 
     [StructLayout(LayoutKind.Sequential)]
-    private struct SortPushConstants
+    private struct RankPushConstants
     {
-        public int   Phase;
+        public int   SortDir;
+        public float Width;
+        public float Height;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct GatherPushConstants
+    {
         public int   SortDir;
         public int   Ascending;
-        public int   Padding;
-        public float Width;
-        public float Height;
-    }
-
-    [StructLayout(LayoutKind.Sequential)]
-    private struct RestorePushConstants
-    {
         public float Width;
         public float Height;
     }
