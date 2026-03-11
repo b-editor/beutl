@@ -129,7 +129,7 @@
                         <ui:MenuFlyoutItem Command="{Binding SetEndTimeToPointerPosition}"
                                            InputGesture="{h:GetCommandGesture SetEndTime}"
                                            Text="{x:Static lang:Strings.SetEndTime}" />
-                        <ui:ToggleMenuFlyoutItem IsChecked="{Binding AutoAdjustSceneDuration.Value, Mode=TwoWay}" Text="{x:Static lang:SettingsPage.AutoAdjustSceneDuration}" />
+                        <ui:ToggleMenuFlyoutItem IsChecked="{Binding AutoAdjustSceneDuration.Value, Mode=TwoWay}" Text="{x:Static lang:SettingsStrings.AutoAdjustSceneDuration}" />
                         <ui:MenuFlyoutSeparator />
                         <ui:MenuFlyoutSubItem x:Name="AddElementSubMenu" Text="{x:Static lang:Strings.AddElement}" />
                         <ui:MenuFlyoutItem Command="{CompiledBinding Paste}"

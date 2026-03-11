@@ -24,10 +24,10 @@
                         VerticalAlignment="Stretch"
                         Orientation="Vertical"
                         Spacing="4">
-                <TextBlock Text="{x:Static lang:SettingsPage.Graphics}"
+                <TextBlock Text="{x:Static lang:SettingsStrings.Graphics}"
                            Theme="{StaticResource BodyStrongTextBlockStyle}" />
 
-                <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsPage.SelectedGpu_Description}" Header="{x:Static lang:SettingsPage.SelectedGpu}">
+                <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsStrings.SelectedGpu_Description}" Header="{x:Static lang:SettingsStrings.SelectedGpu}">
                     <ctrls:OptionsDisplayItem.ActionButton>
                         <ComboBox MinWidth="250"
                                   ItemsSource="{CompiledBinding AvailableGpus}"
@@ -45,7 +45,7 @@
                            Text="{x:Static lang:Strings.Editor}"
                            Theme="{StaticResource BodyStrongTextBlockStyle}" />
 
-                <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsPage.AutoAdjustSceneDuration_Description}" Header="{x:Static lang:SettingsPage.AutoAdjustSceneDuration}">
+                <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsStrings.AutoAdjustSceneDuration_Description}" Header="{x:Static lang:SettingsStrings.AutoAdjustSceneDuration}">
                     <ctrls:OptionsDisplayItem.ActionButton>
                         <ToggleSwitch Classes="left"
                                       IsChecked="{CompiledBinding AutoAdjustSceneDuration.Value}"
@@ -53,7 +53,7 @@
                     </ctrls:OptionsDisplayItem.ActionButton>
                 </ctrls:OptionsDisplayItem>
 
-                <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsPage.EnableAutoSave_Description}" Header="{x:Static lang:SettingsPage.EnableAutoSave}">
+                <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsStrings.EnableAutoSave_Description}" Header="{x:Static lang:SettingsStrings.EnableAutoSave}">
                     <ctrls:OptionsDisplayItem.ActionButton>
                         <ToggleSwitch Classes="left"
                                       IsChecked="{CompiledBinding EnableAutoSave.Value}"
@@ -61,7 +61,7 @@
                     </ctrls:OptionsDisplayItem.ActionButton>
                 </ctrls:OptionsDisplayItem>
 
-                <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsPage.ShowExactBoundaries_Description}" Header="{x:Static lang:SettingsPage.ShowExactBoundaries}">
+                <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsStrings.ShowExactBoundaries_Description}" Header="{x:Static lang:SettingsStrings.ShowExactBoundaries}">
                     <ctrls:OptionsDisplayItem.ActionButton>
                         <ToggleSwitch Classes="left"
                                       IsChecked="{CompiledBinding ShowExactBoundaries.Value}"
@@ -69,7 +69,7 @@
                     </ctrls:OptionsDisplayItem.ActionButton>
                 </ctrls:OptionsDisplayItem>
 
-                <ctrls:OptionsDisplayItem Header="{x:Static lang:SettingsPage.SwapTimelineScrollDirection}">
+                <ctrls:OptionsDisplayItem Header="{x:Static lang:SettingsStrings.SwapTimelineScrollDirection}">
                     <ctrls:OptionsDisplayItem.ActionButton>
                         <ToggleSwitch Classes="left"
                                       IsChecked="{CompiledBinding SwapTimelineScrollDirection.Value}"
@@ -77,18 +77,18 @@
                     </ctrls:OptionsDisplayItem.ActionButton>
                 </ctrls:OptionsDisplayItem>
 
-                <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsPage.TimelineAutoScrollMode_Description}"
-                                          Header="{x:Static lang:SettingsPage.TimelineAutoScrollMode}">
+                <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsStrings.TimelineAutoScrollMode_Description}"
+                                          Header="{x:Static lang:SettingsStrings.TimelineAutoScrollMode}">
                     <ctrls:OptionsDisplayItem.ActionButton>
                         <ComboBox MinWidth="250" SelectedIndex="{CompiledBinding TimelineAutoScrollMode.Value}">
-                            <ComboBoxItem Content="{x:Static lang:SettingsPage.TimelineAutoScrollMode_None}" />
-                            <ComboBoxItem Content="{x:Static lang:SettingsPage.TimelineAutoScrollMode_AlwaysFollow}" />
-                            <ComboBoxItem Content="{x:Static lang:SettingsPage.TimelineAutoScrollMode_PageScroll}" />
+                            <ComboBoxItem Content="{x:Static lang:SettingsStrings.TimelineAutoScrollMode_None}" />
+                            <ComboBoxItem Content="{x:Static lang:SettingsStrings.TimelineAutoScrollMode_AlwaysFollow}" />
+                            <ComboBoxItem Content="{x:Static lang:SettingsStrings.TimelineAutoScrollMode_PageScroll}" />
                         </ComboBox>
                     </ctrls:OptionsDisplayItem.ActionButton>
                 </ctrls:OptionsDisplayItem>
 
-                <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsPage.ClampResizeToOriginalLength_Description}" Header="{x:Static lang:SettingsPage.ClampResizeToOriginalLength}">
+                <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsStrings.ClampResizeToOriginalLength_Description}" Header="{x:Static lang:SettingsStrings.ClampResizeToOriginalLength}">
                     <ctrls:OptionsDisplayItem.ActionButton>
                         <ToggleSwitch Classes="left"
                                       IsChecked="{CompiledBinding ClampResizeToOriginalLength.Value}"
@@ -100,7 +100,7 @@
                            Text="{x:Static lang:Strings.FrameCache}"
                            Theme="{StaticResource BodyStrongTextBlockStyle}" />
 
-                <ctrls:OptionsDisplayItem Header="{x:Static lang:SettingsPage.EnableFrameCache}">
+                <ctrls:OptionsDisplayItem Header="{x:Static lang:SettingsStrings.EnableFrameCache}">
                     <ctrls:OptionsDisplayItem.ActionButton>
                         <ToggleSwitch Classes="left"
                                       IsChecked="{CompiledBinding IsFrameCacheEnabled.Value}"
@@ -108,8 +108,8 @@
                     </ctrls:OptionsDisplayItem.ActionButton>
                 </ctrls:OptionsDisplayItem>
 
-                <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsPage.FrameCacheMaxSize_Description}"
-                                          Header="{x:Static lang:SettingsPage.FrameCacheMaxSize}"
+                <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsStrings.FrameCacheMaxSize_Description}"
+                                          Header="{x:Static lang:SettingsStrings.FrameCacheMaxSize}"
                                           IsEnabled="{CompiledBinding IsFrameCacheEnabled.Value}">
                     <ctrls:OptionsDisplayItem.ActionButton>
                         <TextBox MinWidth="250" Text="{Binding FrameCacheMaxSize.Value}">
@@ -122,18 +122,18 @@
                     </ctrls:OptionsDisplayItem.ActionButton>
                 </ctrls:OptionsDisplayItem>
 
-                <ctrls:OptionsDisplayItem Header="{x:Static lang:SettingsPage.FrameCacheScale}" IsEnabled="{CompiledBinding IsFrameCacheEnabled.Value}">
+                <ctrls:OptionsDisplayItem Header="{x:Static lang:SettingsStrings.FrameCacheScale}" IsEnabled="{CompiledBinding IsFrameCacheEnabled.Value}">
                     <ctrls:OptionsDisplayItem.ActionButton>
                         <ComboBox MinWidth="250" SelectedIndex="{CompiledBinding FrameCacheScale.Value}">
-                            <ComboBoxItem Content="{x:Static lang:SettingsPage.FrameCacheScale_Original}" />
-                            <ComboBoxItem Content="{x:Static lang:SettingsPage.FrameCacheScale_FitToPreviewer}" />
-                            <ComboBoxItem Content="{x:Static lang:SettingsPage.FrameCacheScale_Half}" />
-                            <ComboBoxItem Content="{x:Static lang:SettingsPage.FrameCacheScale_Quarter}" />
+                            <ComboBoxItem Content="{x:Static lang:SettingsStrings.FrameCacheScale_Original}" />
+                            <ComboBoxItem Content="{x:Static lang:SettingsStrings.FrameCacheScale_FitToPreviewer}" />
+                            <ComboBoxItem Content="{x:Static lang:SettingsStrings.FrameCacheScale_Half}" />
+                            <ComboBoxItem Content="{x:Static lang:SettingsStrings.FrameCacheScale_Quarter}" />
                         </ComboBox>
                     </ctrls:OptionsDisplayItem.ActionButton>
                 </ctrls:OptionsDisplayItem>
 
-                <ctrls:OptionsDisplayItem Header="{x:Static lang:SettingsPage.FrameCacheColorType}" IsEnabled="{CompiledBinding IsFrameCacheEnabled.Value}">
+                <ctrls:OptionsDisplayItem Header="{x:Static lang:SettingsStrings.FrameCacheColorType}" IsEnabled="{CompiledBinding IsFrameCacheEnabled.Value}">
                     <ctrls:OptionsDisplayItem.ActionButton>
                         <ComboBox MinWidth="250" SelectedIndex="{CompiledBinding FrameCacheColorType.Value}">
                             <ComboBoxItem Content="RGBA" />
@@ -143,10 +143,10 @@
                 </ctrls:OptionsDisplayItem>
 
                 <TextBlock Margin="0,16,0,0"
-                           Text="{x:Static lang:SettingsPage.NodeCache}"
+                           Text="{x:Static lang:SettingsStrings.NodeCache}"
                            Theme="{StaticResource BodyStrongTextBlockStyle}" />
 
-                <ctrls:OptionsDisplayItem Header="{x:Static lang:SettingsPage.EnableNodeCache}">
+                <ctrls:OptionsDisplayItem Header="{x:Static lang:SettingsStrings.EnableNodeCache}">
                     <ctrls:OptionsDisplayItem.ActionButton>
                         <ToggleSwitch Classes="left"
                                       IsChecked="{CompiledBinding IsNodeCacheEnabled.Value}"
@@ -154,7 +154,7 @@
                     </ctrls:OptionsDisplayItem.ActionButton>
                 </ctrls:OptionsDisplayItem>
 
-                <ctrls:OptionsDisplayItem Header="{x:Static lang:SettingsPage.NodeCacheMaxPixels}" IsEnabled="{CompiledBinding IsNodeCacheEnabled.Value}">
+                <ctrls:OptionsDisplayItem Header="{x:Static lang:SettingsStrings.NodeCacheMaxPixels}" IsEnabled="{CompiledBinding IsNodeCacheEnabled.Value}">
                     <ctrls:OptionsDisplayItem.ActionButton>
                         <NumericUpDown MinWidth="250"
                                        FormatString="F0"
@@ -163,7 +163,7 @@
                     </ctrls:OptionsDisplayItem.ActionButton>
                 </ctrls:OptionsDisplayItem>
 
-                <ctrls:OptionsDisplayItem Header="{x:Static lang:SettingsPage.NodeCacheMinPixels}" IsEnabled="{CompiledBinding IsNodeCacheEnabled.Value}">
+                <ctrls:OptionsDisplayItem Header="{x:Static lang:SettingsStrings.NodeCacheMinPixels}" IsEnabled="{CompiledBinding IsNodeCacheEnabled.Value}">
                     <ctrls:OptionsDisplayItem.ActionButton>
                         <NumericUpDown MinWidth="250"
                                        FormatString="F0"
@@ -174,10 +174,10 @@
                 </ctrls:OptionsDisplayItem>
 
                 <TextBlock Margin="0,16,0,0"
-                           Text="{x:Static lang:SettingsPage.PropertyEditor}"
+                           Text="{x:Static lang:SettingsStrings.PropertyEditor}"
                            Theme="{StaticResource BodyStrongTextBlockStyle}" />
 
-                <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsPage.EnablePointerLockInProperty_Description}" Header="{x:Static lang:SettingsPage.EnablePointerLockInProperty}">
+                <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsStrings.EnablePointerLockInProperty_Description}" Header="{x:Static lang:SettingsStrings.EnablePointerLockInProperty}">
                     <ctrls:OptionsDisplayItem.ActionButton>
                         <ToggleSwitch Classes="left"
                                       IsChecked="{CompiledBinding EnablePointerLockInProperty.Value}"

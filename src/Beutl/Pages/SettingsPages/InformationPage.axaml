@@ -38,7 +38,7 @@
                         Theme="{StaticResource TransparentButton}">
                     <StackPanel Orientation="Horizontal" Spacing="4">
                         <ui:SymbolIcon Symbol="Copy" />
-                        <TextBlock Text="{x:Static lang:SettingsPage.CopyVersionInfo}" Theme="{StaticResource CaptionTextBlockStyle}" />
+                        <TextBlock Text="{x:Static lang:SettingsStrings.CopyVersionInfo}" Theme="{StaticResource CaptionTextBlockStyle}" />
                     </StackPanel>
                 </Button>
 
@@ -55,8 +55,8 @@
                 </StackPanel>
             </DockPanel>
 
-            <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsPage.Telemetry_ShortDescription}"
-                                      Header="{x:Static lang:SettingsPage.Telemetry}"
+            <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsStrings.Telemetry_ShortDescription}"
+                                      Header="{x:Static lang:SettingsStrings.Telemetry}"
                                       Navigates="True"
                                       NavigationCommand="{Binding NavigateToTelemetry}">
                 <ctrls:OptionsDisplayItem.Icon>
@@ -82,7 +82,7 @@
                 </ctrls:OptionsDisplayItem.Content>
             </ctrls:OptionsDisplayItem>
             <ctrls:OptionsDisplayItem Expands="True"
-                                      Header="{x:Static lang:SettingsPage.DeviceInformation}"
+                                      Header="{x:Static lang:SettingsStrings.DeviceInformation}"
                                       IsExpanded="True">
                 <ctrls:OptionsDisplayItem.Icon>
                     <icons:SymbolIcon Symbol="Desktop" />

@@ -38,7 +38,7 @@ public sealed class AuthenticationTask : StartupTask
                                     Strings.Account,
                                     Message.Signin_has_become_invalid,
                                     onActionButtonClick: () => _ = _beutlApiApplication.SignInAsync(default),
-                                    actionButtonText: SettingsPage.SignIn);
+                                    actionButtonText: SettingsStrings.SignIn);
                             }
                         }
                         catch (Exception ex)

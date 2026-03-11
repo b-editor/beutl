@@ -20,7 +20,7 @@
 
             <Separator />
 
-            <TextBlock Text="{x:Static lang:SettingsPage.DecoderPriority}" />
+            <TextBlock Text="{x:Static lang:SettingsStrings.DecoderPriority}" />
         </StackPanel>
 
         <ScrollViewer Grid.Row="1">
@@ -28,7 +28,7 @@
                         VerticalAlignment="Stretch"
                         Orientation="Vertical"
                         Spacing="16">
-                <TextBlock Margin="0,16,0,0" Text="{x:Static lang:SettingsPage.DecoderPriority_Description}" />
+                <TextBlock Margin="0,16,0,0" Text="{x:Static lang:SettingsStrings.DecoderPriority_Description}" />
 
                 <ListBox x:Name="listBox" ItemsSource="{Binding Items}">
                     <ListBox.ItemTemplate>

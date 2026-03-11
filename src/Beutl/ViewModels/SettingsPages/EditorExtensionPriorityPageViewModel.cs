@@ -120,7 +120,7 @@ public sealed class EditorExtensionPriorityPageViewModel : BasePageViewModel
         {
             if (string.IsNullOrWhiteSpace(str))
             {
-                return SettingsPage.Please_enter_a_file_extension;
+                return SettingsStrings.Please_enter_a_file_extension;
             }
             else if (str.Contains('"')
                      || str.Contains('>')
@@ -132,14 +132,14 @@ public sealed class EditorExtensionPriorityPageViewModel : BasePageViewModel
                      || str.Contains('\\')
                      || str.Contains('/'))
             {
-                return SettingsPage.The_following_characters_are_not_allowed;
+                return SettingsStrings.The_following_characters_are_not_allowed;
             }
             else
             {
                 string str1 = str.StartsWith('.') ? str : $".{str}";
                 if (_extensionConfig.EditorExtensions.ContainsKey(str1))
                 {
-                    return SettingsPage.This_file_extension_already_exists;
+                    return SettingsStrings.This_file_extension_already_exists;
                 }
             }
 

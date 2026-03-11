@@ -22,7 +22,7 @@ public sealed partial class EditorExtensionPriorityPage : UserControl
             var dialog = new ContentDialog
             {
                 DataContext = viewModel,
-                Title = Language.SettingsPage.Add_file_extension,
+                Title = SettingsStrings.Add_file_extension,
                 PrimaryButtonText = Strings.Add,
                 [!ContentDialog.IsPrimaryButtonEnabledProperty] = new Binding("CanAddFileExtension.Value"),
                 PrimaryButtonCommand = viewModel.AddFileExtension,

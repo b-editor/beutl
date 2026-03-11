@@ -24,7 +24,7 @@
                         VerticalAlignment="Stretch"
                         Orientation="Vertical"
                         Spacing="4">
-                <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsPage.Theme_Tip}"
+                <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsStrings.Theme_Tip}"
                                           Header="{x:Static lang:Strings.Theme}"
                                           Icon="DarkTheme">
 
@@ -56,14 +56,14 @@
                     </ctrls:OptionsDisplayItem.ActionButton>
                 </ctrls:OptionsDisplayItem>
 
-                <ctrls:OptionsDisplayItem Expands="True" Header="{x:Static lang:SettingsPage.AccentColor}">
+                <ctrls:OptionsDisplayItem Expands="True" Header="{x:Static lang:SettingsStrings.AccentColor}">
                     <ctrls:OptionsDisplayItem.Icon>
                         <icons:SymbolIcon Symbol="Color" />
                     </ctrls:OptionsDisplayItem.Icon>
                     <ctrls:OptionsDisplayItem.Content>
                         <StackPanel Margin="40,0">
                             <CheckBox Margin="4,8"
-                                      Content="{x:Static lang:SettingsPage.UseCustomAccentColor}"
+                                      Content="{x:Static lang:SettingsStrings.UseCustomAccentColor}"
                                       IsChecked="{Binding UseCustomAccent.Value}" />
 
                             <TextBlock Margin="4,16,0,4"
@@ -143,7 +143,7 @@
                                        LastChildFill="False">
                                 <TextBlock VerticalAlignment="Center"
                                            DockPanel.Dock="Left"
-                                           Text="{x:Static lang:SettingsPage.CustomColor}" />
+                                           Text="{x:Static lang:SettingsStrings.CustomColor}" />
 
                                 <ui:ColorPickerButton DockPanel.Dock="Right"
                                                       IsCompact="True"
@@ -160,11 +160,11 @@
                 </ctrls:OptionsDisplayItem>
 
                 <TextBlock Margin="0,16,0,0"
-                           Text="{x:Static lang:SettingsPage.EditorSettings}"
+                           Text="{x:Static lang:SettingsStrings.EditorSettings}"
                            Theme="{StaticResource BodyStrongTextBlockStyle}" />
 
-                <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsPage.SomeSettingsHaveBeenMoved}"
-                                          Header="{x:Static lang:SettingsPage.EditorSettings}"
+                <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsStrings.SomeSettingsHaveBeenMoved}"
+                                          Header="{x:Static lang:SettingsStrings.EditorSettings}"
                                           Navigates="True"
                                           NavigationCommand="{Binding NavigateToEditorSettings}" />
             </StackPanel>
