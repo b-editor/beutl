@@ -65,7 +65,7 @@ public sealed class CheckForUpdatesTask : StartupTask
                                 viewModel.Start();
                             },
                             // TODO: Stringsに移動
-                            actionButtonText: ExtensionsPage.Install);
+                            actionButtonText: ExtensionsStrings.Install);
                     }
                     else if (v3.MustLatest)
                     {

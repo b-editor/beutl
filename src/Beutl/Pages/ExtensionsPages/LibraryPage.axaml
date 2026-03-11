@@ -85,7 +85,7 @@
                                         Classes.shimmer="{Binding IsBusy.Value}"
                                         Click="ActionButton_Click"
                                         Command="{Binding Install}"
-                                        Content="{Binding StatusText.Value, TargetNullValue={x:Static lang:ExtensionsPage.Install}}" />
+                                        Content="{Binding StatusText.Value, TargetNullValue={x:Static lang:ExtensionsStrings.Install}}" />
 
                                 <Button Grid.Column="4"
                                         Padding="40,5,40,6"
@@ -94,7 +94,7 @@
                                         Classes.shimmer="{Binding IsBusy.Value}"
                                         Click="ActionButton_Click"
                                         Command="{Binding Uninstall}"
-                                        Content="{Binding StatusText.Value, TargetNullValue={x:Static lang:ExtensionsPage.Uninstall}}" />
+                                        Content="{Binding StatusText.Value, TargetNullValue={x:Static lang:ExtensionsStrings.Uninstall}}" />
 
                                 <Button Grid.Column="4"
                                         Padding="40,5,40,6"
@@ -103,7 +103,7 @@
                                         Classes.shimmer="{Binding IsBusy.Value}"
                                         Click="ActionButton_Click"
                                         Command="{Binding Update}"
-                                        Content="{Binding StatusText.Value, TargetNullValue={x:Static lang:ExtensionsPage.Update}}" />
+                                        Content="{Binding StatusText.Value, TargetNullValue={x:Static lang:ExtensionsStrings.Update}}" />
 
                                 <Button Grid.Column="4"
                                         Padding="40,5,40,6"
@@ -119,16 +119,16 @@
                                     <Button.ContextMenu>
                                         <ContextMenu>
                                             <MenuItem Command="{Binding Install}"
-                                                      Header="{x:Static lang:ExtensionsPage.Install}"
+                                                      Header="{x:Static lang:ExtensionsStrings.Install}"
                                                       IsEnabled="{Binding IsInstallButtonVisible.Value}" />
                                             <MenuItem Command="{Binding Uninstall}"
-                                                      Header="{x:Static lang:ExtensionsPage.Uninstall}"
+                                                      Header="{x:Static lang:ExtensionsStrings.Uninstall}"
                                                       IsEnabled="{Binding IsUninstallButtonVisible.Value}" />
                                             <MenuItem Command="{Binding Update}"
-                                                      Header="{x:Static lang:ExtensionsPage.Update}"
+                                                      Header="{x:Static lang:ExtensionsStrings.Update}"
                                                       IsEnabled="{Binding IsUpdateButtonVisible.Value}" />
                                             <MenuItem Command="{ReflectionBinding RemoveFromLibrary}"
-                                                      Header="{x:Static lang:ExtensionsPage.RemoveFromLibrary}"
+                                                      Header="{x:Static lang:ExtensionsStrings.RemoveFromLibrary}"
                                                       IsVisible="{Binding IsRemote}" />
                                         </ContextMenu>
                                     </Button.ContextMenu>
@@ -188,7 +188,7 @@
             <Button HorizontalAlignment="Right"
                     Classes="accent"
                     Command="{Binding CheckUpdate}"
-                    Content="{x:Static lang:ExtensionsPage.CheckUpdate}" />
+                    Content="{x:Static lang:ExtensionsStrings.CheckUpdate}" />
 
             <TabControl Grid.Row="1" Padding="0">
                 <TabControl.Styles>
@@ -197,7 +197,7 @@
                         <Setter Property="FontSize" Value="16" />
                     </Style>
                 </TabControl.Styles>
-                <TabItem Header="{x:Static lang:ExtensionsPage.Search_Packages}">
+                <TabItem Header="{x:Static lang:ExtensionsStrings.Search_Packages}">
                     <ItemsRepeater Margin="0,16,0,0"
                                    ItemTemplate="{StaticResource UserPackageItemTemplate}"
                                    ItemsSource="{Binding Packages}">
@@ -206,7 +206,7 @@
                         </ItemsRepeater.Layout>
                     </ItemsRepeater>
                 </TabItem>
-                <TabItem Header="{x:Static lang:ExtensionsPage.LocalPackages}">
+                <TabItem Header="{x:Static lang:ExtensionsStrings.LocalPackages}">
                     <ItemsRepeater Margin="0,16,0,0"
                                    ItemTemplate="{StaticResource UserPackageItemTemplate}"
                                    ItemsSource="{Binding LocalPackages}">

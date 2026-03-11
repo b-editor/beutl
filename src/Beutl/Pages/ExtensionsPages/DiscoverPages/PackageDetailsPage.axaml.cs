@@ -58,10 +58,10 @@ public partial class PackageDetailsPage : UserControl
         {
             var dialog = new ContentDialog()
             {
-                Title = Language.ExtensionsPage.OpenUrl_Title,
+                Title = ExtensionsStrings.OpenUrl_Title,
                 Content = new SelectableTextBlock()
                 {
-                    Text = string.Format(Language.ExtensionsPage.OpenUrl_Content, url)
+                    Text = string.Format(ExtensionsStrings.OpenUrl_Content, url)
                 },
                 PrimaryButtonText = Strings.Open,
                 CloseButtonText = Strings.Cancel

@@ -15,7 +15,7 @@
 
   <ItemGroup>
     <EmbeddedResource Update="CommandNames.resx" />
-    <EmbeddedResource Update="ExtensionsPage.resx" />
+    <EmbeddedResource Update="ExtensionsStrings.resx" />
     <EmbeddedResource Update="Message.resx" />
     <EmbeddedResource Update="SettingsPage.resx" />
     <EmbeddedResource Update="Strings.resx" />

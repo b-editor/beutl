@@ -64,8 +64,8 @@ public sealed partial class LibraryPage : UserControl
         {
             var dialog = new ContentDialog
             {
-                Title = Language.ExtensionsPage.LocalPackage,
-                Content = $"{string.Format(Language.ExtensionsPage.Could_not_find_a_package_from_remote, localPackage.Name)}\n" +
+                Title = ExtensionsStrings.LocalPackage,
+                Content = $"{string.Format(ExtensionsStrings.Could_not_find_a_package_from_remote, localPackage.Name)}\n" +
                 $"Name: {localPackage.Name}\n" +
                 $"DisplayName: {localPackage.DisplayName}\n" +
                 $"Publisher: {localPackage.Publisher}\n" +

@@ -154,10 +154,10 @@ internal class PackageOperationHandler
 
         var dialog = new ContentDialog
         {
-            Title = ExtensionsPage.PackageInstaller,
-            Content = ExtensionsPage.PackageInstaller_CloseProjectConfirmation,
+            Title = ExtensionsStrings.PackageInstaller,
+            Content = ExtensionsStrings.PackageInstaller_CloseProjectConfirmation,
             PrimaryButtonText = Strings.OK,
-            SecondaryButtonText = ExtensionsPage.PackageInstaller_SaveAndClose,
+            SecondaryButtonText = ExtensionsStrings.PackageInstaller_SaveAndClose,
             CloseButtonText = Strings.Cancel,
             DefaultButton = ContentDialogButton.Secondary
         };

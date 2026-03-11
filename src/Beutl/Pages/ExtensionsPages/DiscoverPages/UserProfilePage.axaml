@@ -78,7 +78,7 @@
         </ScrollViewer>
         <ScrollViewer Grid.Column="1" Margin="16,16,10,0">
             <Grid RowDefinitions="Auto,*">
-                <TextBlock Text="{x:Static lang:ExtensionsPage.Profile_PublishedPackages}" Theme="{StaticResource SubtitleTextBlockStyle}" />
+                <TextBlock Text="{x:Static lang:ExtensionsStrings.Profile_PublishedPackages}" Theme="{StaticResource SubtitleTextBlockStyle}" />
 
                 <ItemsRepeater Grid.Row="1"
                                Margin="0,16,0,0"
