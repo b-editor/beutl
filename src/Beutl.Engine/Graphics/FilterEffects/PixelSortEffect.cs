@@ -251,15 +251,15 @@ public sealed partial class PixelSortEffect : FilterEffect
         try
         {
             s_prepareShader = GLSLShader.Create(PrepareShaderSource);
-            s_rankShader    = GLSLShader.Create(RankShaderSource);
-            s_gatherShader  = GLSLShader.CreateDualTexture(GatherRestoreShaderSource);
+            s_rankShader = GLSLShader.Create(RankShaderSource);
+            s_gatherShader = GLSLShader.CreateDualTexture(GatherRestoreShaderSource);
         }
         catch (Exception ex)
         {
             s_logger.LogError(ex, "Failed to initialize PixelSort GLSL shaders.");
             s_prepareShader = null;
-            s_rankShader    = null;
-            s_gatherShader  = null;
+            s_rankShader = null;
+            s_gatherShader = null;
         }
     }
 
@@ -295,68 +295,67 @@ public sealed partial class PixelSortEffect : FilterEffect
             if (renderTarget?.Texture == null) continue;
 
             ITexture2D originalTexture = renderTarget.Texture;
-            int width  = originalTexture.Width;
+            int width = originalTexture.Width;
             int height = originalTexture.Height;
 
-            ITexture2D prepTexture = gfx.CreateTexture2D(width, height, TextureFormat.BGRA8Unorm);
-            ITexture2D rankTexture = gfx.CreateTexture2D(width, height, TextureFormat.BGRA8Unorm);
+            using ITexture2D prepTexture = gfx.CreateTexture2D(width, height, TextureFormat.BGRA8Unorm);
+            using ITexture2D rankTexture = gfx.CreateTexture2D(width, height, TextureFormat.BGRA8Unorm);
+            using ITexture2D depth = gfx.CreateTexture2D(width, height, TextureFormat.Depth32Float);
+
+            // Pass 1: Prepare - encode sort key into alpha
+            s_prepareShader.ExecuteSingleTarget(
+                originalTexture, prepTexture, depth,
+                new PreparePushConstants
+                {
+                    ThresholdMin = r.ThresholdMin,
+                    ThresholdMax = r.ThresholdMax,
+                    SortKeyType = (int)r.SortKey,
+                    SortDir = (int)r.Direction,
+                    Width = width,
+                    Height = height,
+                });
+
+            // Pass 2: Rank - compute each pixel's rank within its segment
+            s_rankShader.ExecuteSingleTarget(
+                prepTexture, rankTexture, depth,
+                new RankPushConstants
+                {
+                    SortDir = (int)r.Direction,
+                    Width = width,
+                    Height = height,
+                });
+
+            // Pass 3: Gather + Restore - place pixels by rank, restore anchors
+            EffectTarget newTarget = ctx.CreateTarget(target.Bounds);
+            RenderTarget? newRenderTarget = newTarget.RenderTarget;
+
+            if (newRenderTarget?.Texture == null)
+            {
+                newTarget.Dispose();
+                continue;
+            }
 
             try
             {
-                using ITexture2D depth = gfx.CreateTexture2D(width, height, TextureFormat.Depth32Float);
-
-                // Pass 1: Prepare - encode sort key into alpha
-                s_prepareShader.ExecuteSingleTarget(
-                    originalTexture, prepTexture, depth,
-                    new PreparePushConstants
-                    {
-                        ThresholdMin = r.ThresholdMin,
-                        ThresholdMax = r.ThresholdMax,
-                        SortKeyType  = (int)r.SortKey,
-                        SortDir      = (int)r.Direction,
-                        Width        = width,
-                        Height       = height,
-                    });
-
-                // Pass 2: Rank - compute each pixel's rank within its segment
-                s_rankShader.ExecuteSingleTarget(
-                    prepTexture, rankTexture, depth,
-                    new RankPushConstants
-                    {
-                        SortDir = (int)r.Direction,
-                        Width   = width,
-                        Height  = height,
-                    });
-
-                // Pass 3: Gather + Restore - place pixels by rank, restore anchors
-                EffectTarget newTarget = ctx.CreateTarget(target.Bounds);
-                RenderTarget? newRenderTarget = newTarget.RenderTarget;
-
-                if (newRenderTarget?.Texture == null)
-                {
-                    newTarget.Dispose();
-                    continue;
-                }
-
                 using ITexture2D gatherDepth = gfx.CreateTexture2D(width, height, TextureFormat.Depth32Float);
 
                 s_gatherShader.ExecuteSingleTargetWithMask(
                     rankTexture, originalTexture, newRenderTarget.Texture, gatherDepth,
                     new GatherPushConstants
                     {
-                        SortDir   = (int)r.Direction,
+                        SortDir = (int)r.Direction,
                         Ascending = r.Ascending ? 1 : 0,
-                        Width     = width,
-                        Height    = height,
+                        Width = width,
+                        Height = height,
                     });
 
                 target.Dispose();
                 ctx.Targets[i] = newTarget;
             }
-            finally
+            catch
             {
-                prepTexture.Dispose();
-                rankTexture.Dispose();
+                newTarget.Dispose();
+                throw;
             }
         }
     }
@@ -366,8 +365,8 @@ public sealed partial class PixelSortEffect : FilterEffect
     {
         public float ThresholdMin;
         public float ThresholdMax;
-        public int   SortKeyType;
-        public int   SortDir;
+        public int SortKeyType;
+        public int SortDir;
         public float Width;
         public float Height;
     }
@@ -375,7 +374,7 @@ public sealed partial class PixelSortEffect : FilterEffect
     [StructLayout(LayoutKind.Sequential)]
     private struct RankPushConstants
     {
-        public int   SortDir;
+        public int SortDir;
         public float Width;
         public float Height;
     }
@@ -383,8 +382,8 @@ public sealed partial class PixelSortEffect : FilterEffect
     [StructLayout(LayoutKind.Sequential)]
     private struct GatherPushConstants
     {
-        public int   SortDir;
-        public int   Ascending;
+        public int SortDir;
+        public int Ascending;
         public float Width;
         public float Height;
     }

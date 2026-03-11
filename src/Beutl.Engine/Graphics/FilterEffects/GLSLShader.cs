@@ -197,46 +197,45 @@ public sealed class GLSLShader : IDisposable
             int height = sourceTexture.Height;
 
             // Create ping-pong textures
-            ITexture2D pingTexture = graphicsContext.CreateTexture2D(width, height, TextureFormat.BGRA8Unorm);
-            ITexture2D pongTexture = graphicsContext.CreateTexture2D(width, height, TextureFormat.BGRA8Unorm);
+            using ITexture2D pingTexture = graphicsContext.CreateTexture2D(width, height, TextureFormat.BGRA8Unorm);
+            using ITexture2D pongTexture = graphicsContext.CreateTexture2D(width, height, TextureFormat.BGRA8Unorm);
+            using ITexture2D depthTexture = graphicsContext.CreateTexture2D(width, height, TextureFormat.Depth32Float);
+
+            // Copy source into ping buffer as the initial state
+            sourceTexture.PrepareForSampling();
+            _pipeline.Execute(sourceTexture, pingTexture, depthTexture, createPushConstants(0, target));
+
+            ITexture2D current = pingTexture;
+            ITexture2D next = pongTexture;
+
+            // Run remaining passes with ping-pong
+            for (int pass = 1; pass < passCount; pass++)
+            {
+                _pipeline.Execute(current, next, depthTexture, createPushConstants(pass, target));
+                (current, next) = (next, current);
+            }
+
+            // Write final result to a new EffectTarget
+            EffectTarget newTarget = context.CreateTarget(target.Bounds);
+            RenderTarget? newRenderTarget = newTarget.RenderTarget;
+
+            if (newRenderTarget?.Texture == null)
+            {
+                newTarget.Dispose();
+                continue;
+            }
 
             try
             {
-                using ITexture2D depthTexture = graphicsContext.CreateTexture2D(width, height, TextureFormat.Depth32Float);
-
-                // Copy source into ping buffer as the initial state
-                sourceTexture.PrepareForSampling();
-                _pipeline.Execute(sourceTexture, pingTexture, depthTexture, createPushConstants(0, target));
-
-                ITexture2D current = pingTexture;
-                ITexture2D next = pongTexture;
-
-                // Run remaining passes with ping-pong
-                for (int pass = 1; pass < passCount; pass++)
-                {
-                    _pipeline.Execute(current, next, depthTexture, createPushConstants(pass, target));
-                    (current, next) = (next, current);
-                }
-
-                // Write final result to a new EffectTarget
-                EffectTarget newTarget = context.CreateTarget(target.Bounds);
-                RenderTarget? newRenderTarget = newTarget.RenderTarget;
-
-                if (newRenderTarget?.Texture == null)
-                {
-                    newTarget.Dispose();
-                    continue;
-                }
-
                 _pipeline.Execute(current, newRenderTarget.Texture, depthTexture, createPushConstants(passCount, target));
 
                 target.Dispose();
                 context.Targets[i] = newTarget;
             }
-            finally
+            catch
             {
-                pingTexture.Dispose();
-                pongTexture.Dispose();
+                newTarget.Dispose();
+                throw;
             }
         }
     }
