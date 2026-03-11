@@ -30,6 +30,24 @@ public sealed class GLSLShader : IDisposable
         return new GLSLShader(pipeline);
     }
 
+    // Creates a shader that reads from two textures (binding 0 = source, binding 1 = mask)
+    public static GLSLShader CreateDualTexture(string fragmentShaderSource)
+    {
+        IGraphicsContext? context = GraphicsContextFactory.SharedContext;
+        if (context == null || !context.Supports3DRendering)
+        {
+            throw new InvalidOperationException("Vulkan 3D rendering is not supported on this platform.");
+        }
+
+        GLSLFilterPipeline? pipeline = GLSLFilterPipeline.Create(context, fragmentShaderSource, hasMaskTexture: true);
+        if (pipeline == null)
+        {
+            throw new InvalidOperationException("Failed to compile GLSL dual-texture shader.");
+        }
+
+        return new GLSLShader(pipeline);
+    }
+
     public static bool TryCreate(string fragmentShaderSource, out GLSLShader? shader, out string? errorText)
     {
         shader = null;
@@ -124,6 +142,101 @@ public sealed class GLSLShader : IDisposable
             {
                 newTarget.Dispose();
                 throw;
+            }
+        }
+    }
+
+    // Execute a single pass against specific textures (for use by multi-pass effects)
+    internal void ExecuteSingleTarget<T>(
+        ITexture2D source,
+        ITexture2D destination,
+        ITexture2D depth,
+        T pushConstants) where T : unmanaged
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        _pipeline.Execute(source, destination, depth, pushConstants);
+    }
+
+    // Execute a single pass with mask texture (for use by multi-pass effects)
+    internal void ExecuteSingleTargetWithMask<T>(
+        ITexture2D source,
+        ITexture2D mask,
+        ITexture2D destination,
+        ITexture2D depth,
+        T pushConstants) where T : unmanaged
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        _pipeline.Execute(source, mask, destination, depth, pushConstants);
+    }
+
+    // Multi-pass apply with ping-pong intermediate textures
+    public void ApplyMultiPass<T>(
+        CustomFilterEffectContext context,
+        int passCount,
+        Func<int, EffectTarget, T> createPushConstants) where T : unmanaged
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+
+        IGraphicsContext? graphicsContext = GraphicsContextFactory.SharedContext;
+        if (graphicsContext == null || !graphicsContext.Supports3DRendering)
+            return;
+
+        for (int i = 0; i < context.Targets.Count; i++)
+        {
+            EffectTarget target = context.Targets[i];
+            RenderTarget? renderTarget = target.RenderTarget;
+
+            if (renderTarget == null)
+                continue;
+
+            ITexture2D? sourceTexture = renderTarget.Texture;
+            if (sourceTexture == null)
+                continue;
+
+            int width = sourceTexture.Width;
+            int height = sourceTexture.Height;
+
+            // Create ping-pong textures
+            ITexture2D pingTexture = graphicsContext.CreateTexture2D(width, height, TextureFormat.BGRA8Unorm);
+            ITexture2D pongTexture = graphicsContext.CreateTexture2D(width, height, TextureFormat.BGRA8Unorm);
+
+            try
+            {
+                using ITexture2D depthTexture = graphicsContext.CreateTexture2D(width, height, TextureFormat.Depth32Float);
+
+                // Copy source into ping buffer as the initial state
+                sourceTexture.PrepareForSampling();
+                _pipeline.Execute(sourceTexture, pingTexture, depthTexture, createPushConstants(0, target));
+
+                ITexture2D current = pingTexture;
+                ITexture2D next = pongTexture;
+
+                // Run remaining passes with ping-pong
+                for (int pass = 1; pass < passCount; pass++)
+                {
+                    _pipeline.Execute(current, next, depthTexture, createPushConstants(pass, target));
+                    (current, next) = (next, current);
+                }
+
+                // Write final result to a new EffectTarget
+                EffectTarget newTarget = context.CreateTarget(target.Bounds);
+                RenderTarget? newRenderTarget = newTarget.RenderTarget;
+
+                if (newRenderTarget?.Texture == null)
+                {
+                    newTarget.Dispose();
+                    continue;
+                }
+
+                _pipeline.Execute(current, newRenderTarget.Texture, depthTexture, createPushConstants(passCount, target));
+
+                target.Dispose();
+                context.Targets[i] = newTarget;
+            }
+            finally
+            {
+                pingTexture.Dispose();
+                pongTexture.Dispose();
             }
         }
     }

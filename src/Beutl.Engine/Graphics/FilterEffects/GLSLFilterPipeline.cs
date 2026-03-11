@@ -43,13 +43,16 @@ internal sealed class GLSLFilterPipeline : IDisposable
     private readonly byte[] _fragmentShaderSpirv;
     private bool _disposed;
 
+    private readonly bool _hasMaskTexture;
+
     private GLSLFilterPipeline(
         IGraphicsContext context,
         IRenderPass3D renderPass,
         IPipeline3D pipeline,
         ISampler sampler,
         byte[] vertexShaderSpirv,
-        byte[] fragmentShaderSpirv)
+        byte[] fragmentShaderSpirv,
+        bool hasMaskTexture = false)
     {
         _context = context;
         _renderPass = renderPass;
@@ -57,9 +60,10 @@ internal sealed class GLSLFilterPipeline : IDisposable
         _sampler = sampler;
         _vertexShaderSpirv = vertexShaderSpirv;
         _fragmentShaderSpirv = fragmentShaderSpirv;
+        _hasMaskTexture = hasMaskTexture;
     }
 
-    public static GLSLFilterPipeline? Create(IGraphicsContext context, string fragmentShaderSource)
+    public static GLSLFilterPipeline? Create(IGraphicsContext context, string fragmentShaderSource, bool hasMaskTexture = false)
     {
         if (!context.Supports3DRendering)
         {
@@ -91,11 +95,13 @@ internal sealed class GLSLFilterPipeline : IDisposable
                 SamplerAddressMode.ClampToEdge,
                 SamplerAddressMode.ClampToEdge);
 
-            // Define descriptor bindings for the source texture
-            var descriptorBindings = new DescriptorBinding[]
-            {
-                new(0, DescriptorType.CombinedImageSampler, 1, ShaderStage.Fragment)
-            };
+            // Define descriptor bindings (1 or 2 textures)
+            DescriptorBinding[] descriptorBindings = hasMaskTexture
+                ? [
+                    new(0, DescriptorType.CombinedImageSampler, 1, ShaderStage.Fragment),
+                    new(1, DescriptorType.CombinedImageSampler, 1, ShaderStage.Fragment)
+                  ]
+                : [new(0, DescriptorType.CombinedImageSampler, 1, ShaderStage.Fragment)];
 
             // Create pipeline with fullscreen options
             IPipeline3D pipeline = context.CreatePipeline3D(
@@ -112,7 +118,8 @@ internal sealed class GLSLFilterPipeline : IDisposable
                 pipeline,
                 sampler,
                 vertexShaderSpirv,
-                fragmentShaderSpirv);
+                fragmentShaderSpirv,
+                hasMaskTexture);
         }
         catch (Exception ex)
         {
@@ -144,6 +151,49 @@ internal sealed class GLSLFilterPipeline : IDisposable
             _pipeline,
             [new DescriptorPoolSize(DescriptorType.CombinedImageSampler, 1)]);
         descriptorSet.UpdateTexture(0, sourceTexture, _sampler);
+
+        // Execute render pass
+        _renderPass.Begin(framebuffer, [default], 1.0f);
+        _renderPass.BindPipeline(_pipeline);
+        _renderPass.BindDescriptorSet(_pipeline, descriptorSet);
+        _renderPass.SetPushConstants(pushConstants, ShaderStage.Fragment);
+        _renderPass.Draw(3); // Fullscreen triangle
+        _renderPass.End();
+
+        // Prepare destination for sampling (next stage)
+        destinationTexture.PrepareForSampling();
+    }
+
+    // Overload for dual-texture pipelines (source + mask)
+    public void Execute<T>(
+        ITexture2D sourceTexture,
+        ITexture2D maskTexture,
+        ITexture2D destinationTexture,
+        ITexture2D depthTexture,
+        T pushConstants) where T : unmanaged
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+
+        if (!_hasMaskTexture)
+            throw new InvalidOperationException("This pipeline was not created with mask texture support.");
+
+        // Prepare textures for their respective operations
+        sourceTexture.PrepareForSampling();
+        maskTexture.PrepareForSampling();
+        destinationTexture.PrepareForRender();
+
+        // Create framebuffer
+        using IFramebuffer3D framebuffer = _context.CreateFramebuffer3D(
+            _renderPass,
+            [destinationTexture],
+            depthTexture);
+
+        // Create descriptor set and bind both textures
+        using IDescriptorSet descriptorSet = _context.CreateDescriptorSet(
+            _pipeline,
+            [new DescriptorPoolSize(DescriptorType.CombinedImageSampler, 2)]);
+        descriptorSet.UpdateTexture(0, sourceTexture, _sampler);
+        descriptorSet.UpdateTexture(1, maskTexture, _sampler);
 
         // Execute render pass
         _renderPass.Begin(framebuffer, [default], 1.0f);

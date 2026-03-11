@@ -63,6 +63,7 @@ public static class NodesRegistrar
             .Add<FilterEffectNode<DisplacementMapEffect>>(Strings.DisplacementMap)
             .Add<FilterEffectNode<PathFollowEffect>>(Strings.PathFollowEffect)
             .Add<FilterEffectNode<LayerEffect>>(Strings.Layer)
+            .Add<FilterEffectNode<PixelSortEffect>>(Strings.PixelSort)
             .AddGroup(Strings.Script, o => o
                 .Add<FilterEffectNode<CSharpScriptEffect>>(Strings.CSharpScriptEffect)
                 .Add<FilterEffectNode<SKSLScriptEffect>>(Strings.SKSLScriptEffect)
