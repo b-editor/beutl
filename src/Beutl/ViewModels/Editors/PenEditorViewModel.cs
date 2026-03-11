@@ -59,7 +59,7 @@ public sealed class PenEditorViewModel : BaseEditorViewModel
             CreateContexts(props, MajorProperties);
 
             props.Clear();
-            span = props.AddSpan(7);
+            span = props.AddSpan(8);
             span[0] = new AnimatablePropertyAdapter<float>((AnimatableProperty<float>)pen.MiterLimit, pen);
             span[1] = new SimplePropertyAdapter<StrokeCap>((SimpleProperty<StrokeCap>)pen.StrokeCap, pen);
             span[2] = new SimplePropertyAdapter<CoreList<float>?>((SimpleProperty<CoreList<float>?>)pen.DashArray, pen);
@@ -67,6 +67,7 @@ public sealed class PenEditorViewModel : BaseEditorViewModel
             span[4] = new AnimatablePropertyAdapter<float>((AnimatableProperty<float>)pen.TrimStart, pen);
             span[5] = new AnimatablePropertyAdapter<float>((AnimatableProperty<float>)pen.TrimEnd, pen);
             span[6] = new AnimatablePropertyAdapter<float>((AnimatableProperty<float>)pen.TrimOffset, pen);
+            span[7] = new AnimatablePropertyAdapter<float>((AnimatableProperty<float>)pen.Offset, pen);
 
             CreateContexts(props, MinorProperties);
         }
