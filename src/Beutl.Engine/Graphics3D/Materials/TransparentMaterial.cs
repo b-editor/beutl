@@ -25,13 +25,13 @@ public sealed partial class TransparentMaterial : Material3D
     /// <summary>
     /// Gets the base color of the material.
     /// </summary>
-    [Display(Name = nameof(GraphicsStrings.TransparentMaterial_Color), ResourceType = typeof(GraphicsStrings))]
+    [Display(Name = nameof(GraphicsStrings.Color), ResourceType = typeof(GraphicsStrings))]
     public IProperty<Color> Color { get; } = Property.CreateAnimatable(Colors.White);
 
     /// <summary>
     /// Gets the opacity of the material (0-1).
     /// </summary>
-    [Display(Name = nameof(GraphicsStrings.TransparentMaterial_Opacity), ResourceType = typeof(GraphicsStrings))]
+    [Display(Name = nameof(GraphicsStrings.Opacity), ResourceType = typeof(GraphicsStrings))]
     [Range(0f, 1f)]
     public IProperty<float> Opacity { get; } = Property.CreateAnimatable(0.5f);
 

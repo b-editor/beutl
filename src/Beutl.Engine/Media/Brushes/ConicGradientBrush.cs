@@ -25,6 +25,6 @@ public sealed partial class ConicGradientBrush : GradientBrush
     /// <summary>
     /// Gets or sets the angle of the start and end of the sweep, measured from above the center point.
     /// </summary>
-    [Display(Name = nameof(GraphicsStrings.ConicGradientBrush_Angle), ResourceType = typeof(GraphicsStrings))]
+    [Display(Name = nameof(GraphicsStrings.Angle), ResourceType = typeof(GraphicsStrings))]
     public IProperty<float> Angle { get; } = Property.CreateAnimatable(0f);
 }

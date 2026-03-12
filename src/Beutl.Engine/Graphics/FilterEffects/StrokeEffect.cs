@@ -9,7 +9,7 @@ using SkiaSharp;
 
 namespace Beutl.Graphics.Effects;
 
-[Display(Name = nameof(GraphicsStrings.StrokeEffect), ResourceType = typeof(GraphicsStrings))]
+[Display(Name = nameof(GraphicsStrings.Stroke), ResourceType = typeof(GraphicsStrings))]
 public partial class StrokeEffect : FilterEffect
 {
     public enum StrokeStyles
@@ -24,10 +24,10 @@ public partial class StrokeEffect : FilterEffect
         Pen.CurrentValue = new Pen();
     }
 
-    [Display(Name = nameof(GraphicsStrings.StrokeEffect_Pen), ResourceType = typeof(GraphicsStrings))]
+    [Display(Name = nameof(GraphicsStrings.Stroke), ResourceType = typeof(GraphicsStrings))]
     public IProperty<Pen?> Pen { get; } = Property.Create<Pen?>();
 
-    [Display(Name = nameof(GraphicsStrings.StrokeEffect_Offset), ResourceType = typeof(GraphicsStrings))]
+    [Display(Name = nameof(GraphicsStrings.Offset), ResourceType = typeof(GraphicsStrings))]
     public IProperty<Point> Offset { get; } = Property.CreateAnimatable(default(Point));
 
     [Display(Name = nameof(GraphicsStrings.StrokeEffect_Style), ResourceType = typeof(GraphicsStrings))]

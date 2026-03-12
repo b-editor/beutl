@@ -15,14 +15,14 @@ public partial class GaussianBlur : FilterEffect
         ScanProperties<GaussianBlur>();
     }
 
-    [Display(Name = nameof(GraphicsStrings.GaussianBlur_KernelSize), ResourceType = typeof(GraphicsStrings))]
+    [Display(Name = nameof(GraphicsStrings.KernelSize), ResourceType = typeof(GraphicsStrings))]
     [Range(typeof(PixelSize), "0,0", "max,max")]
     public IProperty<PixelSize> KernelSize { get; } = Property.CreateAnimatable(PixelSize.Empty);
 
-    [Display(Name = nameof(GraphicsStrings.GaussianBlur_Sigma), ResourceType = typeof(GraphicsStrings))]
+    [Display(Name = nameof(GraphicsStrings.Sigma), ResourceType = typeof(GraphicsStrings))]
     public IProperty<Size> Sigma { get; } = Property.CreateAnimatable(Size.Empty);
 
-    [Display(Name = nameof(GraphicsStrings.GaussianBlur_FixImageSize), ResourceType = typeof(GraphicsStrings))]
+    [Display(Name = nameof(GraphicsStrings.FixImageSize), ResourceType = typeof(GraphicsStrings))]
     public IProperty<bool> FixImageSize { get; } = Property.CreateAnimatable(false);
 
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)

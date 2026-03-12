@@ -15,14 +15,14 @@ public sealed partial class DrawableTimeController : Drawable, IPresenter<Drawab
         ScanProperties<DrawableTimeController>();
     }
 
-    [Display(Name = nameof(GraphicsStrings.DrawableTimeController_Target), ResourceType = typeof(GraphicsStrings))]
+    [Display(Name = nameof(GraphicsStrings.Target), ResourceType = typeof(GraphicsStrings))]
     [SuppressResourceClassGeneration]
     public IProperty<Drawable?> Target { get; } = Property.Create<Drawable?>();
 
     [Display(Name = nameof(GraphicsStrings.DrawableTimeController_OffsetPosition), ResourceType = typeof(GraphicsStrings))]
     public IProperty<TimeSpan> OffsetPosition { get; } = Property.Create<TimeSpan>();
 
-    [Display(Name = nameof(GraphicsStrings.DrawableTimeController_Speed), ResourceType = typeof(GraphicsStrings))]
+    [Display(Name = nameof(GraphicsStrings.Speed), ResourceType = typeof(GraphicsStrings))]
     [Range(0, float.MaxValue)]
     public IProperty<float> Speed { get; } = Property.CreateAnimatable(100f);
 

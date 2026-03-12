@@ -20,11 +20,11 @@ public partial class SourceVideo : Drawable, IOriginalDurationProvider, ISplitta
     [Display(Name = nameof(GraphicsStrings.SourceVideo_OffsetPosition), ResourceType = typeof(GraphicsStrings))]
     public IProperty<TimeSpan> OffsetPosition { get; } = Property.Create<TimeSpan>();
 
-    [Display(Name = nameof(GraphicsStrings.SourceVideo_Speed), ResourceType = typeof(GraphicsStrings))]
+    [Display(Name = nameof(GraphicsStrings.Speed), ResourceType = typeof(GraphicsStrings))]
     [Range(0, float.MaxValue)]
     public IProperty<float> Speed { get; } = Property.CreateAnimatable(100f);
 
-    [Display(Name = nameof(GraphicsStrings.SourceVideo_Source), ResourceType = typeof(GraphicsStrings))]
+    [Display(Name = nameof(GraphicsStrings.Source), ResourceType = typeof(GraphicsStrings))]
     public IProperty<VideoSource?> Source { get; } = Property.CreateAnimatable<VideoSource?>();
 
     [Display(Name = nameof(GraphicsStrings.SourceVideo_IsLoop), ResourceType = typeof(GraphicsStrings))]

@@ -13,11 +13,11 @@ public sealed partial class Gamma : FilterEffect
         ScanProperties<Gamma>();
     }
 
-    [Display(Name = nameof(GraphicsStrings.Gamma_Amount), ResourceType = typeof(GraphicsStrings))]
+    [Display(Name = nameof(GraphicsStrings.Amount), ResourceType = typeof(GraphicsStrings))]
     [Range(1, 300)]
     public IProperty<float> Amount { get; } = Property.CreateAnimatable(100f);
 
-    [Display(Name = nameof(GraphicsStrings.Gamma_Strength), ResourceType = typeof(GraphicsStrings))]
+    [Display(Name = nameof(GraphicsStrings.Strength), ResourceType = typeof(GraphicsStrings))]
     [Range(0, 100)]
     public IProperty<float> Strength { get; } = Property.CreateAnimatable(100f);
 

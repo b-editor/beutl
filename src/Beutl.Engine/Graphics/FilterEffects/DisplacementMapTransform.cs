@@ -96,7 +96,7 @@ public partial class DisplacementMapTranslateTransform : DisplacementMapTransfor
     }
 }
 
-[Display(Name = nameof(GraphicsStrings.DisplacementMapScaleTransform), ResourceType = typeof(GraphicsStrings))]
+[Display(Name = nameof(GraphicsStrings.Scale), ResourceType = typeof(GraphicsStrings))]
 public partial class DisplacementMapScaleTransform : DisplacementMapTransform
 {
     private static readonly ILogger s_logger = Log.CreateLogger<DisplacementMapScaleTransform>();
@@ -133,7 +133,7 @@ public partial class DisplacementMapScaleTransform : DisplacementMapTransform
         ScanProperties<DisplacementMapScaleTransform>();
     }
 
-    [Display(Name = nameof(GraphicsStrings.DisplacementMapScaleTransform_Scale), ResourceType = typeof(GraphicsStrings))]
+    [Display(Name = nameof(GraphicsStrings.Scale), ResourceType = typeof(GraphicsStrings))]
     public IProperty<float> Scale { get; } = Property.CreateAnimatable<float>(100);
 
     [Display(Name = nameof(GraphicsStrings.DisplacementMapScaleTransform_ScaleX), ResourceType = typeof(GraphicsStrings))]
@@ -142,10 +142,10 @@ public partial class DisplacementMapScaleTransform : DisplacementMapTransform
     [Display(Name = nameof(GraphicsStrings.DisplacementMapScaleTransform_ScaleY), ResourceType = typeof(GraphicsStrings))]
     public IProperty<float> ScaleY { get; } = Property.CreateAnimatable<float>(100);
 
-    [Display(Name = nameof(GraphicsStrings.DisplacementMapScaleTransform_CenterX), ResourceType = typeof(GraphicsStrings))]
+    [Display(Name = nameof(GraphicsStrings.CenterX), ResourceType = typeof(GraphicsStrings))]
     public IProperty<float> CenterX { get; } = Property.CreateAnimatable<float>();
 
-    [Display(Name = nameof(GraphicsStrings.DisplacementMapScaleTransform_CenterY), ResourceType = typeof(GraphicsStrings))]
+    [Display(Name = nameof(GraphicsStrings.CenterY), ResourceType = typeof(GraphicsStrings))]
     public IProperty<float> CenterY { get; } = Property.CreateAnimatable<float>();
 
     internal override void ApplyTo(
@@ -191,7 +191,7 @@ public partial class DisplacementMapScaleTransform : DisplacementMapTransform
     }
 }
 
-[Display(Name = nameof(GraphicsStrings.DisplacementMapRotationTransform), ResourceType = typeof(GraphicsStrings))]
+[Display(Name = nameof(GraphicsStrings.Rotation), ResourceType = typeof(GraphicsStrings))]
 public partial class DisplacementMapRotationTransform : DisplacementMapTransform
 {
     private static readonly ILogger s_logger = Log.CreateLogger<DisplacementMapRotationTransform>();
@@ -229,13 +229,13 @@ public partial class DisplacementMapRotationTransform : DisplacementMapTransform
         ScanProperties<DisplacementMapRotationTransform>();
     }
 
-    [Display(Name = nameof(GraphicsStrings.DisplacementMapRotationTransform_Rotation), ResourceType = typeof(GraphicsStrings))]
+    [Display(Name = nameof(GraphicsStrings.Rotation), ResourceType = typeof(GraphicsStrings))]
     public IProperty<float> Rotation { get; } = Property.CreateAnimatable<float>(0);
 
-    [Display(Name = nameof(GraphicsStrings.DisplacementMapRotationTransform_CenterX), ResourceType = typeof(GraphicsStrings))]
+    [Display(Name = nameof(GraphicsStrings.CenterX), ResourceType = typeof(GraphicsStrings))]
     public IProperty<float> CenterX { get; } = Property.CreateAnimatable<float>(0);
 
-    [Display(Name = nameof(GraphicsStrings.DisplacementMapRotationTransform_CenterY), ResourceType = typeof(GraphicsStrings))]
+    [Display(Name = nameof(GraphicsStrings.CenterY), ResourceType = typeof(GraphicsStrings))]
     public IProperty<float> CenterY { get; } = Property.CreateAnimatable<float>(0);
 
     internal override void ApplyTo(

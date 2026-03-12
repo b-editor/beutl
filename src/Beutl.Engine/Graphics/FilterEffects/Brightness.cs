@@ -13,7 +13,7 @@ public sealed partial class Brightness : FilterEffect
         ScanProperties<Brightness>();
     }
 
-    [Display(Name = nameof(GraphicsStrings.Brightness_Amount), ResourceType = typeof(GraphicsStrings))]
+    [Display(Name = nameof(GraphicsStrings.Amount), ResourceType = typeof(GraphicsStrings))]
     [Range(0, float.MaxValue)]
     public IProperty<float> Amount { get; } = Property.CreateAnimatable(100f);
 

@@ -5,7 +5,7 @@ using Beutl.Language;
 
 namespace Beutl.Graphics.Effects;
 
-[Display(Name = nameof(GraphicsStrings.FilterEffectPresenter), ResourceType = typeof(GraphicsStrings))]
+[Display(Name = nameof(GraphicsStrings.Presenter), ResourceType = typeof(GraphicsStrings))]
 public sealed partial class FilterEffectPresenter : FilterEffect, IPresenter<FilterEffect>
 {
     public FilterEffectPresenter()
@@ -13,7 +13,7 @@ public sealed partial class FilterEffectPresenter : FilterEffect, IPresenter<Fil
         ScanProperties<FilterEffectPresenter>();
     }
 
-    [Display(Name = nameof(GraphicsStrings.FilterEffectPresenter_Target), ResourceType = typeof(GraphicsStrings))]
+    [Display(Name = nameof(GraphicsStrings.Target), ResourceType = typeof(GraphicsStrings))]
     public IProperty<FilterEffect?> Target { get; } = Property.Create<FilterEffect?>();
 
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)

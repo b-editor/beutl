@@ -20,7 +20,7 @@ public sealed partial class CSharpScriptEffect : FilterEffect
         ScanProperties<CSharpScriptEffect>();
     }
 
-    [Display(Name = nameof(GraphicsStrings.CSharpScriptEffect_Script), ResourceType = typeof(GraphicsStrings))]
+    [Display(Name = nameof(GraphicsStrings.Script), ResourceType = typeof(GraphicsStrings))]
     [DataType(DataType.MultilineText)]
     public IProperty<string> Script { get; } = Property.Create(GetDefaultScript());
 

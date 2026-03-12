@@ -20,7 +20,7 @@ public partial class DirectionalLight3D : Light3D
     /// Gets the direction of the light. This is the direction the light is pointing,
     /// not where it's coming from.
     /// </summary>
-    [Display(Name = nameof(GraphicsStrings.DirectionalLight3D_Direction), ResourceType = typeof(GraphicsStrings))]
+    [Display(Name = nameof(GraphicsStrings.Direction), ResourceType = typeof(GraphicsStrings))]
     public IProperty<Vector3> Direction { get; } = Property.CreateAnimatable(new Vector3(0, -1, 0));
 
     /// <summary>

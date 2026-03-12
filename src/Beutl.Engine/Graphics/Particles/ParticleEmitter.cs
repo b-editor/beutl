@@ -57,7 +57,7 @@ public class ParticleEmitter : Drawable
     public IProperty<float> LifetimeRandom { get; } = Property.CreateAnimatable(0f);
 
     // Velocity
-    [Display(Name = nameof(GraphicsStrings.ParticleEmitter_Speed), ResourceType = typeof(GraphicsStrings),
+    [Display(Name = nameof(GraphicsStrings.Speed), ResourceType = typeof(GraphicsStrings),
         GroupName = nameof(GraphicsStrings.ParticleEmitter_VelocityGroup))]
     [Range(0, float.MaxValue)]
     public IProperty<float> Speed { get; } = Property.CreateAnimatable(200f);
@@ -67,7 +67,7 @@ public class ParticleEmitter : Drawable
     [Range(0, float.MaxValue)]
     public IProperty<float> SpeedRandom { get; } = Property.CreateAnimatable(0f);
 
-    [Display(Name = nameof(GraphicsStrings.ParticleEmitter_Direction), ResourceType = typeof(GraphicsStrings),
+    [Display(Name = nameof(GraphicsStrings.Direction), ResourceType = typeof(GraphicsStrings),
         GroupName = nameof(GraphicsStrings.ParticleEmitter_VelocityGroup))]
     public IProperty<float> Direction { get; } = Property.CreateAnimatable(-90f);
 
@@ -116,7 +116,7 @@ public class ParticleEmitter : Drawable
     [Range(0, float.MaxValue)]
     public IProperty<float> SizeRandom { get; } = Property.CreateAnimatable(0f);
 
-    [Display(Name = nameof(GraphicsStrings.ParticleEmitter_ParticleColor), ResourceType = typeof(GraphicsStrings),
+    [Display(Name = nameof(GraphicsStrings.Color), ResourceType = typeof(GraphicsStrings),
         GroupName = nameof(GraphicsStrings.ParticleEmitter_VisualGroup))]
     public IProperty<Color> ParticleColor { get; } = Property.CreateAnimatable(Colors.White);
 
@@ -127,16 +127,16 @@ public class ParticleEmitter : Drawable
 
     // Rotation
     [Display(Name = nameof(GraphicsStrings.ParticleEmitter_InitialRotation), ResourceType = typeof(GraphicsStrings),
-        GroupName = nameof(GraphicsStrings.ParticleEmitter_RotationGroup))]
+        GroupName = nameof(GraphicsStrings.Rotation))]
     public IProperty<float> InitialRotation { get; } = Property.CreateAnimatable(0f);
 
     [Display(Name = nameof(GraphicsStrings.ParticleEmitter_InitialRotationRandom), ResourceType = typeof(GraphicsStrings),
-        GroupName = nameof(GraphicsStrings.ParticleEmitter_RotationGroup))]
+        GroupName = nameof(GraphicsStrings.Rotation))]
     [Range(0, float.MaxValue)]
     public IProperty<float> InitialRotationRandom { get; } = Property.CreateAnimatable(0f);
 
     [Display(Name = nameof(GraphicsStrings.ParticleEmitter_AngularVelocity), ResourceType = typeof(GraphicsStrings),
-        GroupName = nameof(GraphicsStrings.ParticleEmitter_RotationGroup))]
+        GroupName = nameof(GraphicsStrings.Rotation))]
     public IProperty<float> AngularVelocity { get; } = Property.CreateAnimatable(0f);
 
     // Over Life

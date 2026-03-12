@@ -13,10 +13,10 @@ public sealed partial class EllipseGeometry : Geometry
         ScanProperties<EllipseGeometry>();
     }
 
-    [Display(Name = nameof(GraphicsStrings.EllipseGeometry_Width), ResourceType = typeof(GraphicsStrings))]
+    [Display(Name = nameof(GraphicsStrings.Width), ResourceType = typeof(GraphicsStrings))]
     public IProperty<float> Width { get; } = Property.CreateAnimatable<float>();
 
-    [Display(Name = nameof(GraphicsStrings.EllipseGeometry_Height), ResourceType = typeof(GraphicsStrings))]
+    [Display(Name = nameof(GraphicsStrings.Height), ResourceType = typeof(GraphicsStrings))]
     public IProperty<float> Height { get; } = Property.CreateAnimatable<float>();
 
     public override void ApplyTo(IGeometryContext context, Geometry.Resource resource)

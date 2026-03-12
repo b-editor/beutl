@@ -29,7 +29,7 @@ public class ShakeEffect : FilterEffect
     [Display(Name = nameof(GraphicsStrings.ShakeEffect_StrengthY), ResourceType = typeof(GraphicsStrings))]
     public IProperty<float> StrengthY { get; } = Property.CreateAnimatable(50f);
 
-    [Display(Name = nameof(GraphicsStrings.ShakeEffect_Speed), ResourceType = typeof(GraphicsStrings))]
+    [Display(Name = nameof(GraphicsStrings.Speed), ResourceType = typeof(GraphicsStrings))]
     public IProperty<float> Speed { get; } = Property.CreateAnimatable(100f);
 
     protected override void OnPropertyChanged(PropertyChangedEventArgs args)

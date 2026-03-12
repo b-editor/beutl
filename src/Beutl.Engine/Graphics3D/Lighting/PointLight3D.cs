@@ -19,7 +19,7 @@ public partial class PointLight3D : Light3D
     /// <summary>
     /// Gets the position of the light in world space.
     /// </summary>
-    [Display(Name = nameof(GraphicsStrings.PointLight3D_Position), ResourceType = typeof(GraphicsStrings))]
+    [Display(Name = nameof(GraphicsStrings.Position), ResourceType = typeof(GraphicsStrings))]
     public IProperty<Vector3> Position { get; } = Property.CreateAnimatable(Vector3.Zero);
 
     /// <summary>

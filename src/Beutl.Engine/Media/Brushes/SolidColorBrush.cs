@@ -41,6 +41,6 @@ public partial class SolidColorBrush : Brush
     /// <summary>
     /// Gets or sets the color of the brush.
     /// </summary>
-    [Display(Name = nameof(GraphicsStrings.SolidColorBrush_Color), ResourceType = typeof(GraphicsStrings))]
+    [Display(Name = nameof(GraphicsStrings.Color), ResourceType = typeof(GraphicsStrings))]
     public IProperty<Color> Color { get; } = Property.CreateAnimatable<Color>();
 }

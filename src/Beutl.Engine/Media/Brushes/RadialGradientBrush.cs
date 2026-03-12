@@ -33,6 +33,6 @@ public sealed partial class RadialGradientBrush : GradientBrush
     /// Gets or sets the horizontal and vertical radius of the outermost circle of the radial
     /// gradient.
     /// </summary>
-    [Display(Name = nameof(GraphicsStrings.RadialGradientBrush_Radius), ResourceType = typeof(GraphicsStrings))]
+    [Display(Name = nameof(GraphicsStrings.Radius), ResourceType = typeof(GraphicsStrings))]
     public IProperty<float> Radius { get; } = Property.CreateAnimatable(50f);
 }

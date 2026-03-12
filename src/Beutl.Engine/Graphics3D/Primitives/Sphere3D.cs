@@ -20,7 +20,7 @@ public sealed partial class Sphere3D : Object3D
     /// <summary>
     /// Gets the radius of the sphere.
     /// </summary>
-    [Display(Name = nameof(GraphicsStrings.Sphere3D_Radius), ResourceType = typeof(GraphicsStrings))]
+    [Display(Name = nameof(GraphicsStrings.Radius), ResourceType = typeof(GraphicsStrings))]
     [Range(0.001f, float.MaxValue)]
     public IProperty<float> Radius { get; } = Property.CreateAnimatable(0.5f);
 

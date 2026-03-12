@@ -4,7 +4,7 @@ using Beutl.Language;
 
 namespace Beutl.Graphics.Effects;
 
-[Display(Name = nameof(GraphicsStrings.FilterEffectGroup), ResourceType = typeof(GraphicsStrings))]
+[Display(Name = nameof(GraphicsStrings.Group), ResourceType = typeof(GraphicsStrings))]
 public sealed partial class FilterEffectGroup : FilterEffect
 {
     public FilterEffectGroup()

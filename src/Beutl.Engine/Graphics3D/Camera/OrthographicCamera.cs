@@ -19,7 +19,7 @@ public partial class OrthographicCamera : Camera3D
     /// <summary>
     /// Gets the width of the orthographic view volume.
     /// </summary>
-    [Display(Name = nameof(GraphicsStrings.OrthographicCamera_Width), ResourceType = typeof(GraphicsStrings))]
+    [Display(Name = nameof(GraphicsStrings.Width), ResourceType = typeof(GraphicsStrings))]
     [Range(0.001f, float.MaxValue)]
     public IProperty<float> Width { get; } = Property.CreateAnimatable(10f);
 

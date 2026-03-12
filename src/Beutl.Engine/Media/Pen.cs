@@ -12,7 +12,7 @@ public sealed partial class Pen : EngineObject
         ScanProperties<Pen>();
     }
 
-    [Display(Name = nameof(GraphicsStrings.Pen_Brush), ResourceType = typeof(GraphicsStrings))]
+    [Display(Name = nameof(GraphicsStrings.Brush), ResourceType = typeof(GraphicsStrings))]
     public IProperty<Brush?> Brush { get; } = Property.Create<Brush?>();
 
     [Display(Name = nameof(GraphicsStrings.Pen_DashArray), ResourceType = typeof(GraphicsStrings))]

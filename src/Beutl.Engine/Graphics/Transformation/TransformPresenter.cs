@@ -6,7 +6,7 @@ using Beutl.Language;
 namespace Beutl.Graphics.Transformation;
 
 [SuppressResourceClassGeneration]
-[Display(Name = nameof(GraphicsStrings.TransformPresenter), ResourceType = typeof(GraphicsStrings))]
+[Display(Name = nameof(GraphicsStrings.Presenter), ResourceType = typeof(GraphicsStrings))]
 public sealed class TransformPresenter : Transform, IPresenter<Transform>
 {
     public TransformPresenter()
@@ -14,7 +14,7 @@ public sealed class TransformPresenter : Transform, IPresenter<Transform>
         ScanProperties<TransformPresenter>();
     }
 
-    [Display(Name = nameof(GraphicsStrings.TransformPresenter_Target), ResourceType = typeof(GraphicsStrings))]
+    [Display(Name = nameof(GraphicsStrings.Target), ResourceType = typeof(GraphicsStrings))]
     public IProperty<Transform?> Target { get; } = Property.Create<Transform?>();
 
     public override Matrix CreateMatrix(CompositionContext context)

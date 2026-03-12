@@ -25,6 +25,6 @@ public sealed partial class LinearGradientBrush : GradientBrush
     /// <summary>
     /// Gets or sets the end point for the gradient.
     /// </summary>
-    [Display(Name = nameof(GraphicsStrings.LinearGradientBrush_EndPoint), ResourceType = typeof(GraphicsStrings))]
+    [Display(Name = nameof(GraphicsStrings.EndPoint), ResourceType = typeof(GraphicsStrings))]
     public IProperty<RelativePoint> EndPoint { get; } = Property.CreateAnimatable(RelativePoint.BottomRight);
 }

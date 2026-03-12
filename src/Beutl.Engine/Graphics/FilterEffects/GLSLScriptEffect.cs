@@ -20,7 +20,7 @@ public sealed partial class GLSLScriptEffect : FilterEffect
         ScanProperties<GLSLScriptEffect>();
     }
 
-    [Display(Name = nameof(GraphicsStrings.GLSLScriptEffect_FragmentShader), ResourceType = typeof(GraphicsStrings))]
+    [Display(Name = nameof(GraphicsStrings.Script), ResourceType = typeof(GraphicsStrings))]
     [DataType(DataType.MultilineText)]
     public IProperty<string> FragmentShader { get; } = Property.Create(GetDefaultShader());
 

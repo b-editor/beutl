@@ -5,7 +5,7 @@ using Beutl.Language;
 
 namespace Beutl.Media;
 
-[Display(Name = nameof(GraphicsStrings.BrushPresenter), ResourceType = typeof(GraphicsStrings))]
+[Display(Name = nameof(GraphicsStrings.Presenter), ResourceType = typeof(GraphicsStrings))]
 public sealed partial class BrushPresenter : Brush, IPresenter<Brush>
 {
     public BrushPresenter()
@@ -13,6 +13,6 @@ public sealed partial class BrushPresenter : Brush, IPresenter<Brush>
         ScanProperties<BrushPresenter>();
     }
 
-    [Display(Name = nameof(GraphicsStrings.BrushPresenter_Target), ResourceType = typeof(GraphicsStrings))]
+    [Display(Name = nameof(GraphicsStrings.Target), ResourceType = typeof(GraphicsStrings))]
     public IProperty<Brush?> Target { get; } = Property.Create<Brush?>();
 }

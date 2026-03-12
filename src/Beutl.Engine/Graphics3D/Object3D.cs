@@ -25,19 +25,19 @@ public abstract partial class Object3D : EngineObject
     /// <summary>
     /// Gets the position of the object in world space.
     /// </summary>
-    [Display(Name = nameof(GraphicsStrings.Object3D_Position), ResourceType = typeof(GraphicsStrings))]
+    [Display(Name = nameof(GraphicsStrings.Position), ResourceType = typeof(GraphicsStrings))]
     public IProperty<Vector3> Position { get; } = Property.CreateAnimatable(Vector3.Zero);
 
     /// <summary>
     /// Gets the rotation of the object as Euler angles in radians (X=Pitch, Y=Yaw, Z=Roll).
     /// </summary>
-    [Display(Name = nameof(GraphicsStrings.Object3D_Rotation), ResourceType = typeof(GraphicsStrings))]
+    [Display(Name = nameof(GraphicsStrings.Rotation), ResourceType = typeof(GraphicsStrings))]
     public IProperty<Vector3> Rotation { get; } = Property.CreateAnimatable(Vector3.Zero);
 
     /// <summary>
     /// Gets the scale of the object.
     /// </summary>
-    [Display(Name = nameof(GraphicsStrings.Object3D_Scale), ResourceType = typeof(GraphicsStrings))]
+    [Display(Name = nameof(GraphicsStrings.Scale), ResourceType = typeof(GraphicsStrings))]
     public IProperty<Vector3> Scale { get; } = Property.CreateAnimatable(Vector3.One);
 
     /// <summary>

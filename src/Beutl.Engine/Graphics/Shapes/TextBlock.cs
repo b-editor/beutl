@@ -49,7 +49,7 @@ public partial class TextBlock : Drawable
     public IProperty<string?> Text { get; } = Property.Create<string?>(string.Empty);
 
     [SuppressResourceClassGeneration]
-    [Display(Name = nameof(GraphicsStrings.TextBlock_Pen), GroupName = nameof(GraphicsStrings.TextBlock_Pen), ResourceType = typeof(GraphicsStrings))]
+    [Display(Name = nameof(GraphicsStrings.Stroke), GroupName = nameof(GraphicsStrings.Stroke), ResourceType = typeof(GraphicsStrings))]
     public IProperty<Pen?> Pen { get; } = Property.Create<Pen?>();
 
     [Display(Name = nameof(GraphicsStrings.TextBlock_Fill), ResourceType = typeof(GraphicsStrings), GroupName = nameof(GraphicsStrings.TextBlock_Fill))]

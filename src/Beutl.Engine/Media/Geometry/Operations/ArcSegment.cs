@@ -13,7 +13,7 @@ public sealed partial class ArcSegment : PathSegment
         ScanProperties<ArcSegment>();
     }
 
-    [Display(Name = nameof(GraphicsStrings.ArcSegment_Radius), ResourceType = typeof(GraphicsStrings))]
+    [Display(Name = nameof(GraphicsStrings.Radius), ResourceType = typeof(GraphicsStrings))]
     public IProperty<Size> Radius { get; } = Property.CreateAnimatable<Size>();
 
     [Display(Name = nameof(GraphicsStrings.ArcSegment_RotationAngle), ResourceType = typeof(GraphicsStrings))]

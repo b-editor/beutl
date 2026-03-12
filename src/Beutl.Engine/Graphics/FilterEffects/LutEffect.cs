@@ -125,10 +125,10 @@ public sealed partial class LutEffect : FilterEffect
         ScanProperties<LutEffect>();
     }
 
-    [Display(Name = nameof(GraphicsStrings.LutEffect_Source), ResourceType = typeof(GraphicsStrings))]
+    [Display(Name = nameof(GraphicsStrings.Source), ResourceType = typeof(GraphicsStrings))]
     public IProperty<CubeSource?> Source { get; } = Property.Create<CubeSource?>();
 
-    [Display(Name = nameof(GraphicsStrings.LutEffect_Strength), ResourceType = typeof(GraphicsStrings))]
+    [Display(Name = nameof(GraphicsStrings.Strength), ResourceType = typeof(GraphicsStrings))]
     [Range(0, 100)]
     public IProperty<float> Strength { get; } = Property.CreateAnimatable(100f);
 

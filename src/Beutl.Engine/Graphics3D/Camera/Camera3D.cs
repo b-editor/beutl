@@ -18,13 +18,13 @@ public abstract partial class Camera3D : EngineObject
     /// <summary>
     /// Gets the position of the camera in world space.
     /// </summary>
-    [Display(Name = nameof(GraphicsStrings.Camera3D_Position), ResourceType = typeof(GraphicsStrings))]
+    [Display(Name = nameof(GraphicsStrings.Position), ResourceType = typeof(GraphicsStrings))]
     public IProperty<Vector3> Position { get; } = Property.CreateAnimatable(new Vector3(0, 0, 5));
 
     /// <summary>
     /// Gets the target point the camera is looking at.
     /// </summary>
-    [Display(Name = nameof(GraphicsStrings.Camera3D_Target), ResourceType = typeof(GraphicsStrings))]
+    [Display(Name = nameof(GraphicsStrings.Target), ResourceType = typeof(GraphicsStrings))]
     public IProperty<Vector3> Target { get; } = Property.CreateAnimatable(Vector3.Zero);
 
     /// <summary>

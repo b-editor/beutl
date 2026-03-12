@@ -15,7 +15,7 @@ public sealed partial class BlendEffect : FilterEffect
         Brush.CurrentValue = new SolidColorBrush(Colors.White);
     }
 
-    [Display(Name = nameof(GraphicsStrings.BlendEffect_Brush), ResourceType = typeof(GraphicsStrings))]
+    [Display(Name = nameof(GraphicsStrings.Brush), ResourceType = typeof(GraphicsStrings))]
     public IProperty<Brush?> Brush { get; } = Property.Create<Brush?>();
 
     [Display(Name = nameof(GraphicsStrings.BlendEffect_BlendMode), ResourceType = typeof(GraphicsStrings))]

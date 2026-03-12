@@ -12,7 +12,7 @@ public sealed partial class Blur : FilterEffect
         ScanProperties<Blur>();
     }
 
-    [Display(Name = nameof(GraphicsStrings.Blur_Sigma), ResourceType = typeof(GraphicsStrings))]
+    [Display(Name = nameof(GraphicsStrings.Sigma), ResourceType = typeof(GraphicsStrings))]
     [Range(typeof(Size), "0,0", "max,max")]
     public IProperty<Size> Sigma { get; } = Property.CreateAnimatable(Size.Empty);
 

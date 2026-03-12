@@ -36,7 +36,7 @@ public abstract partial class TileBrush : Brush
     /// <summary>
     /// Gets or sets the rectangle of the source image that will be displayed.
     /// </summary>
-    [Display(Name = nameof(GraphicsStrings.TileBrush_SourceRect), ResourceType = typeof(GraphicsStrings))]
+    [Display(Name = nameof(GraphicsStrings.Source), ResourceType = typeof(GraphicsStrings))]
     public IProperty<RelativeRect> SourceRect { get; } = Property.CreateAnimatable(RelativeRect.Fill);
 
     /// <summary>

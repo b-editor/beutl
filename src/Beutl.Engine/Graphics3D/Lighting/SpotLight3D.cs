@@ -19,13 +19,13 @@ public partial class SpotLight3D : Light3D
     /// <summary>
     /// Gets the position of the light in world space.
     /// </summary>
-    [Display(Name = nameof(GraphicsStrings.SpotLight3D_Position), ResourceType = typeof(GraphicsStrings))]
+    [Display(Name = nameof(GraphicsStrings.Position), ResourceType = typeof(GraphicsStrings))]
     public IProperty<Vector3> Position { get; } = Property.CreateAnimatable(new Vector3(0, 5, 0));
 
     /// <summary>
     /// Gets the direction the spotlight is pointing.
     /// </summary>
-    [Display(Name = nameof(GraphicsStrings.SpotLight3D_Direction), ResourceType = typeof(GraphicsStrings))]
+    [Display(Name = nameof(GraphicsStrings.Direction), ResourceType = typeof(GraphicsStrings))]
     public IProperty<Vector3> Direction { get; } = Property.CreateAnimatable(new Vector3(0, -1, 0));
 
     /// <summary>

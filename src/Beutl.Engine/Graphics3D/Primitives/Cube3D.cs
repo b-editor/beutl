@@ -20,21 +20,21 @@ public sealed partial class Cube3D : Object3D
     /// <summary>
     /// Gets the width of the cube (X-axis).
     /// </summary>
-    [Display(Name = nameof(GraphicsStrings.Cube3D_Width), ResourceType = typeof(GraphicsStrings))]
+    [Display(Name = nameof(GraphicsStrings.Width), ResourceType = typeof(GraphicsStrings))]
     [Range(0.001f, float.MaxValue)]
     public IProperty<float> Width { get; } = Property.CreateAnimatable(1f);
 
     /// <summary>
     /// Gets the height of the cube (Y-axis).
     /// </summary>
-    [Display(Name = nameof(GraphicsStrings.Cube3D_Height), ResourceType = typeof(GraphicsStrings))]
+    [Display(Name = nameof(GraphicsStrings.Height), ResourceType = typeof(GraphicsStrings))]
     [Range(0.001f, float.MaxValue)]
     public IProperty<float> Height { get; } = Property.CreateAnimatable(1f);
 
     /// <summary>
     /// Gets the depth of the cube (Z-axis).
     /// </summary>
-    [Display(Name = nameof(GraphicsStrings.Cube3D_Depth), ResourceType = typeof(GraphicsStrings))]
+    [Display(Name = nameof(GraphicsStrings.Depth), ResourceType = typeof(GraphicsStrings))]
     [Range(0.001f, float.MaxValue)]
     public IProperty<float> Depth { get; } = Property.CreateAnimatable(1f);
 

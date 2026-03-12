@@ -21,7 +21,7 @@ public abstract partial class Light3D : EngineObject
     /// <summary>
     /// Gets the color of the light.
     /// </summary>
-    [Display(Name = nameof(GraphicsStrings.Light3D_Color), ResourceType = typeof(GraphicsStrings))]
+    [Display(Name = nameof(GraphicsStrings.Color), ResourceType = typeof(GraphicsStrings))]
     public IProperty<Color> Color { get; } = Property.CreateAnimatable(Colors.White);
 
     /// <summary>

@@ -15,7 +15,7 @@ public abstract partial class Shape : Drawable
         Fill.CurrentValue = new SolidColorBrush(Colors.White);
     }
 
-    [Display(Name = nameof(GraphicsStrings.Shape_Pen), GroupName = nameof(GraphicsStrings.Shape_Pen), ResourceType = typeof(GraphicsStrings))]
+    [Display(Name = nameof(GraphicsStrings.Stroke), GroupName = nameof(GraphicsStrings.Stroke), ResourceType = typeof(GraphicsStrings))]
     public IProperty<Pen?> Pen { get; } = Property.Create<Pen?>();
 
     [Display(Name = nameof(GraphicsStrings.Shape_Fill), ResourceType = typeof(GraphicsStrings), GroupName = nameof(GraphicsStrings.Shape_Fill))]

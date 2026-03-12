@@ -14,11 +14,11 @@ public sealed partial class EllipseShape : Shape
         ScanProperties<EllipseShape>();
     }
 
-    [Display(Name = nameof(GraphicsStrings.EllipseShape_Width), ResourceType = typeof(GraphicsStrings))]
+    [Display(Name = nameof(GraphicsStrings.Width), ResourceType = typeof(GraphicsStrings))]
     [Range(0, float.MaxValue)]
     public IProperty<float> Width { get; } = Property.CreateAnimatable<float>(100);
 
-    [Display(Name = nameof(GraphicsStrings.EllipseShape_Height), ResourceType = typeof(GraphicsStrings))]
+    [Display(Name = nameof(GraphicsStrings.Height), ResourceType = typeof(GraphicsStrings))]
     [Range(0, float.MaxValue)]
     public IProperty<float> Height { get; } = Property.CreateAnimatable<float>(100);
 

@@ -7,7 +7,7 @@ using Beutl.Media;
 
 namespace Beutl.Graphics.Effects;
 
-[Display(Name = nameof(GraphicsStrings.TransformEffect), ResourceType = typeof(GraphicsStrings))]
+[Display(Name = nameof(GraphicsStrings.Transform), ResourceType = typeof(GraphicsStrings))]
 public sealed partial class TransformEffect : FilterEffect
 {
     public TransformEffect()
@@ -15,10 +15,10 @@ public sealed partial class TransformEffect : FilterEffect
         ScanProperties<TransformEffect>();
     }
 
-    [Display(Name = nameof(GraphicsStrings.TransformEffect_Transform), ResourceType = typeof(GraphicsStrings))]
+    [Display(Name = nameof(GraphicsStrings.Transform), ResourceType = typeof(GraphicsStrings))]
     public IProperty<Transform?> Transform { get; } = Property.Create<Transform?>();
 
-    [Display(Name = nameof(GraphicsStrings.TransformEffect_TransformOrigin), ResourceType = typeof(GraphicsStrings))]
+    [Display(Name = nameof(GraphicsStrings.TransformOrigin), ResourceType = typeof(GraphicsStrings))]
     public IProperty<RelativePoint> TransformOrigin { get; } = Property.CreateAnimatable(RelativePoint.Center);
 
     [Display(Name = nameof(GraphicsStrings.TransformEffect_BitmapInterpolationMode), ResourceType = typeof(GraphicsStrings))]

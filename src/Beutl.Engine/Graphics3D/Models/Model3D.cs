@@ -25,7 +25,7 @@ public sealed partial class Model3D : Group3D
     /// <summary>
     /// Gets the model source to load.
     /// </summary>
-    [Display(Name = nameof(GraphicsStrings.Model3D_Source), ResourceType = typeof(GraphicsStrings))]
+    [Display(Name = nameof(GraphicsStrings.Source), ResourceType = typeof(GraphicsStrings))]
     public IProperty<ModelSource?> Source { get; } = Property.Create<ModelSource?>(null);
 
     public override void Deserialize(ICoreSerializationContext context)

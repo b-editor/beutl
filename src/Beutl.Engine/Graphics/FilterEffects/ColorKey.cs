@@ -55,7 +55,7 @@ public partial class ColorKey : FilterEffect
         ScanProperties<ColorKey>();
     }
 
-    [Display(Name = nameof(GraphicsStrings.ColorKey_Color), ResourceType = typeof(GraphicsStrings))]
+    [Display(Name = nameof(GraphicsStrings.Color), ResourceType = typeof(GraphicsStrings))]
     public IProperty<Color> Color { get; } = Property.CreateAnimatable<Color>();
 
     [Display(Name = nameof(GraphicsStrings.ColorKey_Range), ResourceType = typeof(GraphicsStrings))]

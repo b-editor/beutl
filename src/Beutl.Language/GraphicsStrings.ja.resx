@@ -19,9 +19,6 @@
   <data name="BlendEffect_BlendMode" xml:space="preserve">
     <value>ブレンドモード</value>
   </data>
-  <data name="BlendEffect_Brush" xml:space="preserve">
-    <value>ブラシ</value>
-  </data>
   <data name="BlendMode_Clear" xml:space="preserve">
     <value>クリア</value>
   </data>
@@ -199,32 +196,14 @@
   <data name="Blur" xml:space="preserve">
     <value>ぼかし</value>
   </data>
-  <data name="Blur_FixImageSize" xml:space="preserve">
-    <value>画像サイズを固定</value>
-  </data>
-  <data name="Blur_KernelSize" xml:space="preserve">
-    <value>カーネルサイズ</value>
-  </data>
-  <data name="Blur_Sigma" xml:space="preserve">
-    <value>シグマ</value>
-  </data>
   <data name="Brightness" xml:space="preserve">
     <value>輝度</value>
-  </data>
-  <data name="Brightness_Amount" xml:space="preserve">
-    <value>量</value>
-  </data>
-  <data name="CSharpScriptEffect_Script" xml:space="preserve">
-    <value>スクリプト</value>
   </data>
   <data name="ChromaKey" xml:space="preserve">
     <value>クロマキー</value>
   </data>
   <data name="ChromaKey_Boundary" xml:space="preserve">
     <value>境界補正</value>
-  </data>
-  <data name="ChromaKey_Color" xml:space="preserve">
-    <value>色</value>
   </data>
   <data name="ChromaKey_HueRange" xml:space="preserve">
     <value>色相範囲</value>
@@ -313,9 +292,6 @@
   <data name="ColorKey_Boundary" xml:space="preserve">
     <value>境界補正</value>
   </data>
-  <data name="ColorKey_Color" xml:space="preserve">
-    <value>色</value>
-  </data>
   <data name="ColorKey_Range" xml:space="preserve">
     <value>輝度範囲</value>
   </data>
@@ -394,33 +370,6 @@
   <data name="DisplacementMapEffect_SpreadMethod" xml:space="preserve">
     <value>広がり方</value>
   </data>
-  <data name="DisplacementMapEffect_Transform" xml:space="preserve">
-    <value>トランスフォーム</value>
-  </data>
-  <data name="DisplacementMapRotationTransform" xml:space="preserve">
-    <value>回転</value>
-  </data>
-  <data name="DisplacementMapRotationTransform_CenterX" xml:space="preserve">
-    <value>中心X</value>
-  </data>
-  <data name="DisplacementMapRotationTransform_CenterY" xml:space="preserve">
-    <value>中心Y</value>
-  </data>
-  <data name="DisplacementMapRotationTransform_Rotation" xml:space="preserve">
-    <value>回転</value>
-  </data>
-  <data name="DisplacementMapScaleTransform" xml:space="preserve">
-    <value>スケール</value>
-  </data>
-  <data name="DisplacementMapScaleTransform_CenterX" xml:space="preserve">
-    <value>中心X</value>
-  </data>
-  <data name="DisplacementMapScaleTransform_CenterY" xml:space="preserve">
-    <value>中心Y</value>
-  </data>
-  <data name="DisplacementMapScaleTransform_Scale" xml:space="preserve">
-    <value>スケール</value>
-  </data>
   <data name="DisplacementMapScaleTransform_ScaleX" xml:space="preserve">
     <value>X拡大率</value>
   </data>
@@ -438,15 +387,6 @@
   </data>
   <data name="DrawableDecorator" xml:space="preserve">
     <value>デコレーター</value>
-  </data>
-  <data name="DrawableGroup" xml:space="preserve">
-    <value>グループ</value>
-  </data>
-  <data name="DrawablePresenter" xml:space="preserve">
-    <value>プレセンター</value>
-  </data>
-  <data name="DrawablePresenter_Target" xml:space="preserve">
-    <value>ターゲット</value>
   </data>
   <data name="DrawableTimeController" xml:space="preserve">
     <value>タイムコントローラー</value>
@@ -472,12 +412,6 @@
   <data name="DrawableTimeController_Reverse" xml:space="preserve">
     <value>逆再生</value>
   </data>
-  <data name="DrawableTimeController_Speed" xml:space="preserve">
-    <value>スピード</value>
-  </data>
-  <data name="DrawableTimeController_Target" xml:space="preserve">
-    <value>ターゲット</value>
-  </data>
   <data name="Drawable_AlignmentX" xml:space="preserve">
     <value>アライメントX</value>
   </data>
@@ -490,38 +424,11 @@
   <data name="Drawable_FilterEffect" xml:space="preserve">
     <value>画像フィルター</value>
   </data>
-  <data name="Drawable_Opacity" xml:space="preserve">
-    <value>不透明度</value>
-  </data>
-  <data name="Drawable_Transform" xml:space="preserve">
-    <value>トランスフォーム</value>
-  </data>
-  <data name="Drawable_TransformOrigin" xml:space="preserve">
-    <value>トランスフォームの起点</value>
-  </data>
   <data name="DropShadow" xml:space="preserve">
     <value>ドロップシャドウ</value>
   </data>
-  <data name="DropShadow_Color" xml:space="preserve">
-    <value>色</value>
-  </data>
-  <data name="DropShadow_Position" xml:space="preserve">
-    <value>位置</value>
-  </data>
-  <data name="DropShadow_ShadowOnly" xml:space="preserve">
-    <value>影のみ</value>
-  </data>
-  <data name="DropShadow_Sigma" xml:space="preserve">
-    <value>シグマ</value>
-  </data>
   <data name="EllipseShape" xml:space="preserve">
     <value>楕円</value>
-  </data>
-  <data name="EllipseShape_Height" xml:space="preserve">
-    <value>高さ</value>
-  </data>
-  <data name="EllipseShape_Width" xml:space="preserve">
-    <value>幅</value>
   </data>
   <data name="Erode" xml:space="preserve">
     <value>収縮</value>
@@ -532,53 +439,17 @@
   <data name="Erode_RadiusY" xml:space="preserve">
     <value>半径Y</value>
   </data>
-  <data name="FilterEffectGroup" xml:space="preserve">
-    <value>グループ</value>
-  </data>
-  <data name="FilterEffectPresenter" xml:space="preserve">
-    <value>プレセンター</value>
-  </data>
-  <data name="FilterEffectPresenter_Target" xml:space="preserve">
-    <value>ターゲット</value>
-  </data>
   <data name="FlatShadow" xml:space="preserve">
     <value>フラットシャドウ</value>
-  </data>
-  <data name="FlatShadow_Angle" xml:space="preserve">
-    <value>角度</value>
-  </data>
-  <data name="FlatShadow_Brush" xml:space="preserve">
-    <value>ブラシ</value>
   </data>
   <data name="FlatShadow_Length" xml:space="preserve">
     <value>長さ</value>
   </data>
-  <data name="FlatShadow_ShadowOnly" xml:space="preserve">
-    <value>影のみ</value>
-  </data>
   <data name="GLSLScriptEffect" xml:space="preserve">
     <value>GLSLスクリプト</value>
   </data>
-  <data name="GLSLScriptEffect_FragmentShader" xml:space="preserve">
-    <value>スクリプト</value>
-  </data>
   <data name="Gamma" xml:space="preserve">
     <value>ガンマ</value>
-  </data>
-  <data name="Gamma_Amount" xml:space="preserve">
-    <value>量</value>
-  </data>
-  <data name="Gamma_Strength" xml:space="preserve">
-    <value>強さ</value>
-  </data>
-  <data name="GaussianBlur_FixImageSize" xml:space="preserve">
-    <value>画像サイズを固定</value>
-  </data>
-  <data name="GaussianBlur_KernelSize" xml:space="preserve">
-    <value>カーネルサイズ</value>
-  </data>
-  <data name="GaussianBlur_Sigma" xml:space="preserve">
-    <value>シグマ</value>
   </data>
   <data name="GeometryShape" xml:space="preserve">
     <value>ジオメトリー</value>
@@ -601,29 +472,11 @@
   <data name="HueRotate" xml:space="preserve">
     <value>色相調整</value>
   </data>
-  <data name="HueRotate_Angle" xml:space="preserve">
-    <value>角度</value>
-  </data>
   <data name="InnerShadow" xml:space="preserve">
     <value>内側シャドウ</value>
   </data>
-  <data name="InnerShadow_Color" xml:space="preserve">
-    <value>色</value>
-  </data>
-  <data name="InnerShadow_Position" xml:space="preserve">
-    <value>位置</value>
-  </data>
-  <data name="InnerShadow_ShadowOnly" xml:space="preserve">
-    <value>影のみ</value>
-  </data>
-  <data name="InnerShadow_Sigma" xml:space="preserve">
-    <value>シグマ</value>
-  </data>
   <data name="Invert" xml:space="preserve">
     <value>反転</value>
-  </data>
-  <data name="Invert_Amount" xml:space="preserve">
-    <value>量</value>
   </data>
   <data name="Invert_ExcludeAlphaChannel" xml:space="preserve">
     <value>Alphaチャンネルを除外</value>
@@ -646,23 +499,11 @@
   <data name="LutEffect" xml:space="preserve">
     <value>LUT (Cubeファイル)</value>
   </data>
-  <data name="LutEffect_Source" xml:space="preserve">
-    <value>ソース</value>
-  </data>
-  <data name="LutEffect_Strength" xml:space="preserve">
-    <value>強さ</value>
-  </data>
   <data name="MatrixTransform" xml:space="preserve">
     <value>行列変形</value>
   </data>
   <data name="MatrixTransform_Matrix" xml:space="preserve">
     <value>行列</value>
-  </data>
-  <data name="MedianBlur_FixImageSize" xml:space="preserve">
-    <value>画像サイズを固定</value>
-  </data>
-  <data name="MedianBlur_KernelSize" xml:space="preserve">
-    <value>カーネルサイズ</value>
   </data>
   <data name="MosaicEffect" xml:space="preserve">
     <value>モザイク</value>
@@ -685,9 +526,6 @@
   <data name="Negaposi_Red" xml:space="preserve">
     <value>赤</value>
   </data>
-  <data name="Negaposi_Strength" xml:space="preserve">
-    <value>強さ</value>
-  </data>
   <data name="ParticleEmitter" xml:space="preserve">
     <value>パーティクルエミッタ</value>
   </data>
@@ -696,9 +534,6 @@
   </data>
   <data name="ParticleEmitter_AngularVelocity" xml:space="preserve">
     <value>角速度</value>
-  </data>
-  <data name="ParticleEmitter_Direction" xml:space="preserve">
-    <value>方向</value>
   </data>
   <data name="ParticleEmitter_EmissionRate" xml:space="preserve">
     <value>放出レート</value>
@@ -739,9 +574,6 @@
   <data name="ParticleEmitter_MaxParticles" xml:space="preserve">
     <value>最大パーティクル数</value>
   </data>
-  <data name="ParticleEmitter_ParticleColor" xml:space="preserve">
-    <value>色</value>
-  </data>
   <data name="ParticleEmitter_ParticleDrawable" xml:space="preserve">
     <value>パーティクル描画</value>
   </data>
@@ -756,9 +588,6 @@
   </data>
   <data name="ParticleEmitter_SizeRandom" xml:space="preserve">
     <value>サイズランダム</value>
-  </data>
-  <data name="ParticleEmitter_Speed" xml:space="preserve">
-    <value>スピード</value>
   </data>
   <data name="ParticleEmitter_SpeedRandom" xml:space="preserve">
     <value>スピードランダム</value>
@@ -796,26 +625,11 @@
   <data name="RectShape" xml:space="preserve">
     <value>矩形</value>
   </data>
-  <data name="RectShape_Height" xml:space="preserve">
-    <value>高さ</value>
-  </data>
-  <data name="RectShape_Width" xml:space="preserve">
-    <value>幅</value>
-  </data>
   <data name="Rotation3DTransform" xml:space="preserve">
     <value>回転3D</value>
   </data>
-  <data name="Rotation3DTransform_CenterX" xml:space="preserve">
-    <value>中心X</value>
-  </data>
-  <data name="Rotation3DTransform_CenterY" xml:space="preserve">
-    <value>中心Y</value>
-  </data>
   <data name="Rotation3DTransform_CenterZ" xml:space="preserve">
     <value>中心Z</value>
-  </data>
-  <data name="Rotation3DTransform_Depth" xml:space="preserve">
-    <value>深度</value>
   </data>
   <data name="Rotation3DTransform_RotationX" xml:space="preserve">
     <value>X回転</value>
@@ -826,41 +640,14 @@
   <data name="Rotation3DTransform_RotationZ" xml:space="preserve">
     <value>Z回転</value>
   </data>
-  <data name="RotationTransform" xml:space="preserve">
-    <value>回転</value>
-  </data>
-  <data name="RotationTransform_Rotation" xml:space="preserve">
-    <value>回転</value>
-  </data>
   <data name="RoundedRectShape" xml:space="preserve">
     <value>角丸四角形</value>
   </data>
   <data name="RoundedRectShape_CornerRadius" xml:space="preserve">
     <value>角の半径</value>
   </data>
-  <data name="RoundedRectShape_Height" xml:space="preserve">
-    <value>高さ</value>
-  </data>
-  <data name="RoundedRectShape_Smoothing" xml:space="preserve">
-    <value>なめらかさ</value>
-  </data>
-  <data name="RoundedRectShape_Width" xml:space="preserve">
-    <value>幅</value>
-  </data>
-  <data name="SKSLScriptEffect_Script" xml:space="preserve">
-    <value>スクリプト</value>
-  </data>
   <data name="Saturate" xml:space="preserve">
     <value>彩度調整</value>
-  </data>
-  <data name="Saturate_Amount" xml:space="preserve">
-    <value>量</value>
-  </data>
-  <data name="ScaleTransform" xml:space="preserve">
-    <value>スケール</value>
-  </data>
-  <data name="ScaleTransform_Scale" xml:space="preserve">
-    <value>スケール</value>
   </data>
   <data name="ScaleTransform_ScaleX" xml:space="preserve">
     <value>X拡大率</value>
@@ -871,9 +658,6 @@
   <data name="ShakeEffect" xml:space="preserve">
     <value>振動</value>
   </data>
-  <data name="ShakeEffect_Speed" xml:space="preserve">
-    <value>スピード</value>
-  </data>
   <data name="ShakeEffect_StrengthX" xml:space="preserve">
     <value>強さX</value>
   </data>
@@ -882,9 +666,6 @@
   </data>
   <data name="Shape_Fill" xml:space="preserve">
     <value>塗りつぶし</value>
-  </data>
-  <data name="Shape_Pen" xml:space="preserve">
-    <value>ストローク</value>
   </data>
   <data name="SkewTransform" xml:space="preserve">
     <value>歪み</value>
@@ -904,9 +685,6 @@
   <data name="SourceImage" xml:space="preserve">
     <value>画像</value>
   </data>
-  <data name="SourceImage_Source" xml:space="preserve">
-    <value>ソース</value>
-  </data>
   <data name="SourceVideo" xml:space="preserve">
     <value>動画</value>
   </data>
@@ -915,12 +693,6 @@
   </data>
   <data name="SourceVideo_OffsetPosition" xml:space="preserve">
     <value>オフセット位置</value>
-  </data>
-  <data name="SourceVideo_Source" xml:space="preserve">
-    <value>ソース</value>
-  </data>
-  <data name="SourceVideo_Speed" xml:space="preserve">
-    <value>スピード</value>
   </data>
   <data name="SplitEffect" xml:space="preserve">
     <value>均等に分割</value>
@@ -936,15 +708,6 @@
   </data>
   <data name="SplitEffect_VerticalSpacing" xml:space="preserve">
     <value>垂直方向の間隔</value>
-  </data>
-  <data name="StrokeEffect" xml:space="preserve">
-    <value>ストローク</value>
-  </data>
-  <data name="StrokeEffect_Offset" xml:space="preserve">
-    <value>オフセット</value>
-  </data>
-  <data name="StrokeEffect_Pen" xml:space="preserve">
-    <value>ストローク</value>
   </data>
   <data name="StrokeEffect_Style" xml:space="preserve">
     <value>ボーダースタイル</value>
@@ -964,9 +727,6 @@
   <data name="TextBlock_FontWeight" xml:space="preserve">
     <value>フォントの太さ</value>
   </data>
-  <data name="TextBlock_Pen" xml:space="preserve">
-    <value>ストローク</value>
-  </data>
   <data name="TextBlock_Size" xml:space="preserve">
     <value>サイズ</value>
   </data>
@@ -982,35 +742,8 @@
   <data name="Threshold" xml:space="preserve">
     <value>二階調化</value>
   </data>
-  <data name="Threshold_Smoothness" xml:space="preserve">
-    <value>なめらかさ</value>
-  </data>
-  <data name="Threshold_Strength" xml:space="preserve">
-    <value>強さ</value>
-  </data>
-  <data name="Threshold_Value" xml:space="preserve">
-    <value>量</value>
-  </data>
-  <data name="TransformEffect" xml:space="preserve">
-    <value>トランスフォーム</value>
-  </data>
   <data name="TransformEffect_BitmapInterpolationMode" xml:space="preserve">
     <value>ビットマップ補間モード</value>
-  </data>
-  <data name="TransformEffect_Transform" xml:space="preserve">
-    <value>トランスフォーム</value>
-  </data>
-  <data name="TransformEffect_TransformOrigin" xml:space="preserve">
-    <value>トランスフォームの起点</value>
-  </data>
-  <data name="TransformGroup" xml:space="preserve">
-    <value>グループ</value>
-  </data>
-  <data name="TransformPresenter" xml:space="preserve">
-    <value>プレセンター</value>
-  </data>
-  <data name="TransformPresenter_Target" xml:space="preserve">
-    <value>ターゲット</value>
   </data>
   <data name="TranslateTransform" xml:space="preserve">
     <value>移動</value>
@@ -1033,9 +766,6 @@
   <data name="ParticleEmitter_PhysicsGroup" xml:space="preserve">
     <value>物理</value>
   </data>
-  <data name="ParticleEmitter_RotationGroup" xml:space="preserve">
-    <value>回転</value>
-  </data>
   <data name="ParticleEmitter_VelocityGroup" xml:space="preserve">
     <value>速度</value>
   </data>
@@ -1050,9 +780,6 @@
   </data>
   <data name="ArcSegment_Point" xml:space="preserve">
     <value>点</value>
-  </data>
-  <data name="ArcSegment_Radius" xml:space="preserve">
-    <value>半径</value>
   </data>
   <data name="ArcSegment_RotationAngle" xml:space="preserve">
     <value>回転角度</value>
@@ -1084,41 +811,17 @@
   <data name="BasicMaterial_SpecularColor" xml:space="preserve">
     <value>鏡面反射色</value>
   </data>
-  <data name="BrushPresenter" xml:space="preserve">
-    <value>プレセンター</value>
-  </data>
-  <data name="BrushPresenter_Target" xml:space="preserve">
-    <value>ターゲット</value>
-  </data>
-  <data name="Brush_Opacity" xml:space="preserve">
-    <value>不透明度</value>
-  </data>
-  <data name="Brush_Transform" xml:space="preserve">
-    <value>トランスフォーム</value>
-  </data>
-  <data name="Brush_TransformOrigin" xml:space="preserve">
-    <value>トランスフォームの起点</value>
-  </data>
   <data name="Camera3D_FarPlane" xml:space="preserve">
     <value>遠クリップ面</value>
   </data>
   <data name="Camera3D_NearPlane" xml:space="preserve">
     <value>近クリップ面</value>
   </data>
-  <data name="Camera3D_Position" xml:space="preserve">
-    <value>位置</value>
-  </data>
-  <data name="Camera3D_Target" xml:space="preserve">
-    <value>ターゲット</value>
-  </data>
   <data name="Camera3D_Up" xml:space="preserve">
     <value>上方向</value>
   </data>
   <data name="ConicGradientBrush" xml:space="preserve">
     <value>円錐型グラデーション</value>
-  </data>
-  <data name="ConicGradientBrush_Angle" xml:space="preserve">
-    <value>角度</value>
   </data>
   <data name="ConicGradientBrush_Center" xml:space="preserve">
     <value>中心</value>
@@ -1129,35 +832,14 @@
   <data name="ConicSegment_ControlPoint" xml:space="preserve">
     <value>制御点</value>
   </data>
-  <data name="ConicSegment_EndPoint" xml:space="preserve">
-    <value>終了点</value>
-  </data>
   <data name="ConicSegment_Weight" xml:space="preserve">
     <value>重み</value>
   </data>
   <data name="Cube3D" xml:space="preserve">
     <value>立方体</value>
   </data>
-  <data name="Cube3D_Depth" xml:space="preserve">
-    <value>深度</value>
-  </data>
-  <data name="Cube3D_Height" xml:space="preserve">
-    <value>高さ</value>
-  </data>
-  <data name="Cube3D_Width" xml:space="preserve">
-    <value>幅</value>
-  </data>
   <data name="CubeMesh" xml:space="preserve">
     <value>立方体メッシュ</value>
-  </data>
-  <data name="CubeMesh_Depth" xml:space="preserve">
-    <value>深度</value>
-  </data>
-  <data name="CubeMesh_Height" xml:space="preserve">
-    <value>高さ</value>
-  </data>
-  <data name="CubeMesh_Width" xml:space="preserve">
-    <value>幅</value>
   </data>
   <data name="CubicBezierSegment" xml:space="preserve">
     <value>3次ベジェ曲線</value>
@@ -1168,14 +850,8 @@
   <data name="CubicBezierSegment_ControlPoint2" xml:space="preserve">
     <value>制御点2</value>
   </data>
-  <data name="CubicBezierSegment_EndPoint" xml:space="preserve">
-    <value>終了点</value>
-  </data>
   <data name="DirectionalLight3D" xml:space="preserve">
     <value>平行光源</value>
-  </data>
-  <data name="DirectionalLight3D_Direction" xml:space="preserve">
-    <value>方向</value>
   </data>
   <data name="DirectionalLight3D_ShadowDistance" xml:space="preserve">
     <value>影の距離</value>
@@ -1183,17 +859,8 @@
   <data name="DirectionalLight3D_ShadowMapSize" xml:space="preserve">
     <value>シャドウマップサイズ</value>
   </data>
-  <data name="DrawableBrush" xml:space="preserve">
-    <value>描画オブジェクト</value>
-  </data>
-  <data name="DrawableBrush_Drawable" xml:space="preserve">
-    <value>描画オブジェクト</value>
-  </data>
   <data name="DrawableTextureSource" xml:space="preserve">
     <value>描画テクスチャ</value>
-  </data>
-  <data name="DrawableTextureSource_Drawable" xml:space="preserve">
-    <value>描画オブジェクト</value>
   </data>
   <data name="DrawableTextureSource_TextureHeight" xml:space="preserve">
     <value>テクスチャ高さ</value>
@@ -1204,17 +871,8 @@
   <data name="EllipseGeometry" xml:space="preserve">
     <value>楕円</value>
   </data>
-  <data name="EllipseGeometry_Height" xml:space="preserve">
-    <value>高さ</value>
-  </data>
-  <data name="EllipseGeometry_Width" xml:space="preserve">
-    <value>幅</value>
-  </data>
   <data name="Geometry_FillType" xml:space="preserve">
     <value>塗りつぶしタイプ</value>
-  </data>
-  <data name="Geometry_Transform" xml:space="preserve">
-    <value>トランスフォーム</value>
   </data>
   <data name="GradientBrush_GradientStops" xml:space="preserve">
     <value>分岐点</value>
@@ -1222,32 +880,14 @@
   <data name="GradientBrush_SpreadMethod" xml:space="preserve">
     <value>広がり方</value>
   </data>
-  <data name="GradientStop_Color" xml:space="preserve">
-    <value>色</value>
-  </data>
-  <data name="GradientStop_Offset" xml:space="preserve">
-    <value>オフセット</value>
-  </data>
-  <data name="Group3D" xml:space="preserve">
-    <value>グループ</value>
-  </data>
   <data name="Group3D_Children" xml:space="preserve">
     <value>子要素</value>
-  </data>
-  <data name="ImageBrush_Source" xml:space="preserve">
-    <value>ソース</value>
   </data>
   <data name="ImageTextureSource" xml:space="preserve">
     <value>画像テクスチャ</value>
   </data>
-  <data name="ImageTextureSource_Source" xml:space="preserve">
-    <value>ソース</value>
-  </data>
   <data name="Light3D_CastsShadow" xml:space="preserve">
     <value>影を投影</value>
-  </data>
-  <data name="Light3D_Color" xml:space="preserve">
-    <value>色</value>
   </data>
   <data name="Light3D_Intensity" xml:space="preserve">
     <value>強度</value>
@@ -1270,9 +910,6 @@
   <data name="LinearGradientBrush" xml:space="preserve">
     <value>線形グラデーション</value>
   </data>
-  <data name="LinearGradientBrush_EndPoint" xml:space="preserve">
-    <value>終了点</value>
-  </data>
   <data name="LinearGradientBrush_StartPoint" xml:space="preserve">
     <value>開始点</value>
   </data>
@@ -1284,9 +921,6 @@
   </data>
   <data name="Model3D" xml:space="preserve">
     <value>モデル</value>
-  </data>
-  <data name="Model3D_Source" xml:space="preserve">
-    <value>ソース</value>
   </data>
   <data name="ModelMesh" xml:space="preserve">
     <value>モデルメッシュ</value>
@@ -1303,23 +937,11 @@
   <data name="Object3D_Material" xml:space="preserve">
     <value>マテリアル</value>
   </data>
-  <data name="Object3D_Position" xml:space="preserve">
-    <value>位置</value>
-  </data>
   <data name="Object3D_ReceiveShadows" xml:space="preserve">
     <value>影を受ける</value>
   </data>
-  <data name="Object3D_Rotation" xml:space="preserve">
-    <value>回転</value>
-  </data>
-  <data name="Object3D_Scale" xml:space="preserve">
-    <value>スケール</value>
-  </data>
   <data name="OrthographicCamera" xml:space="preserve">
     <value>正射投影カメラ</value>
-  </data>
-  <data name="OrthographicCamera_Width" xml:space="preserve">
-    <value>幅</value>
   </data>
   <data name="PBRMaterial" xml:space="preserve">
     <value>PBRマテリアル</value>
@@ -1371,9 +993,6 @@
   </data>
   <data name="PathGeometry" xml:space="preserve">
     <value>ジオメトリ</value>
-  </data>
-  <data name="Pen_Brush" xml:space="preserve">
-    <value>ブラシ</value>
   </data>
   <data name="Pen_DashArray" xml:space="preserve">
     <value>破線と空白</value>
@@ -1432,14 +1051,8 @@
   <data name="Plane3D" xml:space="preserve">
     <value>平面</value>
   </data>
-  <data name="Plane3D_Height" xml:space="preserve">
-    <value>高さ</value>
-  </data>
   <data name="Plane3D_HeightSegments" xml:space="preserve">
     <value>高さの分割数</value>
-  </data>
-  <data name="Plane3D_Width" xml:space="preserve">
-    <value>幅</value>
   </data>
   <data name="Plane3D_WidthSegments" xml:space="preserve">
     <value>幅の分割数</value>
@@ -1447,14 +1060,8 @@
   <data name="PlaneMesh" xml:space="preserve">
     <value>平面メッシュ</value>
   </data>
-  <data name="PlaneMesh_Height" xml:space="preserve">
-    <value>高さ</value>
-  </data>
   <data name="PlaneMesh_HeightSegments" xml:space="preserve">
     <value>高さの分割数</value>
-  </data>
-  <data name="PlaneMesh_Width" xml:space="preserve">
-    <value>幅</value>
   </data>
   <data name="PlaneMesh_WidthSegments" xml:space="preserve">
     <value>幅の分割数</value>
@@ -1468,9 +1075,6 @@
   <data name="PointLight3D_LinearAttenuation" xml:space="preserve">
     <value>線形減衰</value>
   </data>
-  <data name="PointLight3D_Position" xml:space="preserve">
-    <value>位置</value>
-  </data>
   <data name="PointLight3D_QuadraticAttenuation" xml:space="preserve">
     <value>二次減衰</value>
   </data>
@@ -1483,9 +1087,6 @@
   <data name="QuadraticBezierSegment_ControlPoint" xml:space="preserve">
     <value>制御点</value>
   </data>
-  <data name="QuadraticBezierSegment_EndPoint" xml:space="preserve">
-    <value>終了点</value>
-  </data>
   <data name="RadialGradientBrush" xml:space="preserve">
     <value>放射状グラデーション</value>
   </data>
@@ -1495,32 +1096,14 @@
   <data name="RadialGradientBrush_GradientOrigin" xml:space="preserve">
     <value>グラデーションの起点</value>
   </data>
-  <data name="RadialGradientBrush_Radius" xml:space="preserve">
-    <value>半径</value>
-  </data>
   <data name="RectGeometry" xml:space="preserve">
     <value>矩形</value>
-  </data>
-  <data name="RectGeometry_Height" xml:space="preserve">
-    <value>高さ</value>
-  </data>
-  <data name="RectGeometry_Width" xml:space="preserve">
-    <value>幅</value>
   </data>
   <data name="RoundedRectGeometry" xml:space="preserve">
     <value>角丸四角形</value>
   </data>
   <data name="RoundedRectGeometry_CornerRadius" xml:space="preserve">
     <value>角の半径</value>
-  </data>
-  <data name="RoundedRectGeometry_Height" xml:space="preserve">
-    <value>高さ</value>
-  </data>
-  <data name="RoundedRectGeometry_Smoothing" xml:space="preserve">
-    <value>なめらかさ</value>
-  </data>
-  <data name="RoundedRectGeometry_Width" xml:space="preserve">
-    <value>幅</value>
   </data>
   <data name="Scene3D" xml:space="preserve">
     <value>3Dシーン</value>
@@ -1552,14 +1135,8 @@
   <data name="SolidColorBrush" xml:space="preserve">
     <value>塗りつぶし</value>
   </data>
-  <data name="SolidColorBrush_Color" xml:space="preserve">
-    <value>色</value>
-  </data>
   <data name="Sphere3D" xml:space="preserve">
     <value>球体</value>
-  </data>
-  <data name="Sphere3D_Radius" xml:space="preserve">
-    <value>半径</value>
   </data>
   <data name="Sphere3D_Rings" xml:space="preserve">
     <value>リング数</value>
@@ -1569,9 +1146,6 @@
   </data>
   <data name="SphereMesh" xml:space="preserve">
     <value>球体メッシュ</value>
-  </data>
-  <data name="SphereMesh_Radius" xml:space="preserve">
-    <value>半径</value>
   </data>
   <data name="SphereMesh_Rings" xml:space="preserve">
     <value>リング数</value>
@@ -1585,9 +1159,6 @@
   <data name="SpotLight3D_ConstantAttenuation" xml:space="preserve">
     <value>定数減衰</value>
   </data>
-  <data name="SpotLight3D_Direction" xml:space="preserve">
-    <value>方向</value>
-  </data>
   <data name="SpotLight3D_InnerConeAngle" xml:space="preserve">
     <value>内側コーン角度</value>
   </data>
@@ -1596,9 +1167,6 @@
   </data>
   <data name="SpotLight3D_OuterConeAngle" xml:space="preserve">
     <value>外側コーン角度</value>
-  </data>
-  <data name="SpotLight3D_Position" xml:space="preserve">
-    <value>位置</value>
   </data>
   <data name="SpotLight3D_QuadraticAttenuation" xml:space="preserve">
     <value>二次減衰</value>
@@ -1645,9 +1213,6 @@
   <data name="TileBrush_DestinationRect" xml:space="preserve">
     <value>デスティネーション</value>
   </data>
-  <data name="TileBrush_SourceRect" xml:space="preserve">
-    <value>ソース</value>
-  </data>
   <data name="TileBrush_Stretch" xml:space="preserve">
     <value>ストレッチ</value>
   </data>
@@ -1657,17 +1222,11 @@
   <data name="TransparentMaterial" xml:space="preserve">
     <value>透明マテリアル</value>
   </data>
-  <data name="TransparentMaterial_Color" xml:space="preserve">
-    <value>色</value>
-  </data>
   <data name="TransparentMaterial_ColorMap" xml:space="preserve">
     <value>カラーマップ</value>
   </data>
   <data name="TransparentMaterial_IndexOfRefraction" xml:space="preserve">
     <value>屈折率</value>
-  </data>
-  <data name="TransparentMaterial_Opacity" xml:space="preserve">
-    <value>不透明度</value>
   </data>
   <data name="TransparentMaterial_Roughness" xml:space="preserve">
     <value>粗さ</value>
@@ -1677,5 +1236,105 @@
   </data>
   <data name="VideoEncoderSettings_Unknown_Description" xml:space="preserve">
     <value>フレームサイズを設定</value>
+  </data>
+
+  <data name="Amount" xml:space="preserve">
+    <value>量</value>
+  </data>
+  <data name="Angle" xml:space="preserve">
+    <value>角度</value>
+  </data>
+  <data name="Brush" xml:space="preserve">
+    <value>ブラシ</value>
+  </data>
+  <data name="CenterX" xml:space="preserve">
+    <value>中心X</value>
+  </data>
+  <data name="CenterY" xml:space="preserve">
+    <value>中心Y</value>
+  </data>
+  <data name="Color" xml:space="preserve">
+    <value>色</value>
+  </data>
+  <data name="Depth" xml:space="preserve">
+    <value>深度</value>
+  </data>
+  <data name="Direction" xml:space="preserve">
+    <value>方向</value>
+  </data>
+  <data name="Drawable" xml:space="preserve">
+    <value>描画オブジェクト</value>
+  </data>
+  <data name="EndPoint" xml:space="preserve">
+    <value>終了点</value>
+  </data>
+  <data name="FixImageSize" xml:space="preserve">
+    <value>画像サイズを固定</value>
+  </data>
+  <data name="Group" xml:space="preserve">
+    <value>グループ</value>
+  </data>
+  <data name="Height" xml:space="preserve">
+    <value>高さ</value>
+  </data>
+  <data name="KernelSize" xml:space="preserve">
+    <value>カーネルサイズ</value>
+  </data>
+  <data name="Offset" xml:space="preserve">
+    <value>オフセット</value>
+  </data>
+  <data name="Opacity" xml:space="preserve">
+    <value>不透明度</value>
+  </data>
+  <data name="Position" xml:space="preserve">
+    <value>位置</value>
+  </data>
+  <data name="Presenter" xml:space="preserve">
+    <value>プレセンター</value>
+  </data>
+  <data name="Radius" xml:space="preserve">
+    <value>半径</value>
+  </data>
+  <data name="Rotation" xml:space="preserve">
+    <value>回転</value>
+  </data>
+  <data name="Scale" xml:space="preserve">
+    <value>スケール</value>
+  </data>
+  <data name="Script" xml:space="preserve">
+    <value>スクリプト</value>
+  </data>
+  <data name="ShadowOnly" xml:space="preserve">
+    <value>影のみ</value>
+  </data>
+  <data name="Sigma" xml:space="preserve">
+    <value>シグマ</value>
+  </data>
+  <data name="Smoothing" xml:space="preserve">
+    <value>なめらかさ</value>
+  </data>
+  <data name="Source" xml:space="preserve">
+    <value>ソース</value>
+  </data>
+  <data name="Speed" xml:space="preserve">
+    <value>スピード</value>
+  </data>
+  <data name="Strength" xml:space="preserve">
+    <value>強さ</value>
+  </data>
+  <data name="Stroke" xml:space="preserve">
+    <value>ストローク</value>
+  </data>
+  <data name="Target" xml:space="preserve">
+    <value>ターゲット</value>
+  </data>
+  <data name="Transform" xml:space="preserve">
+    <value>トランスフォーム</value>
+  </data>
+  <data name="TransformOrigin" xml:space="preserve">
+    <value>トランスフォームの起点</value>
+  </data>
+  <data name="Width" xml:space="preserve">
+    <value>幅</value>
   </data>
 </root>

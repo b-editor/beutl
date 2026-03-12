@@ -14,11 +14,11 @@ public sealed partial class RectShape : Shape
         ScanProperties<RectShape>();
     }
 
-    [Display(Name = nameof(GraphicsStrings.RectShape_Width), ResourceType = typeof(GraphicsStrings))]
+    [Display(Name = nameof(GraphicsStrings.Width), ResourceType = typeof(GraphicsStrings))]
     [Range(0, float.MaxValue)]
     public IProperty<float> Width { get; } = Property.CreateAnimatable<float>(100);
 
-    [Display(Name = nameof(GraphicsStrings.RectShape_Height), ResourceType = typeof(GraphicsStrings))]
+    [Display(Name = nameof(GraphicsStrings.Height), ResourceType = typeof(GraphicsStrings))]
     [Range(0, float.MaxValue)]
     public IProperty<float> Height { get; } = Property.CreateAnimatable<float>(100);
 

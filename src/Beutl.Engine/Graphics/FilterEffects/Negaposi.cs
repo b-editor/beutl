@@ -23,7 +23,7 @@ public partial class Negaposi : FilterEffect
     public IProperty<byte> Blue { get; } = Property.CreateAnimatable<byte>();
 
     [Range(0, 100)]
-    [Display(Name = nameof(GraphicsStrings.Negaposi_Strength), ResourceType = typeof(GraphicsStrings))]
+    [Display(Name = nameof(GraphicsStrings.Strength), ResourceType = typeof(GraphicsStrings))]
     public IProperty<float> Strength { get; } = Property.CreateAnimatable(100f);
 
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)

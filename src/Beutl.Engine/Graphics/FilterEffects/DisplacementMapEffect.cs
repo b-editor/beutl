@@ -29,7 +29,7 @@ public partial class DisplacementMapEffect : FilterEffect
     [Display(Name = nameof(GraphicsStrings.DisplacementMapEffect_DisplacementMap), ResourceType = typeof(GraphicsStrings))]
     public IProperty<Brush?> DisplacementMap { get; } = Property.Create<Brush?>();
 
-    [Display(Name = nameof(GraphicsStrings.DisplacementMapEffect_Transform), ResourceType = typeof(GraphicsStrings))]
+    [Display(Name = nameof(GraphicsStrings.Transform), ResourceType = typeof(GraphicsStrings))]
     public IProperty<DisplacementMapTransform?> Transform { get; } = Property.Create<DisplacementMapTransform?>();
 
     [Display(Name = nameof(GraphicsStrings.DisplacementMapEffect_SpreadMethod), ResourceType = typeof(GraphicsStrings))]

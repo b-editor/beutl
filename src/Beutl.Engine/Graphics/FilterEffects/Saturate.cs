@@ -13,7 +13,7 @@ public sealed partial class Saturate : FilterEffect
         ScanProperties<Saturate>();
     }
 
-    [Display(Name = nameof(GraphicsStrings.Saturate_Amount), ResourceType = typeof(GraphicsStrings))]
+    [Display(Name = nameof(GraphicsStrings.Amount), ResourceType = typeof(GraphicsStrings))]
     public IProperty<float> Amount { get; } = Property.CreateAnimatable(100f);
 
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)

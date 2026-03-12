@@ -22,7 +22,7 @@ public sealed partial class QuadraticBezierSegment : PathSegment
     [Display(Name = nameof(GraphicsStrings.QuadraticBezierSegment_ControlPoint), ResourceType = typeof(GraphicsStrings))]
     public IProperty<Point> ControlPoint { get; } = Property.CreateAnimatable<Point>();
 
-    [Display(Name = nameof(GraphicsStrings.QuadraticBezierSegment_EndPoint), ResourceType = typeof(GraphicsStrings))]
+    [Display(Name = nameof(GraphicsStrings.EndPoint), ResourceType = typeof(GraphicsStrings))]
     public IProperty<Point> EndPoint { get; } = Property.CreateAnimatable<Point>();
 
     public override void ApplyTo(IGeometryContext context, PathSegment.Resource resource)

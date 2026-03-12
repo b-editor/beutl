@@ -9,7 +9,7 @@ namespace Beutl.Graphics3D;
 /// A container that holds multiple 3D objects as children.
 /// The group's transform is applied to all children.
 /// </summary>
-[Display(Name = nameof(GraphicsStrings.Group3D), ResourceType = typeof(GraphicsStrings))]
+[Display(Name = nameof(GraphicsStrings.Group), ResourceType = typeof(GraphicsStrings))]
 public partial class Group3D : Object3D
 {
     public Group3D()

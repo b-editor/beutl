@@ -14,16 +14,16 @@ public sealed partial class RoundedRectGeometry : Geometry
         ScanProperties<RoundedRectGeometry>();
     }
 
-    [Display(Name = nameof(GraphicsStrings.RoundedRectGeometry_Width), ResourceType = typeof(GraphicsStrings))]
+    [Display(Name = nameof(GraphicsStrings.Width), ResourceType = typeof(GraphicsStrings))]
     public IProperty<float> Width { get; } = Property.CreateAnimatable<float>();
 
-    [Display(Name = nameof(GraphicsStrings.RoundedRectGeometry_Height), ResourceType = typeof(GraphicsStrings))]
+    [Display(Name = nameof(GraphicsStrings.Height), ResourceType = typeof(GraphicsStrings))]
     public IProperty<float> Height { get; } = Property.CreateAnimatable<float>();
 
     [Display(Name = nameof(GraphicsStrings.RoundedRectGeometry_CornerRadius), ResourceType = typeof(GraphicsStrings))]
     public IProperty<CornerRadius> CornerRadius { get; } = Property.CreateAnimatable<CornerRadius>();
 
-    [Display(Name = nameof(GraphicsStrings.RoundedRectGeometry_Smoothing), ResourceType = typeof(GraphicsStrings))]
+    [Display(Name = nameof(GraphicsStrings.Smoothing), ResourceType = typeof(GraphicsStrings))]
     public IProperty<float> Smoothing { get; } = Property.CreateAnimatable<float>();
 
     // https://github.com/yjb94/react-native-squircle-skia

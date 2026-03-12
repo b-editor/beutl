@@ -5,7 +5,7 @@ using Beutl.Language;
 
 namespace Beutl.Graphics.Transformation;
 
-[Display(Name = nameof(GraphicsStrings.ScaleTransform), ResourceType = typeof(GraphicsStrings))]
+[Display(Name = nameof(GraphicsStrings.Scale), ResourceType = typeof(GraphicsStrings))]
 public sealed class ScaleTransform : Transform
 {
     public ScaleTransform()
@@ -27,7 +27,7 @@ public sealed class ScaleTransform : Transform
         ScaleY.CurrentValue = y;
     }
 
-    [Display(Name = nameof(GraphicsStrings.ScaleTransform_Scale), ResourceType = typeof(GraphicsStrings))]
+    [Display(Name = nameof(GraphicsStrings.Scale), ResourceType = typeof(GraphicsStrings))]
     public IProperty<float> Scale { get; } = Property.CreateAnimatable(100f);
 
     [Display(Name = nameof(GraphicsStrings.ScaleTransform_ScaleX), ResourceType = typeof(GraphicsStrings))]

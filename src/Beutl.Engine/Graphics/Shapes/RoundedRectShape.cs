@@ -14,11 +14,11 @@ public sealed partial class RoundedRectShape : Shape
         ScanProperties<RoundedRectShape>();
     }
 
-    [Display(Name = nameof(GraphicsStrings.RoundedRectShape_Width), ResourceType = typeof(GraphicsStrings))]
+    [Display(Name = nameof(GraphicsStrings.Width), ResourceType = typeof(GraphicsStrings))]
     [Range(0, float.MaxValue)]
     public IProperty<float> Width { get; } = Property.CreateAnimatable<float>(100);
 
-    [Display(Name = nameof(GraphicsStrings.RoundedRectShape_Height), ResourceType = typeof(GraphicsStrings))]
+    [Display(Name = nameof(GraphicsStrings.Height), ResourceType = typeof(GraphicsStrings))]
     [Range(0, float.MaxValue)]
     public IProperty<float> Height { get; } = Property.CreateAnimatable<float>(100);
 
@@ -27,7 +27,7 @@ public sealed partial class RoundedRectShape : Shape
     public IProperty<CornerRadius> CornerRadius { get; } = Property.CreateAnimatable<CornerRadius>(new(25));
 
     [Range(0, 100)]
-    [Display(Name = nameof(GraphicsStrings.RoundedRectShape_Smoothing), ResourceType = typeof(GraphicsStrings))]
+    [Display(Name = nameof(GraphicsStrings.Smoothing), ResourceType = typeof(GraphicsStrings))]
     public IProperty<float> Smoothing { get; } = Property.CreateAnimatable<float>();
 
     public partial class Resource

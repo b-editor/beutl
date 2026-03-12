@@ -16,7 +16,7 @@ public sealed partial class DrawableTextureSource : TextureSource
         ScanProperties<DrawableTextureSource>();
     }
 
-    [Display(Name = nameof(GraphicsStrings.DrawableTextureSource_Drawable), ResourceType = typeof(GraphicsStrings))]
+    [Display(Name = nameof(GraphicsStrings.Drawable), ResourceType = typeof(GraphicsStrings))]
     public IProperty<Drawable?> Drawable { get; } = Property.Create<Drawable?>(null);
 
     [Display(Name = nameof(GraphicsStrings.DrawableTextureSource_TextureWidth), ResourceType = typeof(GraphicsStrings))]

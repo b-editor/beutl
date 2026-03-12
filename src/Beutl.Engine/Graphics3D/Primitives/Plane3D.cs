@@ -20,14 +20,14 @@ public sealed partial class Plane3D : Object3D
     /// <summary>
     /// Gets the width of the plane (X-axis).
     /// </summary>
-    [Display(Name = nameof(GraphicsStrings.Plane3D_Width), ResourceType = typeof(GraphicsStrings))]
+    [Display(Name = nameof(GraphicsStrings.Width), ResourceType = typeof(GraphicsStrings))]
     [Range(0.001f, float.MaxValue)]
     public IProperty<float> Width { get; } = Property.CreateAnimatable(1f);
 
     /// <summary>
     /// Gets the height of the plane (Z-axis).
     /// </summary>
-    [Display(Name = nameof(GraphicsStrings.Plane3D_Height), ResourceType = typeof(GraphicsStrings))]
+    [Display(Name = nameof(GraphicsStrings.Height), ResourceType = typeof(GraphicsStrings))]
     [Range(0.001f, float.MaxValue)]
     public IProperty<float> Height { get; } = Property.CreateAnimatable(1f);
 

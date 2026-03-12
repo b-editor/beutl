@@ -25,17 +25,17 @@ public abstract partial class Drawable : EngineObject
 
     public override CompositionTarget GetCompositionTarget() => CompositionTarget.Graphics;
 
-    [Display(Name = nameof(GraphicsStrings.Drawable_Transform), ResourceType = typeof(GraphicsStrings), GroupName = nameof(GraphicsStrings.Drawable_Transform))]
+    [Display(Name = nameof(GraphicsStrings.Transform), ResourceType = typeof(GraphicsStrings), GroupName = nameof(GraphicsStrings.Transform))]
     public IProperty<Transform?> Transform { get; } = Property.Create<Transform?>();
 
-    [Display(Name = nameof(GraphicsStrings.Drawable_AlignmentX), ResourceType = typeof(GraphicsStrings), GroupName = nameof(GraphicsStrings.Drawable_Transform))]
+    [Display(Name = nameof(GraphicsStrings.Drawable_AlignmentX), ResourceType = typeof(GraphicsStrings), GroupName = nameof(GraphicsStrings.Transform))]
     public IProperty<AlignmentX> AlignmentX { get; } = Property.CreateAnimatable(Media.AlignmentX.Center);
 
-    [Display(Name = nameof(GraphicsStrings.Drawable_AlignmentY), ResourceType = typeof(GraphicsStrings), GroupName = nameof(GraphicsStrings.Drawable_Transform))]
+    [Display(Name = nameof(GraphicsStrings.Drawable_AlignmentY), ResourceType = typeof(GraphicsStrings), GroupName = nameof(GraphicsStrings.Transform))]
     public IProperty<AlignmentY> AlignmentY { get; } = Property.CreateAnimatable(Media.AlignmentY.Center);
 
-    [Display(Name = nameof(GraphicsStrings.Drawable_TransformOrigin), ResourceType = typeof(GraphicsStrings),
-        GroupName = nameof(GraphicsStrings.Drawable_Transform))]
+    [Display(Name = nameof(GraphicsStrings.TransformOrigin), ResourceType = typeof(GraphicsStrings),
+        GroupName = nameof(GraphicsStrings.Transform))]
     public IProperty<RelativePoint> TransformOrigin { get; } = Property.CreateAnimatable(RelativePoint.Center);
 
     [Display(Name = nameof(GraphicsStrings.Drawable_FilterEffect), ResourceType = typeof(GraphicsStrings),
@@ -45,7 +45,7 @@ public abstract partial class Drawable : EngineObject
     [Display(Name = nameof(GraphicsStrings.Drawable_BlendMode), ResourceType = typeof(GraphicsStrings))]
     public IProperty<BlendMode> BlendMode { get; } = Property.CreateAnimatable(Graphics.BlendMode.SrcOver);
 
-    [Display(Name = nameof(GraphicsStrings.Drawable_Opacity), ResourceType = typeof(GraphicsStrings))]
+    [Display(Name = nameof(GraphicsStrings.Opacity), ResourceType = typeof(GraphicsStrings))]
     [Range(0, 100)]
     public IProperty<float> Opacity { get; } = Property.CreateAnimatable(100f);
 
