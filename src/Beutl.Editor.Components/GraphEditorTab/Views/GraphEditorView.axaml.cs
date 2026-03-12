@@ -207,7 +207,8 @@ public partial class GraphEditorView : UserControl
             Vector2 originalOffset = viewModel.Options.Value.Offset;
             viewModel.Options.Value = viewModel.Options.Value with
             {
-                Scale = scale, Offset = new Vector2(offset.X, originalOffset.Y)
+                Scale = scale,
+                Offset = new Vector2(offset.X, originalOffset.Y)
             };
 
             viewModel.ScrollOffset.Value = new(offset.X, offset.Y);
@@ -264,7 +265,8 @@ public partial class GraphEditorView : UserControl
             Vector2 originalOffset = viewModel.Options.Value.Offset;
             viewModel.Options.Value = viewModel.Options.Value with
             {
-                Scale = scale, Offset = new Vector2(offset.X, originalOffset.Y)
+                Scale = scale,
+                Offset = new Vector2(offset.X, originalOffset.Y)
             };
 
             viewModel.ScrollOffset.Value = new(offset.X, offset.Y);
