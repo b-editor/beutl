@@ -793,12 +793,6 @@
   <data name="ArcSegment_SweepClockwise" xml:space="preserve">
     <value>時計回り</value>
   </data>
-  <data name="AudioEncoderSettings_Unknown" xml:space="preserve">
-    <value>サンプルレート</value>
-  </data>
-  <data name="AudioEncoderSettings_Unknown_Description" xml:space="preserve">
-    <value>サンプルレートを設定</value>
-  </data>
   <data name="BasicMaterial" xml:space="preserve">
     <value>基本マテリアル</value>
   </data>
@@ -1240,13 +1234,6 @@
   <data name="TransparentMaterial_Roughness" xml:space="preserve">
     <value>粗さ</value>
   </data>
-  <data name="VideoEncoderSettings_Unknown" xml:space="preserve">
-    <value>フレームサイズ</value>
-  </data>
-  <data name="VideoEncoderSettings_Unknown_Description" xml:space="preserve">
-    <value>フレームサイズを設定</value>
-  </data>
-
   <data name="Amount" xml:space="preserve">
     <value>量</value>
   </data>

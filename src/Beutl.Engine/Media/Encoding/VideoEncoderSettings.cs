@@ -40,28 +40,28 @@ public class VideoEncoderSettings : MediaEncoderSettings
         set => SetValue(SourceSizeProperty, value);
     }
 
-    [Display(Name = nameof(GraphicsStrings.VideoEncoderSettings_Unknown), Description = nameof(GraphicsStrings.VideoEncoderSettings_Unknown_Description), ResourceType = typeof(GraphicsStrings), Order = int.MinValue)]
+    [Display(Name = nameof(Strings.FrameSize), Description = nameof(Strings.FrameSize_Tip), ResourceType = typeof(Strings), Order = int.MinValue)]
     public PixelSize DestinationSize
     {
         get => GetValue(DestinationSizeProperty);
         set => SetValue(DestinationSizeProperty, value);
     }
 
-    [Display(Name = nameof(GraphicsStrings.VideoEncoderSettings_Unknown), Description = nameof(GraphicsStrings.VideoEncoderSettings_Unknown_Description), ResourceType = typeof(GraphicsStrings), Order = int.MinValue + 1)]
+    [Display(Name = nameof(Strings.FrameRate), Description = nameof(Strings.FrameRate_Tip), ResourceType = typeof(Strings), Order = int.MinValue + 1)]
     public Rational FrameRate
     {
         get => GetValue(FrameRateProperty);
         set => SetValue(FrameRateProperty, value);
     }
 
-    [Display(Name = nameof(GraphicsStrings.VideoEncoderSettings_Unknown), Description = nameof(GraphicsStrings.VideoEncoderSettings_Unknown_Description), ResourceType = typeof(GraphicsStrings), Order = int.MinValue + 2)]
+    [Display(Name = nameof(Strings.Bitrate), Description = nameof(Strings.Bitrate_Tip), ResourceType = typeof(Strings), Order = int.MinValue + 2)]
     public int Bitrate
     {
         get => GetValue(BitrateProperty);
         set => SetValue(BitrateProperty, value);
     }
 
-    [Display(Name = nameof(GraphicsStrings.VideoEncoderSettings_Unknown), Description = nameof(GraphicsStrings.VideoEncoderSettings_Unknown_Description), ResourceType = typeof(GraphicsStrings), Order = int.MinValue + 3)]
+    [Display(Name = nameof(Strings.KeyframeRate), Description = nameof(Strings.KeyframeRate_Tip), ResourceType = typeof(Strings), Order = int.MinValue + 3)]
     public int KeyframeRate
     {
         get => GetValue(KeyframeRateProperty);

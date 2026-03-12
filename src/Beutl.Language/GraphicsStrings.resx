@@ -795,12 +795,6 @@
   <data name="ArcSegment_SweepClockwise" xml:space="preserve">
     <value>Sweep Clockwise</value>
   </data>
-  <data name="AudioEncoderSettings_Unknown" xml:space="preserve">
-    <value>Sample rate</value>
-  </data>
-  <data name="AudioEncoderSettings_Unknown_Description" xml:space="preserve">
-    <value>Set the sample rate</value>
-  </data>
   <data name="BasicMaterial" xml:space="preserve">
     <value>Basic Material</value>
   </data>
@@ -1241,12 +1235,6 @@
   </data>
   <data name="TransparentMaterial_Roughness" xml:space="preserve">
     <value>Roughness</value>
-  </data>
-  <data name="VideoEncoderSettings_Unknown" xml:space="preserve">
-    <value>Frame size</value>
-  </data>
-  <data name="VideoEncoderSettings_Unknown_Description" xml:space="preserve">
-    <value>Set the frame size</value>
   </data>
   <data name="Amount" xml:space="preserve">
     <value>Amount</value>
