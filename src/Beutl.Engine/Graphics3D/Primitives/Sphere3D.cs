@@ -9,7 +9,7 @@ namespace Beutl.Graphics3D.Primitives;
 /// <summary>
 /// A 3D sphere primitive.
 /// </summary>
-[Display(Name = nameof(Strings.Sphere3D), ResourceType = typeof(Strings))]
+[Display(Name = nameof(GraphicsStrings.Sphere3D), ResourceType = typeof(GraphicsStrings))]
 public sealed partial class Sphere3D : Object3D
 {
     public Sphere3D()
@@ -20,21 +20,21 @@ public sealed partial class Sphere3D : Object3D
     /// <summary>
     /// Gets the radius of the sphere.
     /// </summary>
-    [Display(Name = nameof(Strings.Radius), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.Sphere3D_Radius), ResourceType = typeof(GraphicsStrings))]
     [Range(0.001f, float.MaxValue)]
     public IProperty<float> Radius { get; } = Property.CreateAnimatable(0.5f);
 
     /// <summary>
     /// Gets the number of horizontal segments (longitude).
     /// </summary>
-    [Display(Name = nameof(Strings.Segments), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.Sphere3D_Segments), ResourceType = typeof(GraphicsStrings))]
     [Range(3, 128)]
     public IProperty<int> Segments { get; } = Property.CreateAnimatable(32);
 
     /// <summary>
     /// Gets the number of vertical rings (latitude).
     /// </summary>
-    [Display(Name = nameof(Strings.Rings), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.Sphere3D_Rings), ResourceType = typeof(GraphicsStrings))]
     [Range(2, 128)]
     public IProperty<int> Rings { get; } = Property.CreateAnimatable(16);
 

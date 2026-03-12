@@ -7,7 +7,7 @@ using Beutl.Language;
 
 namespace Beutl.Graphics;
 
-[Display(Name = nameof(Strings.TimeController), ResourceType = typeof(Strings))]
+[Display(Name = nameof(GraphicsStrings.DrawableTimeController), ResourceType = typeof(GraphicsStrings))]
 public sealed partial class DrawableTimeController : Drawable, IPresenter<Drawable>, IFlowOperator
 {
     public DrawableTimeController()
@@ -15,34 +15,34 @@ public sealed partial class DrawableTimeController : Drawable, IPresenter<Drawab
         ScanProperties<DrawableTimeController>();
     }
 
-    [Display(Name = nameof(Strings.Target), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.DrawableTimeController_Target), ResourceType = typeof(GraphicsStrings))]
     [SuppressResourceClassGeneration]
     public IProperty<Drawable?> Target { get; } = Property.Create<Drawable?>();
 
-    [Display(Name = nameof(Strings.Offset), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.DrawableTimeController_OffsetPosition), ResourceType = typeof(GraphicsStrings))]
     public IProperty<TimeSpan> OffsetPosition { get; } = Property.Create<TimeSpan>();
 
-    [Display(Name = nameof(Strings.Speed), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.DrawableTimeController_Speed), ResourceType = typeof(GraphicsStrings))]
     [Range(0, float.MaxValue)]
     public IProperty<float> Speed { get; } = Property.CreateAnimatable(100f);
 
-    [Display(Name = nameof(Strings.AdjustTimeRange), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.DrawableTimeController_AdjustTimeRange), ResourceType = typeof(GraphicsStrings))]
     public IProperty<bool> AdjustTimeRange { get; } = Property.Create<bool>();
 
-    [Display(Name = nameof(Strings.FrameRate), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.DrawableTimeController_FrameRate), ResourceType = typeof(GraphicsStrings))]
     [Range(0, float.MaxValue)]
     public IProperty<float> FrameRate { get; } = Property.Create<float>();
 
-    [Display(Name = nameof(Strings.Loop), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.DrawableTimeController_Loop), ResourceType = typeof(GraphicsStrings))]
     public IProperty<bool> Loop { get; } = Property.Create<bool>();
 
-    [Display(Name = nameof(Strings.Reverse), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.DrawableTimeController_Reverse), ResourceType = typeof(GraphicsStrings))]
     public IProperty<bool> Reverse { get; } = Property.Create<bool>();
 
-    [Display(Name = nameof(Strings.HoldFirstFrame), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.DrawableTimeController_HoldFirstFrame), ResourceType = typeof(GraphicsStrings))]
     public IProperty<bool> HoldFirstFrame { get; } = Property.Create<bool>();
 
-    [Display(Name = nameof(Strings.HoldLastFrame), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.DrawableTimeController_HoldLastFrame), ResourceType = typeof(GraphicsStrings))]
     public IProperty<bool> HoldLastFrame { get; } = Property.Create<bool>();
 
     private TimeSpan CalculateTimeWithSpeed(TimeSpan timeSpan, Resource resource)

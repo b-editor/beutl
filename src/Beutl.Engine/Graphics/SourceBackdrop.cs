@@ -5,7 +5,7 @@ using Beutl.Language;
 
 namespace Beutl.Graphics;
 
-[Display(Name = nameof(Strings.Backdrop), ResourceType = typeof(Strings))]
+[Display(Name = nameof(GraphicsStrings.SourceBackdrop), ResourceType = typeof(GraphicsStrings))]
 public partial class SourceBackdrop : Drawable
 {
     public SourceBackdrop()
@@ -13,7 +13,7 @@ public partial class SourceBackdrop : Drawable
         ScanProperties<SourceBackdrop>();
     }
 
-    [Display(Name = nameof(Strings.ClearBuffer), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.SourceBackdrop_Clear), ResourceType = typeof(GraphicsStrings))]
     public IProperty<bool> Clear { get; } = Property.CreateAnimatable(false);
 
     protected override Size MeasureCore(Size availableSize, Drawable.Resource resource)

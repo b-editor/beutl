@@ -5,7 +5,7 @@ using Beutl.Media;
 
 namespace Beutl.Graphics.Shapes;
 
-[Display(Name = nameof(Strings.GeometryShape), ResourceType = typeof(Strings))]
+[Display(Name = nameof(GraphicsStrings.GeometryShape), ResourceType = typeof(GraphicsStrings))]
 public sealed partial class GeometryShape : Shape
 {
     public GeometryShape()
@@ -14,7 +14,7 @@ public sealed partial class GeometryShape : Shape
         Data.CurrentValue = new PathGeometry();
     }
 
-    [Display(Name = nameof(Strings.Data), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.GeometryShape_Data), ResourceType = typeof(GraphicsStrings))]
     public IProperty<Geometry?> Data { get; } = Property.Create<Geometry?>();
 
     public partial class Resource

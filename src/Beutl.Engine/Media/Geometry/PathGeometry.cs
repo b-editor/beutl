@@ -7,7 +7,7 @@ using SkiaSharp;
 
 namespace Beutl.Media;
 
-[Display(Name = nameof(Strings.Geometry), ResourceType = typeof(Strings))]
+[Display(Name = nameof(GraphicsStrings.PathGeometry), ResourceType = typeof(GraphicsStrings))]
 public sealed partial class PathGeometry : Geometry
 {
     public PathGeometry()

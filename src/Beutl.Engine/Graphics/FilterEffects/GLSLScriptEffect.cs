@@ -10,7 +10,7 @@ using Microsoft.Extensions.Logging;
 
 namespace Beutl.Graphics.Effects;
 
-[Display(Name = nameof(Strings.GLSLScriptEffect), ResourceType = typeof(Strings))]
+[Display(Name = nameof(GraphicsStrings.GLSLScriptEffect), ResourceType = typeof(GraphicsStrings))]
 public sealed partial class GLSLScriptEffect : FilterEffect
 {
     private static readonly ILogger s_logger = Log.CreateLogger<GLSLScriptEffect>();
@@ -20,7 +20,7 @@ public sealed partial class GLSLScriptEffect : FilterEffect
         ScanProperties<GLSLScriptEffect>();
     }
 
-    [Display(Name = nameof(Strings.Script), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.GLSLScriptEffect_FragmentShader), ResourceType = typeof(GraphicsStrings))]
     [DataType(DataType.MultilineText)]
     public IProperty<string> FragmentShader { get; } = Property.Create(GetDefaultShader());
 

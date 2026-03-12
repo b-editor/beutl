@@ -25,37 +25,37 @@ public abstract partial class Object3D : EngineObject
     /// <summary>
     /// Gets the position of the object in world space.
     /// </summary>
-    [Display(Name = nameof(Strings.Position), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.Object3D_Position), ResourceType = typeof(GraphicsStrings))]
     public IProperty<Vector3> Position { get; } = Property.CreateAnimatable(Vector3.Zero);
 
     /// <summary>
     /// Gets the rotation of the object as Euler angles in radians (X=Pitch, Y=Yaw, Z=Roll).
     /// </summary>
-    [Display(Name = nameof(Strings.Rotation), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.Object3D_Rotation), ResourceType = typeof(GraphicsStrings))]
     public IProperty<Vector3> Rotation { get; } = Property.CreateAnimatable(Vector3.Zero);
 
     /// <summary>
     /// Gets the scale of the object.
     /// </summary>
-    [Display(Name = nameof(Strings.Scale), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.Object3D_Scale), ResourceType = typeof(GraphicsStrings))]
     public IProperty<Vector3> Scale { get; } = Property.CreateAnimatable(Vector3.One);
 
     /// <summary>
     /// Gets the material applied to this object.
     /// </summary>
-    [Display(Name = nameof(Strings.Material), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.Object3D_Material), ResourceType = typeof(GraphicsStrings))]
     public IProperty<Material3D?> Material { get; } = Property.Create<Material3D?>();
 
     /// <summary>
     /// Gets whether this object casts shadows.
     /// </summary>
-    [Display(Name = nameof(Strings.CastShadows), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.Object3D_CastShadows), ResourceType = typeof(GraphicsStrings))]
     public IProperty<bool> CastShadows { get; } = Property.CreateAnimatable(true);
 
     /// <summary>
     /// Gets whether this object receives shadows.
     /// </summary>
-    [Display(Name = nameof(Strings.ReceiveShadows), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.Object3D_ReceiveShadows), ResourceType = typeof(GraphicsStrings))]
     public IProperty<bool> ReceiveShadows { get; } = Property.CreateAnimatable(true);
 
     public abstract partial class Resource

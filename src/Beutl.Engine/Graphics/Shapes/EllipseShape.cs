@@ -6,7 +6,7 @@ using Beutl.Media;
 
 namespace Beutl.Graphics.Shapes;
 
-[Display(Name = nameof(Strings.Ellipse), ResourceType = typeof(Strings))]
+[Display(Name = nameof(GraphicsStrings.EllipseShape), ResourceType = typeof(GraphicsStrings))]
 public sealed partial class EllipseShape : Shape
 {
     public EllipseShape()
@@ -14,11 +14,11 @@ public sealed partial class EllipseShape : Shape
         ScanProperties<EllipseShape>();
     }
 
-    [Display(Name = nameof(Strings.Width), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.EllipseShape_Width), ResourceType = typeof(GraphicsStrings))]
     [Range(0, float.MaxValue)]
     public IProperty<float> Width { get; } = Property.CreateAnimatable<float>(100);
 
-    [Display(Name = nameof(Strings.Height), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.EllipseShape_Height), ResourceType = typeof(GraphicsStrings))]
     [Range(0, float.MaxValue)]
     public IProperty<float> Height { get; } = Property.CreateAnimatable<float>(100);
 

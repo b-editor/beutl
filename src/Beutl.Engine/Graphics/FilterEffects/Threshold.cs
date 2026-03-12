@@ -4,7 +4,7 @@ using Beutl.Language;
 
 namespace Beutl.Graphics.Effects;
 
-[Display(Name = nameof(Strings.Threshold), ResourceType = typeof(Strings))]
+[Display(Name = nameof(GraphicsStrings.Threshold), ResourceType = typeof(GraphicsStrings))]
 public sealed partial class Threshold : FilterEffect
 {
     public Threshold()
@@ -12,15 +12,15 @@ public sealed partial class Threshold : FilterEffect
         ScanProperties<Threshold>();
     }
 
-    [Display(Name = nameof(Strings.Amount), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.Threshold_Value), ResourceType = typeof(GraphicsStrings))]
     [Range(0, 100)]
     public IProperty<float> Value { get; } = Property.CreateAnimatable(50f);
 
-    [Display(Name = nameof(Strings.Smoothing), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.Threshold_Smoothness), ResourceType = typeof(GraphicsStrings))]
     [Range(0, 100)]
     public IProperty<float> Smoothness { get; } = Property.CreateAnimatable(0f);
 
-    [Display(Name = nameof(Strings.Strength), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.Threshold_Strength), ResourceType = typeof(GraphicsStrings))]
     [Range(0, 100)]
     public IProperty<float> Strength { get; } = Property.CreateAnimatable(100f);
 

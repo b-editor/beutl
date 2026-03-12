@@ -5,7 +5,7 @@ using Beutl.Language;
 
 namespace Beutl.Graphics.Effects;
 
-[Display(Name = nameof(Strings.Negaposi), ResourceType = typeof(Strings))]
+[Display(Name = nameof(GraphicsStrings.Negaposi), ResourceType = typeof(GraphicsStrings))]
 public partial class Negaposi : FilterEffect
 {
     public Negaposi()
@@ -13,17 +13,17 @@ public partial class Negaposi : FilterEffect
         ScanProperties<Negaposi>();
     }
 
-    [Display(Name = nameof(Strings.Red), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.Negaposi_Red), ResourceType = typeof(GraphicsStrings))]
     public IProperty<byte> Red { get; } = Property.CreateAnimatable<byte>();
 
-    [Display(Name = nameof(Strings.Green), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.Negaposi_Green), ResourceType = typeof(GraphicsStrings))]
     public IProperty<byte> Green { get; } = Property.CreateAnimatable<byte>();
 
-    [Display(Name = nameof(Strings.Blue), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.Negaposi_Blue), ResourceType = typeof(GraphicsStrings))]
     public IProperty<byte> Blue { get; } = Property.CreateAnimatable<byte>();
 
     [Range(0, 100)]
-    [Display(Name = nameof(Strings.Strength), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.Negaposi_Strength), ResourceType = typeof(GraphicsStrings))]
     public IProperty<float> Strength { get; } = Property.CreateAnimatable(100f);
 
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)

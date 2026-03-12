@@ -5,7 +5,7 @@ using Beutl.Language;
 
 namespace Beutl.Graphics;
 
-[Display(Name = nameof(Strings.Presenter), ResourceType = typeof(Strings))]
+[Display(Name = nameof(GraphicsStrings.DrawablePresenter), ResourceType = typeof(GraphicsStrings))]
 public sealed partial class DrawablePresenter : Drawable, IPresenter<Drawable>
 {
     public DrawablePresenter()
@@ -13,7 +13,7 @@ public sealed partial class DrawablePresenter : Drawable, IPresenter<Drawable>
         ScanProperties<DrawablePresenter>();
     }
 
-    [Display(Name = nameof(Strings.Target), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.DrawablePresenter_Target), ResourceType = typeof(GraphicsStrings))]
     public IProperty<Drawable?> Target { get; } = Property.Create<Drawable?>();
 
     public override void Render(GraphicsContext2D context, Drawable.Resource resource)

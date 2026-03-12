@@ -15,11 +15,11 @@ public partial class Blur : FilterEffect
         ScanProperties<Blur>();
     }
 
-    [Display(Name = nameof(Strings.KernelSize), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.Blur_KernelSize), ResourceType = typeof(GraphicsStrings))]
     [Range(typeof(PixelSize), "0,0", "max,max")]
     public IProperty<PixelSize> KernelSize { get; } = Property.CreateAnimatable(PixelSize.Empty);
 
-    [Display(Name = nameof(Strings.FixImageSize), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.Blur_FixImageSize), ResourceType = typeof(GraphicsStrings))]
     public IProperty<bool> FixImageSize { get; } = Property.CreateAnimatable(false);
 
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)

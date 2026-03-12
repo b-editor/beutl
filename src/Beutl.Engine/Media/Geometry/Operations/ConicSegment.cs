@@ -5,7 +5,7 @@ using Beutl.Language;
 
 namespace Beutl.Media;
 
-[Display(Name = nameof(Strings.Conic), ResourceType = typeof(Strings))]
+[Display(Name = nameof(GraphicsStrings.ConicSegment), ResourceType = typeof(GraphicsStrings))]
 public sealed partial class ConicSegment : PathSegment
 {
     public ConicSegment()
@@ -20,13 +20,13 @@ public sealed partial class ConicSegment : PathSegment
         Weight.CurrentValue = weight;
     }
 
-    [Display(Name = nameof(Strings.ControlPoint), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.ConicSegment_ControlPoint), ResourceType = typeof(GraphicsStrings))]
     public IProperty<Point> ControlPoint { get; } = Property.CreateAnimatable<Point>();
 
-    [Display(Name = nameof(Strings.EndPoint), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.ConicSegment_EndPoint), ResourceType = typeof(GraphicsStrings))]
     public IProperty<Point> EndPoint { get; } = Property.CreateAnimatable<Point>();
 
-    [Display(Name = nameof(Strings.Weight), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.ConicSegment_Weight), ResourceType = typeof(GraphicsStrings))]
     public IProperty<float> Weight { get; } = Property.CreateAnimatable<float>(1);
 
     public override void ApplyTo(IGeometryContext context, PathSegment.Resource resource)

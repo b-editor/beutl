@@ -5,7 +5,7 @@ using Beutl.Language;
 
 namespace Beutl.Graphics.Effects;
 
-[Display(Name = nameof(Strings.Brightness), ResourceType = typeof(Strings))]
+[Display(Name = nameof(GraphicsStrings.Brightness), ResourceType = typeof(GraphicsStrings))]
 public sealed partial class Brightness : FilterEffect
 {
     public Brightness()
@@ -13,7 +13,7 @@ public sealed partial class Brightness : FilterEffect
         ScanProperties<Brightness>();
     }
 
-    [Display(Name = nameof(Strings.Amount), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.Brightness_Amount), ResourceType = typeof(GraphicsStrings))]
     [Range(0, float.MaxValue)]
     public IProperty<float> Amount { get; } = Property.CreateAnimatable(100f);
 

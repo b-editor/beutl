@@ -9,7 +9,7 @@ using SkiaSharp;
 
 namespace Beutl.Graphics.Effects;
 
-[Display(Name = nameof(Strings.ColorGrading), ResourceType = typeof(Strings))]
+[Display(Name = nameof(GraphicsStrings.ColorGrading), ResourceType = typeof(GraphicsStrings))]
 public sealed partial class ColorGrading : FilterEffect
 {
     private static readonly ILogger s_logger = Log.CreateLogger<ColorGrading>();
@@ -156,65 +156,65 @@ public sealed partial class ColorGrading : FilterEffect
         ScanProperties<ColorGrading>();
     }
 
-    [Display(Name = nameof(Strings.Temperature), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.ColorGrading_Temperature), ResourceType = typeof(GraphicsStrings))]
     [Range(-100, 100)]
     public IProperty<float> Temperature { get; } = Property.CreateAnimatable<float>();
 
-    [Display(Name = nameof(Strings.Tint), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.ColorGrading_Tint), ResourceType = typeof(GraphicsStrings))]
     [Range(-100, 100)]
     public IProperty<float> Tint { get; } = Property.CreateAnimatable<float>();
 
-    [Display(Name = nameof(Strings.Exposure), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.ColorGrading_Exposure), ResourceType = typeof(GraphicsStrings))]
     [Range(-5, 5)]
     public IProperty<float> Exposure { get; } = Property.CreateAnimatable<float>();
 
-    [Display(Name = nameof(Strings.Contrast), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.ColorGrading_Contrast), ResourceType = typeof(GraphicsStrings))]
     [Range(-100, 100)]
     public IProperty<float> Contrast { get; } = Property.CreateAnimatable<float>();
 
-    [Display(Name = nameof(Strings.ContrastPivot), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.ColorGrading_ContrastPivot), ResourceType = typeof(GraphicsStrings))]
     [Range(0, 1)]
     public IProperty<float> ContrastPivot { get; } = Property.CreateAnimatable(0.5f);
 
-    [Display(Name = nameof(Strings.Saturation), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.ColorGrading_Saturation), ResourceType = typeof(GraphicsStrings))]
     [Range(-100, 100)]
     public IProperty<float> Saturation { get; } = Property.CreateAnimatable<float>();
 
-    [Display(Name = nameof(Strings.Vibrance), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.ColorGrading_Vibrance), ResourceType = typeof(GraphicsStrings))]
     [Range(-100, 100)]
     public IProperty<float> Vibrance { get; } = Property.CreateAnimatable<float>();
 
-    [Display(Name = nameof(Strings.Hue), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.ColorGrading_Hue), ResourceType = typeof(GraphicsStrings))]
     [Range(-180, 180)]
     public IProperty<float> Hue { get; } = Property.CreateAnimatable<float>();
 
-    [Display(Name = nameof(Strings.LowRange), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.ColorGrading_LowRange), ResourceType = typeof(GraphicsStrings))]
     [Range(0, 100)]
     public IProperty<float> LowRange { get; } = Property.CreateAnimatable(40f);
 
-    [Display(Name = nameof(Strings.HighRange), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.ColorGrading_HighRange), ResourceType = typeof(GraphicsStrings))]
     [Range(0, 100)]
     public IProperty<float> HighRange { get; } = Property.CreateAnimatable(60f);
 
-    [Display(Name = nameof(Strings.Shadows), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.ColorGrading_Shadows), ResourceType = typeof(GraphicsStrings))]
     public IProperty<GradingColor> Shadows { get; } = Property.CreateAnimatable(GradingColor.Zero);
 
-    [Display(Name = nameof(Strings.Midtones), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.ColorGrading_Midtones), ResourceType = typeof(GraphicsStrings))]
     public IProperty<GradingColor> Midtones { get; } = Property.CreateAnimatable(GradingColor.Zero);
 
-    [Display(Name = nameof(Strings.Highlights), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.ColorGrading_Highlights), ResourceType = typeof(GraphicsStrings))]
     public IProperty<GradingColor> Highlights { get; } = Property.CreateAnimatable(GradingColor.Zero);
 
-    [Display(Name = nameof(Strings.Lift), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.ColorGrading_Lift), ResourceType = typeof(GraphicsStrings))]
     public IProperty<GradingColor> Lift { get; } = Property.CreateAnimatable(GradingColor.Zero);
 
-    [Display(Name = nameof(Strings.Gamma), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.ColorGrading_Gamma), ResourceType = typeof(GraphicsStrings))]
     public IProperty<GradingColor> Gamma { get; } = Property.CreateAnimatable(GradingColor.One);
 
-    [Display(Name = nameof(Strings.Gain), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.ColorGrading_Gain), ResourceType = typeof(GraphicsStrings))]
     public IProperty<GradingColor> Gain { get; } = Property.CreateAnimatable(GradingColor.One);
 
-    [Display(Name = nameof(Strings.Offset), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.ColorGrading_Offset), ResourceType = typeof(GraphicsStrings))]
     public IProperty<GradingColor> Offset { get; } = Property.CreateAnimatable(GradingColor.Zero);
 
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)

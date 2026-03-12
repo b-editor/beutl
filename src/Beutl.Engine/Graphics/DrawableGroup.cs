@@ -9,7 +9,7 @@ using Beutl.Media;
 
 namespace Beutl.Graphics;
 
-[Display(Name = nameof(Strings.Group), ResourceType = typeof(Strings))]
+[Display(Name = nameof(GraphicsStrings.DrawableGroup), ResourceType = typeof(GraphicsStrings))]
 public sealed partial class DrawableGroup : Drawable, IFlowOperator
 {
     public DrawableGroup()

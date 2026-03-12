@@ -5,7 +5,7 @@ using Beutl.Language;
 
 namespace Beutl.Graphics.Transformation;
 
-[Display(Name = nameof(Strings.Group), ResourceType = typeof(Strings))]
+[Display(Name = nameof(GraphicsStrings.TransformGroup), ResourceType = typeof(GraphicsStrings))]
 public sealed class TransformGroup : Transform
 {
     public TransformGroup()

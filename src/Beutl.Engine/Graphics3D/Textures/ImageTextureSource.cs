@@ -6,7 +6,7 @@ using Beutl.Media.Source;
 
 namespace Beutl.Graphics3D.Textures;
 
-[Display(Name = nameof(Strings.ImageTextureSource), ResourceType = typeof(Strings))]
+[Display(Name = nameof(GraphicsStrings.ImageTextureSource), ResourceType = typeof(GraphicsStrings))]
 public sealed partial class ImageTextureSource : TextureSource
 {
     public ImageTextureSource()
@@ -14,7 +14,7 @@ public sealed partial class ImageTextureSource : TextureSource
         ScanProperties<ImageTextureSource>();
     }
 
-    [Display(Name = nameof(Strings.Source), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.ImageTextureSource_Source), ResourceType = typeof(GraphicsStrings))]
     public IProperty<ImageSource?> Source { get; } = Property.Create<ImageSource?>(null);
 
     public partial class Resource

@@ -5,7 +5,7 @@ using Beutl.Language;
 
 namespace Beutl.Media;
 
-[Display(Name = nameof(Strings.Line), ResourceType = typeof(Strings))]
+[Display(Name = nameof(GraphicsStrings.LineSegment), ResourceType = typeof(GraphicsStrings))]
 public sealed partial class LineSegment : PathSegment
 {
     public LineSegment()
@@ -23,7 +23,7 @@ public sealed partial class LineSegment : PathSegment
     {
     }
 
-    [Display(Name = nameof(Strings.Point), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.LineSegment_Point), ResourceType = typeof(GraphicsStrings))]
     public IProperty<Point> Point { get; } = Property.CreateAnimatable<Point>();
 
     public override void ApplyTo(IGeometryContext context, PathSegment.Resource resource)

@@ -6,7 +6,7 @@ using Beutl.Media;
 
 namespace Beutl.Graphics.Shapes;
 
-[Display(Name = nameof(Strings.RoundedRect), ResourceType = typeof(Strings))]
+[Display(Name = nameof(GraphicsStrings.RoundedRectShape), ResourceType = typeof(GraphicsStrings))]
 public sealed partial class RoundedRectShape : Shape
 {
     public RoundedRectShape()
@@ -14,20 +14,20 @@ public sealed partial class RoundedRectShape : Shape
         ScanProperties<RoundedRectShape>();
     }
 
-    [Display(Name = nameof(Strings.Width), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.RoundedRectShape_Width), ResourceType = typeof(GraphicsStrings))]
     [Range(0, float.MaxValue)]
     public IProperty<float> Width { get; } = Property.CreateAnimatable<float>(100);
 
-    [Display(Name = nameof(Strings.Height), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.RoundedRectShape_Height), ResourceType = typeof(GraphicsStrings))]
     [Range(0, float.MaxValue)]
     public IProperty<float> Height { get; } = Property.CreateAnimatable<float>(100);
 
-    [Display(Name = nameof(Strings.CornerRadius), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.RoundedRectShape_CornerRadius), ResourceType = typeof(GraphicsStrings))]
     [Range(typeof(CornerRadius), "0", "max")]
     public IProperty<CornerRadius> CornerRadius { get; } = Property.CreateAnimatable<CornerRadius>(new(25));
 
     [Range(0, 100)]
-    [Display(Name = nameof(Strings.Smoothing), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.RoundedRectShape_Smoothing), ResourceType = typeof(GraphicsStrings))]
     public IProperty<float> Smoothing { get; } = Property.CreateAnimatable<float>();
 
     public partial class Resource

@@ -8,7 +8,7 @@ using SkiaSharp;
 
 namespace Beutl.Graphics.Effects;
 
-[Display(Name = nameof(Strings.Curves), ResourceType = typeof(Strings))]
+[Display(Name = nameof(GraphicsStrings.Curves), ResourceType = typeof(GraphicsStrings))]
 public sealed partial class Curves : FilterEffect
 {
     private static readonly ILogger s_logger = Log.CreateLogger<Curves>();
@@ -96,31 +96,31 @@ public sealed partial class Curves : FilterEffect
         ScanProperties<Curves>();
     }
 
-    [Display(Name = nameof(Strings.CustomCurve), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.Curves_MasterCurve), ResourceType = typeof(GraphicsStrings))]
     public IProperty<CurveMap> MasterCurve { get; } = Property.Create(new CurveMap([new CurveControlPoint(0, 0), new CurveControlPoint(1, 1)]));
 
-    [Display(Name = nameof(Strings.RedCurve), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.Curves_RedCurve), ResourceType = typeof(GraphicsStrings))]
     public IProperty<CurveMap> RedCurve { get; } = Property.Create(new CurveMap([new CurveControlPoint(0, 0), new CurveControlPoint(1, 1)]));
 
-    [Display(Name = nameof(Strings.GreenCurve), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.Curves_GreenCurve), ResourceType = typeof(GraphicsStrings))]
     public IProperty<CurveMap> GreenCurve { get; } = Property.Create(new CurveMap([new CurveControlPoint(0, 0), new CurveControlPoint(1, 1)]));
 
-    [Display(Name = nameof(Strings.BlueCurve), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.Curves_BlueCurve), ResourceType = typeof(GraphicsStrings))]
     public IProperty<CurveMap> BlueCurve { get; } = Property.Create(new CurveMap([new CurveControlPoint(0, 0), new CurveControlPoint(1, 1)]));
 
-    [Display(Name = nameof(Strings.HueVsHue), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.Curves_HueVsHue), ResourceType = typeof(GraphicsStrings))]
     public IProperty<CurveMap> HueVsHue { get; } = Property.Create(new CurveMap([new CurveControlPoint(0, 0.5f), new CurveControlPoint(1, 0.5f)]));
 
-    [Display(Name = nameof(Strings.HueVsSaturation), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.Curves_HueVsSaturation), ResourceType = typeof(GraphicsStrings))]
     public IProperty<CurveMap> HueVsSaturation { get; } = Property.Create(new CurveMap([new CurveControlPoint(0, 0.5f), new CurveControlPoint(1, 0.5f)]));
 
-    [Display(Name = nameof(Strings.HueVsLuminance), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.Curves_HueVsLuminance), ResourceType = typeof(GraphicsStrings))]
     public IProperty<CurveMap> HueVsLuminance { get; } = Property.Create(new CurveMap([new CurveControlPoint(0, 0.5f), new CurveControlPoint(1, 0.5f)]));
 
-    [Display(Name = nameof(Strings.LuminanceVsSaturation), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.Curves_LuminanceVsSaturation), ResourceType = typeof(GraphicsStrings))]
     public IProperty<CurveMap> LuminanceVsSaturation { get; } = Property.Create(new CurveMap([new CurveControlPoint(0, 0.5f), new CurveControlPoint(1, 0.5f)]));
 
-    [Display(Name = nameof(Strings.SaturationVsSaturation), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.Curves_SaturationVsSaturation), ResourceType = typeof(GraphicsStrings))]
     public IProperty<CurveMap> SaturationVsSaturation { get; } = Property.Create(new CurveMap([new CurveControlPoint(0, 0.5f), new CurveControlPoint(1, 0.5f)]));
 
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)

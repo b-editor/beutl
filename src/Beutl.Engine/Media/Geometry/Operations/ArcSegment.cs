@@ -5,7 +5,7 @@ using Beutl.Language;
 
 namespace Beutl.Media;
 
-[Display(Name = nameof(Strings.EllipticalArc), ResourceType = typeof(Strings))]
+[Display(Name = nameof(GraphicsStrings.ArcSegment), ResourceType = typeof(GraphicsStrings))]
 public sealed partial class ArcSegment : PathSegment
 {
     public ArcSegment()
@@ -13,19 +13,19 @@ public sealed partial class ArcSegment : PathSegment
         ScanProperties<ArcSegment>();
     }
 
-    [Display(Name = nameof(Strings.Radius), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.ArcSegment_Radius), ResourceType = typeof(GraphicsStrings))]
     public IProperty<Size> Radius { get; } = Property.CreateAnimatable<Size>();
 
-    [Display(Name = nameof(Strings.RotationAngle), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.ArcSegment_RotationAngle), ResourceType = typeof(GraphicsStrings))]
     public IProperty<float> RotationAngle { get; } = Property.CreateAnimatable<float>(0);
 
-    [Display(Name = nameof(Strings.IsLargeArc), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.ArcSegment_IsLargeArc), ResourceType = typeof(GraphicsStrings))]
     public IProperty<bool> IsLargeArc { get; } = Property.CreateAnimatable<bool>(false);
 
-    [Display(Name = nameof(Strings.SweepClockwise), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.ArcSegment_SweepClockwise), ResourceType = typeof(GraphicsStrings))]
     public IProperty<bool> SweepClockwise { get; } = Property.CreateAnimatable<bool>(true);
 
-    [Display(Name = nameof(Strings.Point), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.ArcSegment_Point), ResourceType = typeof(GraphicsStrings))]
     public IProperty<Point> Point { get; } = Property.CreateAnimatable<Point>();
 
     public override void ApplyTo(IGeometryContext context, PathSegment.Resource resource)

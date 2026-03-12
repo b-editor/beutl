@@ -5,7 +5,7 @@ using Beutl.Language;
 
 namespace Beutl.Graphics.Effects;
 
-[Display(Name = nameof(Strings.Saturate), ResourceType = typeof(Strings))]
+[Display(Name = nameof(GraphicsStrings.Saturate), ResourceType = typeof(GraphicsStrings))]
 public sealed partial class Saturate : FilterEffect
 {
     public Saturate()
@@ -13,7 +13,7 @@ public sealed partial class Saturate : FilterEffect
         ScanProperties<Saturate>();
     }
 
-    [Display(Name = nameof(Strings.Amount), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.Saturate_Amount), ResourceType = typeof(GraphicsStrings))]
     public IProperty<float> Amount { get; } = Property.CreateAnimatable(100f);
 
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)

@@ -9,7 +9,7 @@ using Beutl.Media.Source;
 
 namespace Beutl.Graphics;
 
-[Display(Name = nameof(Strings.Video), ResourceType = typeof(Strings))]
+[Display(Name = nameof(GraphicsStrings.SourceVideo), ResourceType = typeof(GraphicsStrings))]
 public partial class SourceVideo : Drawable, IOriginalDurationProvider, ISplittable
 {
     public SourceVideo()
@@ -17,17 +17,17 @@ public partial class SourceVideo : Drawable, IOriginalDurationProvider, ISplitta
         ScanProperties<SourceVideo>();
     }
 
-    [Display(Name = nameof(Strings.Offset), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.SourceVideo_OffsetPosition), ResourceType = typeof(GraphicsStrings))]
     public IProperty<TimeSpan> OffsetPosition { get; } = Property.Create<TimeSpan>();
 
-    [Display(Name = nameof(Strings.Speed), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.SourceVideo_Speed), ResourceType = typeof(GraphicsStrings))]
     [Range(0, float.MaxValue)]
     public IProperty<float> Speed { get; } = Property.CreateAnimatable(100f);
 
-    [Display(Name = nameof(Strings.Source), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.SourceVideo_Source), ResourceType = typeof(GraphicsStrings))]
     public IProperty<VideoSource?> Source { get; } = Property.CreateAnimatable<VideoSource?>();
 
-    [Display(Name = nameof(Strings.IsLoop), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.SourceVideo_IsLoop), ResourceType = typeof(GraphicsStrings))]
     public IProperty<bool> IsLoop { get; } = Property.CreateAnimatable<bool>();
 
     public bool HasOriginalDuration()

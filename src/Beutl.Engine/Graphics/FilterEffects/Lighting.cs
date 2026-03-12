@@ -5,7 +5,7 @@ using Beutl.Media;
 
 namespace Beutl.Graphics.Effects;
 
-[Display(Name = nameof(Strings.Lighting), ResourceType = typeof(Strings))]
+[Display(Name = nameof(GraphicsStrings.Lighting), ResourceType = typeof(GraphicsStrings))]
 public sealed partial class Lighting : FilterEffect
 {
     public Lighting()
@@ -13,10 +13,10 @@ public sealed partial class Lighting : FilterEffect
         ScanProperties<Lighting>();
     }
 
-    [Display(Name = nameof(Strings.Multiplication), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.Lighting_Multiply), ResourceType = typeof(GraphicsStrings))]
     public IProperty<Color> Multiply { get; } = Property.CreateAnimatable(Colors.White);
 
-    [Display(Name = nameof(Strings.Addition), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.Lighting_Add), ResourceType = typeof(GraphicsStrings))]
     public IProperty<Color> Add { get; } = Property.CreateAnimatable<Color>();
 
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)

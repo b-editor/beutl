@@ -6,12 +6,12 @@ namespace Beutl.Media;
 
 public enum StrokeAlignment
 {
-    [Display(Name = nameof(Strings.StrokeAlignment_Center), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.StrokeAlignment_Center), ResourceType = typeof(GraphicsStrings))]
     Center = 0,
 
-    [Display(Name = nameof(Strings.StrokeAlignment_Inside), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.StrokeAlignment_Inside), ResourceType = typeof(GraphicsStrings))]
     Inside = 1,
 
-    [Display(Name = nameof(Strings.StrokeAlignment_Outside), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.StrokeAlignment_Outside), ResourceType = typeof(GraphicsStrings))]
     Outside = 2
 }

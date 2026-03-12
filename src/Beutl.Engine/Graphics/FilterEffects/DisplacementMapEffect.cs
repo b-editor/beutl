@@ -7,7 +7,7 @@ using SkiaSharp;
 
 namespace Beutl.Graphics.Effects;
 
-[Display(Name = nameof(Strings.DisplacementMap), ResourceType = typeof(Strings))]
+[Display(Name = nameof(GraphicsStrings.DisplacementMapEffect), ResourceType = typeof(GraphicsStrings))]
 public partial class DisplacementMapEffect : FilterEffect
 {
     public DisplacementMapEffect()
@@ -26,16 +26,16 @@ public partial class DisplacementMapEffect : FilterEffect
         Transform.CurrentValue = new DisplacementMapTranslateTransform();
     }
 
-    [Display(Name = nameof(Strings.DisplacementMap), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.DisplacementMapEffect_DisplacementMap), ResourceType = typeof(GraphicsStrings))]
     public IProperty<Brush?> DisplacementMap { get; } = Property.Create<Brush?>();
 
-    [Display(Name = nameof(Strings.Transform), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.DisplacementMapEffect_Transform), ResourceType = typeof(GraphicsStrings))]
     public IProperty<DisplacementMapTransform?> Transform { get; } = Property.Create<DisplacementMapTransform?>();
 
-    [Display(Name = nameof(Strings.SpreadMethod), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.DisplacementMapEffect_SpreadMethod), ResourceType = typeof(GraphicsStrings))]
     public IProperty<GradientSpreadMethod> SpreadMethod { get; } = Property.CreateAnimatable(GradientSpreadMethod.Pad);
 
-    [Display(Name = nameof(Strings.ShowDisplacementMap), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.DisplacementMapEffect_ShowDisplacementMap), ResourceType = typeof(GraphicsStrings))]
     public IProperty<bool> ShowDisplacementMap { get; } = Property.CreateAnimatable(false);
 
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)

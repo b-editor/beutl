@@ -9,7 +9,7 @@ namespace Beutl.Graphics3D.Primitives;
 /// <summary>
 /// A 3D plane primitive.
 /// </summary>
-[Display(Name = nameof(Strings.Plane3D), ResourceType = typeof(Strings))]
+[Display(Name = nameof(GraphicsStrings.Plane3D), ResourceType = typeof(GraphicsStrings))]
 public sealed partial class Plane3D : Object3D
 {
     public Plane3D()
@@ -20,28 +20,28 @@ public sealed partial class Plane3D : Object3D
     /// <summary>
     /// Gets the width of the plane (X-axis).
     /// </summary>
-    [Display(Name = nameof(Strings.Width), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.Plane3D_Width), ResourceType = typeof(GraphicsStrings))]
     [Range(0.001f, float.MaxValue)]
     public IProperty<float> Width { get; } = Property.CreateAnimatable(1f);
 
     /// <summary>
     /// Gets the height of the plane (Z-axis).
     /// </summary>
-    [Display(Name = nameof(Strings.Height), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.Plane3D_Height), ResourceType = typeof(GraphicsStrings))]
     [Range(0.001f, float.MaxValue)]
     public IProperty<float> Height { get; } = Property.CreateAnimatable(1f);
 
     /// <summary>
     /// Gets the number of segments along the width (X-axis).
     /// </summary>
-    [Display(Name = nameof(Strings.WidthSegments), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.Plane3D_WidthSegments), ResourceType = typeof(GraphicsStrings))]
     [Range(1, int.MaxValue)]
     public IProperty<int> WidthSegments { get; } = Property.CreateAnimatable(1);
 
     /// <summary>
     /// Gets the number of segments along the height (Z-axis).
     /// </summary>
-    [Display(Name = nameof(Strings.HeightSegments), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.Plane3D_HeightSegments), ResourceType = typeof(GraphicsStrings))]
     [Range(1, int.MaxValue)]
     public IProperty<int> HeightSegments { get; } = Property.CreateAnimatable(1);
 

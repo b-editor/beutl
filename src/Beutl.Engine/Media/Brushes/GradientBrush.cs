@@ -17,9 +17,9 @@ public abstract partial class GradientBrush : Brush
         ScanProperties<GradientBrush>();
     }
 
-    [Display(Name = nameof(Strings.SpreadMethod), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.GradientBrush_SpreadMethod), ResourceType = typeof(GraphicsStrings))]
     public IProperty<GradientSpreadMethod> SpreadMethod { get; } = Property.Create(GradientSpreadMethod.Pad);
 
-    [Display(Name = nameof(Strings.GradientStops), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.GradientBrush_GradientStops), ResourceType = typeof(GraphicsStrings))]
     public IListProperty<GradientStop> GradientStops { get; } = Property.CreateList<GradientStop>();
 }

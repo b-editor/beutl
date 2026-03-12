@@ -6,7 +6,7 @@ using Beutl.Serialization;
 
 namespace Beutl.Graphics.Effects;
 
-[Display(Name = nameof(Strings.BlendEffect), ResourceType = typeof(Strings))]
+[Display(Name = nameof(GraphicsStrings.BlendEffect), ResourceType = typeof(GraphicsStrings))]
 public sealed partial class BlendEffect : FilterEffect
 {
     public BlendEffect()
@@ -15,10 +15,10 @@ public sealed partial class BlendEffect : FilterEffect
         Brush.CurrentValue = new SolidColorBrush(Colors.White);
     }
 
-    [Display(Name = nameof(Strings.Brush), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.BlendEffect_Brush), ResourceType = typeof(GraphicsStrings))]
     public IProperty<Brush?> Brush { get; } = Property.Create<Brush?>();
 
-    [Display(Name = nameof(Strings.BlendMode), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.BlendEffect_BlendMode), ResourceType = typeof(GraphicsStrings))]
     public IProperty<BlendMode> BlendMode { get; } = Property.CreateAnimatable(Graphics.BlendMode.SrcIn);
 
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)

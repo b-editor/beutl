@@ -30,6 +30,6 @@ public partial class ImageBrush : TileBrush
     /// <summary>
     /// Gets or sets the image to draw.
     /// </summary>
-    [Display(Name = nameof(Strings.Source), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.ImageBrush_Source), ResourceType = typeof(GraphicsStrings))]
     public IProperty<ImageSource?> Source { get; } = Property.Create<ImageSource?>();
 }

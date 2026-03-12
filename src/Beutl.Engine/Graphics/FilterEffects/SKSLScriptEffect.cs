@@ -18,7 +18,7 @@ public sealed partial class SKSLScriptEffect : FilterEffect
         ScanProperties<SKSLScriptEffect>();
     }
 
-    [Display(Name = nameof(Strings.Script), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.SKSLScriptEffect_Script), ResourceType = typeof(GraphicsStrings))]
     [DataType(DataType.MultilineText)]
     public IProperty<string> Script { get; } = Property.Create(GetDefaultScript());
 

@@ -5,7 +5,7 @@ using Beutl.Language;
 
 namespace Beutl.Graphics.Effects;
 
-[Display(Name = nameof(Strings.Gamma), ResourceType = typeof(Strings))]
+[Display(Name = nameof(GraphicsStrings.Gamma), ResourceType = typeof(GraphicsStrings))]
 public sealed partial class Gamma : FilterEffect
 {
     public Gamma()
@@ -13,11 +13,11 @@ public sealed partial class Gamma : FilterEffect
         ScanProperties<Gamma>();
     }
 
-    [Display(Name = nameof(Strings.Amount), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.Gamma_Amount), ResourceType = typeof(GraphicsStrings))]
     [Range(1, 300)]
     public IProperty<float> Amount { get; } = Property.CreateAnimatable(100f);
 
-    [Display(Name = nameof(Strings.Strength), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.Gamma_Strength), ResourceType = typeof(GraphicsStrings))]
     [Range(0, 100)]
     public IProperty<float> Strength { get; } = Property.CreateAnimatable(100f);
 

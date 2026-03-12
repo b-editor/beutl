@@ -5,7 +5,7 @@ using Beutl.Language;
 
 namespace Beutl.Graphics.Transformation;
 
-[Display(Name = nameof(Strings.MatrixTransform), ResourceType = typeof(Strings))]
+[Display(Name = nameof(GraphicsStrings.MatrixTransform), ResourceType = typeof(GraphicsStrings))]
 public sealed class MatrixTransform : Transform
 {
     public MatrixTransform()
@@ -18,7 +18,7 @@ public sealed class MatrixTransform : Transform
         Matrix.CurrentValue = matrix;
     }
 
-    [Display(Name = nameof(Strings.Matrix), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.MatrixTransform_Matrix), ResourceType = typeof(GraphicsStrings))]
     public IProperty<Matrix> Matrix { get; } = Property.CreateAnimatable(Graphics.Matrix.Identity);
 
     public override Matrix CreateMatrix(CompositionContext context)

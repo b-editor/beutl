@@ -5,7 +5,7 @@ using Beutl.Language;
 
 namespace Beutl.Graphics.Effects;
 
-[Display(Name = nameof(Strings.SplitEquallyEffect), ResourceType = typeof(Strings))]
+[Display(Name = nameof(GraphicsStrings.SplitEffect), ResourceType = typeof(GraphicsStrings))]
 public partial class SplitEffect : FilterEffect
 {
     public SplitEffect()
@@ -14,17 +14,17 @@ public partial class SplitEffect : FilterEffect
     }
 
     [Range(1, int.MaxValue)]
-    [Display(Name = nameof(Strings.HorizontalDivisions), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.SplitEffect_HorizontalDivisions), ResourceType = typeof(GraphicsStrings))]
     public IProperty<int> HorizontalDivisions { get; } = Property.CreateAnimatable(2);
 
     [Range(1, int.MaxValue)]
-    [Display(Name = nameof(Strings.VerticalDivisions), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.SplitEffect_VerticalDivisions), ResourceType = typeof(GraphicsStrings))]
     public IProperty<int> VerticalDivisions { get; } = Property.CreateAnimatable(2);
 
-    [Display(Name = nameof(Strings.HorizontalSpacing), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.SplitEffect_HorizontalSpacing), ResourceType = typeof(GraphicsStrings))]
     public IProperty<float> HorizontalSpacing { get; } = Property.CreateAnimatable(0f);
 
-    [Display(Name = nameof(Strings.VerticalSpacing), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.SplitEffect_VerticalSpacing), ResourceType = typeof(GraphicsStrings))]
     public IProperty<float> VerticalSpacing { get; } = Property.CreateAnimatable(0f);
 
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)

@@ -8,7 +8,7 @@ using SkiaSharp;
 
 namespace Beutl.Graphics.Effects;
 
-[Display(Name = nameof(Strings.ColorShift), ResourceType = typeof(Strings))]
+[Display(Name = nameof(GraphicsStrings.ColorShift), ResourceType = typeof(GraphicsStrings))]
 public partial class ColorShift : FilterEffect
 {
     private static readonly ILogger s_logger = Log.CreateLogger<ColorShift>();
@@ -54,16 +54,16 @@ public partial class ColorShift : FilterEffect
         ScanProperties<ColorShift>();
     }
 
-    [Display(Name = nameof(Strings.RedOffset), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.ColorShift_RedOffset), ResourceType = typeof(GraphicsStrings))]
     public IProperty<PixelPoint> RedOffset { get; } = Property.CreateAnimatable<PixelPoint>();
 
-    [Display(Name = nameof(Strings.GreenOffset), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.ColorShift_GreenOffset), ResourceType = typeof(GraphicsStrings))]
     public IProperty<PixelPoint> GreenOffset { get; } = Property.CreateAnimatable<PixelPoint>();
 
-    [Display(Name = nameof(Strings.BlueOffset), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.ColorShift_BlueOffset), ResourceType = typeof(GraphicsStrings))]
     public IProperty<PixelPoint> BlueOffset { get; } = Property.CreateAnimatable<PixelPoint>();
 
-    [Display(Name = nameof(Strings.AlphaOffset), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.ColorShift_AlphaOffset), ResourceType = typeof(GraphicsStrings))]
     public IProperty<PixelPoint> AlphaOffset { get; } = Property.CreateAnimatable<PixelPoint>();
 
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)

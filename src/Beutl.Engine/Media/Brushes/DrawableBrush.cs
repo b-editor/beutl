@@ -8,7 +8,7 @@ namespace Beutl.Media;
 /// <summary>
 /// Paints an area with an <see cref="Drawable"/>.
 /// </summary>
-[Display(Name = nameof(Strings.Drawable), ResourceType = typeof(Strings))]
+[Display(Name = nameof(GraphicsStrings.DrawableBrush), ResourceType = typeof(GraphicsStrings))]
 public partial class DrawableBrush : TileBrush
 {
     /// <summary>
@@ -31,6 +31,6 @@ public partial class DrawableBrush : TileBrush
     /// <summary>
     /// Gets or sets the visual to draw.
     /// </summary>
-    [Display(Name = nameof(Strings.Drawable), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.DrawableBrush_Drawable), ResourceType = typeof(GraphicsStrings))]
     public IProperty<Drawable?> Drawable { get; } = Property.Create<Drawable?>();
 }
