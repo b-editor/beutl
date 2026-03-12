@@ -43,7 +43,7 @@ function show_dialog() {
 #    後続で終了後のメッセージを表示する方法としています。
 sleep 3
 while pgrep -x "$APP_PROCESS_NAME" >/dev/null; do
-    show_dialog "@(Message.Exit_the_application) (@(Message.Click_OK_after_completion))"
+    show_dialog "@(MessageStrings.ExitApplication) (@(MessageStrings.ClickOkAfterCompletion))"
 done
 
 # ロックファイルの設定
@@ -70,22 +70,22 @@ release_lock() {
     rmdir "$LOCKDIR"
 }
 
-echo "@(Message.Acquiring_lock)"
+echo "@(MessageStrings.AcquiringLock)"
 # 排他ロックを取得
 if acquire_lock; then
-    echo "@(Message.Lock_acquired)"
+    echo "@(MessageStrings.LockAcquired)"
 else
-    show_dialog "@(Message.Failed_to_acquire_lock)"
+    show_dialog "@(MessageStrings.FailedToAcquireLock)"
     exit 1
 fi
 
 # 既存アプリケーションのバックアップ作成（失敗時のロールバック用）
 BACKUP_APP_PATH="${TARGET_APP_PATH}_backup_$(date +%Y%m%d%H%M%S)"
 if [ -d "$TARGET_APP_PATH" ]; then
-    echo "@(Message.Create_backup_of_current_application) $BACKUP_APP_PATH"
+    echo "@(MessageStrings.CreatingBackup) $BACKUP_APP_PATH"
     ditto  "$TARGET_APP_PATH" "$BACKUP_APP_PATH"
     if [ $? -ne 0 ]; then
-        show_dialog "@(Message.Failed_to_create_backup)"
+        show_dialog "@(MessageStrings.FailedToCreateBackup)"
         release_lock
         exit 1
     fi
@@ -94,10 +94,10 @@ if [ -d "$TARGET_APP_PATH" ]; then
 fi
 
 # 更新ファイルの配置（ここでは単純にmvで更新ディレクトリを移動）
-echo "@(Message.Updating_files_in_place)"
+echo "@(MessageStrings.UpdatingFiles)"
 ditto "$UPDATE_DIR" "$TARGET_APP_PATH"
 if [ $? -ne 0 ]; then
-    show_dialog "@(Message.Update_placement_failed_Restore_backup)"
+    show_dialog "@(MessageStrings.UpdateFailedRestoringBackup)"
     ditto "$BACKUP_APP_PATH" "$TARGET_APP_PATH"
     release_lock
     exit 1
@@ -107,25 +107,25 @@ rm -rf "$UPDATE_DIR"
 
 # ※ 必要に応じてバックアップは削除
 rm -rf "$BACKUP_APP_PATH"
-echo "@(Message.The_update_has_been_completed)"
+echo "@(MessageStrings.UpdateCompleted)"
 
 # ロック解除
 release_lock
-echo "@(Message.Lock_released)"
+echo "@(MessageStrings.LockReleased)"
 
 # ユーザーにアプリケーション起動の確認をする
-USER_RESPONSE=$(osascript -e 'display dialog "@(Message.Update_completed_Do_you_want_to_start_the_ߋn_application)" buttons {"はい", "いいえ"} default button "はい" with title "アップデート完了"' -e 'button returned of result')
+USER_RESPONSE=$(osascript -e 'display dialog "@(MessageStrings.UpdateCompletedLaunchConfirm)" buttons {"はい", "いいえ"} default button "はい" with title "アップデート完了"' -e 'button returned of result')
 
 if [ "$USER_RESPONSE" = "はい" ]; then
-    echo "@(Message.Launch_the_application)"
+    echo "@(MessageStrings.LaunchingApplication)"
     if ! chmod +x "$EXECUTABLE_PATH"; then
-        show_dialog "@(Message.Failed_to_change_application_execution_permissions)"
+        show_dialog "@(MessageStrings.FailedToChangePermissions)"
         exit 1
     fi
 
     "$EXECUTABLE_PATH" &
 else
-    echo "@(Message.The_application_was_not_launched)"
+    echo "@(MessageStrings.ApplicationNotLaunched)"
 fi
 
 exit 0
