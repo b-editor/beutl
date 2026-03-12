@@ -15,28 +15,6 @@
              d:DesignWidth="800"
              x:DataType="vm:InlineAnimationLayerViewModel"
              mc:Ignorable="d">
-    <UserControl.Styles>
-        <Style Selector="Button.SmallButton">
-            <Setter Property="Padding" Value="0,0,0,0" />
-            <Setter Property="VerticalAlignment" Value="Stretch" />
-            <Setter Property="BorderThickness" Value="0" />
-            <Setter Property="VerticalContentAlignment" Value="Center" />
-        </Style>
-        <Style Selector="TextBox.custom">
-            <Style.Resources>
-                <Thickness x:Key="TextControlBorderThemeThicknessFocused">0</Thickness>
-            </Style.Resources>
-            <Setter Property="Background" Value="Transparent" />
-            <Setter Property="BorderThickness" Value="0" />
-            <Setter Property="Padding" Value="10,0,6,0" />
-            <Setter Property="MinHeight" Value="{DynamicResource LayerHeight}" />
-            <Setter Property="VerticalContentAlignment" Value="Center" />
-
-            <Style Selector="^:pointerover /template/ Border#PART_BorderElement">
-                <Setter Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
-            </Style>
-        </Style>
-    </UserControl.Styles>
     <Grid Height="{DynamicResource LayerHeight}" ColumnDefinitions="14,Auto,Auto,Auto,*">
 
         <Border x:Name="border"
@@ -55,23 +33,21 @@
 
         <Button Grid.Column="2"
                 Width="22"
-                Classes="SmallButton"
-                Command="{CompiledBinding Close}"
-                Theme="{StaticResource TransparentButton}">
+                Theme="{StaticResource LayerHeaderButtonTheme}"
+                Command="{CompiledBinding Close}">
             <ui:SymbolIcon Symbol="Dismiss" />
         </Button>
 
         <Button Grid.Column="3"
                 Width="30"
-                Classes="SmallButton"
-                Click="OpenTab_Click"
-                Theme="{StaticResource TransparentButton}">
+                Theme="{StaticResource LayerHeaderButtonTheme}"
+                Click="OpenTab_Click">
             <ui:SymbolIcon Symbol="Open" />
         </Button>
 
 
         <TextBox Grid.Column="4"
-                 Classes="custom"
+                 Theme="{StaticResource LayerHeaderNameTextBoxTheme}"
                  IsReadOnly="True"
                  Text="{CompiledBinding Header}" />
     </Grid>

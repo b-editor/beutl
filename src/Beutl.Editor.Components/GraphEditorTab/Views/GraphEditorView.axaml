@@ -17,17 +17,6 @@
              x:CompileBindings="True"
              x:DataType="viewModel:GraphEditorViewModel"
              mc:Ignorable="d">
-    <UserControl.Resources>
-        <PathGeometry x:Key="ControlPointGeometry">
-            <PathFigure IsClosed="True" StartPoint="0.0,-4.5">
-                <ArcSegment Point=" 4.5, 0.0" Size="4.5, 4.5" />
-                <ArcSegment Point=" 0.0, 4.5" Size="4.5, 4.5" />
-                <ArcSegment Point="-4.5, 0.0" Size="4.5, 4.5" />
-                <ArcSegment Point=" 0.0,-4.5" Size="4.5, 4.5" />
-            </PathFigure>
-        </PathGeometry>
-    </UserControl.Resources>
-
     <Grid x:Name="grid"
           Background="{DynamicResource GraphEditorBackgroundBrush}"
           ColumnDefinitions="Auto,*"
@@ -131,7 +120,7 @@
                             </MenuItem.Icon>
                         </MenuItem>
                         <MenuItem Classes.checked="{Binding UseGlobalClock.Value}"
-                                  Click="UseGlobalClock_Click"
+                                  Command="{Binding ToggleUseGlobalClock}"
                                   Header="{x:Static lang:Strings.UseGlobalClock}">
                             <MenuItem.Styles>
                                 <Style Selector="MenuItem.checked">
@@ -191,24 +180,13 @@
                                 <ItemsControl HorizontalAlignment="Left"
                                               VerticalAlignment="Stretch"
                                               ClipToBounds="False"
+                                              ItemTemplate="{StaticResource GraphEditorEaseLineTemplate}"
                                               ItemsSource="{Binding KeyFrames}">
                                     <ItemsControl.ItemsPanel>
                                         <ItemsPanelTemplate>
                                             <Panel />
                                         </ItemsPanelTemplate>
                                     </ItemsControl.ItemsPanel>
-                                    <ItemsControl.ItemTemplate>
-                                        <DataTemplate x:DataType="viewModel:GraphEditorKeyFrameViewModel">
-                                            <local:EaseLine Baseline="{Binding Baseline.Value}"
-                                                            Easing="{Binding Model.Easing}"
-                                                            EndX="{Binding Right.Value}"
-                                                            EndY="{Binding EndY.Value}"
-                                                            StartX="{Binding Left.Value}"
-                                                            StartY="{Binding StartY.Value}"
-                                                            Stroke="{Binding Stroke.Value}"
-                                                            StrokeThickness="2" />
-                                        </DataTemplate>
-                                    </ItemsControl.ItemTemplate>
                                 </ItemsControl>
 
                                 <!--  SplineEasingの編集ポイント、キーフレームの移動ポイント  -->
@@ -216,112 +194,13 @@
                                               VerticalAlignment="Stretch"
                                               ClipToBounds="False"
                                               IsVisible="{Binding IsSelected.Value}"
+                                              ItemTemplate="{StaticResource GraphEditorKeyFramePointsTemplate}"
                                               ItemsSource="{Binding KeyFrames}">
                                     <ItemsControl.ItemsPanel>
                                         <ItemsPanelTemplate>
                                             <Panel />
                                         </ItemsPanelTemplate>
                                     </ItemsControl.ItemsPanel>
-                                    <ItemsControl.ItemTemplate>
-                                        <DataTemplate x:DataType="viewModel:GraphEditorKeyFrameViewModel">
-                                            <Border Width="{Binding Width.Value}"
-                                                    Margin="{Binding Margin.Value}"
-                                                    HorizontalAlignment="Left"
-                                                    VerticalAlignment="Stretch">
-
-                                                <Border Height="{Binding Height.Value}"
-                                                        Margin="{Binding BoundsMargin.Value}"
-                                                        VerticalAlignment="Top">
-                                                    <Panel>
-                                                        <Line IsHitTestVisible="False"
-                                                              IsVisible="{Binding IsSplineEasing.Value}"
-                                                              Stroke="{DynamicResource GraphEditorHandleLineBrush}"
-                                                              StrokeThickness="1.5"
-                                                              StartPoint="{Binding ControlPoint1.Value}"
-                                                              EndPoint="{Binding LeftBottom.Value}" />
-
-                                                        <Line IsHitTestVisible="False"
-                                                              IsVisible="{Binding IsSplineEasing.Value}"
-                                                              Stroke="{DynamicResource GraphEditorHandleLineBrush}"
-                                                              StrokeThickness="1.5"
-                                                              StartPoint="{Binding ControlPoint2.Value}"
-                                                              EndPoint="{Binding RightTop.Value}" />
-
-                                                        <Path Name="KeyTimeIcon"
-                                                              HorizontalAlignment="Left"
-                                                              VerticalAlignment="Top"
-                                                              Classes.decreasing="{Binding Decreasing.Value}"
-                                                              Fill="{DynamicResource GraphEditorKeyFrameBrush}"
-                                                              PointerPressed="OnKeyTimePointerPressed">
-                                                            <Path.RenderTransform>
-                                                                <TranslateTransform X="{Binding RightTop.Value.X}" Y="{Binding RightTop.Value.Y}" />
-                                                            </Path.RenderTransform>
-                                                            <Path.ContextMenu>
-                                                                <ContextMenu>
-                                                                    <MenuItem Command="{Binding CopyCommand}" Header="{x:Static lang:Strings.Copy}">
-                                                                        <MenuItem.Icon>
-                                                                            <icons:SymbolIcon Symbol="Copy" />
-                                                                        </MenuItem.Icon>
-                                                                    </MenuItem>
-                                                                    <MenuItem Command="{Binding PasteCommand}" Header="{x:Static lang:Strings.Paste}">
-                                                                        <MenuItem.Icon>
-                                                                            <icons:SymbolIcon Symbol="ClipboardPaste" />
-                                                                        </MenuItem.Icon>
-                                                                    </MenuItem>
-                                                                    <MenuItem Command="{Binding RemoveCommand}" Header="{x:Static lang:Strings.Delete}">
-                                                                        <MenuItem.Icon>
-                                                                            <icons:SymbolIcon Symbol="Delete" />
-                                                                        </MenuItem.Icon>
-                                                                    </MenuItem>
-                                                                </ContextMenu>
-                                                            </Path.ContextMenu>
-                                                            <Path.Data>
-                                                                <PathGeometry>
-                                                                    <PathFigure StartPoint="0,-6">
-                                                                        <LineSegment Point="6,0" />
-                                                                        <LineSegment Point="0,6" />
-                                                                        <LineSegment Point="-6,0" />
-                                                                    </PathFigure>
-                                                                </PathGeometry>
-                                                            </Path.Data>
-                                                        </Path>
-
-                                                        <Path HorizontalAlignment="Left"
-                                                              VerticalAlignment="Top"
-                                                              Data="{StaticResource ControlPointGeometry}"
-                                                              Fill="{DynamicResource GraphEditorControlPointFillBrush}"
-                                                              IsVisible="{Binding IsSplineEasing.Value}"
-                                                              PointerMoved="OnControlPointPointerMoved"
-                                                              PointerPressed="OnControlPointPointerPressed"
-                                                              PointerReleased="OnControlPointPointerReleased"
-                                                              Stroke="{DynamicResource GraphEditorControlPointStrokeBrush}"
-                                                              StrokeThickness="2"
-                                                              Tag="ControlPoint1">
-                                                            <Path.RenderTransform>
-                                                                <TranslateTransform X="{Binding ControlPoint1.Value.X}" Y="{Binding ControlPoint1.Value.Y}" />
-                                                            </Path.RenderTransform>
-                                                        </Path>
-
-                                                        <Path HorizontalAlignment="Left"
-                                                              VerticalAlignment="Top"
-                                                              Data="{StaticResource ControlPointGeometry}"
-                                                              Fill="{DynamicResource GraphEditorControlPointFillBrush}"
-                                                              IsVisible="{Binding IsSplineEasing.Value}"
-                                                              PointerMoved="OnControlPointPointerMoved"
-                                                              PointerPressed="OnControlPointPointerPressed"
-                                                              PointerReleased="OnControlPointPointerReleased"
-                                                              Stroke="{DynamicResource GraphEditorControlPointStrokeBrush}"
-                                                              StrokeThickness="2"
-                                                              Tag="ControlPoint2">
-                                                            <Path.RenderTransform>
-                                                                <TranslateTransform X="{Binding ControlPoint2.Value.X}" Y="{Binding ControlPoint2.Value.Y}" />
-                                                            </Path.RenderTransform>
-                                                        </Path>
-                                                    </Panel>
-                                                </Border>
-                                            </Border>
-                                        </DataTemplate>
-                                    </ItemsControl.ItemTemplate>
                                 </ItemsControl>
                             </Panel>
                         </DataTemplate>
