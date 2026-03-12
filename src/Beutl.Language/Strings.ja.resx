@@ -87,9 +87,6 @@
   <data name="Cut" xml:space="preserve">
     <value>カット</value>
   </data>
-  <data name="Dark" xml:space="preserve">
-    <value>ダーク</value>
-  </data>
   <data name="Delete" xml:space="preserve">
     <value>削除</value>
   </data>
@@ -117,12 +114,6 @@
   <data name="Extensions" xml:space="preserve">
     <value>拡張機能</value>
   </data>
-  <data name="FollowSystem" xml:space="preserve">
-    <value>システムに従う</value>
-  </data>
-  <data name="Font" xml:space="preserve">
-    <value>フォント</value>
-  </data>
   <data name="FrameRate" xml:space="preserve">
     <value>フレームレート</value>
   </data>
@@ -131,9 +122,6 @@
   </data>
   <data name="Help" xml:space="preserve">
     <value>ヘルプ</value>
-  </data>
-  <data name="HighContrast" xml:space="preserve">
-    <value>ハイコントラスト</value>
   </data>
   <data name="Info" xml:space="preserve">
     <value>情報</value>
@@ -144,16 +132,7 @@
   <data name="Left" xml:space="preserve">
     <value>左</value>
   </data>
-  <data name="License" xml:space="preserve">
-    <value>ライセンス</value>
-  </data>
-  <data name="Light" xml:space="preserve">
-    <value>ライト</value>
-  </data>
   <data name="Link" xml:space="preserve">
-    <value>リンク</value>
-  </data>
-  <data name="Links" xml:space="preserve">
     <value>リンク</value>
   </data>
   <data name="Location" xml:space="preserve">
@@ -210,15 +189,6 @@
   <data name="SceneFile" xml:space="preserve">
     <value>シーンファイル</value>
   </data>
-  <data name="SourceCode" xml:space="preserve">
-    <value>ソースコード</value>
-  </data>
-  <data name="ThirdPartyLicenses" xml:space="preserve">
-    <value>サードパーティライセンス</value>
-  </data>
-  <data name="Theme" xml:space="preserve">
-    <value>テーマ</value>
-  </data>
   <data name="StartTime" xml:space="preserve">
     <value>開始時間</value>
   </data>
@@ -267,20 +237,8 @@
   <data name="Yes" xml:space="preserve">
     <value>はい</value>
   </data>
-  <data name="TermsOfService" xml:space="preserve">
-    <value>利用規約</value>
-  </data>
-  <data name="PrivacyPolicy" xml:space="preserve">
-    <value>プライバシーポリシー</value>
-  </data>
   <data name="Animation" xml:space="preserve">
     <value>アニメーション</value>
-  </data>
-  <data name="Account" xml:space="preserve">
-    <value>アカウント</value>
-  </data>
-  <data name="Language" xml:space="preserve">
-    <value>言語</value>
   </data>
   <data name="OK" xml:space="preserve">
     <value>OK</value>
@@ -543,9 +501,6 @@
   <data name="CopyGetPropertyCode" xml:space="preserve">
     <value>GetPropertyコードをコピー</value>
   </data>
-  <data name="ColorPalette" xml:space="preserve">
-    <value>カラーパレット</value>
-  </data>
   <data name="ChangeToOriginalLength" xml:space="preserve">
     <value>オリジナルの長さに変更</value>
   </data>
@@ -720,9 +675,6 @@
   <data name="MoveTo" xml:space="preserve">
     <value>移動</value>
   </data>
-  <data name="Keymap" xml:space="preserve">
-    <value>キーマップ</value>
-  </data>
   <data name="MainView" xml:space="preserve">
     <value>メイン表示</value>
   </data>
@@ -797,9 +749,6 @@
   </data>
   <data name="Cut_Description" xml:space="preserve">
     <value>選択したアイテムをカットします。</value>
-  </data>
-  <data name="ExtensionsSettings" xml:space="preserve">
-    <value>拡張機能の設定</value>
   </data>
   <data name="AboutBeutl" xml:space="preserve">
     <value>Beutlについて</value>
@@ -903,21 +852,6 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   </data>
   <data name="OpenInTab" xml:space="preserve">
     <value>タブで開く</value>
-  </data>
-  <data name="VulkanVersion" xml:space="preserve">
-    <value>Vulkanバージョン</value>
-  </data>
-  <data name="SelectedGPU" xml:space="preserve">
-    <value>選択されたGPU</value>
-  </data>
-  <data name="AvailableMemory" xml:space="preserve">
-    <value>使用可能なメモリ</value>
-  </data>
-  <data name="AvailableGPUs" xml:space="preserve">
-    <value>使用可能なGPU</value>
-  </data>
-  <data name="EnabledExtensions" xml:space="preserve">
-    <value>有効な拡張機能</value>
   </data>
   <data name="Previous" xml:space="preserve">
     <value>前</value>
@@ -1047,11 +981,5 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   </data>
   <data name="BpmOffset" xml:space="preserve">
     <value>オフセット</value>
-  </data>
-  <data name="SceneSoundReference" xml:space="preserve">
-    <value>シーン参照 (音声)</value>
-  </data>
-  <data name="SceneGraphicsReference" xml:space="preserve">
-    <value>シーン参照 (動画)</value>
   </data>
 </root>

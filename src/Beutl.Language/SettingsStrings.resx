@@ -295,4 +295,67 @@
     <value>Auto</value>
     <comment/>
   </data>
+  <data name="Account" xml:space="preserve">
+    <value>Account</value>
+  </data>
+  <data name="ColorPalette" xml:space="preserve">
+    <value>Color Palette</value>
+  </data>
+  <data name="AvailableGPUs" xml:space="preserve">
+    <value>Available GPUs</value>
+  </data>
+  <data name="AvailableMemory" xml:space="preserve">
+    <value>Available Memory</value>
+  </data>
+  <data name="Dark" xml:space="preserve">
+    <value>Dark</value>
+  </data>
+  <data name="ExtensionsSettings" xml:space="preserve">
+    <value>Extensions Settings</value>
+  </data>
+  <data name="Keymap" xml:space="preserve">
+    <value>Keymap</value>
+  </data>
+  <data name="Language" xml:space="preserve">
+    <value>Language</value>
+  </data>
+  <data name="License" xml:space="preserve">
+    <value>License</value>
+  </data>
+  <data name="Links" xml:space="preserve">
+    <value>Links</value>
+  </data>
+  <data name="PrivacyPolicy" xml:space="preserve">
+    <value>Privacy Policy</value>
+  </data>
+  <data name="TermsOfService" xml:space="preserve">
+    <value>Terms of service</value>
+  </data>
+  <data name="Theme" xml:space="preserve">
+    <value>Theme</value>
+  </data>
+  <data name="ThirdPartyLicenses" xml:space="preserve">
+    <value>Third Party Licenses</value>
+  </data>
+  <data name="VulkanVersion" xml:space="preserve">
+    <value>Vulkan Version</value>
+  </data>
+  <data name="EnabledExtensions" xml:space="preserve">
+    <value>Enabled Extensions</value>
+  </data>
+  <data name="Light" xml:space="preserve">
+    <value>Light</value>
+  </data>
+  <data name="HighContrast" xml:space="preserve">
+    <value>High Contrast</value>
+  </data>
+  <data name="FollowSystem" xml:space="preserve">
+    <value>Follow System</value>
+  </data>
+  <data name="SourceCode" xml:space="preserve">
+    <value>Source code</value>
+  </data>
+  <data name="Font" xml:space="preserve">
+    <value>Font</value>
+  </data>
 </root>

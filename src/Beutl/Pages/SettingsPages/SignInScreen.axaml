@@ -71,11 +71,11 @@
         <Grid Margin="0,16,0,0" ColumnDefinitions="*,*">
             <HyperlinkButton Grid.Column="0"
                              HorizontalAlignment="Center"
-                             Content="{x:Static lang:Strings.PrivacyPolicy}"
+                             Content="{x:Static lang:SettingsStrings.PrivacyPolicy}"
                              NavigateUri="https://beutl.beditor.net/about/privacy" />
             <HyperlinkButton Grid.Column="1"
                              HorizontalAlignment="Center"
-                             Content="{x:Static lang:Strings.TermsOfService}"
+                             Content="{x:Static lang:SettingsStrings.TermsOfService}"
                              NavigateUri="https://beutl.beditor.net/about/toc" />
         </Grid>
 

@@ -125,41 +125,11 @@
   <data name="SceneFile" xml:space="preserve">
     <value>Scene File</value>
   </data>
-  <data name="Font" xml:space="preserve">
-    <value>Font</value>
-  </data>
   <data name="Info" xml:space="preserve">
     <value>Info</value>
   </data>
   <data name="Add" xml:space="preserve">
     <value>Add</value>
-  </data>
-  <data name="Links" xml:space="preserve">
-    <value>Links</value>
-  </data>
-  <data name="SourceCode" xml:space="preserve">
-    <value>Source code</value>
-  </data>
-  <data name="License" xml:space="preserve">
-    <value>License</value>
-  </data>
-  <data name="ThirdPartyLicenses" xml:space="preserve">
-    <value>Third Party Licenses</value>
-  </data>
-  <data name="Theme" xml:space="preserve">
-    <value>Theme</value>
-  </data>
-  <data name="Light" xml:space="preserve">
-    <value>Light</value>
-  </data>
-  <data name="Dark" xml:space="preserve">
-    <value>Dark</value>
-  </data>
-  <data name="HighContrast" xml:space="preserve">
-    <value>High Contrast</value>
-  </data>
-  <data name="FollowSystem" xml:space="preserve">
-    <value>Follow System</value>
   </data>
   <data name="Search" xml:space="preserve">
     <value>Search</value>
@@ -272,20 +242,8 @@
   <data name="ShowMore" xml:space="preserve">
     <value>Show more</value>
   </data>
-  <data name="TermsOfService" xml:space="preserve">
-    <value>Terms of service</value>
-  </data>
-  <data name="PrivacyPolicy" xml:space="preserve">
-    <value>Privacy Policy</value>
-  </data>
   <data name="OK" xml:space="preserve">
     <value>OK</value>
-  </data>
-  <data name="Language" xml:space="preserve">
-    <value>Language</value>
-  </data>
-  <data name="Account" xml:space="preserve">
-    <value>Account</value>
   </data>
   <data name="Animation" xml:space="preserve">
     <value>Animation</value>
@@ -548,9 +506,6 @@
   <data name="CopyGetPropertyCode" xml:space="preserve">
     <value>Copy GetProperty code</value>
   </data>
-  <data name="ColorPalette" xml:space="preserve">
-    <value>Color Palette</value>
-  </data>
   <data name="ChangeToOriginalLength" xml:space="preserve">
     <value>Change to original length</value>
   </data>
@@ -725,9 +680,6 @@
   <data name="MoveTo" xml:space="preserve">
     <value>Move to</value>
   </data>
-  <data name="Keymap" xml:space="preserve">
-    <value>Keymap</value>
-  </data>
   <data name="MainView" xml:space="preserve">
     <value>Main View</value>
   </data>
@@ -802,9 +754,6 @@
   </data>
   <data name="Cut_Description" xml:space="preserve">
     <value>Cut the selected item.</value>
-  </data>
-  <data name="ExtensionsSettings" xml:space="preserve">
-    <value>Extensions Settings</value>
   </data>
   <data name="AboutBeutl" xml:space="preserve">
     <value>About Beutl</value>
@@ -908,21 +857,6 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   </data>
   <data name="OpenInTab" xml:space="preserve">
     <value>Open in tab</value>
-  </data>
-  <data name="VulkanVersion" xml:space="preserve">
-    <value>Vulkan Version</value>
-  </data>
-  <data name="SelectedGPU" xml:space="preserve">
-    <value>Selected GPU</value>
-  </data>
-  <data name="AvailableMemory" xml:space="preserve">
-    <value>Available Memory</value>
-  </data>
-  <data name="AvailableGPUs" xml:space="preserve">
-    <value>Available GPUs</value>
-  </data>
-  <data name="EnabledExtensions" xml:space="preserve">
-    <value>Enabled Extensions</value>
   </data>
   <data name="Previous" xml:space="preserve">
     <value>Previous</value>
@@ -1053,11 +987,5 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   </data>
   <data name="BpmOffset" xml:space="preserve">
     <value>Offset</value>
-  </data>
-  <data name="SceneSoundReference" xml:space="preserve">
-    <value>Scene Reference (Audio)</value>
-  </data>
-  <data name="SceneGraphicsReference" xml:space="preserve">
-    <value>Scene Reference (Video)</value>
   </data>
 </root>

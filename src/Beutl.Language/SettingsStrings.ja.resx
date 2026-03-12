@@ -292,4 +292,67 @@
     <value>自動</value>
     <comment/>
   </data>
+  <data name="Account" xml:space="preserve">
+    <value>アカウント</value>
+  </data>
+  <data name="ColorPalette" xml:space="preserve">
+    <value>カラーパレット</value>
+  </data>
+  <data name="AvailableGPUs" xml:space="preserve">
+    <value>使用可能なGPU</value>
+  </data>
+  <data name="AvailableMemory" xml:space="preserve">
+    <value>使用可能なメモリ</value>
+  </data>
+  <data name="Dark" xml:space="preserve">
+    <value>ダーク</value>
+  </data>
+  <data name="ExtensionsSettings" xml:space="preserve">
+    <value>拡張機能の設定</value>
+  </data>
+  <data name="Keymap" xml:space="preserve">
+    <value>キーマップ</value>
+  </data>
+  <data name="Language" xml:space="preserve">
+    <value>言語</value>
+  </data>
+  <data name="License" xml:space="preserve">
+    <value>ライセンス</value>
+  </data>
+  <data name="Links" xml:space="preserve">
+    <value>リンク</value>
+  </data>
+  <data name="PrivacyPolicy" xml:space="preserve">
+    <value>プライバシーポリシー</value>
+  </data>
+  <data name="TermsOfService" xml:space="preserve">
+    <value>利用規約</value>
+  </data>
+  <data name="Theme" xml:space="preserve">
+    <value>テーマ</value>
+  </data>
+  <data name="ThirdPartyLicenses" xml:space="preserve">
+    <value>サードパーティライセンス</value>
+  </data>
+  <data name="VulkanVersion" xml:space="preserve">
+    <value>Vulkanバージョン</value>
+  </data>
+  <data name="EnabledExtensions" xml:space="preserve">
+    <value>有効な拡張機能</value>
+  </data>
+  <data name="Light" xml:space="preserve">
+    <value>ライト</value>
+  </data>
+  <data name="HighContrast" xml:space="preserve">
+    <value>ハイコントラスト</value>
+  </data>
+  <data name="FollowSystem" xml:space="preserve">
+    <value>システムに従う</value>
+  </data>
+  <data name="SourceCode" xml:space="preserve">
+    <value>ソースコード</value>
+  </data>
+  <data name="Font" xml:space="preserve">
+    <value>フォント</value>
+  </data>
 </root>
