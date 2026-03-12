@@ -15,17 +15,11 @@
   <data name="File" xml:space="preserve">
     <value>ファイル</value>
   </data>
-  <data name="BlueCurve" xml:space="preserve">
-    <value>ブルーカーブ</value>
-  </data>
   <data name="Curves" xml:space="preserve">
     <value>カーブ</value>
   </data>
   <data name="CustomCurve" xml:space="preserve">
     <value>カスタム(RGB)</value>
-  </data>
-  <data name="GreenCurve" xml:space="preserve">
-    <value>グリーンカーブ</value>
   </data>
   <data name="HueVsHue" xml:space="preserve">
     <value>色相 vs 色相</value>
@@ -38,9 +32,6 @@
   </data>
   <data name="LuminanceVsSaturation" xml:space="preserve">
     <value>輝度 vs 彩度</value>
-  </data>
-  <data name="RedCurve" xml:space="preserve">
-    <value>レッドカーブ</value>
   </data>
   <data name="SaturationVsSaturation" xml:space="preserve">
     <value>彩度 vs 彩度</value>
@@ -267,9 +258,6 @@
   <data name="Rename" xml:space="preserve">
     <value>名前を変更</value>
   </data>
-  <data name="ToggleMute" xml:space="preserve">
-    <value>ミュート切替</value>
-  </data>
   <data name="FinishEditing" xml:space="preserve">
     <value>編集を終了する</value>
   </data>
@@ -432,12 +420,6 @@
   <data name="EnableLivePreview" xml:space="preserve">
     <value>ライブプレビューを有効化</value>
   </data>
-  <data name="OpenNodeTree" xml:space="preserve">
-    <value>ノードツリーを開く</value>
-  </data>
-  <data name="UseNode" xml:space="preserve">
-    <value>ノードを使う</value>
-  </data>
   <data name="DisableThumbnails" xml:space="preserve">
     <value>サムネイルを無効化</value>
   </data>
@@ -464,9 +446,6 @@
   </data>
   <data name="Initialize" xml:space="preserve">
     <value>初期化</value>
-  </data>
-  <data name="OpenDocument" xml:space="preserve">
-    <value>ドキュメントを開く</value>
   </data>
   <data name="ResetZoom" xml:space="preserve">
     <value>拡大率をリセット</value>
@@ -759,9 +738,6 @@
   <data name="Convert_to_preset" xml:space="preserve">
     <value>プリセットに変換</value>
   </data>
-  <data name="Progress" xml:space="preserve">
-    <value>進捗</value>
-  </data>
   <data name="Expression_Input" xml:space="preserve">
     <value>入力</value>
   </data>
@@ -811,9 +787,6 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="Waveform" xml:space="preserve">
     <value>ウェーブフォーム</value>
   </data>
-  <data name="Mode" xml:space="preserve">
-    <value>モード</value>
-  </data>
   <data name="Luma" xml:space="preserve">
     <value>輝度</value>
   </data>
@@ -822,9 +795,6 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   </data>
   <data name="RgbParade" xml:space="preserve">
     <value>RGBパレード</value>
-  </data>
-  <data name="ShowGrid" xml:space="preserve">
-    <value>グリッドを表示</value>
   </data>
   <data name="AVFoundationEncoder" xml:space="preserve">
     <value>AVFoundation エンコーダー</value>

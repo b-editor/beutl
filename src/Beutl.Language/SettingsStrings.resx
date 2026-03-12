@@ -77,13 +77,6 @@
     <value>Copy version info</value>
     <comment/>
   </data>
-  <data name="GpuInformation" xml:space="preserve">
-    <value>Gpu Information</value>
-  </data>
-  <data name="OpenGLVersion" xml:space="preserve">
-    <value>OpenGL Version</value>
-    <comment/>
-  </data>
   <data name="DeviceInformation" xml:space="preserve">
     <value>Device Information</value>
   </data>

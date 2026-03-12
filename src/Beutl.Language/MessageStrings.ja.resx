@@ -98,9 +98,6 @@
   <data name="FailedToLoadNPackages" xml:space="preserve">
     <value>{0}件のパッケージの読み込みに失敗しました。</value>
   </data>
-  <data name="CouldNotLoadScene" xml:space="preserve">
-    <value>シーンを読み込めませんでした。</value>
-  </data>
   <data name="AudioPlaybackException" xml:space="preserve">
     <value>音声の再生中に例外が発生しました。</value>
   </data>

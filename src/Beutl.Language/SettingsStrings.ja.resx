@@ -72,14 +72,6 @@
     <value>バージョン情報をコピー</value>
     <comment/>
   </data>
-  <data name="GpuInformation" xml:space="preserve">
-    <value>Gpu 情報</value>
-    <comment/>
-  </data>
-  <data name="OpenGLVersion" xml:space="preserve">
-    <value>OpenGL バージョン</value>
-    <comment/>
-  </data>
   <data name="DeviceInformation" xml:space="preserve">
     <value>デバイス情報</value>
     <comment/>

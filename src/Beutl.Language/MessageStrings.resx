@@ -103,9 +103,6 @@ because the new name conflicts with an existing folder.</value>
   <data name="FailedToLoadNPackages" xml:space="preserve">
     <value>Failed to load {0} packages.</value>
   </data>
-  <data name="CouldNotLoadScene" xml:space="preserve">
-    <value>Could not load scene.</value>
-  </data>
   <data name="AudioPlaybackException" xml:space="preserve">
     <value>An exception occurred during audio playback.</value>
   </data>

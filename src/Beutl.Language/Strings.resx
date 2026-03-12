@@ -20,17 +20,11 @@
   <data name="File" xml:space="preserve">
     <value>File</value>
   </data>
-  <data name="BlueCurve" xml:space="preserve">
-    <value>Blue curve</value>
-  </data>
   <data name="Curves" xml:space="preserve">
     <value>Curves</value>
   </data>
   <data name="CustomCurve" xml:space="preserve">
     <value>Custom (RGB)</value>
-  </data>
-  <data name="GreenCurve" xml:space="preserve">
-    <value>Green curve</value>
   </data>
   <data name="HueVsHue" xml:space="preserve">
     <value>Hue vs Hue</value>
@@ -43,9 +37,6 @@
   </data>
   <data name="LuminanceVsSaturation" xml:space="preserve">
     <value>Luminance vs Saturation</value>
-  </data>
-  <data name="RedCurve" xml:space="preserve">
-    <value>Red curve</value>
   </data>
   <data name="SaturationVsSaturation" xml:space="preserve">
     <value>Saturation vs Saturation</value>
@@ -272,9 +263,6 @@
   <data name="Rename" xml:space="preserve">
     <value>Rename</value>
   </data>
-  <data name="ToggleMute" xml:space="preserve">
-    <value>Toggle Mute</value>
-  </data>
   <data name="FinishEditing" xml:space="preserve">
     <value>Finish editing</value>
   </data>
@@ -437,12 +425,6 @@
   <data name="EnableLivePreview" xml:space="preserve">
     <value>Enable Live Preview</value>
   </data>
-  <data name="OpenNodeTree" xml:space="preserve">
-    <value>Open Node Tree</value>
-  </data>
-  <data name="UseNode" xml:space="preserve">
-    <value>UseNode</value>
-  </data>
   <data name="DisableThumbnails" xml:space="preserve">
     <value>Disable Thumbnails</value>
   </data>
@@ -469,9 +451,6 @@
   </data>
   <data name="Initialize" xml:space="preserve">
     <value>Initialize</value>
-  </data>
-  <data name="OpenDocument" xml:space="preserve">
-    <value>Open Document</value>
   </data>
   <data name="ResetZoom" xml:space="preserve">
     <value>Reset zoom</value>
@@ -764,9 +743,6 @@
   <data name="Convert_to_preset" xml:space="preserve">
     <value>Convert to preset</value>
   </data>
-  <data name="Progress" xml:space="preserve">
-    <value>Progress</value>
-  </data>
   <data name="Expression_Input" xml:space="preserve">
     <value>Input</value>
   </data>
@@ -816,9 +792,6 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="Waveform" xml:space="preserve">
     <value>Waveform</value>
   </data>
-  <data name="Mode" xml:space="preserve">
-    <value>Mode</value>
-  </data>
   <data name="Luma" xml:space="preserve">
     <value>Luma</value>
   </data>
@@ -827,9 +800,6 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   </data>
   <data name="RgbParade" xml:space="preserve">
     <value>RGB Parade</value>
-  </data>
-  <data name="ShowGrid" xml:space="preserve">
-    <value>Show Grid</value>
   </data>
   <data name="AVFoundationEncoder" xml:space="preserve">
     <value>AVFoundation Encoder</value>
