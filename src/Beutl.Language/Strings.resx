@@ -2327,4 +2327,22 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="SceneGraphicsReference" xml:space="preserve">
     <value>Scene Reference (Video)</value>
   </data>
+  <data name="PixelSort" xml:space="preserve">
+    <value>Pixel Sort</value>
+  </data>
+  <data name="SortDirection" xml:space="preserve">
+    <value>Sort Direction</value>
+  </data>
+  <data name="SortKey" xml:space="preserve">
+    <value>Sort Key</value>
+  </data>
+  <data name="ThresholdMin" xml:space="preserve">
+    <value>Threshold Min</value>
+  </data>
+  <data name="ThresholdMax" xml:space="preserve">
+    <value>Threshold Max</value>
+  </data>
+  <data name="Ascending" xml:space="preserve">
+    <value>Ascending</value>
+  </data>
 </root>

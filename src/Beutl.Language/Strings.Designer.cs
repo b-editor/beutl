@@ -6641,5 +6641,41 @@ namespace Beutl.Language {
                 return ResourceManager.GetString("SceneGraphicsReference", resourceCulture);
             }
         }
+
+        public static string PixelSort {
+            get {
+                return ResourceManager.GetString("PixelSort", resourceCulture);
+            }
+        }
+
+        public static string SortDirection {
+            get {
+                return ResourceManager.GetString("SortDirection", resourceCulture);
+            }
+        }
+
+        public static string SortKey {
+            get {
+                return ResourceManager.GetString("SortKey", resourceCulture);
+            }
+        }
+
+        public static string ThresholdMin {
+            get {
+                return ResourceManager.GetString("ThresholdMin", resourceCulture);
+            }
+        }
+
+        public static string ThresholdMax {
+            get {
+                return ResourceManager.GetString("ThresholdMax", resourceCulture);
+            }
+        }
+
+        public static string Ascending {
+            get {
+                return ResourceManager.GetString("Ascending", resourceCulture);
+            }
+        }
     }
 }
