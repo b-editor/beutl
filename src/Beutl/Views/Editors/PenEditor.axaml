@@ -42,38 +42,38 @@
         </ToggleButton>
 
         <controls:TreeLineDecorator x:Name="content"
-                                     Grid.Row="1"
-                                     LineBrush="{DynamicResource TreeLineBrush}">
+                                    Grid.Row="1"
+                                    LineBrush="{DynamicResource TreeLineBrush}">
             <StackPanel>
-            <TextBlock IsVisible="{Binding Value.Value, Converter={x:Static ObjectConverters.IsNull}}" Text="{x:Static lang:Message.Property_is_unset}" />
+                <TextBlock IsVisible="{Binding Value.Value, Converter={x:Static ObjectConverters.IsNull}}" Text="{x:Static lang:MessageStrings.PropertyUnset}" />
 
-            <ItemsControl ItemsSource="{Binding MajorProperties}">
-                <ItemsControl.ItemTemplate>
-                    <DataTemplate>
-                        <ContentControl Content="{Binding Converter={StaticResource ViewModelToViewConverter}}" />
-                    </DataTemplate>
-                </ItemsControl.ItemTemplate>
-            </ItemsControl>
+                <ItemsControl ItemsSource="{Binding MajorProperties}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <ContentControl Content="{Binding Converter={StaticResource ViewModelToViewConverter}}" />
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
 
-            <ToggleButton x:Name="expandMinorProps"
-                          Height="24"
-                          Padding="0"
-                          HorizontalAlignment="Stretch"
-                          VerticalAlignment="Bottom"
-                          HorizontalContentAlignment="Center"
-                          VerticalContentAlignment="Center"
-                          Background="{DynamicResource ButtonBackground}"
-                          IsChecked="False"
-                          IsVisible="{Binding Value.Value, Converter={x:Static ObjectConverters.IsNotNull}}"
-                          Theme="{StaticResource ExpandCollapseToggleButtonStyle}" />
+                <ToggleButton x:Name="expandMinorProps"
+                              Height="24"
+                              Padding="0"
+                              HorizontalAlignment="Stretch"
+                              VerticalAlignment="Bottom"
+                              HorizontalContentAlignment="Center"
+                              VerticalContentAlignment="Center"
+                              Background="{DynamicResource ButtonBackground}"
+                              IsChecked="False"
+                              IsVisible="{Binding Value.Value, Converter={x:Static ObjectConverters.IsNotNull}}"
+                              Theme="{StaticResource ExpandCollapseToggleButtonStyle}" />
 
-            <ItemsControl x:Name="minorProps" ItemsSource="{Binding MinorProperties}">
-                <ItemsControl.ItemTemplate>
-                    <DataTemplate>
-                        <ContentControl Content="{Binding Converter={StaticResource ViewModelToViewConverter}}" />
-                    </DataTemplate>
-                </ItemsControl.ItemTemplate>
-            </ItemsControl>
+                <ItemsControl x:Name="minorProps" ItemsSource="{Binding MinorProperties}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <ContentControl Content="{Binding Converter={StaticResource ViewModelToViewConverter}}" />
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
             </StackPanel>
         </controls:TreeLineDecorator>
     </Grid>

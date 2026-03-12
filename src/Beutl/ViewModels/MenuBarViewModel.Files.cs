@@ -46,7 +46,7 @@ public partial class MenuBarViewModel
         {
             if (!File.Exists(file))
             {
-                NotificationService.ShowInformation(Strings.File, Message.FileDoesNotExist);
+                NotificationService.ShowInformation(Strings.File, MessageStrings.FileDoesNotExist);
             }
             else
             {
@@ -129,24 +129,24 @@ public partial class MenuBarViewModel
                         Type type = item.Extension.Value.GetType();
                         _logger.LogError("{Extension} failed to save file: {FileName}", type.FullName ?? type.Name,
                             item.FileName.Value);
-                        NotificationService.ShowError(Message.UnableToSaveFile, item.FileName.Value);
+                        NotificationService.ShowError(MessageStrings.UnableToSaveFile, item.FileName.Value);
                     }
                 }
             }
 
-            NotificationService.ShowSuccess(string.Empty, string.Format(Message.ItemsSaved, itemsCount.ToString()));
+            NotificationService.ShowSuccess(string.Empty, string.Format(MessageStrings.ItemsSaved, itemsCount.ToString()));
 
             if (GlobalConfiguration.Instance.EditorConfig.IsAutoSaveEnabled
                 && EditorService.Current.TabItems.All(v => v.Context.Value is ISupportAutoSaveEditorContext))
             {
-                NotificationService.ShowInformation(string.Empty, Message.FilesAutoSaved);
+                NotificationService.ShowInformation(string.Empty, MessageStrings.FilesAutoSaved);
             }
         }
         catch (Exception ex)
         {
             activity?.SetStatus(ActivityStatusCode.Error);
             _logger.LogError(ex, "Failed to save files");
-            NotificationService.ShowError(string.Empty, Message.OperationFailed);
+            NotificationService.ShowError(string.Empty, MessageStrings.OperationFailed);
         }
         finally
         {
@@ -168,12 +168,12 @@ public partial class MenuBarViewModel
 
                 if (result)
                 {
-                    NotificationService.ShowSuccess(string.Empty, string.Format(Message.ItemSaved, item.FileName));
+                    NotificationService.ShowSuccess(string.Empty, string.Format(MessageStrings.ItemSaved, item.FileName));
 
                     if (GlobalConfiguration.Instance.EditorConfig.IsAutoSaveEnabled
                         && item.Context.Value is ISupportAutoSaveEditorContext)
                     {
-                        NotificationService.ShowInformation(string.Empty, Message.FilesAutoSaved);
+                        NotificationService.ShowInformation(string.Empty, MessageStrings.FilesAutoSaved);
                     }
                 }
                 else
@@ -181,14 +181,14 @@ public partial class MenuBarViewModel
                     Type type = item.Extension.Value.GetType();
                     _logger.LogError("{Extension} failed to save file: {FileName}", type.FullName ?? type.Name,
                         item.FileName.Value);
-                    NotificationService.ShowInformation(string.Empty, Message.OperationFailed);
+                    NotificationService.ShowInformation(string.Empty, MessageStrings.OperationFailed);
                 }
             }
             catch (Exception ex)
             {
                 activity?.SetStatus(ActivityStatusCode.Error);
                 _logger.LogError(ex, "Failed to save file: {FileName}", item.FileName.Value);
-                NotificationService.ShowError(string.Empty, Message.OperationFailed);
+                NotificationService.ShowError(string.Empty, MessageStrings.OperationFailed);
             }
         }
     }

@@ -21,11 +21,11 @@ public sealed class CreateNewSceneViewModel
         {
             if (string.IsNullOrEmpty(n) || n.IndexOfAny(Path.GetInvalidFileNameChars()) > -1)
             {
-                return Message.InvalidString;
+                return MessageStrings.InvalidString;
             }
             else if (Directory.Exists(Path.Combine(Location.Value, n)))
             {
-                return Message.AlreadyExists;
+                return MessageStrings.AlreadyExists;
             }
             else
             {
@@ -37,7 +37,7 @@ public sealed class CreateNewSceneViewModel
         {
             if (s.Width <= 0 || s.Height <= 0)
             {
-                return Message.ValueLessThanOrEqualToZero;
+                return MessageStrings.ValueLessThanOrEqualToZero;
             }
             else
             {

@@ -41,7 +41,7 @@ public class UpdateDialogViewModel
             var metadata = await BeutlApiApplication.LoadMetadata();
             if (metadata == null)
             {
-                ProgressText.Value = Message.FailedToLoadMetadata;
+                ProgressText.Value = MessageStrings.FailedToLoadMetadata;
                 return;
             }
 
@@ -71,7 +71,7 @@ public class UpdateDialogViewModel
         {
             if (_downloadFile == null)
             {
-                ProgressText.Value = Message.DownloadFailed;
+                ProgressText.Value = MessageStrings.DownloadFailed;
                 return;
             }
 
@@ -88,7 +88,7 @@ public class UpdateDialogViewModel
                 await fs.WriteAsync(new byte[] { 0xEF, 0xBB, 0xBF });
                 if (!await LoadScript("Beutl.Resources.win-update.ps1", fs))
                 {
-                    ProgressText.Value = Message.FailedToLoadScript;
+                    ProgressText.Value = MessageStrings.FailedToLoadScript;
                     return;
                 }
             }
@@ -125,7 +125,7 @@ public class UpdateDialogViewModel
         {
             if (_downloadFile == null)
             {
-                ProgressText.Value = Message.DownloadFailed;
+                ProgressText.Value = MessageStrings.DownloadFailed;
                 return;
             }
 
@@ -149,7 +149,7 @@ public class UpdateDialogViewModel
             {
                 if (!await LoadScript("Beutl.Resources.linux-update.sh", fs))
                 {
-                    ProgressText.Value = Message.FailedToLoadScript;
+                    ProgressText.Value = MessageStrings.FailedToLoadScript;
                     return;
                 }
             }
@@ -181,7 +181,7 @@ public class UpdateDialogViewModel
         {
             if (!await LoadScript("Beutl.Resources.osx-update.sh", fs))
             {
-                ProgressText.Value = Message.FailedToLoadScript;
+                ProgressText.Value = MessageStrings.FailedToLoadScript;
                 return;
             }
         }
@@ -230,7 +230,7 @@ public class UpdateDialogViewModel
             var metadata = await BeutlApiApplication.LoadMetadata();
             if (metadata == null)
             {
-                ProgressText.Value = Message.FailedToLoadMetadata;
+                ProgressText.Value = MessageStrings.FailedToLoadMetadata;
                 return;
             }
 
@@ -251,13 +251,13 @@ public class UpdateDialogViewModel
                 var result = await ExtractIfNeeded(metadata, _downloadFile, destination);
                 if (!result) return;
 
-                ProgressText.Value = Message.ApplicationRestartRequired;
+                ProgressText.Value = MessageStrings.ApplicationRestartRequired;
                 IsPrimaryButtonEnabled.Value = true;
             }
 
             if (metadata.Type is "installer" or "debian")
             {
-                ProgressText.Value = Message.StartInstaller;
+                ProgressText.Value = MessageStrings.StartInstaller;
                 IsPrimaryButtonEnabled.Value = true;
             }
         });
@@ -270,7 +270,7 @@ public class UpdateDialogViewModel
             ProgressValue.Value = 0;
             ProgressMax.Value = 1;
             IsIndeterminate.Value = false;
-            ProgressText.Value = Message.Downloading;
+            ProgressText.Value = MessageStrings.Downloading;
             var ct = _cts.Token;
 
             _logger.LogInformation("Downloading update from {DownloadUrl}", Update.DownloadUrl);
@@ -318,7 +318,7 @@ public class UpdateDialogViewModel
                 }
             }
 
-            ProgressText.Value = Message.DownloadComplete;
+            ProgressText.Value = MessageStrings.DownloadComplete;
             ProgressValue.Value = 1;
             IsIndeterminate.Value = false;
             _logger.LogInformation("Downloaded update to {FilePath}", file);
@@ -328,7 +328,7 @@ public class UpdateDialogViewModel
         catch (OperationCanceledException)
         {
             _logger.LogWarning("Download canceled");
-            ProgressText.Value = Message.Canceled;
+            ProgressText.Value = MessageStrings.Canceled;
             return null;
         }
         catch (Exception e)
@@ -350,7 +350,7 @@ public class UpdateDialogViewModel
                 using var source = ZipFile.Open(file, ZipArchiveMode.Read);
 
                 ProgressMax.Value = source.Entries.Count;
-                ProgressText.Value = Message.Extracting;
+                ProgressText.Value = MessageStrings.Extracting;
                 foreach (var entry in source.Entries)
                 {
                     if (entry.Length != 0)
@@ -396,7 +396,7 @@ public class UpdateDialogViewModel
 
             File.Delete(file);
             _logger.LogInformation("Extraction complete");
-            ProgressText.Value = Message.ExtractionComplete;
+            ProgressText.Value = MessageStrings.ExtractionComplete;
             ProgressValue.Value = ProgressMax.Value;
             IsIndeterminate.Value = false;
             return true;
@@ -404,7 +404,7 @@ public class UpdateDialogViewModel
         catch (OperationCanceledException)
         {
             _logger.LogWarning("Extraction canceled");
-            ProgressText.Value = Message.Canceled;
+            ProgressText.Value = MessageStrings.Canceled;
             return false;
         }
         catch (Exception e)
@@ -436,7 +436,7 @@ public class UpdateDialogViewModel
         await using var writer = new StreamWriter(stream);
 
         var renderer = new SimpleTemplateRenderer(
-            await reader.ReadToEndAsync(), [typeof(Strings), typeof(Message)]);
+            await reader.ReadToEndAsync(), [typeof(Strings), typeof(MessageStrings)]);
         var script = renderer.Render();
         await writer.WriteAsync(script);
         return true;

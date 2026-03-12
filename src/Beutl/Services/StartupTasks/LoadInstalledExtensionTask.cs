@@ -70,8 +70,8 @@ public sealed class LoadInstalledExtensionTask : StartupTask
             {
                 var dialog = new ContentDialog()
                 {
-                    Title = Message.PreviousSessionErrorTitle,
-                    Content = Message.RestrictedModePrompt,
+                    Title = MessageStrings.PreviousSessionErrorTitle,
+                    Content = MessageStrings.RestrictedModePrompt,
                     PrimaryButtonText = Strings.Yes,
                     CloseButtonText = Strings.No
                 };

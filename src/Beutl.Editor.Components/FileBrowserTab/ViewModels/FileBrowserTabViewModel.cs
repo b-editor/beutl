@@ -256,7 +256,7 @@ public sealed class FileBrowserTabViewModel : IToolContext
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to open file {Path}", path);
-            NotificationService.ShowError(Strings.Open, Message.OperationFailed);
+            NotificationService.ShowError(Strings.Open, MessageStrings.OperationFailed);
         }
     }
 
@@ -265,7 +265,7 @@ public sealed class FileBrowserTabViewModel : IToolContext
         var dialog = new ContentDialog
         {
             Title = Strings.Delete,
-            Content = string.Format(Message.ConfirmDeleteFile, item.Name.Value),
+            Content = string.Format(MessageStrings.ConfirmDeleteFile, item.Name.Value),
             PrimaryButtonText = Strings.Yes,
             CloseButtonText = Strings.No,
             DefaultButton = ContentDialogButton.Close
@@ -288,7 +288,7 @@ public sealed class FileBrowserTabViewModel : IToolContext
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to delete {Path}", item.FullPath);
-                NotificationService.ShowError(Strings.Delete, Message.OperationFailed);
+                NotificationService.ShowError(Strings.Delete, MessageStrings.OperationFailed);
             }
         }
     }
@@ -332,7 +332,7 @@ public sealed class FileBrowserTabViewModel : IToolContext
                 catch (Exception ex)
                 {
                     _logger.LogError(ex, "Failed to delete {Path}", item.FullPath);
-                    NotificationService.ShowError(Strings.Delete, Message.OperationFailed);
+                    NotificationService.ShowError(Strings.Delete, MessageStrings.OperationFailed);
                 }
             }
         }
@@ -360,7 +360,7 @@ public sealed class FileBrowserTabViewModel : IToolContext
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to create folder at {Path}", newFolderPath);
-            NotificationService.ShowError(Strings.NewFolder, Message.OperationFailed);
+            NotificationService.ShowError(Strings.NewFolder, MessageStrings.OperationFailed);
         }
     }
 
@@ -376,7 +376,7 @@ public sealed class FileBrowserTabViewModel : IToolContext
             var dialog = new ContentDialog
             {
                 Title = Strings.Error,
-                Content = string.Format(Message.RenameConflict, item.Name.Value, newName),
+                Content = string.Format(MessageStrings.RenameConflict, item.Name.Value, newName),
                 CloseButtonText = Strings.Close
             };
             await dialog.ShowAsync();
@@ -397,7 +397,7 @@ public sealed class FileBrowserTabViewModel : IToolContext
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to rename {OldPath} to {NewPath}", item.FullPath, newPath);
-            NotificationService.ShowError(Strings.Rename, Message.OperationFailed);
+            NotificationService.ShowError(Strings.Rename, MessageStrings.OperationFailed);
         }
     }
 
@@ -490,7 +490,7 @@ public sealed class FileBrowserTabViewModel : IToolContext
             catch (IOException ex)
             {
                 _logger.LogError(ex, "Failed to copy {Source} to {Dest}", localPath, destPath);
-                NotificationService.ShowError(Strings.Copy, Message.OperationFailed);
+                NotificationService.ShowError(Strings.Copy, MessageStrings.OperationFailed);
             }
         }
     }

@@ -18,11 +18,11 @@ public sealed class CreateNewProjectViewModel
         {
             if (n == string.Empty || n == null || n.IndexOfAny(Path.GetInvalidFileNameChars()) > -1)
             {
-                return Message.InvalidString;
+                return MessageStrings.InvalidString;
             }
             else if (Directory.Exists(Path.Combine(Location.Value, n)))
             {
-                return Message.AlreadyExists;
+                return MessageStrings.AlreadyExists;
             }
             else
             {
@@ -34,7 +34,7 @@ public sealed class CreateNewProjectViewModel
         {
             if (s.Width <= 0 || s.Height <= 0)
             {
-                return Message.ValueLessThanOrEqualToZero;
+                return MessageStrings.ValueLessThanOrEqualToZero;
             }
             else
             {
@@ -45,7 +45,7 @@ public sealed class CreateNewProjectViewModel
         {
             if (n <= 0)
             {
-                return Message.ValueLessThanOrEqualToZero;
+                return MessageStrings.ValueLessThanOrEqualToZero;
             }
             else
             {
@@ -56,7 +56,7 @@ public sealed class CreateNewProjectViewModel
         {
             if (n <= 0)
             {
-                return Message.ValueLessThanOrEqualToZero;
+                return MessageStrings.ValueLessThanOrEqualToZero;
             }
             else
             {
@@ -89,7 +89,7 @@ public sealed class CreateNewProjectViewModel
                 Name.Value,
                 Location.Value);
             if (proj == null)
-                NotificationService.ShowError(string.Empty, Message.OperationFailed);
+                NotificationService.ShowError(string.Empty, MessageStrings.OperationFailed);
         });
     }
 

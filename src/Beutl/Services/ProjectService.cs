@@ -66,8 +66,8 @@ public sealed class ProjectService
             {
                 var dialog = new ContentDialog
                 {
-                    Title = Message.ProjectVersionMismatch_Title,
-                    Content = string.Format(Message.ProjectVersionMismatch_Content, minVersion),
+                    Title = MessageStrings.ProjectVersionMismatch_Title,
+                    Content = string.Format(MessageStrings.ProjectVersionMismatch_Content, minVersion),
                     PrimaryButtonText = Strings.Close
                 };
                 await dialog.ShowAsync();
@@ -87,7 +87,7 @@ public sealed class ProjectService
         {
             activity?.SetStatus(ActivityStatusCode.Error);
             _logger.LogError(ex, "Unable to open the project. File: {File}", file);
-            NotificationService.ShowInformation(Strings.Project, Message.FailedToOpenProject);
+            NotificationService.ShowInformation(Strings.Project, MessageStrings.FailedToOpenProject);
         }
     }
 

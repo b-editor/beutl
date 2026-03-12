@@ -53,7 +53,7 @@
                            Grid.Row="1"
                            LineBrush="{DynamicResource TreeLineBrush}">
             <Panel>
-                <TextBlock IsVisible="{Binding Value.Value, Converter={x:Static ObjectConverters.IsNull}}" Text="{x:Static lang:Message.Property_is_unset}" />
+                <TextBlock IsVisible="{Binding Value.Value, Converter={x:Static ObjectConverters.IsNull}}" Text="{x:Static lang:MessageStrings.PropertyUnset}" />
 
                 <local:PropertiesEditor Padding="0"
                                         DataContext="{Binding ChildContext.Value}"

@@ -32,8 +32,8 @@ public sealed class CheckForPackageUpdatesTask : StartupTask
                     {
                         _logger.LogInformation("{Count} package update(s) available.", updates.Count);
                         NotificationService.ShowInformation(
-                            Message.PackageUpdatesAvailable,
-                            string.Format(Message.PackagesCanBeUpdated, updates.Count),
+                            MessageStrings.PackageUpdatesAvailable,
+                            string.Format(MessageStrings.PackagesCanBeUpdated, updates.Count),
                             onActionButtonClick: OpenExtensionsPage,
                             actionButtonText: Strings.Open);
                     }

@@ -23,8 +23,8 @@ public sealed partial class PropertyEditorMenu : UserControl
                     .Select(t => t switch
                     {
                         (true, _) =>
-                            $"- {Message.RightClickToShowMenu}\n- {Message.AnimationIsEnabled}",
-                        (_, true) => $"- {Message.RightClickToShowMenu}\n- {Message.ExpressionIsSet}",
+                            $"- {MessageStrings.RightClickToShowMenu}\n- {MessageStrings.AnimationIsEnabled}",
+                        (_, true) => $"- {MessageStrings.RightClickToShowMenu}\n- {MessageStrings.ExpressionIsSet}",
                         _ => null
                     })
                 : Observable.ReturnThenNever<string?>(null))

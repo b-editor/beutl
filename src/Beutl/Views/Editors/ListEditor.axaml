@@ -51,7 +51,7 @@
               RowDefinitions="Auto,Auto">
             <TextBlock Grid.Row="1"
                        IsVisible="{Binding List.Value, Converter={x:Static ObjectConverters.IsNull}}"
-                       Text="{x:Static lang:Message.Property_is_unset}" />
+                       Text="{x:Static lang:MessageStrings.PropertyUnset}" />
 
             <ProgressBar x:Name="progress"
                          MinWidth="100"

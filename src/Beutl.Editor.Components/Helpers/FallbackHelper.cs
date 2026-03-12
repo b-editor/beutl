@@ -25,10 +25,10 @@ public static class FallbackHelper
         if (obj is IFallback { Reason: FallbackReason.DeserializationFailed } fallback)
         {
             return fallback.ErrorMessage != null
-                ? $"{Message.RestoreFailedDeserializationError}\n{fallback.ErrorMessage}"
-                : Message.RestoreFailedDeserializationError;
+                ? $"{MessageStrings.RestoreFailedDeserializationError}\n{fallback.ErrorMessage}"
+                : MessageStrings.RestoreFailedDeserializationError;
         }
 
-        return Message.RestoreFailedTypeNotFound;
+        return MessageStrings.RestoreFailedTypeNotFound;
     }
 }

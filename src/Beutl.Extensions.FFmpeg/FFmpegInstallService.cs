@@ -143,7 +143,7 @@ public class FFmpegInstallService
         catch (OperationCanceledException)
         {
             _logger.LogWarning("FFmpeg installation canceled");
-            ProgressTextChanged?.Invoke(Language.Message.Canceled);
+            ProgressTextChanged?.Invoke(Language.MessageStrings.Canceled);
             Completed?.Invoke(false);
         }
         catch (Exception ex)
@@ -208,7 +208,7 @@ public class FFmpegInstallService
         {
             ProgressChanged?.Invoke(0, 1);
             IndeterminateChanged?.Invoke(false);
-            ProgressTextChanged?.Invoke(Language.Message.Downloading);
+            ProgressTextChanged?.Invoke(Language.MessageStrings.Downloading);
 
             _logger.LogInformation("Downloading FFmpeg from {Url}", url);
             using HttpResponseMessage response = await client.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, ct);
@@ -243,7 +243,7 @@ public class FFmpegInstallService
                 }
             }
 
-            ProgressTextChanged?.Invoke(Language.Message.DownloadComplete);
+            ProgressTextChanged?.Invoke(Language.MessageStrings.DownloadComplete);
             IndeterminateChanged?.Invoke(false);
             _logger.LogInformation("Downloaded FFmpeg to {FilePath}", filePath);
 
@@ -265,7 +265,7 @@ public class FFmpegInstallService
     {
         try
         {
-            ProgressTextChanged?.Invoke(Language.Message.Extracting);
+            ProgressTextChanged?.Invoke(Language.MessageStrings.Extracting);
             IndeterminateChanged?.Invoke(true);
 
             _logger.LogInformation("Extracting {Archive} to {Destination}", archivePath, destinationPath);
@@ -294,7 +294,7 @@ public class FFmpegInstallService
             // Move files from inner directory (e.g., ffmpeg-n8.0-20241125-win64-gpl-shared/bin) to destination
             MoveExtractedFiles(destinationPath, ct);
 
-            ProgressTextChanged?.Invoke(Language.Message.ExtractionComplete);
+            ProgressTextChanged?.Invoke(Language.MessageStrings.ExtractionComplete);
             IndeterminateChanged?.Invoke(false);
             _logger.LogInformation("Extraction complete");
             return true;

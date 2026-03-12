@@ -121,7 +121,7 @@ public partial class MainView
                 CloseButtonText = Strings.Cancel,
                 PrimaryButtonText = Strings.OK,
                 DefaultButton = ContentDialogButton.Primary,
-                Content = Message.ConfirmDeleteFile + "\n" + name
+                Content = MessageStrings.ConfirmDeleteFile + "\n" + name
             };
 
             if (await dialog.ShowAsync() == ContentDialogResult.Primary)
@@ -149,7 +149,7 @@ public partial class MainView
                 CloseButtonText = Strings.Cancel,
                 PrimaryButtonText = Strings.OK,
                 DefaultButton = ContentDialogButton.Primary,
-                Content = Message.ConfirmExcludeItem + "\n" + filePath
+                Content = MessageStrings.ConfirmExcludeItem + "\n" + filePath
             };
 
             if (await dialog.ShowAsync() == ContentDialogResult.Primary)
@@ -253,17 +253,17 @@ public partial class MainView
 
                 if (result)
                 {
-                    NotificationService.ShowSuccess(Strings.ExportProject, Message.OperationCompletedSuccessfully);
+                    NotificationService.ShowSuccess(Strings.ExportProject, MessageStrings.OperationCompletedSuccessfully);
                 }
                 else
                 {
-                    NotificationService.ShowError(Strings.ExportProject, Message.OperationFailed);
+                    NotificationService.ShowError(Strings.ExportProject, MessageStrings.OperationFailed);
                 }
             }
             catch (Exception ex)
             {
                 _ = ex.Handle();
-                NotificationService.ShowError(Strings.ExportProject, Message.OperationFailed);
+                NotificationService.ShowError(Strings.ExportProject, MessageStrings.OperationFailed);
             }
         }
     }
@@ -318,17 +318,17 @@ public partial class MainView
             if (project?.Uri != null)
             {
                 await ProjectService.Current.OpenProject(project.Uri.LocalPath);
-                NotificationService.ShowSuccess(Strings.ImportProject, Message.OperationCompletedSuccessfully);
+                NotificationService.ShowSuccess(Strings.ImportProject, MessageStrings.OperationCompletedSuccessfully);
             }
             else
             {
-                NotificationService.ShowError(Strings.ImportProject, Message.OperationFailed);
+                NotificationService.ShowError(Strings.ImportProject, MessageStrings.OperationFailed);
             }
         }
         catch (Exception ex)
         {
             _ = ex.Handle();
-            NotificationService.ShowError(Strings.ImportProject, Message.OperationFailed);
+            NotificationService.ShowError(Strings.ImportProject, MessageStrings.OperationFailed);
         }
     }
 }

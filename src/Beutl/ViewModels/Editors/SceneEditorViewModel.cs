@@ -11,7 +11,7 @@ public sealed class SceneEditorViewModel : ValueEditorViewModel<Scene?>
         : base(property)
     {
         CurrentTargetName = Value
-            .Select(scene => scene != null ? scene.Name : Message.PropertyUnset)
+            .Select(scene => scene != null ? scene.Name : MessageStrings.PropertyUnset)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
     }

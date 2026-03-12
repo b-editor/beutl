@@ -10,7 +10,7 @@
 | `SettingsStrings` | 設定画面用 |
 | `ExtensionsStrings` | 拡張機能画面用 |
 | `TutorialStrings` | チュートリアル画面用 |
-| `Message` | メッセージ文字列 |
+| `MessageStrings` | メッセージ文字列 |
 | `CommandNames` | コマンド名 |
 
 ## 参照ルール

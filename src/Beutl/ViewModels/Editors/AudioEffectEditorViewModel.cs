@@ -25,7 +25,7 @@ public sealed class AudioEffectEditorViewModel : ValueEditorViewModel<AudioEffec
             .DisposeWith(Disposables);
 
         FallbackMessage = Value.Select(FallbackHelper.GetFallbackMessage)
-            .ToReadOnlyReactivePropertySlim(Message.RestoreFailedTypeNotFound)
+            .ToReadOnlyReactivePropertySlim(MessageStrings.RestoreFailedTypeNotFound)
             .DisposeWith(Disposables);
 
         FilterName = Value.Select(v =>
@@ -137,7 +137,7 @@ public sealed class AudioEffectEditorViewModel : ValueEditorViewModel<AudioEffec
 
     public void SetJsonString(string? str)
     {
-        string message = Message.InvalidJson;
+        string message = MessageStrings.InvalidJson;
         _ = str ?? throw new Exception(message);
         JsonObject json = (JsonNode.Parse(str) as JsonObject) ?? throw new Exception(message);
 

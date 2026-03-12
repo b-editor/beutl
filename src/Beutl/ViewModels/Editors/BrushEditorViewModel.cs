@@ -70,7 +70,7 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel, IFallbackObjectV
             .DisposeWith(Disposables);
 
         FallbackMessage = Value.Select(FallbackHelper.GetFallbackMessage)
-            .ToReadOnlyReactivePropertySlim(Message.RestoreFailedTypeNotFound)
+            .ToReadOnlyReactivePropertySlim(MessageStrings.RestoreFailedTypeNotFound)
             .DisposeWith(Disposables);
 
         Value.CombineWithPrevious()
@@ -97,7 +97,7 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel, IFallbackObjectV
             .Select(t => t.Item2 is ReferenceExpression<Brush>
                 ? t.Item1?.Target.GetValue(CompositionContext.Default)
                 : null)
-            .Select(fe => fe != null ? CoreObjectHelper.GetDisplayName(fe) : Message.PropertyUnset)
+            .Select(fe => fe != null ? CoreObjectHelper.GetDisplayName(fe) : MessageStrings.PropertyUnset)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
     }
@@ -159,7 +159,7 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel, IFallbackObjectV
 
     public void SetJsonString(string? str)
     {
-        string message = Message.InvalidJson;
+        string message = MessageStrings.InvalidJson;
         _ = str ?? throw new Exception(message);
         JsonObject json = (JsonNode.Parse(str) as JsonObject) ?? throw new Exception(message);
 

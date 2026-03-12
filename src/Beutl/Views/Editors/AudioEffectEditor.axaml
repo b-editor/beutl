@@ -70,7 +70,7 @@
                MinHeight="24">
             <TextBlock Margin="16,0,0,0"
                        IsVisible="{Binding Value.Value, Converter={x:Static ObjectConverters.IsNull}}"
-                       Text="{x:Static lang:Message.Property_is_unset}" />
+                       Text="{x:Static lang:MessageStrings.PropertyUnset}" />
 
             <controls:TreeLineDecorator LineBrush="{DynamicResource TreeLineBrush}">
                 <local:PropertiesEditor Padding="0"

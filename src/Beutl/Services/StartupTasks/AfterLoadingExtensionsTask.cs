@@ -23,8 +23,8 @@ public sealed class AfterLoadingExtensionsTask : StartupTask
             if (failures.Length > 0)
             {
                 NotificationService.ShowError(
-                    Message.FailedToLoadPackage,
-                    string.Format(Message.FailedToLoadNPackages, failures.Length),
+                    MessageStrings.FailedToLoadPackage,
+                    string.Format(MessageStrings.FailedToLoadNPackages, failures.Length),
                     onActionButtonClick: () => ShowPackageLoadingError(failures),
                     actionButtonText: Strings.Details);
             }
@@ -43,7 +43,7 @@ public sealed class AfterLoadingExtensionsTask : StartupTask
         using (var writer = new IndentedTextWriter(baseWriter, "  "))
         {
             baseWriter.AutoFlush = false;
-            writer.WriteLine(string.Format(Message.FailedToLoadNPackages, failures.Count));
+            writer.WriteLine(string.Format(MessageStrings.FailedToLoadNPackages, failures.Count));
             writer.WriteLine();
             foreach ((LocalPackage pkg, Exception ex) in failures)
             {

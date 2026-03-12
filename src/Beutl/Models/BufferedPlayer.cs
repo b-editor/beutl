@@ -115,8 +115,8 @@ public sealed class BufferedPlayer : IPlayer
             }
             catch (Exception ex)
             {
-                NotificationService.ShowError(Message.UnexpectedError,
-                    Message.FrameDrawingException);
+                NotificationService.ShowError(MessageStrings.UnexpectedError,
+                    MessageStrings.FrameDrawingException);
                 _logger.LogError(ex, "An exception occurred while drawing the frame.");
             }
         }, Threading.DispatchPriority.High);

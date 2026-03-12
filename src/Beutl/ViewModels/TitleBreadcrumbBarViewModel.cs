@@ -14,7 +14,7 @@ public class TitleBreadcrumbBarViewModel
         _editorService = editorService;
         FileName = _editorService.SelectedTabItem
             .Select(i =>
-                i?.FileName ?? IsProjectOpened.Select(b => b ? Message.FileNotSelected : null))
+                i?.FileName ?? IsProjectOpened.Select(b => b ? MessageStrings.FileNotSelected : null))
             .Switch()
             .ToReadOnlyReactivePropertySlim();
     }

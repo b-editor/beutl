@@ -37,7 +37,7 @@ public partial class VideoSourceEditor : UserControl
             .ToArray();
         if (fileExtensions.Length == 0)
         {
-            message.Text = Message.NoSupportedExtensionsFound;
+            message.Text = MessageStrings.NoSupportedExtensionsFound;
             message.IsVisible = true;
         }
 

@@ -186,7 +186,7 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
                 if (VideoSettings.Value?.Settings is not VideoEncoderSettings videoSettings
                     || AudioSettings.Value?.Settings is not AudioEncoderSettings audioSettings)
                 {
-                    ProgressText.Value = Message.UnexpectedError;
+                    ProgressText.Value = MessageStrings.UnexpectedError;
                     _logger.LogWarning("Encoder settings are null. (Encoder: {Encoder})", SelectedEncoder.Value);
                     return;
                 }
@@ -236,7 +236,7 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
         }
         catch (Exception ex)
         {
-            NotificationService.ShowError(Message.OutputException, ex.Message);
+            NotificationService.ShowError(MessageStrings.OutputException, ex.Message);
             _logger.LogError(ex, "An exception occurred during the encoding process.");
         }
         finally

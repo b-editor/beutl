@@ -449,7 +449,7 @@ public partial class PlayerView
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to save image.");
-                NotificationService.ShowError(Message.FailedToSaveImage, ex.Message);
+                NotificationService.ShowError(MessageStrings.FailedToSaveImage, ex.Message);
             }
         }
 
@@ -502,7 +502,7 @@ public partial class PlayerView
                             catch (Exception ex)
                             {
                                 _logger.LogError(ex, "Failed to save image.");
-                                NotificationService.ShowError(Message.FailedToSaveImage, ex.Message);
+                                NotificationService.ShowError(MessageStrings.FailedToSaveImage, ex.Message);
                             }
                         }
                     };
