@@ -159,7 +159,7 @@ public sealed class AccountSettingsPageViewModel : BasePageViewModel
             {
                 activity?.SetStatus(ActivityStatusCode.Error);
                 _logger.LogError(ex, "An unexpected error has occurred.");
-                Error.Value = Message.AnUnexpectedErrorHasOccurred;
+                Error.Value = Message.UnexpectedError;
             }
             finally
             {

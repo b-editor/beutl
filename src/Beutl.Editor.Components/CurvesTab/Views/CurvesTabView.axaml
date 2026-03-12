@@ -110,7 +110,7 @@
                    HorizontalAlignment="Center"
                    VerticalAlignment="Center"
                    IsVisible="{Binding IsCurvesMissing.Value}"
-                   Text="{x:Static lang:Strings.ColorCurves_Missing}"
+                   Text="{x:Static lang:Message.ColorCurvesMissing}"
                    TextWrapping="Wrap" />
     </Grid>
 </UserControl>

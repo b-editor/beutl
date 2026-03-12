@@ -41,7 +41,7 @@ public class UpdateDialogViewModel
             var metadata = await BeutlApiApplication.LoadMetadata();
             if (metadata == null)
             {
-                ProgressText.Value = Message.Failed_to_load_metadata;
+                ProgressText.Value = Message.FailedToLoadMetadata;
                 return;
             }
 
@@ -71,7 +71,7 @@ public class UpdateDialogViewModel
         {
             if (_downloadFile == null)
             {
-                ProgressText.Value = Message.Download_failed;
+                ProgressText.Value = Message.DownloadFailed;
                 return;
             }
 
@@ -88,7 +88,7 @@ public class UpdateDialogViewModel
                 await fs.WriteAsync(new byte[] { 0xEF, 0xBB, 0xBF });
                 if (!await LoadScript("Beutl.Resources.win-update.ps1", fs))
                 {
-                    ProgressText.Value = Message.Failed_to_load_script;
+                    ProgressText.Value = Message.FailedToLoadScript;
                     return;
                 }
             }
@@ -125,7 +125,7 @@ public class UpdateDialogViewModel
         {
             if (_downloadFile == null)
             {
-                ProgressText.Value = Message.Download_failed;
+                ProgressText.Value = Message.DownloadFailed;
                 return;
             }
 
@@ -149,7 +149,7 @@ public class UpdateDialogViewModel
             {
                 if (!await LoadScript("Beutl.Resources.linux-update.sh", fs))
                 {
-                    ProgressText.Value = Message.Failed_to_load_script;
+                    ProgressText.Value = Message.FailedToLoadScript;
                     return;
                 }
             }
@@ -181,7 +181,7 @@ public class UpdateDialogViewModel
         {
             if (!await LoadScript("Beutl.Resources.osx-update.sh", fs))
             {
-                ProgressText.Value = Message.Failed_to_load_script;
+                ProgressText.Value = Message.FailedToLoadScript;
                 return;
             }
         }
@@ -230,7 +230,7 @@ public class UpdateDialogViewModel
             var metadata = await BeutlApiApplication.LoadMetadata();
             if (metadata == null)
             {
-                ProgressText.Value = Message.Failed_to_load_metadata;
+                ProgressText.Value = Message.FailedToLoadMetadata;
                 return;
             }
 
@@ -251,13 +251,13 @@ public class UpdateDialogViewModel
                 var result = await ExtractIfNeeded(metadata, _downloadFile, destination);
                 if (!result) return;
 
-                ProgressText.Value = Message.The_application_needs_to_be_restarted;
+                ProgressText.Value = Message.ApplicationRestartRequired;
                 IsPrimaryButtonEnabled.Value = true;
             }
 
             if (metadata.Type is "installer" or "debian")
             {
-                ProgressText.Value = Message.Start_the_installer;
+                ProgressText.Value = Message.StartInstaller;
                 IsPrimaryButtonEnabled.Value = true;
             }
         });
@@ -318,7 +318,7 @@ public class UpdateDialogViewModel
                 }
             }
 
-            ProgressText.Value = Message.Download_is_complete;
+            ProgressText.Value = Message.DownloadComplete;
             ProgressValue.Value = 1;
             IsIndeterminate.Value = false;
             _logger.LogInformation("Downloaded update to {FilePath}", file);
@@ -396,7 +396,7 @@ public class UpdateDialogViewModel
 
             File.Delete(file);
             _logger.LogInformation("Extraction complete");
-            ProgressText.Value = Message.Extraction_is_complete;
+            ProgressText.Value = Message.ExtractionComplete;
             ProgressValue.Value = ProgressMax.Value;
             IsIndeterminate.Value = false;
             return true;

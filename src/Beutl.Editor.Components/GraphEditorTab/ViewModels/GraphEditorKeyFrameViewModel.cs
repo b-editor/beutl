@@ -343,7 +343,7 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to copy keyframe");
-            NotificationService.ShowError(Strings.Copy, Strings.FailedToCopyKeyframe);
+            NotificationService.ShowError(Strings.Copy, Message.FailedToCopyKeyframe);
         }
     }
 
@@ -359,13 +359,13 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
             {
                 if (!jsonObj.TryGetDiscriminator(out Type? type))
                 {
-                    NotificationService.ShowWarning(Strings.Paste, Strings.InvalidKeyframeDataFormat_MissingType);
+                    NotificationService.ShowWarning(Strings.Paste, Message.InvalidKeyframeDataFormat_MissingType);
                     return;
                 }
 
                 if (!type.IsAssignableTo(typeof(KeyFrame)))
                 {
-                    NotificationService.ShowWarning(Strings.Paste, Strings.InvalidKeyframeDataFormat_TypeIsNotKeyFrame);
+                    NotificationService.ShowWarning(Strings.Paste, Message.InvalidKeyframeDataFormat_TypeIsNotKeyFrame);
                     return;
                 }
 
@@ -379,7 +379,7 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
                     Model.Easing = newKeyFrame.Easing;
                     history.Commit(CommandNames.PasteKeyFrame);
                     NotificationService.ShowWarning(Strings.GraphEditor,
-                        Strings.KeyframePropertyTypeMismatch_EasingApplied);
+                        Message.KeyframePropertyTypeMismatch_EasingApplied);
                 }
                 else
                 {
@@ -392,12 +392,12 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
                 return;
             }
 
-            NotificationService.ShowWarning(Strings.Paste, Strings.InvalidKeyframeDataFormat);
+            NotificationService.ShowWarning(Strings.Paste, Message.InvalidKeyframeDataFormat);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to paste keyframe");
-            NotificationService.ShowError(Strings.Paste, Strings.FailedToPasteKeyframe);
+            NotificationService.ShowError(Strings.Paste, Message.FailedToPasteKeyframe);
         }
     }
 

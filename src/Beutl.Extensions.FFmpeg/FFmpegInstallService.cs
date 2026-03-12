@@ -243,7 +243,7 @@ public class FFmpegInstallService
                 }
             }
 
-            ProgressTextChanged?.Invoke(Language.Message.Download_is_complete);
+            ProgressTextChanged?.Invoke(Language.Message.DownloadComplete);
             IndeterminateChanged?.Invoke(false);
             _logger.LogInformation("Downloaded FFmpeg to {FilePath}", filePath);
 
@@ -294,7 +294,7 @@ public class FFmpegInstallService
             // Move files from inner directory (e.g., ffmpeg-n8.0-20241125-win64-gpl-shared/bin) to destination
             MoveExtractedFiles(destinationPath, ct);
 
-            ProgressTextChanged?.Invoke(Language.Message.Extraction_is_complete);
+            ProgressTextChanged?.Invoke(Language.Message.ExtractionComplete);
             IndeterminateChanged?.Invoke(false);
             _logger.LogInformation("Extraction complete");
             return true;

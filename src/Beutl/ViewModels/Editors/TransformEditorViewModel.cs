@@ -83,7 +83,7 @@ public sealed class TransformEditorViewModel : ValueEditorViewModel<Transform?>,
             .DisposeWith(Disposables);
 
         FallbackMessage = Value.Select(FallbackHelper.GetFallbackMessage)
-            .ToReadOnlyReactivePropertySlim(Message.Could_not_restore_because_type_could_not_be_found)
+            .ToReadOnlyReactivePropertySlim(Message.RestoreFailedTypeNotFound)
             .DisposeWith(Disposables);
 
         TransformType = Value.Select(GetTransformType)
@@ -170,7 +170,7 @@ public sealed class TransformEditorViewModel : ValueEditorViewModel<Transform?>,
             .Select(t => t.Item2 is ReferenceExpression<Transform>
                 ? t.Item1?.Target.GetValue(CompositionContext.Default)
                 : null)
-            .Select(fe => fe != null ? CoreObjectHelper.GetDisplayName(fe) : Message.Property_is_unset)
+            .Select(fe => fe != null ? CoreObjectHelper.GetDisplayName(fe) : Message.PropertyUnset)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
     }
@@ -216,7 +216,7 @@ public sealed class TransformEditorViewModel : ValueEditorViewModel<Transform?>,
 
     public void SetJsonString(string? str)
     {
-        string message = Strings.InvalidJson;
+        string message = Message.InvalidJson;
         _ = str ?? throw new Exception(message);
         JsonObject json = (JsonNode.Parse(str) as JsonObject) ?? throw new Exception(message);
 

@@ -48,8 +48,8 @@ internal static class Program
         {
             using (OutProcessDialog.Show(
                 Message.OpeningBeutl,
-                Message.Changes_to_the_package_are_in_progress,
-                Message.To_open_Beutl_close_Beutl_PackageTools,
+                Message.PackageChangesInProgress,
+                Message.ClosePackageToolsToOpenBeutl,
                 icon: "Info",
                 progress: true))
             {

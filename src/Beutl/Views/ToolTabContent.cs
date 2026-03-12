@@ -21,7 +21,7 @@ public sealed class ToolTabContent : ContentControl
             {
                 Text = $"""
                         Error:
-                            {Message.CannotDisplayThisContext}
+                            {Message.CannotDisplayContext}
                         """
             };
         }

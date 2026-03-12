@@ -25,7 +25,7 @@ public sealed class CreateNewSceneViewModel
             }
             else if (Directory.Exists(Path.Combine(Location.Value, n)))
             {
-                return Message.ItAlreadyExists;
+                return Message.AlreadyExists;
             }
             else
             {

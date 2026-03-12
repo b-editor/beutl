@@ -658,7 +658,7 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler
         catch (Exception ex)
         {
             _logger.LogError(ex, "An exception has occurred.");
-            NotificationService.ShowError(Message.AnUnexpectedErrorHasOccurred, ex.Message);
+            NotificationService.ShowError(Message.UnexpectedError, ex.Message);
         }
     }
 

@@ -121,7 +121,7 @@ public partial class MainView
                 CloseButtonText = Strings.Cancel,
                 PrimaryButtonText = Strings.OK,
                 DefaultButton = ContentDialogButton.Primary,
-                Content = Message.DoYouWantToDeleteThisFile + "\n" + name
+                Content = Message.ConfirmDeleteFile + "\n" + name
             };
 
             if (await dialog.ShowAsync() == ContentDialogResult.Primary)
@@ -149,7 +149,7 @@ public partial class MainView
                 CloseButtonText = Strings.Cancel,
                 PrimaryButtonText = Strings.OK,
                 DefaultButton = ContentDialogButton.Primary,
-                Content = Message.DoYouWantToExcludeThisItemFromProject + "\n" + filePath
+                Content = Message.ConfirmExcludeItem + "\n" + filePath
             };
 
             if (await dialog.ShowAsync() == ContentDialogResult.Primary)
@@ -257,13 +257,13 @@ public partial class MainView
                 }
                 else
                 {
-                    NotificationService.ShowError(Strings.ExportProject, Message.OperationCouldNotBeExecuted);
+                    NotificationService.ShowError(Strings.ExportProject, Message.OperationFailed);
                 }
             }
             catch (Exception ex)
             {
                 _ = ex.Handle();
-                NotificationService.ShowError(Strings.ExportProject, Message.OperationCouldNotBeExecuted);
+                NotificationService.ShowError(Strings.ExportProject, Message.OperationFailed);
             }
         }
     }
@@ -322,13 +322,13 @@ public partial class MainView
             }
             else
             {
-                NotificationService.ShowError(Strings.ImportProject, Message.OperationCouldNotBeExecuted);
+                NotificationService.ShowError(Strings.ImportProject, Message.OperationFailed);
             }
         }
         catch (Exception ex)
         {
             _ = ex.Handle();
-            NotificationService.ShowError(Strings.ImportProject, Message.OperationCouldNotBeExecuted);
+            NotificationService.ShowError(Strings.ImportProject, Message.OperationFailed);
         }
     }
 }

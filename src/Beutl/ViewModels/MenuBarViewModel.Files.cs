@@ -129,7 +129,7 @@ public partial class MenuBarViewModel
                         Type type = item.Extension.Value.GetType();
                         _logger.LogError("{Extension} failed to save file: {FileName}", type.FullName ?? type.Name,
                             item.FileName.Value);
-                        NotificationService.ShowError(Message.Unable_to_save_file, item.FileName.Value);
+                        NotificationService.ShowError(Message.UnableToSaveFile, item.FileName.Value);
                     }
                 }
             }
@@ -139,14 +139,14 @@ public partial class MenuBarViewModel
             if (GlobalConfiguration.Instance.EditorConfig.IsAutoSaveEnabled
                 && EditorService.Current.TabItems.All(v => v.Context.Value is ISupportAutoSaveEditorContext))
             {
-                NotificationService.ShowInformation(string.Empty, Message.Files_are_saved_automatically);
+                NotificationService.ShowInformation(string.Empty, Message.FilesAutoSaved);
             }
         }
         catch (Exception ex)
         {
             activity?.SetStatus(ActivityStatusCode.Error);
             _logger.LogError(ex, "Failed to save files");
-            NotificationService.ShowError(string.Empty, Message.OperationCouldNotBeExecuted);
+            NotificationService.ShowError(string.Empty, Message.OperationFailed);
         }
         finally
         {
@@ -173,7 +173,7 @@ public partial class MenuBarViewModel
                     if (GlobalConfiguration.Instance.EditorConfig.IsAutoSaveEnabled
                         && item.Context.Value is ISupportAutoSaveEditorContext)
                     {
-                        NotificationService.ShowInformation(string.Empty, Message.Files_are_saved_automatically);
+                        NotificationService.ShowInformation(string.Empty, Message.FilesAutoSaved);
                     }
                 }
                 else
@@ -181,14 +181,14 @@ public partial class MenuBarViewModel
                     Type type = item.Extension.Value.GetType();
                     _logger.LogError("{Extension} failed to save file: {FileName}", type.FullName ?? type.Name,
                         item.FileName.Value);
-                    NotificationService.ShowInformation(string.Empty, Message.OperationCouldNotBeExecuted);
+                    NotificationService.ShowInformation(string.Empty, Message.OperationFailed);
                 }
             }
             catch (Exception ex)
             {
                 activity?.SetStatus(ActivityStatusCode.Error);
                 _logger.LogError(ex, "Failed to save file: {FileName}", item.FileName.Value);
-                NotificationService.ShowError(string.Empty, Message.OperationCouldNotBeExecuted);
+                NotificationService.ShowError(string.Empty, Message.OperationFailed);
             }
         }
     }

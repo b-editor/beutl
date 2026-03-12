@@ -116,7 +116,7 @@
                    HorizontalAlignment="Center"
                    VerticalAlignment="Center"
                    IsVisible="{Binding IsColorGradingMissing.Value}"
-                   Text="{x:Static lang:Strings.ColorGrading_Missing}"
+                   Text="{x:Static lang:Message.ColorGradingMissing}"
                    TextWrapping="Wrap" />
     </Grid>
 </UserControl>

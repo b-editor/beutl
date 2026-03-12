@@ -225,7 +225,7 @@ public sealed partial class MainView : UserControl
                         NotificationService.ShowInformation(
                             title: Message.ContextNotCreated,
                             message: string.Format(
-                                format: Message.CouldNotOpenFollowingFileWithExtension,
+                                format: Message.FailedToOpenFileWithExtension,
                                 arg0: editorExtension.DisplayName,
                                 arg1: selectedTab.FileName.Value));
                     }

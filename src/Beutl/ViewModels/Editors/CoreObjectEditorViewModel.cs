@@ -91,7 +91,7 @@ public sealed class CoreObjectEditorViewModel<T> : BaseEditorViewModel<T>, ICore
             .Select(t => t.Item2 is ReferenceExpression<T>
                 ? t.Item1?.Target.GetValue(CompositionContext.Default)
                 : null)
-            .Select(obj => obj != null ? CoreObjectHelper.GetDisplayName(obj) : Message.Property_is_unset)
+            .Select(obj => obj != null ? CoreObjectHelper.GetDisplayName(obj) : Message.PropertyUnset)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 
@@ -104,7 +104,7 @@ public sealed class CoreObjectEditorViewModel<T> : BaseEditorViewModel<T>, ICore
             .DisposeWith(Disposables);
 
         FallbackMessage = Value.Select(FallbackHelper.GetFallbackMessage)
-            .ToReadOnlyReactivePropertySlim(Message.Could_not_restore_because_type_could_not_be_found)
+            .ToReadOnlyReactivePropertySlim(Message.RestoreFailedTypeNotFound)
             .DisposeWith(Disposables);
     }
 
@@ -147,7 +147,7 @@ public sealed class CoreObjectEditorViewModel<T> : BaseEditorViewModel<T>, ICore
 
     public void SetJsonString(string? str)
     {
-        string message = Strings.InvalidJson;
+        string message = Message.InvalidJson;
         _ = str ?? throw new Exception(message);
         JsonObject json = (JsonNode.Parse(str) as JsonObject) ?? throw new Exception(message);
 

@@ -402,17 +402,11 @@
   <data name="Group" xml:space="preserve">
     <value>グループ</value>
   </data>
-  <data name="IsNotValid" xml:space="preserve">
-    <value>{0}は無効です。</value>
-  </data>
   <data name="GraphEditor" xml:space="preserve">
     <value>グラフエディタ</value>
   </data>
   <data name="Unknown" xml:space="preserve">
     <value>不明</value>
-  </data>
-  <data name="InvalidJson" xml:space="preserve">
-    <value>無効なJsonです。</value>
   </data>
   <data name="Details" xml:space="preserve">
     <value>詳細</value>
@@ -425,12 +419,6 @@
   </data>
   <data name="ColorGrading" xml:space="preserve">
     <value>カラーグレーディング</value>
-  </data>
-  <data name="ColorGrading_Missing" xml:space="preserve">
-    <value>カラーグレーディングエフェクトが選択されていません。</value>
-  </data>
-  <data name="ColorCurves_Missing" xml:space="preserve">
-    <value>カラーカーブエフェクトが選択されていません。</value>
   </data>
   <data name="Number_of_Layers" xml:space="preserve">
     <value>レイヤーの数</value>
@@ -873,42 +861,6 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   </data>
   <data name="APIError" xml:space="preserve">
     <value>APIエラー</value>
-  </data>
-  <data name="FailedToCopyKeyframe" xml:space="preserve">
-    <value>キーフレームのコピーに失敗しました</value>
-  </data>
-  <data name="FailedToPasteKeyframe" xml:space="preserve">
-    <value>キーフレームの貼り付けに失敗しました</value>
-  </data>
-  <data name="FailedToCopyAnimation" xml:space="preserve">
-    <value>アニメーションのコピーに失敗しました</value>
-  </data>
-  <data name="InvalidKeyframeDataFormat" xml:space="preserve">
-    <value>無効なキーフレームデータ形式です。</value>
-  </data>
-  <data name="InvalidKeyframeDataFormat_MissingType" xml:space="preserve">
-    <value>無効なキーフレームデータ形式です。$typeがありません。</value>
-  </data>
-  <data name="InvalidKeyframeDataFormat_TypeIsNotKeyFrame" xml:space="preserve">
-    <value>無効なキーフレームデータ形式です。$typeがKeyFrameではありません。</value>
-  </data>
-  <data name="KeyframePropertyTypeMismatch_EasingApplied" xml:space="preserve">
-    <value>貼り付けたキーフレームのプロパティタイプが一致しません。イージングのみが適用されました。</value>
-  </data>
-  <data name="InvalidJSON_MissingType" xml:space="preserve">
-    <value>無効なJSON: $typeがありません</value>
-  </data>
-  <data name="InvalidJSON_TypeIsNotKeyFrameAnimation" xml:space="preserve">
-    <value>無効なJSON: $typeがKeyFrameAnimationではありません</value>
-  </data>
-  <data name="InvalidJSON_TypeIsNotKeyFrame" xml:space="preserve">
-    <value>無効なJSON: $typeがKeyFrameではありません</value>
-  </data>
-  <data name="AnimationPropertyTypeMismatch" xml:space="preserve">
-    <value>貼り付けたアニメーションのプロパティタイプが一致しません。(期待: {0}, 実際: {1})</value>
-  </data>
-  <data name="KeyframeExistsAtPastePosition" xml:space="preserve">
-    <value>貼り付け位置にキーフレームが既に存在します。イージングと値が更新されました。</value>
   </data>
   <data name="Website" xml:space="preserve">
     <value>ウェブサイト</value>

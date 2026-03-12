@@ -118,7 +118,7 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
 
         _autoSaveService.SaveError
             .Subscribe(_ =>
-                NotificationService.ShowError(string.Empty, Message.An_exception_occurred_while_saving_the_file))
+                NotificationService.ShowError(string.Empty, Message.FileSaveException))
             .DisposeWith(_disposables);
         _autoSaveService.DisposeWith(_disposables);
 

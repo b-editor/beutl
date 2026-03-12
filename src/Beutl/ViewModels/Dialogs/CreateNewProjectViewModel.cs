@@ -22,7 +22,7 @@ public sealed class CreateNewProjectViewModel
             }
             else if (Directory.Exists(Path.Combine(Location.Value, n)))
             {
-                return Message.ItAlreadyExists;
+                return Message.AlreadyExists;
             }
             else
             {
@@ -89,7 +89,7 @@ public sealed class CreateNewProjectViewModel
                 Name.Value,
                 Location.Value);
             if (proj == null)
-                NotificationService.ShowError(string.Empty, Message.OperationCouldNotBeExecuted);
+                NotificationService.ShowError(string.Empty, Message.OperationFailed);
         });
     }
 

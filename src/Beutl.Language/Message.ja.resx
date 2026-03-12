@@ -18,56 +18,56 @@
   <data name="ItemSaved" xml:space="preserve">
     <value>{0}が保存されました。</value>
   </data>
-  <data name="OperationCouldNotBeExecuted" xml:space="preserve">
+  <data name="OperationFailed" xml:space="preserve">
     <value>操作を実行できませんでした。</value>
   </data>
   <data name="OperationCompletedSuccessfully" xml:space="preserve">
     <value>操作が正常に完了しました。</value>
   </data>
-  <data name="DoYouWantToDeleteThisDirectory" xml:space="preserve">
+  <data name="ConfirmDeleteDirectory" xml:space="preserve">
     <value>このディレクトリを削除しますか？</value>
   </data>
-  <data name="DoYouWantToDeleteThisFile" xml:space="preserve">
+  <data name="ConfirmDeleteFile" xml:space="preserve">
     <value>このファイルを削除しますか？</value>
   </data>
-  <data name="DoYouWantToExcludeThisItemFromProject" xml:space="preserve">
+  <data name="ConfirmExcludeItem" xml:space="preserve">
     <value>プロジェクトからこのアイテムを除外しますか？</value>
   </data>
-  <data name="CouldNotOpenFollowingFileWithExtension" xml:space="preserve">
+  <data name="FailedToOpenFileWithExtension" xml:space="preserve">
     <value>'{0}'で次のファイルを開くことができませんでした。
 '{1}'</value>
   </data>
-  <data name="CannotDisplayThisContext" xml:space="preserve">
+  <data name="CannotDisplayContext" xml:space="preserve">
     <value>このコンテキストを表示できません。</value>
   </data>
   <data name="ContextNotCreated" xml:space="preserve">
     <value>コンテキストが作成されませんでした。</value>
   </data>
-  <data name="EditorContextHasAlreadyBeenCreated" xml:space="preserve">
+  <data name="EditorContextAlreadyCreated" xml:space="preserve">
     <value>エディターコンテキストは既に作成されています。</value>
   </data>
-  <data name="NullWasSpecifiedForEditorContext" xml:space="preserve">
+  <data name="EditorContextNull" xml:space="preserve">
     <value>エディターコンテキストにNullが指定されました。</value>
   </data>
-  <data name="PleaseEnterString" xml:space="preserve">
+  <data name="InputRequired" xml:space="preserve">
     <value>文字列を入力してください。</value>
   </data>
   <data name="InvalidString" xml:space="preserve">
     <value>無効な文字列です。</value>
   </data>
-  <data name="MultipleTypesAreAvailable" xml:space="preserve">
+  <data name="MultipleTypesAvailable" xml:space="preserve">
     <value>複数の型が利用可能です。</value>
   </data>
   <data name="AnimationIsEnabled" xml:space="preserve">
     <value>アニメーションが有効です</value>
   </data>
-  <data name="AnUnexpectedErrorHasOccurred" xml:space="preserve">
+  <data name="UnexpectedError" xml:space="preserve">
     <value>予期しないエラーが発生しました。</value>
   </data>
   <data name="ApiErrorOccurred" xml:space="preserve">
     <value>APIエラーが発生しました。</value>
   </data>
-  <data name="ItAlreadyExists" xml:space="preserve">
+  <data name="AlreadyExists" xml:space="preserve">
     <value>既に存在しています。</value>
   </data>
   <data name="ValueLessThanOrEqualToZero" xml:space="preserve">
@@ -76,86 +76,86 @@
   <data name="ValueLessThanZero" xml:space="preserve">
     <value>0未満の値は指定できません。</value>
   </data>
-  <data name="CannotRenameBecauseConflicts" xml:space="preserve">
+  <data name="RenameConflict" xml:space="preserve">
     <value>新しい名前が既存のフォルダーと競合するため、
 "{0}" から "{1}" に名前を変更できません。</value>
   </data>
   <data name="FileDoesNotExist" xml:space="preserve">
     <value>ファイルが存在しません。</value>
   </data>
-  <data name="CouldNotOpenProject" xml:space="preserve">
+  <data name="FailedToOpenProject" xml:space="preserve">
     <value>プロジェクトを開けませんでした。</value>
   </data>
-  <data name="DoYouWantToLoadSideloadExtensions" xml:space="preserve">
+  <data name="ConfirmLoadSideloadExtensions" xml:space="preserve">
     <value>サイドロード拡張機能を読み込みますか？</value>
   </data>
-  <data name="Unable_to_save_file" xml:space="preserve">
+  <data name="UnableToSaveFile" xml:space="preserve">
     <value>ファイルを保存できません。</value>
   </data>
-  <data name="Failed_to_load_package" xml:space="preserve">
+  <data name="FailedToLoadPackage" xml:space="preserve">
     <value>パッケージの読み込みに失敗しました。</value>
   </data>
-  <data name="Failed_to_load_N_packages" xml:space="preserve">
+  <data name="FailedToLoadNPackages" xml:space="preserve">
     <value>{0}件のパッケージの読み込みに失敗しました。</value>
   </data>
-  <data name="Could_not_load_scene" xml:space="preserve">
+  <data name="CouldNotLoadScene" xml:space="preserve">
     <value>シーンを読み込めませんでした。</value>
   </data>
-  <data name="An_exception_occurred_during_audio_playback" xml:space="preserve">
+  <data name="AudioPlaybackException" xml:space="preserve">
     <value>音声の再生中に例外が発生しました。</value>
   </data>
-  <data name="An_exception_occurred_while_drawing_frame" xml:space="preserve">
+  <data name="FrameDrawingException" xml:space="preserve">
     <value>フレームの描画中に例外が発生しました。</value>
   </data>
-  <data name="An_exception_occurred_during_output" xml:space="preserve">
+  <data name="OutputException" xml:space="preserve">
     <value>出力中に例外が発生しました。</value>
   </data>
-  <data name="Ask_if_you_want_to_run_in_restricted_mode" xml:space="preserve">
+  <data name="RestrictedModePrompt" xml:space="preserve">
     <value>前回エラーが発生して終了したようです。
 原因か不明なため、制限モードで実行しますか。
 
 制限モードでは拡張機能を読み込みません。</value>
   </data>
-  <data name="Looks_like_it_ended_with_an_error_last_time" xml:space="preserve">
+  <data name="PreviousSessionErrorTitle" xml:space="preserve">
     <value>前回エラーが発生して終了したようです。</value>
   </data>
-  <data name="Changes_to_the_package_are_in_progress" xml:space="preserve">
+  <data name="PackageChangesInProgress" xml:space="preserve">
     <value>パッケージが変更中です。</value>
   </data>
   <data name="OpeningBeutl" xml:space="preserve">
     <value>Beutlを開いています</value>
   </data>
-  <data name="To_open_Beutl_close_Beutl_PackageTools" xml:space="preserve">
+  <data name="ClosePackageToolsToOpenBeutl" xml:space="preserve">
     <value>Beutlを開くには、Beutl.PackageToolsを閉じてください。</value>
   </data>
-  <data name="A_new_version_is_available" xml:space="preserve">
+  <data name="NewVersionAvailable" xml:space="preserve">
     <value>新しいバージョンがあります。</value>
   </data>
-  <data name="Could_not_restore_because_type_could_not_be_found" xml:space="preserve">
+  <data name="RestoreFailedTypeNotFound" xml:space="preserve">
     <value>型が見つからないため、復元できませんでした。</value>
   </data>
-  <data name="Could_not_restore_because_an_exception_occurred" xml:space="preserve">
+  <data name="RestoreFailedDeserializationError" xml:space="preserve">
     <value>デシリアライズ中に例外が発生したため、復元できませんでした。</value>
   </data>
-  <data name="Must_upgrade_for_continued_use" xml:space="preserve">
+  <data name="UpgradeRequired" xml:space="preserve">
     <value>引き続き使用するにはアップグレードする必要があります</value>
   </data>
-  <data name="This_version_has_been_discontinued_for_compatibility_reasonsversion" xml:space="preserve">
+  <data name="VersionDiscontinued" xml:space="preserve">
     <value>このバージョンは互換性のため、廃止されました。新しいバージョンにアップグレードしてください。</value>
   </data>
-  <data name="Double_click_to_hide_group" xml:space="preserve">
+  <data name="DoubleClickToHideGroup" xml:space="preserve">
     <value>ダブルクリックでグループを非表示</value>
   </data>
-  <data name="No_supported_extensions_were_found" xml:space="preserve">
+  <data name="NoSupportedExtensionsFound" xml:space="preserve">
     <value>対応している拡張子が見つかりませんでした</value>
   </data>
-  <data name="Property_is_unset" xml:space="preserve">
+  <data name="PropertyUnset" xml:space="preserve">
     <value>プロパティが未設定です。</value>
   </data>
   <data name="RightClickToShowMenu" xml:space="preserve">
     <value>右クリックでメニューを表示</value>
   </data>
-  <data name="Failed_to_save_image" xml:space="preserve">
+  <data name="FailedToSaveImage" xml:space="preserve">
     <value>画像の保存に失敗しました。</value>
   </data>
   <data name="OpeningProject" xml:space="preserve">
@@ -168,19 +168,19 @@
     <value>'{0}'を開いています。
 しばらくお待ちください。</value>
   </data>
-  <data name="An_exception_occurred_while_saving_the_file" xml:space="preserve">
+  <data name="FileSaveException" xml:space="preserve">
     <value>ファイルの保存中に例外が発生しました。</value>
   </data>
-  <data name="Files_are_saved_automatically" xml:space="preserve">
+  <data name="FilesAutoSaved" xml:space="preserve">
     <value>ファイルは自動的に保存されます。</value>
   </data>
-  <data name="An_exception_occurred_while_parsing_the_SVG_path" xml:space="preserve">
+  <data name="SvgPathParsingException" xml:space="preserve">
     <value>SVGパスの解析中に例外が発生しました。</value>
   </data>
-  <data name="Signin has become invalid" xml:space="preserve">
+  <data name="SigninInvalid" xml:space="preserve">
     <value>サインインが無効になりました。再度サインインしてください。</value>
   </data>
-  <data name="File_is_not_selected" xml:space="preserve">
+  <data name="FileNotSelected" xml:space="preserve">
     <value>ファイルが選択されていません</value>
   </data>
   <data name="CheckDifferentVersion_Title" xml:space="preserve">
@@ -195,26 +195,26 @@
   <data name="ProjectVersionMismatch_Title" xml:space="preserve">
     <value>バージョンの不一致</value>
   </data>
-  <data name="Failed_to_load_metadata" xml:space="preserve">
+  <data name="FailedToLoadMetadata" xml:space="preserve">
     <value>メタデータの読み込みに失敗しました</value>
   </data>
-  <data name="Download_failed" xml:space="preserve">
+  <data name="DownloadFailed" xml:space="preserve">
     <value>ダウンロードに失敗しました。</value>
   </data>
-  <data name="Failed_to_load_script" xml:space="preserve">
+  <data name="FailedToLoadScript" xml:space="preserve">
     <value>スクリプトの読み込みに失敗しました。</value>
   </data>
-  <data name="The_application_needs_to_be_restarted" xml:space="preserve">
+  <data name="ApplicationRestartRequired" xml:space="preserve">
     <value>アプリケーションの再起動が必要です。
 再起動しますか？</value>
   </data>
-  <data name="Start_the_installer" xml:space="preserve">
+  <data name="StartInstaller" xml:space="preserve">
     <value>インストーラーを起動します</value>
   </data>
   <data name="Downloading" xml:space="preserve">
     <value>ダウンロード中...</value>
   </data>
-  <data name="Download_is_complete" xml:space="preserve">
+  <data name="DownloadComplete" xml:space="preserve">
     <value>ダウンロードが完了しました。</value>
   </data>
   <data name="Canceled" xml:space="preserve">
@@ -223,89 +223,137 @@
   <data name="Extracting" xml:space="preserve">
     <value>展開中...</value>
   </data>
-  <data name="Extraction_is_complete" xml:space="preserve">
+  <data name="ExtractionComplete" xml:space="preserve">
     <value>展開が完了しました。</value>
   </data>
-  <data name="An_error_has_occurred_Terminate_script" xml:space="preserve">
+  <data name="ScriptErrorTerminated" xml:space="preserve">
     <value>エラーが発生しました。スクリプトを終了します。</value>
   </data>
-  <data name="Press_Enter_to_continue" xml:space="preserve">
+  <data name="PressEnterToContinue" xml:space="preserve">
     <value>Enterキーを押して続行してください...</value>
   </data>
-  <data name="Error_Update_directory_does_not_exist" xml:space="preserve">
+  <data name="UpdateDirectoryNotFound" xml:space="preserve">
     <value>Error: 更新用ディレクトリが存在しません。</value>
   </data>
-  <data name="Exit_the_application" xml:space="preserve">
+  <data name="ExitApplication" xml:space="preserve">
     <value>アプリケーション (Beutl) を終了してください。</value>
   </data>
-  <data name="Press_the_Enter_key_when_finished" xml:space="preserve">
+  <data name="PressEnterWhenFinished" xml:space="preserve">
     <value>終了後、Enterキーを押してください。</value>
   </data>
-  <data name="Acquiring_lock" xml:space="preserve">
+  <data name="AcquiringLock" xml:space="preserve">
     <value>ロックを取得中...</value>
   </data>
-  <data name="Lock_acquired" xml:space="preserve">
+  <data name="LockAcquired" xml:space="preserve">
     <value>ロックを取得しました。</value>
   </data>
-  <data name="Failed_to_acquire_lock" xml:space="preserve">
+  <data name="FailedToAcquireLock" xml:space="preserve">
     <value>ロックの取得に失敗しました。</value>
   </data>
-  <data name="Create_backup_of_current_application" xml:space="preserve">
+  <data name="CreatingBackup" xml:space="preserve">
     <value>現行アプリケーションのバックアップを作成:</value>
   </data>
-  <data name="Failed_to_create_backup" xml:space="preserve">
+  <data name="FailedToCreateBackup" xml:space="preserve">
     <value>バックアップの作成に失敗しました。</value>
   </data>
-  <data name="Updating_files_in_place" xml:space="preserve">
+  <data name="UpdatingFiles" xml:space="preserve">
     <value>更新ファイルを配置中...</value>
   </data>
-  <data name="Update_placement_failed_Restore_backup" xml:space="preserve">
+  <data name="UpdateFailedRestoringBackup" xml:space="preserve">
     <value>更新の配置に失敗しました。バックアップを復元します...</value>
   </data>
-  <data name="The_update_has_been_completed" xml:space="preserve">
+  <data name="UpdateCompleted" xml:space="preserve">
     <value>更新が完了しました。</value>
   </data>
-  <data name="Lock_released" xml:space="preserve">
+  <data name="LockReleased" xml:space="preserve">
     <value>ロックを解除しました。</value>
   </data>
-  <data name="Update_completed_yes_no" xml:space="preserve">
+  <data name="UpdateCompletedLaunchPrompt" xml:space="preserve">
     <value>更新が完了しました。アプリケーションを起動しますか？ (y/n):</value>
   </data>
-  <data name="Launch_the_application" xml:space="preserve">
+  <data name="LaunchingApplication" xml:space="preserve">
     <value>アプリケーションを起動します...</value>
   </data>
-  <data name="Failed_to_change_application_execution_permissions" xml:space="preserve">
+  <data name="FailedToChangePermissions" xml:space="preserve">
     <value>アプリケーションの実行権限の変更に失敗しました。</value>
   </data>
-  <data name="The_application_execution_path_is_not_specified" xml:space="preserve">
+  <data name="ApplicationPathNotSpecified" xml:space="preserve">
     <value>アプリケーションの実行パスが指定されていません。</value>
   </data>
-  <data name="The_application_was_not_launched" xml:space="preserve">
+  <data name="ApplicationNotLaunched" xml:space="preserve">
     <value>アプリケーションは起動されませんでした。</value>
   </data>
-  <data name="Click_OK_after_completion" xml:space="preserve">
+  <data name="ClickOkAfterCompletion" xml:space="preserve">
     <value>終了後OKをクリックしてください</value>
   </data>
-  <data name="Update_completed_Do_you_want_to_start_the_ߋn_application" xml:space="preserve">
+  <data name="UpdateCompletedLaunchConfirm" xml:space="preserve">
     <value>更新が完了しました。アプリケーションを起動しますか？</value>
   </data>
-  <data name="Failed_to_restore_backup" xml:space="preserve">
+  <data name="FailedToRestoreBackup" xml:space="preserve">
     <value>バックアップの復元に失敗しました。</value>
   </data>
-  <data name="Failed_to_delete_backup" xml:space="preserve">
+  <data name="FailedToDeleteBackup" xml:space="preserve">
     <value>バックアップの削除に失敗しました。</value>
   </data>
-  <data name="Do_you_want_to_install" xml:space="preserve">
+  <data name="ConfirmInstall" xml:space="preserve">
     <value>インストールしますか？
 (アップデート機能は実験的な機能です)</value>
   </data>
   <data name="ExpressionIsSet" xml:space="preserve">
     <value>式が設定されています</value>
   </data>
-  <data name="Package_updates_available" xml:space="preserve">
+  <data name="PackageUpdatesAvailable" xml:space="preserve">
     <value>パッケージの更新が利用可能です。</value>
   </data>
-  <data name="N_packages_can_be_updated" xml:space="preserve">
+  <data name="PackagesCanBeUpdated" xml:space="preserve">
     <value>{0}個のパッケージを更新できます。</value>
+  </data>
+  <data name="IsNotValid" xml:space="preserve">
+    <value>{0}は無効です。</value>
+  </data>
+  <data name="InvalidJson" xml:space="preserve">
+    <value>無効なJsonです。</value>
+  </data>
+  <data name="ColorGradingMissing" xml:space="preserve">
+    <value>カラーグレーディングエフェクトが選択されていません。</value>
+  </data>
+  <data name="ColorCurvesMissing" xml:space="preserve">
+    <value>カラーカーブエフェクトが選択されていません。</value>
+  </data>
+  <data name="FailedToCopyKeyframe" xml:space="preserve">
+    <value>キーフレームのコピーに失敗しました</value>
+  </data>
+  <data name="FailedToPasteKeyframe" xml:space="preserve">
+    <value>キーフレームの貼り付けに失敗しました</value>
+  </data>
+  <data name="FailedToCopyAnimation" xml:space="preserve">
+    <value>アニメーションのコピーに失敗しました</value>
+  </data>
+  <data name="InvalidKeyframeDataFormat" xml:space="preserve">
+    <value>無効なキーフレームデータ形式です。</value>
+  </data>
+  <data name="InvalidKeyframeDataFormat_MissingType" xml:space="preserve">
+    <value>無効なキーフレームデータ形式です。$typeがありません。</value>
+  </data>
+  <data name="InvalidKeyframeDataFormat_TypeIsNotKeyFrame" xml:space="preserve">
+    <value>無効なキーフレームデータ形式です。$typeがKeyFrameではありません。</value>
+  </data>
+  <data name="KeyframePropertyTypeMismatch_EasingApplied" xml:space="preserve">
+    <value>貼り付けたキーフレームのプロパティタイプが一致しません。イージングのみが適用されました。</value>
+  </data>
+  <data name="InvalidJSON_MissingType" xml:space="preserve">
+    <value>無効なJSON: $typeがありません</value>
+  </data>
+  <data name="InvalidJSON_TypeIsNotKeyFrameAnimation" xml:space="preserve">
+    <value>無効なJSON: $typeがKeyFrameAnimationではありません</value>
+  </data>
+  <data name="InvalidJSON_TypeIsNotKeyFrame" xml:space="preserve">
+    <value>無効なJSON: $typeがKeyFrameではありません</value>
+  </data>
+  <data name="AnimationPropertyTypeMismatch" xml:space="preserve">
+    <value>貼り付けたアニメーションのプロパティタイプが一致しません。(期待: {0}, 実際: {1})</value>
+  </data>
+  <data name="KeyframeExistsAtPastePosition" xml:space="preserve">
+    <value>貼り付け位置にキーフレームが既に存在します。イージングと値が更新されました。</value>
   </data>
 </root>

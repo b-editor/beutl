@@ -407,17 +407,11 @@
   <data name="Group" xml:space="preserve">
     <value>Group</value>
   </data>
-  <data name="IsNotValid" xml:space="preserve">
-    <value>{0} is not a valid.</value>
-  </data>
   <data name="GraphEditor" xml:space="preserve">
     <value>Graph Editor</value>
   </data>
   <data name="Unknown" xml:space="preserve">
     <value>Unknown</value>
-  </data>
-  <data name="InvalidJson" xml:space="preserve">
-    <value>Invalid Json.</value>
   </data>
   <data name="Details" xml:space="preserve">
     <value>Details</value>
@@ -430,12 +424,6 @@
   </data>
   <data name="ColorGrading" xml:space="preserve">
     <value>Color Grading</value>
-  </data>
-  <data name="ColorGrading_Missing" xml:space="preserve">
-    <value>No Color Grading effect is selected.</value>
-  </data>
-  <data name="ColorCurves_Missing" xml:space="preserve">
-    <value>No Color Curves effect is selected.</value>
   </data>
   <data name="Number_of_Layers" xml:space="preserve">
     <value>Number of Layers</value>
@@ -878,42 +866,6 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   </data>
   <data name="APIError" xml:space="preserve">
     <value>API Error</value>
-  </data>
-  <data name="FailedToCopyKeyframe" xml:space="preserve">
-    <value>Failed to copy keyframe</value>
-  </data>
-  <data name="FailedToPasteKeyframe" xml:space="preserve">
-    <value>Failed to paste keyframe</value>
-  </data>
-  <data name="FailedToCopyAnimation" xml:space="preserve">
-    <value>Failed to copy animation</value>
-  </data>
-  <data name="InvalidKeyframeDataFormat" xml:space="preserve">
-    <value>Invalid keyframe data format.</value>
-  </data>
-  <data name="InvalidKeyframeDataFormat_MissingType" xml:space="preserve">
-    <value>Invalid keyframe data format. missing $type.</value>
-  </data>
-  <data name="InvalidKeyframeDataFormat_TypeIsNotKeyFrame" xml:space="preserve">
-    <value>Invalid keyframe data format. $type is not KeyFrame.</value>
-  </data>
-  <data name="KeyframePropertyTypeMismatch_EasingApplied" xml:space="preserve">
-    <value>The property type of the pasted keyframe does not match. Only the easing is applied.</value>
-  </data>
-  <data name="InvalidJSON_MissingType" xml:space="preserve">
-    <value>Invalid JSON: missing $type</value>
-  </data>
-  <data name="InvalidJSON_TypeIsNotKeyFrameAnimation" xml:space="preserve">
-    <value>Invalid JSON: $type is not a KeyFrameAnimation</value>
-  </data>
-  <data name="InvalidJSON_TypeIsNotKeyFrame" xml:space="preserve">
-    <value>Invalid JSON: $type is not a KeyFrame</value>
-  </data>
-  <data name="AnimationPropertyTypeMismatch" xml:space="preserve">
-    <value>The property type of the pasted animation does not match. (Expected: {0}, Actual: {1})</value>
-  </data>
-  <data name="KeyframeExistsAtPastePosition" xml:space="preserve">
-    <value>A keyframe already exists at the paste position. The easing and value have been updated.</value>
   </data>
   <data name="Website" xml:space="preserve">
     <value>Website</value>
