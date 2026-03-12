@@ -38,8 +38,8 @@ public abstract partial class Drawable : EngineObject
         GroupName = nameof(GraphicsStrings.Transform))]
     public IProperty<RelativePoint> TransformOrigin { get; } = Property.CreateAnimatable(RelativePoint.Center);
 
-    [Display(Name = nameof(GraphicsStrings.Drawable_FilterEffect), ResourceType = typeof(GraphicsStrings),
-        GroupName = nameof(GraphicsStrings.Drawable_FilterEffect))]
+    [Display(Name = nameof(GraphicsStrings.FilterEffect), ResourceType = typeof(GraphicsStrings),
+        GroupName = nameof(GraphicsStrings.FilterEffect))]
     public IProperty<FilterEffect?> FilterEffect { get; } = Property.Create<FilterEffect?>();
 
     [Display(Name = nameof(GraphicsStrings.Drawable_BlendMode), ResourceType = typeof(GraphicsStrings))]

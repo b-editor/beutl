@@ -10,7 +10,7 @@ using Beutl.Media.Source;
 
 namespace Beutl.ProjectSystem;
 
-[Display(Name = nameof(Strings.SceneSoundReference), ResourceType = typeof(Strings))]
+[Display(Name = nameof(AudioStrings.SceneSound), ResourceType = typeof(AudioStrings))]
 public sealed partial class SceneSound : Sound
 {
     public SceneSound()

@@ -60,13 +60,13 @@ public sealed class TransformEditorViewModel : ValueEditorViewModel<Transform?>,
     {
         return type switch
         {
-            KnownTransformType.Group => Strings.Group,
-            KnownTransformType.Translate => Strings.Translate,
-            KnownTransformType.Rotation => Strings.Rotation,
-            KnownTransformType.Scale => Strings.Scale,
-            KnownTransformType.Skew => Strings.Skew,
-            KnownTransformType.Rotation3D => Strings.Rotation3D,
-            KnownTransformType.Presenter => Strings.Presenter,
+            KnownTransformType.Group => GraphicsStrings.Group,
+            KnownTransformType.Translate => GraphicsStrings.TranslateTransform,
+            KnownTransformType.Rotation => GraphicsStrings.Rotation,
+            KnownTransformType.Scale => GraphicsStrings.Scale,
+            KnownTransformType.Skew => GraphicsStrings.SkewTransform,
+            KnownTransformType.Rotation3D => GraphicsStrings.Rotation3DTransform,
+            KnownTransformType.Presenter => GraphicsStrings.Presenter,
             _ => "Null"
         };
     }

@@ -42,9 +42,9 @@ public sealed class DisplacementMapTransformEditorViewModel : ValueEditorViewMod
     {
         return type switch
         {
-            DispMapTransformType.Translate => Strings.Translate,
-            DispMapTransformType.Rotation => Strings.Rotation,
-            DispMapTransformType.Scale => Strings.Scale,
+            DispMapTransformType.Translate => GraphicsStrings.TranslateTransform,
+            DispMapTransformType.Rotation => GraphicsStrings.Rotation,
+            DispMapTransformType.Scale => GraphicsStrings.Scale,
             _ => "Null"
         };
     }

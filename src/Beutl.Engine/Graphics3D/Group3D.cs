@@ -21,7 +21,7 @@ public partial class Group3D : Object3D
     /// <summary>
     /// Gets the child objects in this group.
     /// </summary>
-    [Display(Name = nameof(GraphicsStrings.Group3D_Children), ResourceType = typeof(GraphicsStrings))]
+    [Display(Name = nameof(GraphicsStrings.Children), ResourceType = typeof(GraphicsStrings))]
     public IListProperty<Object3D> Children { get; } = Property.CreateList<Object3D>();
 
     public partial class Resource

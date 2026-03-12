@@ -31,8 +31,8 @@
   <data name="DelayEffect_WetMix" xml:space="preserve">
     <value>ウェットミックス (%)</value>
   </data>
-  <data name="Sound_Effect" xml:space="preserve">
-    <value>エフェクト</value>
+  <data name="AudioEffect" xml:space="preserve">
+    <value>音声エフェクト</value>
   </data>
   <data name="Sound_Gain" xml:space="preserve">
     <value>ゲイン</value>
@@ -51,5 +51,8 @@
   </data>
   <data name="SourceSound_Source" xml:space="preserve">
     <value>ソース</value>
+  </data>
+  <data name="SceneSound" xml:space="preserve">
+    <value>シーン参照（音声）</value>
   </data>
 </root>

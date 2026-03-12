@@ -10,6 +10,7 @@ using Microsoft.Extensions.Logging;
 
 namespace Beutl.Graphics.Effects;
 
+[Display(Name = nameof(GraphicsStrings.CSharpScriptEffect), ResourceType = typeof(GraphicsStrings))]
 public sealed partial class CSharpScriptEffect : FilterEffect
 {
     private static readonly ILogger s_logger = Log.CreateLogger<CSharpScriptEffect>();

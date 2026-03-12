@@ -18,7 +18,7 @@ public abstract partial class Shape : Drawable
     [Display(Name = nameof(GraphicsStrings.Stroke), GroupName = nameof(GraphicsStrings.Stroke), ResourceType = typeof(GraphicsStrings))]
     public IProperty<Pen?> Pen { get; } = Property.Create<Pen?>();
 
-    [Display(Name = nameof(GraphicsStrings.Shape_Fill), ResourceType = typeof(GraphicsStrings), GroupName = nameof(GraphicsStrings.Shape_Fill))]
+    [Display(Name = nameof(GraphicsStrings.Fill), ResourceType = typeof(GraphicsStrings), GroupName = nameof(GraphicsStrings.Fill))]
     public IProperty<Brush?> Fill { get; } = Property.Create<Brush?>();
 
     protected override Size MeasureCore(Size availableSize, Drawable.Resource resource)

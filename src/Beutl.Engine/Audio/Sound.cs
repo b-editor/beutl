@@ -36,7 +36,7 @@ public abstract partial class Sound : EngineObject
     [SuppressResourceClassGeneration]
     public IProperty<float> Speed { get; } = Property.CreateAnimatable(100f);
 
-    [Display(Name = nameof(AudioStrings.Sound_Effect), ResourceType = typeof(AudioStrings))]
+    [Display(Name = nameof(AudioStrings.AudioEffect), ResourceType = typeof(AudioStrings))]
     public IProperty<AudioEffect?> Effect { get; } = Property.Create<AudioEffect?>();
 
     public virtual void Compose(AudioContext context, Resource resource)

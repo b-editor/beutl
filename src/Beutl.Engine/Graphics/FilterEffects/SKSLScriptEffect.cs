@@ -9,6 +9,7 @@ using SkiaSharp;
 
 namespace Beutl.Graphics.Effects;
 
+[Display(Name = nameof(GraphicsStrings.SKSLScriptEffect), ResourceType = typeof(GraphicsStrings))]
 public sealed partial class SKSLScriptEffect : FilterEffect
 {
     private static readonly ILogger s_logger = Log.CreateLogger<SKSLScriptEffect>();

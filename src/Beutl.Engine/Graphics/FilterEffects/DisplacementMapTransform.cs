@@ -15,7 +15,7 @@ public abstract partial class DisplacementMapTransform : EngineObject
         Brush.Resource displacementMap, Resource resource, GradientSpreadMethod spreadMethod, FilterEffectContext context);
 }
 
-[Display(Name = nameof(GraphicsStrings.DisplacementMapTranslateTransform), ResourceType = typeof(GraphicsStrings))]
+[Display(Name = nameof(GraphicsStrings.TranslateTransform), ResourceType = typeof(GraphicsStrings))]
 public partial class DisplacementMapTranslateTransform : DisplacementMapTransform
 {
     private static readonly ILogger s_logger = Log.CreateLogger<DisplacementMapTranslateTransform>();
@@ -52,10 +52,10 @@ public partial class DisplacementMapTranslateTransform : DisplacementMapTransfor
         ScanProperties<DisplacementMapTranslateTransform>();
     }
 
-    [Display(Name = nameof(GraphicsStrings.DisplacementMapTranslateTransform_X), ResourceType = typeof(GraphicsStrings))]
+    [Display(Name = nameof(GraphicsStrings.TranslateTransform_X), ResourceType = typeof(GraphicsStrings))]
     public IProperty<float> X { get; } = Property.CreateAnimatable<float>();
 
-    [Display(Name = nameof(GraphicsStrings.DisplacementMapTranslateTransform_Y), ResourceType = typeof(GraphicsStrings))]
+    [Display(Name = nameof(GraphicsStrings.TranslateTransform_Y), ResourceType = typeof(GraphicsStrings))]
     public IProperty<float> Y { get; } = Property.CreateAnimatable<float>();
 
     internal override void ApplyTo(
@@ -136,10 +136,10 @@ public partial class DisplacementMapScaleTransform : DisplacementMapTransform
     [Display(Name = nameof(GraphicsStrings.Scale), ResourceType = typeof(GraphicsStrings))]
     public IProperty<float> Scale { get; } = Property.CreateAnimatable<float>(100);
 
-    [Display(Name = nameof(GraphicsStrings.DisplacementMapScaleTransform_ScaleX), ResourceType = typeof(GraphicsStrings))]
+    [Display(Name = nameof(GraphicsStrings.ScaleTransform_ScaleX), ResourceType = typeof(GraphicsStrings))]
     public IProperty<float> ScaleX { get; } = Property.CreateAnimatable<float>(100);
 
-    [Display(Name = nameof(GraphicsStrings.DisplacementMapScaleTransform_ScaleY), ResourceType = typeof(GraphicsStrings))]
+    [Display(Name = nameof(GraphicsStrings.ScaleTransform_ScaleY), ResourceType = typeof(GraphicsStrings))]
     public IProperty<float> ScaleY { get; } = Property.CreateAnimatable<float>(100);
 
     [Display(Name = nameof(GraphicsStrings.CenterX), ResourceType = typeof(GraphicsStrings))]

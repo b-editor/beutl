@@ -36,8 +36,8 @@
   <data name="Sound_Speed" xml:space="preserve">
     <value>Speed</value>
   </data>
-  <data name="Sound_Effect" xml:space="preserve">
-    <value>Effect</value>
+  <data name="AudioEffect" xml:space="preserve">
+    <value>Audio Effect</value>
   </data>
   <data name="DelayEffect" xml:space="preserve">
     <value>Delay</value>
@@ -56,5 +56,8 @@
   </data>
   <data name="AudioEffectGroup" xml:space="preserve">
     <value>Group</value>
+  </data>
+  <data name="SceneSound" xml:space="preserve">
+    <value>Scene Reference (Audio)</value>
   </data>
 </root>

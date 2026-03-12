@@ -9,7 +9,7 @@ using Beutl.NodeTree.Rendering;
 
 namespace Beutl.NodeTree;
 
-[Display(Name = nameof(Strings.NodeTree), ResourceType = typeof(Strings))]
+[Display(Name = nameof(GraphicsStrings.NodeTreeDrawable), ResourceType = typeof(GraphicsStrings))]
 [SuppressResourceClassGeneration]
 public sealed class NodeTreeDrawable : Drawable
 {

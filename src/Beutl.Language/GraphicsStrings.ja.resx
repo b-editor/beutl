@@ -370,26 +370,29 @@
   <data name="DisplacementMapEffect_SpreadMethod" xml:space="preserve">
     <value>広がり方</value>
   </data>
-  <data name="DisplacementMapScaleTransform_ScaleX" xml:space="preserve">
-    <value>X拡大率</value>
+  <data name="PixelSortEffect" xml:space="preserve">
+    <value>ピクセルソート</value>
   </data>
-  <data name="DisplacementMapScaleTransform_ScaleY" xml:space="preserve">
-    <value>Y拡大率</value>
+  <data name="PixelSortEffect_Direction" xml:space="preserve">
+    <value>ソート方向</value>
   </data>
-  <data name="DisplacementMapTranslateTransform" xml:space="preserve">
-    <value>移動</value>
+  <data name="PixelSortEffect_SortKey" xml:space="preserve">
+    <value>ソートキー</value>
   </data>
-  <data name="DisplacementMapTranslateTransform_X" xml:space="preserve">
-    <value>X</value>
+  <data name="PixelSortEffect_ThresholdMin" xml:space="preserve">
+    <value>閾値最小</value>
   </data>
-  <data name="DisplacementMapTranslateTransform_Y" xml:space="preserve">
-    <value>Y</value>
+  <data name="PixelSortEffect_ThresholdMax" xml:space="preserve">
+    <value>閾値最大</value>
+  </data>
+  <data name="PixelSortEffect_Ascending" xml:space="preserve">
+    <value>昇順</value>
   </data>
   <data name="DrawableDecorator" xml:space="preserve">
     <value>デコレーター</value>
   </data>
   <data name="DrawableTimeController" xml:space="preserve">
-    <value>タイムコントローラー</value>
+    <value>タイムコントローラー（動画）</value>
   </data>
   <data name="DrawableTimeController_AdjustTimeRange" xml:space="preserve">
     <value>時間範囲を調整</value>
@@ -421,9 +424,6 @@
   <data name="Drawable_BlendMode" xml:space="preserve">
     <value>ブレンドモード</value>
   </data>
-  <data name="Drawable_FilterEffect" xml:space="preserve">
-    <value>画像フィルター</value>
-  </data>
   <data name="DropShadow" xml:space="preserve">
     <value>ドロップシャドウ</value>
   </data>
@@ -445,8 +445,14 @@
   <data name="FlatShadow_Length" xml:space="preserve">
     <value>長さ</value>
   </data>
+  <data name="SKSLScriptEffect" xml:space="preserve">
+    <value>SKSLスクリプト</value>
+  </data>
   <data name="GLSLScriptEffect" xml:space="preserve">
     <value>GLSLスクリプト</value>
+  </data>
+  <data name="CSharpScriptEffect" xml:space="preserve">
+    <value>C#スクリプト</value>
   </data>
   <data name="Gamma" xml:space="preserve">
     <value>ガンマ</value>
@@ -649,6 +655,9 @@
   <data name="Saturate" xml:space="preserve">
     <value>彩度調整</value>
   </data>
+  <data name="ScaleTransform" xml:space="preserve">
+    <value>スケール</value>
+  </data>
   <data name="ScaleTransform_ScaleX" xml:space="preserve">
     <value>X拡大率</value>
   </data>
@@ -664,7 +673,7 @@
   <data name="ShakeEffect_StrengthY" xml:space="preserve">
     <value>強さY</value>
   </data>
-  <data name="Shape_Fill" xml:space="preserve">
+  <data name="Fill" xml:space="preserve">
     <value>塗りつぶし</value>
   </data>
   <data name="SkewTransform" xml:space="preserve">
@@ -714,9 +723,6 @@
   </data>
   <data name="TextBlock" xml:space="preserve">
     <value>テキスト</value>
-  </data>
-  <data name="TextBlock_Fill" xml:space="preserve">
-    <value>塗りつぶし</value>
   </data>
   <data name="TextBlock_FontFamily" xml:space="preserve">
     <value>フォントファミリー</value>
@@ -880,7 +886,7 @@
   <data name="GradientBrush_SpreadMethod" xml:space="preserve">
     <value>広がり方</value>
   </data>
-  <data name="Group3D_Children" xml:space="preserve">
+  <data name="Children" xml:space="preserve">
     <value>子要素</value>
   </data>
   <data name="ImageTextureSource" xml:space="preserve">
@@ -1023,6 +1029,9 @@
   </data>
   <data name="Pen_TrimStart" xml:space="preserve">
     <value>トリム開始</value>
+  </data>
+  <data name="Pen_Offset" xml:space="preserve">
+    <value>オフセット</value>
   </data>
   <data name="PerlinNoiseBrush" xml:space="preserve">
     <value>パーリンノイズ</value>
@@ -1336,5 +1345,14 @@
   </data>
   <data name="Width" xml:space="preserve">
     <value>幅</value>
+  </data>
+  <data name="NodeTreeDrawable" xml:space="preserve">
+    <value>ノードツリー</value>
+  </data>
+  <data name="SceneDrawable" xml:space="preserve">
+    <value>シーン参照（動画）</value>
+  </data>
+  <data name="FilterEffect" xml:space="preserve">
+    <value>フィルターエフェクト</value>
   </data>
 </root>

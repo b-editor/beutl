@@ -46,6 +46,6 @@ public sealed partial class Pen : EngineObject
     [Display(Name = nameof(GraphicsStrings.Pen_TrimOffset), ResourceType = typeof(GraphicsStrings))]
     public IProperty<float> TrimOffset { get; } = Property.CreateAnimatable<float>(0);
 
-    [Display(Name = nameof(Strings.Pen_Offset), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.Pen_Offset), ResourceType = typeof(GraphicsStrings))]
     public IProperty<float> Offset { get; } = Property.CreateAnimatable<float>(0);
 }

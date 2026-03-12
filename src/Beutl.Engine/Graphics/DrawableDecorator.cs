@@ -18,6 +18,7 @@ public sealed partial class DrawableDecorator : Drawable, IFlowOperator
     }
 
     [SuppressResourceClassGeneration]
+    [Display(Name = nameof(GraphicsStrings.Children), ResourceType = typeof(GraphicsStrings))]
     public IListProperty<Drawable> Children { get; } = Property.CreateList<Drawable>();
 
     public override void Render(GraphicsContext2D context, Drawable.Resource resource)

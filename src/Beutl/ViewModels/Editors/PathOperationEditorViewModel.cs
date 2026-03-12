@@ -18,11 +18,11 @@ public sealed class PathOperationEditorViewModel : ValueEditorViewModel<PathSegm
                 {
                     var name = v switch
                     {
-                        ArcSegment => Strings.EllipticalArc,
-                        ConicSegment => Strings.Conic,
-                        CubicBezierSegment => Strings.CubicBezierCurve,
-                        LineSegment => Strings.Line,
-                        QuadraticBezierSegment => Strings.QuadraticBezierCurve,
+                        ArcSegment => GraphicsStrings.ArcSegment,
+                        ConicSegment => GraphicsStrings.ConicSegment,
+                        CubicBezierSegment => GraphicsStrings.CubicBezierSegment,
+                        LineSegment => GraphicsStrings.LineSegment,
+                        QuadraticBezierSegment => GraphicsStrings.QuadraticBezierSegment,
                         _ => null,
                     };
 

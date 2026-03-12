@@ -24,7 +24,7 @@
                     <ui:RadioMenuFlyoutItem Click="TransformTypeClicked"
                                             IsChecked="{Binding IsTranslate.Value, Mode=OneWay}"
                                             Tag="Translate"
-                                            Text="{x:Static lang:Strings.Translate}">
+                                            Text="{x:Static lang:GraphicsStrings.TranslateTransform}">
                         <ui:RadioMenuFlyoutItem.IconSource>
                             <ui:PathIconSource Data="{StaticResource TranslateTransformIconData}" />
                         </ui:RadioMenuFlyoutItem.IconSource>
@@ -32,7 +32,7 @@
                     <ui:RadioMenuFlyoutItem Click="TransformTypeClicked"
                                             IsChecked="{Binding IsRotation.Value, Mode=OneWay}"
                                             Tag="Rotation"
-                                            Text="{x:Static lang:Strings.Rotation}">
+                                            Text="{x:Static lang:GraphicsStrings.Rotation}">
                         <ui:RadioMenuFlyoutItem.IconSource>
                             <ui:PathIconSource Data="{StaticResource RotationTransformIconData}" />
                         </ui:RadioMenuFlyoutItem.IconSource>
@@ -40,7 +40,7 @@
                     <ui:RadioMenuFlyoutItem Click="TransformTypeClicked"
                                             IsChecked="{Binding IsScale.Value, Mode=OneWay}"
                                             Tag="Scale"
-                                            Text="{x:Static lang:Strings.Scale}">
+                                            Text="{x:Static lang:GraphicsStrings.Scale}">
                         <ui:RadioMenuFlyoutItem.IconSource>
                             <ui:PathIconSource Data="{StaticResource ScaleTransformIconData}" />
                         </ui:RadioMenuFlyoutItem.IconSource>

@@ -9,7 +9,7 @@ using Beutl.Media;
 
 namespace Beutl.ProjectSystem;
 
-[Display(Name = nameof(Strings.SceneGraphicsReference), ResourceType = typeof(Strings))]
+[Display(Name = nameof(GraphicsStrings.SceneDrawable), ResourceType = typeof(GraphicsStrings))]
 public sealed partial class SceneDrawable : Drawable
 {
     public SceneDrawable()

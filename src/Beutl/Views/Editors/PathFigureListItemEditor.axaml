@@ -66,19 +66,19 @@
                         <ui:FAMenuFlyout>
                             <ui:MenuFlyoutItem Click="AddClick"
                                                Tag="Cubic"
-                                               Text="{x:Static lang:Strings.CubicBezierCurve}" />
+                                               Text="{x:Static lang:GraphicsStrings.CubicBezierSegment}" />
                             <ui:MenuFlyoutItem Click="AddClick"
                                                Tag="Quad"
-                                               Text="{x:Static lang:Strings.QuadraticBezierCurve}" />
+                                               Text="{x:Static lang:GraphicsStrings.QuadraticBezierSegment}" />
                             <ui:MenuFlyoutItem Click="AddClick"
                                                Tag="Line"
-                                               Text="{x:Static lang:Strings.Line}" />
+                                               Text="{x:Static lang:GraphicsStrings.LineSegment}" />
                             <ui:MenuFlyoutItem Click="AddClick"
                                                Tag="Arc"
-                                               Text="{x:Static lang:Strings.EllipticalArc}" />
+                                               Text="{x:Static lang:GraphicsStrings.ArcSegment}" />
                             <ui:MenuFlyoutItem Click="AddClick"
                                                Tag="Conic"
-                                               Text="{x:Static lang:Strings.Conic}" />
+                                               Text="{x:Static lang:GraphicsStrings.ConicSegment}" />
                         </ui:FAMenuFlyout>
                     </Button.ContextFlyout>
                 </Button>
