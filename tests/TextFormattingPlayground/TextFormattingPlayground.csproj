@@ -17,5 +17,7 @@
 
     <!-- CS8032 -->
     <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" />
+  <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+  <PackageReference Include="Microsoft.Extensions.Logging" />
   </ItemGroup>
 </Project>
