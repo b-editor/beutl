@@ -135,6 +135,7 @@
                           VerticalAlignment="Top"
                           Data="{StaticResource GraphEditorControlPointGeometry}"
                           Fill="{DynamicResource GraphEditorControlPointFillBrush}"
+                          IsVisible="{Binding IsSplineEasing.Value}"
                           view:ControlPointBehavior.Attached="True"
                           Stroke="{DynamicResource GraphEditorControlPointStrokeBrush}"
                           StrokeThickness="2"
