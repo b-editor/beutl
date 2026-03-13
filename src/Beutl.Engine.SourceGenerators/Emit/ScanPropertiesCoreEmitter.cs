@@ -1,4 +1,4 @@
-using System.Text;
+﻿using System.Text;
 
 using Beutl.Engine.SourceGenerators.Models;
 
@@ -36,7 +36,7 @@ public static class ScanPropertiesCoreEmitter
         EmitFields(sb, indent, info);
 
         // ScanPropertiesCore<T>() メソッドの emit
-        sb.Append(indent).AppendLine($"protected override global::System.Collections.Generic.IEnumerable<global::Beutl.Engine.IProperty> ScanPropertiesCore<{genericTypeParam}>() where {genericTypeParam} : global::Beutl.Engine.EngineObject");
+        sb.Append(indent).AppendLine($"protected override global::System.Collections.Generic.IEnumerable<global::Beutl.Engine.IProperty> ScanPropertiesCore<{genericTypeParam}>()");
         sb.Append(indent).AppendLine("{");
 
         string innerIndent = indent + "    ";
