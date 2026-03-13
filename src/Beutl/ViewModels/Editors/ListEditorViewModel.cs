@@ -87,7 +87,7 @@ public sealed class ListItemEditorViewModel<TItem> : IDisposable, IListItemEdito
         ItemAccessor = itemAccessor;
 
         var tmp = new IPropertyAdapter[] { itemAccessor };
-        (_, PropertyEditorExtension ext) = PropertyEditorService.MatchProperty(tmp);
+        (_, PropertyEditorExtension? ext) = PropertyEditorService.MatchProperty(tmp);
         if (ext?.TryCreateContextForListItem(itemAccessor, out IPropertyEditorContext? context) == true)
         {
             Context = context;

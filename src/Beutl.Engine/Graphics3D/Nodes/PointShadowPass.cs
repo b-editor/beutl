@@ -189,8 +189,8 @@ void main() {
             // Create framebuffer with the face's depth texture
             _faceFramebuffers[i] = Context.CreateFramebuffer3D(
                 RenderPass,
-                [_faceDummyTextures[i]],
-                _faceDepthTextures[i]);
+                [_faceDummyTextures[i]!],
+                _faceDepthTextures[i]!);
         }
     }
 

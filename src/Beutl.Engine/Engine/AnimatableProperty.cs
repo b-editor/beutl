@@ -17,7 +17,7 @@ public class AnimatableProperty<T> : IProperty<T>
     private IExpression<T>? _expression;
     private IValidator<T>? _validator;
     private PropertyInfo? _propertyInfo;
-    private string _name;
+    private string? _name;
     private EngineObject? _owner;
     private PropertyLookup? _propertyLookup;
 

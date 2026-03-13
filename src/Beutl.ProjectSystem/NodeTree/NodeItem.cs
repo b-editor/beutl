@@ -7,7 +7,8 @@ using Beutl.NodeTree.Rendering;
 
 namespace Beutl.NodeTree;
 
-public abstract partial class NodeItem : EngineObject
+[SuppressResourceClassGeneration]
+public abstract class NodeItem : EngineObject
 {
     public static readonly CoreProperty<DisplayAttribute?> DisplayProperty;
     private DisplayAttribute? _display;
@@ -35,7 +36,7 @@ public abstract partial class NodeItem : EngineObject
     }
 }
 
-public partial class NodeItem<T> : NodeItem, INodeItem
+public class NodeItem<T> : NodeItem, INodeItem
 {
     public IPropertyAdapter<T>? Property { get; protected set; }
 

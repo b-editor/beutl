@@ -279,7 +279,7 @@ public sealed partial class MacWindow : Window
                 }
                 catch (Exception ex)
                 {
-                    ex.Handle();
+                    await ex.Handle();
                 }
             };
 

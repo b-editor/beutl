@@ -47,7 +47,7 @@ public class OutputTabViewModel : IToolContext
 
     public ReadOnlyReactivePropertySlim<bool> CanRemove { get; }
 
-    public void AddItem(OutputExtension extension)
+    public async void AddItem(OutputExtension extension)
     {
         try
         {
@@ -59,7 +59,7 @@ public class OutputTabViewModel : IToolContext
         catch (Exception e)
         {
             _logger.LogError(e, "An exception occurred while adding an item.");
-            e.Handle();
+            await e.Handle();
         }
     }
 

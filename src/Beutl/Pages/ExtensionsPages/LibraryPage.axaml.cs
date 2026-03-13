@@ -40,10 +40,6 @@ public sealed partial class LibraryPage : UserControl
             {
                 LocalPackage_Click(button, localPackage, viewModel, frame);
             }
-            else
-            {
-                viewModel.More.Execute();
-            }
         }
     }
 

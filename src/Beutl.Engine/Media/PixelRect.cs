@@ -423,7 +423,7 @@ public readonly struct PixelRect
     /// <param name="s">The string.</param>
     /// <param name="rect">The <see cref="PixelRect"/>.</param>
     /// <returns>The status of the operation.</returns>
-    public static bool TryParse(string s, out PixelRect rect)
+    public static bool TryParse(string? s, out PixelRect rect)
     {
         return TryParse(s.AsSpan(), out rect);
     }

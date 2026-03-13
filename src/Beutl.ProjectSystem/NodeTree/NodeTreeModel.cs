@@ -1,13 +1,10 @@
-﻿using System.Text.Json.Nodes;
-using Avalonia.Input;
-using Beutl.Collections;
+﻿using Beutl.Collections;
 using Beutl.Engine;
-using Beutl.Media;
-using Beutl.Serialization;
 
 namespace Beutl.NodeTree;
 
-public partial class NodeTreeModel : EngineObject
+[SuppressResourceClassGeneration]
+public class NodeTreeModel : EngineObject
 {
     public static readonly CoreProperty<HierarchicalList<Node>> NodesProperty;
     public static readonly CoreProperty<HierarchicalList<Connection>> AllConnectionsProperty;

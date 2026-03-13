@@ -1,5 +1,4 @@
 ﻿using Beutl.Collections;
-using Beutl.Editor;
 using Beutl.Serialization;
 
 namespace Beutl.NodeTree;

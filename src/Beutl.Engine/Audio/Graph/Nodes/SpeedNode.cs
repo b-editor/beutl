@@ -124,7 +124,6 @@ public sealed class SpeedNode : AudioNode
         private readonly SpeedNode _speedNode;
         private readonly WdlResampler _rs;
         private float _currentSpeed = 1.0f;
-        private TimeSpan lastSrcOffset;
         private const int BLOCK = 256;
 
         public SpeedProcessor(int sampleRate, int channels, SpeedNode speedNode)
