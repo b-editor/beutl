@@ -1213,6 +1213,9 @@
   <data name="TileBrush_BitmapInterpolationMode" xml:space="preserve">
     <value>ビットマップ補間モード</value>
   </data>
+  <data name="TileBrush_SourceRect" xml:space="preserve">
+    <value>ソース</value>
+  </data>
   <data name="TileBrush_DestinationRect" xml:space="preserve">
     <value>デスティネーション</value>
   </data>

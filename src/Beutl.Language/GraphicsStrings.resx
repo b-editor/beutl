@@ -1215,6 +1215,9 @@
   <data name="TileBrush_BitmapInterpolationMode" xml:space="preserve">
     <value>Bitmap Interpolation Mode</value>
   </data>
+  <data name="TileBrush_SourceRect" xml:space="preserve">
+    <value>Source</value>
+  </data>
   <data name="TileBrush_DestinationRect" xml:space="preserve">
     <value>Destination</value>
   </data>
