@@ -27,6 +27,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
     <EmbeddedResource Update="Properties\Strings.resx" />
     <EmbeddedResource Include="Properties\askpass.js">
       <LogicalName>askpass.js</LogicalName>
