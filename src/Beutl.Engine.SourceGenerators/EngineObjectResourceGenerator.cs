@@ -94,6 +94,8 @@ public sealed class EngineObjectResourceGenerator : IIncrementalGenerator
 
         ToResourceMethodEmitter.Emit(sb, indent, currentTypeDisplay, info);
         sb.AppendLine();
+        ScanPropertiesCoreEmitter.Emit(sb, indent, info);
+        sb.AppendLine();
         ResourceClassEmitter.Emit(sb, indent, currentTypeDisplay, info);
 
         sb.AppendLine("}");

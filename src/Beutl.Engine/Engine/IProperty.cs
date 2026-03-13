@@ -1,5 +1,4 @@
-﻿using System.Reflection;
-using System.Text.Json.Nodes;
+﻿using System.Text.Json.Nodes;
 using Beutl.Animation;
 using Beutl.Collections;
 using Beutl.Composition;
@@ -41,9 +40,9 @@ public interface IProperty : INotifyEdited
 
     bool HasExpression { get; }
 
-    void SetPropertyInfo(PropertyInfo propertyInfo);
+    void SetAttributes(string name, Attribute[] attributes);
 
-    PropertyInfo? GetPropertyInfo();
+    Attribute[]? GetAttributes();
 
     void SetOwnerObject(EngineObject? owner);
 
@@ -53,7 +52,7 @@ public interface IProperty : INotifyEdited
 
     void SerializeValue(ICoreSerializationContext context);
 
-    IValidator CreateValidator(PropertyInfo propertyInfo);
+    IValidator CreateValidator(Attribute[] attributes);
 
     void SetValidator(IValidator validator);
 

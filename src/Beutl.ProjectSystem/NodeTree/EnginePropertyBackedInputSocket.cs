@@ -1,6 +1,5 @@
 ﻿using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
-using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
@@ -24,7 +23,7 @@ public class EnginePropertyBackedInputSocket<T> : InputSocket<T>, IEnginePropert
     public EnginePropertyBackedInputSocket(EngineObject obj, IProperty<T> property)
     {
         Name = property.Name;
-        Display = property.GetPropertyInfo()?.GetCustomAttribute<DisplayAttribute>();
+        Display = property.GetAttributes()?.OfType<DisplayAttribute>().FirstOrDefault();
         _property = property;
         property.Edited += (_, e) => RaiseEdited();
         IPropertyAdapter<T> adapter;

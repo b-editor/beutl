@@ -35,7 +35,7 @@ public interface IPropertyAdapter
         var engineProperty = GetEngineProperty();
         if (engineProperty != null)
         {
-            return engineProperty.GetPropertyInfo()?.GetCustomAttributes(true).OfType<Attribute>().ToArray() ?? [];
+            return engineProperty.GetAttributes() ?? [];
         }
 
         return [];

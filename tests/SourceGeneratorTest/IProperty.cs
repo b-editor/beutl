@@ -1,5 +1,3 @@
-using System.Reflection;
-
 namespace Beutl.Engine;
 
 public interface IProperty
@@ -16,7 +14,7 @@ public interface IProperty
 
     object? GetDefaultValueAsObject();
 
-    void SetPropertyInfo(PropertyInfo propertyInfo);
+    void SetAttributes(string name, Attribute[] attributes);
 }
 
 public interface IProperty<T> : IProperty

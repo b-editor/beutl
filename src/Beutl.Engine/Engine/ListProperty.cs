@@ -1,7 +1,6 @@
 ﻿using System.Collections;
 using System.Collections.Specialized;
 using System.ComponentModel;
-using System.Reflection;
 using System.Text.Json.Nodes;
 using Beutl.Animation;
 using Beutl.Collections;
@@ -15,7 +14,7 @@ namespace Beutl.Engine;
 public class ListProperty<T> : IListProperty<T>
 {
     private readonly CoreList<T> _items = [];
-    private PropertyInfo? _propertyInfo;
+    private Attribute[]? _attributes;
     private string? _name;
     private EngineObject? _owner;
 
@@ -112,13 +111,13 @@ public class ListProperty<T> : IListProperty<T>
         return CurrentValue;
     }
 
-    public void SetPropertyInfo(PropertyInfo propertyInfo)
+    public void SetAttributes(string name, Attribute[] attributes)
     {
-        _propertyInfo = propertyInfo;
-        _name = propertyInfo.Name;
+        _name = name;
+        _attributes = attributes;
     }
 
-    public PropertyInfo? GetPropertyInfo() => _propertyInfo;
+    public Attribute[]? GetAttributes() => _attributes;
 
     public void SetOwnerObject(EngineObject? owner)
     {
@@ -176,7 +175,7 @@ public class ListProperty<T> : IListProperty<T>
         return _items.GetEnumerator();
     }
 
-    public IValidator CreateValidator(PropertyInfo propertyInfo)
+    public IValidator CreateValidator(Attribute[] attributes)
     {
         return new MultipleValidator<CoreList<T>>([]);
     }

@@ -14,11 +14,7 @@ public class EnginePropertyAdapter<T> : IPropertyAdapter<T>
 
     public EnginePropertyAdapter(IProperty<T> property, EngineObject obj)
     {
-        _attributes = new Lazy<Attribute[]>(() =>
-        {
-            var info = property.GetPropertyInfo();
-            return info?.GetCustomAttributes(true).OfType<Attribute>().ToArray() ?? [];
-        });
+        _attributes = new Lazy<Attribute[]>(() => property.GetAttributes() ?? []);
         _displayAttribute = new Lazy<DisplayAttribute?>(() => _attributes.Value.FirstOrDefault(i => i is DisplayAttribute) as DisplayAttribute);
         Object = obj;
         Property = property;
@@ -36,8 +32,8 @@ public class EnginePropertyAdapter<T> : IPropertyAdapter<T>
     {
         get
         {
-            var info = Property.GetPropertyInfo();
-            return info != null ? TypeDisplayHelpers.GetLocalizedName(info) : Property.Name;
+            var displayAttr = _displayAttribute.Value;
+            return displayAttr?.GetName() ?? Property.Name;
         }
     }
 

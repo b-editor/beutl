@@ -1,9 +1,7 @@
-﻿using System.Collections.Concurrent;
-using System.ComponentModel;
+﻿using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
 using System.Reactive.Disposables;
 using System.Reflection;
-using System.Runtime.CompilerServices;
 using System.Text.Json.Nodes;
 using Beutl.Animation;
 using Beutl.Composition;
@@ -11,7 +9,6 @@ using Beutl.Media;
 using Beutl.Reactive;
 using Beutl.Serialization;
 using Beutl.Validation;
-using LinqExpression = System.Linq.Expressions.Expression;
 
 namespace Beutl.Engine;
 
@@ -233,7 +230,7 @@ public class EngineObject : Hierarchical, INotifyEdited
         }
     }
 
-    protected void ScanProperties<T>() where T : EngineObject
+    protected virtual IEnumerable<IProperty> ScanPropertiesCore<T>() where T : EngineObject
     {
         var type = typeof(T);
         var propertyInfos = type.GetProperties(
@@ -244,33 +241,28 @@ public class EngineObject : Hierarchical, INotifyEdited
             PropertyInfo propertyInfo = propertyInfos[index];
             if (!typeof(IProperty).IsAssignableFrom(propertyInfo.PropertyType)) continue;
 
-            var propertiesCache = ReflectionCache.GetProperties(type);
-            if (!propertiesCache.TryGetValue(propertyInfo, out var func))
-            {
-                var param = LinqExpression.Parameter(typeof(object), "o");
-                var cast = LinqExpression.Convert(param, type);
-                var propertyAccess = LinqExpression.Property(cast, propertyInfo);
-                var convertResult = LinqExpression.Convert(propertyAccess, typeof(IProperty));
-                var lambda = LinqExpression.Lambda<Func<object, IProperty?>>(convertResult, param);
-                func = lambda.Compile();
-                propertiesCache[propertyInfo] = func;
-            }
-
+            var func = PropertyReflectionCache.GetOrCreateAccessor(type, propertyInfo);
             var property = func(this);
-            if (property != null)
-            {
-                var validatorsCache = ReflectionCache.GetValidators(type);
-                if (!validatorsCache.TryGetValue(propertyInfo.Name, out IValidator? validator))
-                {
-                    validator = property.CreateValidator(propertyInfo);
-                    validatorsCache[propertyInfo.Name] = validator;
-                }
+            if (property == null) continue;
 
-                RegisterProperty(property, index);
-                property.SetPropertyInfo(propertyInfo);
-                property.SetOwnerObject(this);
-                property.SetValidator(validator);
-            }
+            var attrs = PropertyReflectionCache.GetOrCreateAttributes(type, propertyInfo.Name,
+                () => [.. propertyInfo.GetCustomAttributes()]);
+            var validator = PropertyReflectionCache.GetOrCreateValidator(type, propertyInfo.Name,
+                () => property.CreateValidator(attrs));
+
+            property.SetAttributes(propertyInfo.Name, attrs);
+            property.SetValidator(validator);
+            property.SetOwnerObject(this);
+            yield return property;
+        }
+    }
+
+    protected void ScanProperties<T>() where T : EngineObject
+    {
+        int index = 0;
+        foreach (IProperty property in ScanPropertiesCore<T>())
+        {
+            RegisterProperty(property, index++);
         }
     }
 
@@ -553,49 +545,4 @@ public class EngineObject : Hierarchical, INotifyEdited
         }
     }
 
-    internal class CacheEntry
-    {
-        public readonly ConcurrentDictionary<PropertyInfo, Func<object, IProperty?>> Properties = new();
-        public readonly ConcurrentDictionary<string, IValidator> Validators = new();
-    }
-
-    internal static class ReflectionCache
-    {
-        public static readonly ConditionalWeakTable<Type, CacheEntry> Cache = [];
-
-        static ReflectionCache()
-        {
-            TypeUnloadNotifier.TypesUnloading += Unregister;
-        }
-
-
-        public static ConcurrentDictionary<PropertyInfo, Func<object, IProperty?>> GetProperties(Type type)
-        {
-            return Cache.GetValue(type, _ => new CacheEntry()).Properties;
-        }
-
-        public static ConcurrentDictionary<string, IValidator> GetValidators(Type type)
-        {
-            return Cache.GetValue(type, _ => new CacheEntry()).Validators;
-        }
-
-        private static void Unregister(Type[] types)
-        {
-            foreach (Type type in types)
-            {
-                Cache.Remove(type);
-            }
-
-            foreach (KeyValuePair<Type, CacheEntry> kvp in Cache.ToArray())
-            {
-                foreach (Type t in types)
-                {
-                    if (TypeUnloadNotifier.ContainsTypeRecursive(kvp.Key, t))
-                    {
-                        Cache.Remove(kvp.Key);
-                    }
-                }
-            }
-        }
-    }
 }

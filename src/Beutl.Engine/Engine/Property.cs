@@ -56,4 +56,10 @@ public static class Property
     {
         return new ListProperty<T>();
     }
+
+    public static string GetLocalizedName(IProperty property)
+    {
+        var displayAttr = property.GetAttributes()?.OfType<DisplayAttribute>().FirstOrDefault();
+        return displayAttr?.GetName() ?? property.Name;
+    }
 }

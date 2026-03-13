@@ -57,6 +57,7 @@ public static class ClassInfoExtractor
         var valueProperties = ImmutableArray.CreateBuilder<ValuePropertyInfo>();
         var objectProperties = ImmutableArray.CreateBuilder<ObjectPropertyInfo>();
         var listProperties = ImmutableArray.CreateBuilder<ListPropertyInfo>();
+        var orderedProperties = ImmutableArray.CreateBuilder<object>();
 
         foreach (ISymbol member in symbol.GetMembers())
         {
@@ -88,13 +89,18 @@ public static class ClassInfoExtractor
             if (namedType.IsGenericType && SymbolEqualityComparer.Default.Equals(namedType.ConstructedFrom, iPropertySymbol))
             {
                 ITypeSymbol valueType = namedType.TypeArguments[0];
+                ImmutableArray<AttributeData> propAttrs = propertySymbol.GetAttributes();
                 if (TypeAnalysisHelpers.IsEngineObjectType(valueType, engineObjectSymbol) && valueType is INamedTypeSymbol engineObjectType)
                 {
-                    objectProperties.Add(new ObjectPropertyInfo(propertySymbol.Name, engineObjectType));
+                    var propInfo = new ObjectPropertyInfo(propertySymbol.Name, engineObjectType, propAttrs);
+                    objectProperties.Add(propInfo);
+                    orderedProperties.Add(propInfo);
                 }
                 else
                 {
-                    valueProperties.Add(new ValuePropertyInfo(propertySymbol.Name, valueType));
+                    var propInfo = new ValuePropertyInfo(propertySymbol.Name, valueType, propAttrs);
+                    valueProperties.Add(propInfo);
+                    orderedProperties.Add(propInfo);
                 }
 
                 continue;
@@ -102,7 +108,10 @@ public static class ClassInfoExtractor
 
             if (TypeAnalysisHelpers.TryGetListElementType(namedType, engineObjectSymbol, out INamedTypeSymbol? elementType))
             {
-                listProperties.Add(new ListPropertyInfo(propertySymbol.Name, elementType!));
+                ImmutableArray<AttributeData> listAttrs = propertySymbol.GetAttributes();
+                var propInfo = new ListPropertyInfo(propertySymbol.Name, elementType!, listAttrs);
+                listProperties.Add(propInfo);
+                orderedProperties.Add(propInfo);
             }
         }
 
@@ -164,6 +173,7 @@ public static class ClassInfoExtractor
             objectProperties.ToImmutable(),
             listProperties.ToImmutable(),
             socketProperties.ToImmutable(),
+            orderedProperties.ToImmutable(),
             isNodeSubclass);
     }
 }

@@ -12,13 +12,14 @@ public readonly record struct ClassInfo(
     ImmutableArray<ObjectPropertyInfo> ObjectProperties,
     ImmutableArray<ListPropertyInfo> ListProperties,
     ImmutableArray<SocketPropertyInfo> SocketProperties,
+    ImmutableArray<object> OrderedProperties,
     bool IsNodeSubclass);
 
-public readonly record struct ValuePropertyInfo(string Name, ITypeSymbol ValueType);
+public readonly record struct ValuePropertyInfo(string Name, ITypeSymbol ValueType, ImmutableArray<AttributeData> Attributes);
 
-public readonly record struct ObjectPropertyInfo(string Name, INamedTypeSymbol ValueType);
+public readonly record struct ObjectPropertyInfo(string Name, INamedTypeSymbol ValueType, ImmutableArray<AttributeData> Attributes);
 
-public readonly record struct ListPropertyInfo(string Name, INamedTypeSymbol ElementType);
+public readonly record struct ListPropertyInfo(string Name, INamedTypeSymbol ElementType, ImmutableArray<AttributeData> Attributes);
 
 public enum SocketKind
 {

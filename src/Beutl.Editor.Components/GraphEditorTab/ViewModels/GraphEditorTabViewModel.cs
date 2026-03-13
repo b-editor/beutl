@@ -1,4 +1,5 @@
-﻿using System.Text.Json.Nodes;
+﻿using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Nodes;
 using Beutl.Animation;
 using Beutl.Editor.Services;
 using Beutl.Engine;
@@ -76,10 +77,9 @@ public sealed class GraphEditorTabViewModel : IToolContext
         var searcher = new ObjectSearcher(Element.Value, v => v is EngineObject);
         foreach (IProperty prop in searcher.SearchAll().OfType<EngineObject>().SelectMany(o => o.Properties))
         {
-            var propInfo = prop.GetPropertyInfo();
-            if (propInfo == null || prop.Animation is not KeyFrameAnimation anm) continue;
+            if (prop.Animation is not KeyFrameAnimation anm) continue;
 
-            string name = TypeDisplayHelpers.GetLocalizedName(propInfo);
+            string name = Property.GetLocalizedName(prop);
             var item = new GraphEditorItemViewModel(
                 name,
                 anm);
