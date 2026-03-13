@@ -9,7 +9,7 @@ namespace Beutl.Graphics3D.Camera;
 /// <summary>
 /// A perspective projection camera for 3D scenes.
 /// </summary>
-[Display(Name = nameof(Strings.PerspectiveCamera), ResourceType = typeof(Strings))]
+[Display(Name = nameof(GraphicsStrings.PerspectiveCamera), ResourceType = typeof(GraphicsStrings))]
 public partial class PerspectiveCamera : Camera3D
 {
     public PerspectiveCamera()
@@ -20,7 +20,7 @@ public partial class PerspectiveCamera : Camera3D
     /// <summary>
     /// Gets the vertical field of view in degrees.
     /// </summary>
-    [Display(Name = nameof(Strings.FieldOfView), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.PerspectiveCamera_FieldOfView), ResourceType = typeof(GraphicsStrings))]
     [Range(1f, 179f)]
     public IProperty<float> FieldOfView { get; } = Property.CreateAnimatable(60f);
 

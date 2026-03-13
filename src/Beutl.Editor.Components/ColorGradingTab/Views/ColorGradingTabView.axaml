@@ -88,12 +88,9 @@
                   ColumnDefinitions="*,*,*"
                   ColumnSpacing="8"
                   IsVisible="{Binding IsLogMode.Value}">
-                <pe:ColorGradingWheel x:Name="ShadowsPicker"
-                                      Grid.Column="0" />
-                <pe:ColorGradingWheel x:Name="MidtonesPicker"
-                                      Grid.Column="1" />
-                <pe:ColorGradingWheel x:Name="HighlightsPicker"
-                                      Grid.Column="2" />
+                <pe:ColorGradingWheel x:Name="ShadowsPicker" Grid.Column="0" />
+                <pe:ColorGradingWheel x:Name="MidtonesPicker" Grid.Column="1" />
+                <pe:ColorGradingWheel x:Name="HighlightsPicker" Grid.Column="2" />
             </Grid>
 
             <Grid x:Name="LiftControls"
@@ -101,14 +98,10 @@
                   ColumnDefinitions="*,*,*,*"
                   ColumnSpacing="8"
                   IsVisible="{Binding IsLiftGammaGainMode.Value}">
-                <pe:ColorGradingWheel x:Name="LiftPicker"
-                                      Grid.Column="0" />
-                <pe:ColorGradingWheel x:Name="GammaPicker"
-                                      Grid.Column="1" />
-                <pe:ColorGradingWheel x:Name="GainPicker"
-                                      Grid.Column="2" />
-                <pe:ColorGradingWheel x:Name="OffsetPicker"
-                                      Grid.Column="3" />
+                <pe:ColorGradingWheel x:Name="LiftPicker" Grid.Column="0" />
+                <pe:ColorGradingWheel x:Name="GammaPicker" Grid.Column="1" />
+                <pe:ColorGradingWheel x:Name="GainPicker" Grid.Column="2" />
+                <pe:ColorGradingWheel x:Name="OffsetPicker" Grid.Column="3" />
             </Grid>
         </Panel>
 
@@ -116,7 +109,7 @@
                    HorizontalAlignment="Center"
                    VerticalAlignment="Center"
                    IsVisible="{Binding IsColorGradingMissing.Value}"
-                   Text="{x:Static lang:Strings.ColorGrading_Missing}"
+                   Text="{x:Static lang:MessageStrings.ColorGradingMissing}"
                    TextWrapping="Wrap" />
     </Grid>
 </UserControl>

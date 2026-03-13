@@ -5,7 +5,7 @@ using Beutl.Language;
 
 namespace Beutl.Audio.Effects;
 
-[Display(Name = nameof(Strings.Group), ResourceType = typeof(Strings))]
+[Display(Name = nameof(AudioStrings.AudioEffectGroup), ResourceType = typeof(AudioStrings))]
 public sealed partial class AudioEffectGroup : AudioEffect
 {
     public AudioEffectGroup()

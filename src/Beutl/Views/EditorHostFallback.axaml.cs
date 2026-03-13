@@ -139,9 +139,9 @@ public partial class EditorHostFallback : UserControl
     private static IDisposable ShowWaitDialog(string projectFile)
     {
         return OutProcessDialog.Show(
-            title: Message.OpeningProject,
-            subtitle: Message.PleaseWaitAMoment,
-            content: string.Format(Message.OpeningProjectMessage, Path.GetFileName(projectFile)),
+            title: MessageStrings.OpeningProject,
+            subtitle: MessageStrings.PleaseWaitAMoment,
+            content: string.Format(MessageStrings.OpeningProjectMessage, Path.GetFileName(projectFile)),
             icon: "Info",
             progress: true);
     }

@@ -9,7 +9,7 @@ namespace Beutl.Graphics3D.Primitives;
 /// <summary>
 /// A 3D cube primitive.
 /// </summary>
-[Display(Name = nameof(Strings.Cube3D), ResourceType = typeof(Strings))]
+[Display(Name = nameof(GraphicsStrings.Cube3D), ResourceType = typeof(GraphicsStrings))]
 public sealed partial class Cube3D : Object3D
 {
     public Cube3D()
@@ -20,21 +20,21 @@ public sealed partial class Cube3D : Object3D
     /// <summary>
     /// Gets the width of the cube (X-axis).
     /// </summary>
-    [Display(Name = nameof(Strings.Width), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.Width), ResourceType = typeof(GraphicsStrings))]
     [Range(0.001f, float.MaxValue)]
     public IProperty<float> Width { get; } = Property.CreateAnimatable(1f);
 
     /// <summary>
     /// Gets the height of the cube (Y-axis).
     /// </summary>
-    [Display(Name = nameof(Strings.Height), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.Height), ResourceType = typeof(GraphicsStrings))]
     [Range(0.001f, float.MaxValue)]
     public IProperty<float> Height { get; } = Property.CreateAnimatable(1f);
 
     /// <summary>
     /// Gets the depth of the cube (Z-axis).
     /// </summary>
-    [Display(Name = nameof(Strings.Depth), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.Depth), ResourceType = typeof(GraphicsStrings))]
     [Range(0.001f, float.MaxValue)]
     public IProperty<float> Depth { get; } = Property.CreateAnimatable(1f);
 

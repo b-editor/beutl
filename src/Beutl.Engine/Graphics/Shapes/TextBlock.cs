@@ -10,7 +10,7 @@ using SkiaSharp;
 
 namespace Beutl.Graphics.Shapes;
 
-[Display(Name = nameof(Strings.Text), ResourceType = typeof(Strings))]
+[Display(Name = nameof(GraphicsStrings.TextBlock), ResourceType = typeof(GraphicsStrings))]
 public partial class TextBlock : Drawable
 {
     public TextBlock()
@@ -20,39 +20,39 @@ public partial class TextBlock : Drawable
     }
 
     [SuppressResourceClassGeneration]
-    [Display(Name = nameof(Strings.Size), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.TextBlock_Size), ResourceType = typeof(GraphicsStrings))]
     [Range(0, float.MaxValue)]
     public IProperty<float> Size { get; } = Property.Create<float>(12);
 
     [SuppressResourceClassGeneration]
-    [Display(Name = nameof(Strings.FontFamily), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.TextBlock_FontFamily), ResourceType = typeof(GraphicsStrings))]
     public IProperty<FontFamily?> FontFamily { get; } = Property.Create<FontFamily?>(Media.FontFamily.Default);
 
     [SuppressResourceClassGeneration]
-    [Display(Name = nameof(Strings.FontStyle), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.TextBlock_FontStyle), ResourceType = typeof(GraphicsStrings))]
     public IProperty<FontStyle> FontStyle { get; } = Property.Create(Media.FontStyle.Normal);
 
     [SuppressResourceClassGeneration]
-    [Display(Name = nameof(Strings.FontWeight), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.TextBlock_FontWeight), ResourceType = typeof(GraphicsStrings))]
     public IProperty<FontWeight> FontWeight { get; } = Property.Create(Media.FontWeight.Regular);
 
     [SuppressResourceClassGeneration]
-    [Display(Name = nameof(Strings.CharactorSpacing), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.TextBlock_Spacing), ResourceType = typeof(GraphicsStrings))]
     public IProperty<float> Spacing { get; } = Property.Create<float>(0);
 
-    [Display(Name = nameof(Strings.SplitByCharacters), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.TextBlock_SplitByCharacters), ResourceType = typeof(GraphicsStrings))]
     public IProperty<bool> SplitByCharacters { get; } = Property.Create<bool>(false);
 
     [SuppressResourceClassGeneration]
-    [Display(Name = nameof(Strings.Text), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.TextBlock_Text), ResourceType = typeof(GraphicsStrings))]
     [DataType(DataType.MultilineText)]
     public IProperty<string?> Text { get; } = Property.Create<string?>(string.Empty);
 
     [SuppressResourceClassGeneration]
-    [Display(Name = nameof(Strings.Stroke), GroupName = nameof(Strings.Stroke), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.Stroke), GroupName = nameof(GraphicsStrings.Stroke), ResourceType = typeof(GraphicsStrings))]
     public IProperty<Pen?> Pen { get; } = Property.Create<Pen?>();
 
-    [Display(Name = nameof(Strings.Fill), ResourceType = typeof(Strings), GroupName = nameof(Strings.Fill))]
+    [Display(Name = nameof(GraphicsStrings.Fill), ResourceType = typeof(GraphicsStrings), GroupName = nameof(GraphicsStrings.Fill))]
     public IProperty<Brush?> Fill { get; } = Property.Create<Brush?>();
 
     protected override Size MeasureCore(Size availableSize, Drawable.Resource resource)

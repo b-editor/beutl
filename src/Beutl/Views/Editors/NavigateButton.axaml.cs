@@ -96,7 +96,7 @@ public sealed class NavigateButton<T> : NavigateButton
                         var dialog = new ContentDialog
                         {
                             Content = combobox,
-                            Title = Message.MultipleTypesAreAvailable,
+                            Title = MessageStrings.MultipleTypesAvailable,
                             PrimaryButtonText = Strings.OK,
                             CloseButtonText = Strings.Cancel
                         };

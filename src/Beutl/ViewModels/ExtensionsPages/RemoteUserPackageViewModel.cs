@@ -59,7 +59,7 @@ public sealed class RemoteUserPackageViewModel : BaseViewModel, IUserPackageView
                 {
                     IsBusy.Value = true;
 
-                    StatusText.Value = ExtensionsPage.Installing;
+                    StatusText.Value = ExtensionsStrings.Installing;
                     using (await _app.Lock.LockAsync())
                     {
                         activity?.AddEvent(new("Entered_AsyncLock"));
@@ -75,8 +75,8 @@ public sealed class RemoteUserPackageViewModel : BaseViewModel, IUserPackageView
                         {
                             await _handler.DownloadAndLoadPackage(release, packageId);
                             NotificationService.ShowInformation(
-                                title: ExtensionsPage.PackageInstaller,
-                                message: string.Format(ExtensionsPage.PackageInstaller_Installed,
+                                title: ExtensionsStrings.PackageInstaller,
+                                message: string.Format(ExtensionsStrings.PackageInstaller_Installed,
                                     packageId.Id));
                         }
                         catch (Exception ex)
@@ -84,8 +84,8 @@ public sealed class RemoteUserPackageViewModel : BaseViewModel, IUserPackageView
                             _logger.LogWarning(ex, "Immediate install failed, falling back to queue.");
                             _handler.Queue.InstallQueue(packageId);
                             NotificationService.ShowInformation(
-                                title: ExtensionsPage.PackageInstaller,
-                                message: string.Format(ExtensionsPage.PackageInstaller_ScheduledInstallation,
+                                title: ExtensionsStrings.PackageInstaller,
+                                message: string.Format(ExtensionsStrings.PackageInstaller_ScheduledInstallation,
                                     packageId.Id));
                         }
                     }
@@ -115,7 +115,7 @@ public sealed class RemoteUserPackageViewModel : BaseViewModel, IUserPackageView
                     if (!await PackageOperationHandler.EnsureProjectClosed())
                         return;
 
-                    StatusText.Value = ExtensionsPage.Updating;
+                    StatusText.Value = ExtensionsStrings.Updating;
                     using (await _app.Lock.LockAsync())
                     {
                         activity?.AddEvent(new("Entered_AsyncLock"));
@@ -135,16 +135,16 @@ public sealed class RemoteUserPackageViewModel : BaseViewModel, IUserPackageView
 
                             await _handler.DownloadAndLoadPackage(release, packageId);
                             NotificationService.ShowInformation(
-                                title: ExtensionsPage.PackageInstaller,
-                                message: string.Format(ExtensionsPage.PackageInstaller_Updated, packageId.Id));
+                                title: ExtensionsStrings.PackageInstaller,
+                                message: string.Format(ExtensionsStrings.PackageInstaller_Updated, packageId.Id));
                         }
                         catch (Exception ex)
                         {
                             _logger.LogWarning(ex, "Immediate update failed, falling back to queue.");
                             _handler.Queue.InstallQueue(packageId);
                             NotificationService.ShowInformation(
-                                title: ExtensionsPage.PackageInstaller,
-                                message: string.Format(ExtensionsPage.PackageInstaller_ScheduledUpdate, packageId.Id));
+                                title: ExtensionsStrings.PackageInstaller,
+                                message: string.Format(ExtensionsStrings.PackageInstaller_ScheduledUpdate, packageId.Id));
                         }
                     }
                 }
@@ -173,7 +173,7 @@ public sealed class RemoteUserPackageViewModel : BaseViewModel, IUserPackageView
                     if (!await PackageOperationHandler.EnsureProjectClosed())
                         return;
 
-                    StatusText.Value = ExtensionsPage.Uninstalling;
+                    StatusText.Value = ExtensionsStrings.Uninstalling;
 
                     if (!await _handler.UnloadPackages(Package.Name))
                     {
@@ -183,14 +183,14 @@ public sealed class RemoteUserPackageViewModel : BaseViewModel, IUserPackageView
                     if (_handler.UninstallWithFallback(Package.Name))
                     {
                         NotificationService.ShowInformation(
-                            title: ExtensionsPage.PackageInstaller,
-                            message: string.Format(ExtensionsPage.PackageInstaller_Uninstalled, Package.Name));
+                            title: ExtensionsStrings.PackageInstaller,
+                            message: string.Format(ExtensionsStrings.PackageInstaller_Uninstalled, Package.Name));
                     }
                     else
                     {
                         NotificationService.ShowInformation(
-                            title: ExtensionsPage.PackageInstaller,
-                            message: string.Format(ExtensionsPage.PackageInstaller_ScheduledUninstallation, Package.Name));
+                            title: ExtensionsStrings.PackageInstaller,
+                            message: string.Format(ExtensionsStrings.PackageInstaller_ScheduledUninstallation, Package.Name));
                     }
                 }
                 catch (Exception e)
@@ -199,8 +199,8 @@ public sealed class RemoteUserPackageViewModel : BaseViewModel, IUserPackageView
                     _logger.LogWarning(e, "Immediate uninstall failed, falling back to queue.");
                     _handler.QueueUninstallAll(Package.Name);
                     NotificationService.ShowInformation(
-                        title: ExtensionsPage.PackageInstaller,
-                        message: string.Format(ExtensionsPage.PackageInstaller_ScheduledUninstallation, Package.Name));
+                        title: ExtensionsStrings.PackageInstaller,
+                        message: string.Format(ExtensionsStrings.PackageInstaller_ScheduledUninstallation, Package.Name));
                 }
                 finally
                 {

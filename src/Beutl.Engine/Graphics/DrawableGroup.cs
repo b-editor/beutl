@@ -9,7 +9,7 @@ using Beutl.Media;
 
 namespace Beutl.Graphics;
 
-[Display(Name = nameof(Strings.Group), ResourceType = typeof(Strings))]
+[Display(Name = nameof(GraphicsStrings.Group), ResourceType = typeof(GraphicsStrings))]
 public sealed partial class DrawableGroup : Drawable, IFlowOperator
 {
     public DrawableGroup()
@@ -19,6 +19,7 @@ public sealed partial class DrawableGroup : Drawable, IFlowOperator
     }
 
     [SuppressResourceClassGeneration]
+    [Display(Name = nameof(GraphicsStrings.Children), ResourceType = typeof(GraphicsStrings))]
     public IListProperty<Drawable> Children { get; } = Property.CreateList<Drawable>();
 
     public override void Render(GraphicsContext2D context, Drawable.Resource resource)

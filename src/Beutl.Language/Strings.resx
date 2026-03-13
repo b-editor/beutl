@@ -1,136 +1,30 @@
 <?xml version="1.0" encoding="utf-8"?>
 <root>
-  <!--
-    Microsoft ResX Schema
-
-    Version 2.0
-
-    The primary goals of this format is to allow a simple XML format
-    that is mostly human readable. The generation and parsing of the
-    various data types are done through the TypeConverter classes
-    associated with the data types.
-
-    Example:
-
-    ... ado.net/XML headers & schema ...
-    <resheader name="resmimetype">text/microsoft-resx</resheader>
-    <resheader name="version">2.0</resheader>
-    <resheader name="reader">System.Resources.ResXResourceReader, System.Windows.Forms, ...</resheader>
-    <resheader name="writer">System.Resources.ResXResourceWriter, System.Windows.Forms, ...</resheader>
-    <data name="Name1"><value>this is my long string</value><comment>this is a comment</comment></data>
-    <data name="Color1" type="System.Drawing.Color, System.Drawing">Blue</data>
-    <data name="Bitmap1" mimetype="application/x-microsoft.net.object.binary.base64">
-        <value>[base64 mime encoded serialized .NET Framework object]</value>
-    </data>
-    <data name="Icon1" type="System.Drawing.Icon, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
-        <value>[base64 mime encoded string representing a byte array form of the .NET Framework object]</value>
-        <comment>This is a comment</comment>
-    </data>
-
-    There are any number of "resheader" rows that contain simple
-    name/value pairs.
-
-    Each data row contains a name, and value. The row also contains a
-    type or mimetype. Type corresponds to a .NET class that support
-    text/value conversion through the TypeConverter architecture.
-    Classes that don't support this are serialized and stored with the
-    mimetype set.
-
-    The mimetype is used for serialized objects, and tells the
-    ResXResourceReader how to depersist the object. This is currently not
-    extensible. For a given mimetype the value must be set accordingly:
-
-    Note - application/x-microsoft.net.object.binary.base64 is the format
-    that the ResXResourceWriter will generate, however the reader can
-    read any of the formats listed below.
-
-    mimetype: application/x-microsoft.net.object.binary.base64
-    value   : The object must be serialized with
-            : System.Runtime.Serialization.Formatters.Binary.BinaryFormatter
-            : and then encoded with base64 encoding.
-
-    mimetype: application/x-microsoft.net.object.soap.base64
-    value   : The object must be serialized with
-            : System.Runtime.Serialization.Formatters.Soap.SoapFormatter
-            : and then encoded with base64 encoding.
-
-    mimetype: application/x-microsoft.net.object.bytearray.base64
-    value   : The object must be serialized into a byte array
-            : using a System.ComponentModel.TypeConverter
-            : and then encoded with base64 encoding.
-    -->
   <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
-    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
     <xsd:element name="root" msdata:IsDataSet="true">
-      <xsd:complexType>
-        <xsd:choice maxOccurs="unbounded">
-          <xsd:element name="metadata">
-            <xsd:complexType>
-              <xsd:sequence>
-                <xsd:element name="value" type="xsd:string" minOccurs="0" />
-              </xsd:sequence>
-              <xsd:attribute name="name" use="required" type="xsd:string" />
-              <xsd:attribute name="type" type="xsd:string" />
-              <xsd:attribute name="mimetype" type="xsd:string" />
-              <xsd:attribute ref="xml:space" />
-            </xsd:complexType>
-          </xsd:element>
-          <xsd:element name="assembly">
-            <xsd:complexType>
-              <xsd:attribute name="alias" type="xsd:string" />
-              <xsd:attribute name="name" type="xsd:string" />
-            </xsd:complexType>
-          </xsd:element>
-          <xsd:element name="data">
-            <xsd:complexType>
-              <xsd:sequence>
-                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
-                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
-              </xsd:sequence>
-              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
-              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
-              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
-              <xsd:attribute ref="xml:space" />
-            </xsd:complexType>
-          </xsd:element>
-          <xsd:element name="resheader">
-            <xsd:complexType>
-              <xsd:sequence>
-                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
-              </xsd:sequence>
-              <xsd:attribute name="name" type="xsd:string" use="required" />
-            </xsd:complexType>
-          </xsd:element>
-        </xsd:choice>
-      </xsd:complexType>
+
     </xsd:element>
   </xsd:schema>
   <resheader name="resmimetype">
     <value>text/microsoft-resx</value>
   </resheader>
   <resheader name="version">
-    <value>2.0</value>
+    <value>1.3</value>
   </resheader>
   <resheader name="reader">
-    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
   <resheader name="writer">
-    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
   <data name="File" xml:space="preserve">
     <value>File</value>
-  </data>
-  <data name="BlueCurve" xml:space="preserve">
-    <value>Blue curve</value>
   </data>
   <data name="Curves" xml:space="preserve">
     <value>Curves</value>
   </data>
   <data name="CustomCurve" xml:space="preserve">
     <value>Custom (RGB)</value>
-  </data>
-  <data name="GreenCurve" xml:space="preserve">
-    <value>Green curve</value>
   </data>
   <data name="HueVsHue" xml:space="preserve">
     <value>Hue vs Hue</value>
@@ -143,9 +37,6 @@
   </data>
   <data name="LuminanceVsSaturation" xml:space="preserve">
     <value>Luminance vs Saturation</value>
-  </data>
-  <data name="RedCurve" xml:space="preserve">
-    <value>Red curve</value>
   </data>
   <data name="SaturationVsSaturation" xml:space="preserve">
     <value>Saturation vs Saturation</value>
@@ -225,41 +116,11 @@
   <data name="SceneFile" xml:space="preserve">
     <value>Scene File</value>
   </data>
-  <data name="Font" xml:space="preserve">
-    <value>Font</value>
-  </data>
   <data name="Info" xml:space="preserve">
     <value>Info</value>
   </data>
   <data name="Add" xml:space="preserve">
     <value>Add</value>
-  </data>
-  <data name="Links" xml:space="preserve">
-    <value>Links</value>
-  </data>
-  <data name="SourceCode" xml:space="preserve">
-    <value>Source code</value>
-  </data>
-  <data name="License" xml:space="preserve">
-    <value>License</value>
-  </data>
-  <data name="ThirdPartyLicenses" xml:space="preserve">
-    <value>Third Party Licenses</value>
-  </data>
-  <data name="Theme" xml:space="preserve">
-    <value>Theme</value>
-  </data>
-  <data name="Light" xml:space="preserve">
-    <value>Light</value>
-  </data>
-  <data name="Dark" xml:space="preserve">
-    <value>Dark</value>
-  </data>
-  <data name="HighContrast" xml:space="preserve">
-    <value>High Contrast</value>
-  </data>
-  <data name="FollowSystem" xml:space="preserve">
-    <value>Follow System</value>
   </data>
   <data name="Search" xml:space="preserve">
     <value>Search</value>
@@ -299,9 +160,6 @@
   </data>
   <data name="Next" xml:space="preserve">
     <value>Next</value>
-  </data>
-  <data name="Color" xml:space="preserve">
-    <value>Color</value>
   </data>
   <data name="Element" xml:space="preserve">
     <value>Element</value>
@@ -354,21 +212,6 @@
   <data name="Bottom" xml:space="preserve">
     <value>Bottom</value>
   </data>
-  <data name="Center" xml:space="preserve">
-    <value>Center</value>
-  </data>
-  <data name="FontFamily" xml:space="preserve">
-    <value>Font Family</value>
-  </data>
-  <data name="FontStyle" xml:space="preserve">
-    <value>Font Style</value>
-  </data>
-  <data name="FontWeight" xml:space="preserve">
-    <value>Font Weight</value>
-  </data>
-  <data name="CharactorSpacing" xml:space="preserve">
-    <value>Character Spacing</value>
-  </data>
   <data name="Cancel" xml:space="preserve">
     <value>Cancel</value>
   </data>
@@ -390,119 +233,14 @@
   <data name="ShowMore" xml:space="preserve">
     <value>Show more</value>
   </data>
-  <data name="TermsOfService" xml:space="preserve">
-    <value>Terms of service</value>
-  </data>
-  <data name="PrivacyPolicy" xml:space="preserve">
-    <value>Privacy Policy</value>
-  </data>
   <data name="OK" xml:space="preserve">
     <value>OK</value>
-  </data>
-  <data name="Language" xml:space="preserve">
-    <value>Language</value>
-  </data>
-  <data name="Account" xml:space="preserve">
-    <value>Account</value>
   </data>
   <data name="Animation" xml:space="preserve">
     <value>Animation</value>
   </data>
   <data name="Easing" xml:space="preserve">
     <value>Easing</value>
-  </data>
-  <data name="KernelSize" xml:space="preserve">
-    <value>Kernel Size</value>
-  </data>
-  <data name="FixImageSize" xml:space="preserve">
-    <value>Fix Image Size</value>
-  </data>
-  <data name="Sigma" xml:space="preserve">
-    <value>Sigma</value>
-  </data>
-  <data name="Position" xml:space="preserve">
-    <value>Position</value>
-  </data>
-  <data name="ShadowOnly" xml:space="preserve">
-    <value>Shadow Only</value>
-  </data>
-  <data name="Offset" xml:space="preserve">
-    <value>Offset</value>
-  </data>
-  <data name="Thickness" xml:space="preserve">
-    <value>Thickness</value>
-  </data>
-  <data name="MaskType" xml:space="preserve">
-    <value>Mask Type</value>
-  </data>
-  <data name="BorderStyle" xml:space="preserve">
-    <value>Border Style</value>
-  </data>
-  <data name="CornerRadius" xml:space="preserve">
-    <value>Corner Radius</value>
-  </data>
-  <data name="Text" xml:space="preserve">
-    <value>Text</value>
-  </data>
-  <data name="Transform" xml:space="preserve">
-    <value>Transform</value>
-  </data>
-  <data name="TransformOrigin" xml:space="preserve">
-    <value>Transform Origin</value>
-  </data>
-  <data name="ImageFilter" xml:space="preserve">
-    <value>Image Filter</value>
-  </data>
-  <data name="AlignmentX" xml:space="preserve">
-    <value>Alignment X</value>
-  </data>
-  <data name="AlignmentY" xml:space="preserve">
-    <value>Alignment Y</value>
-  </data>
-  <data name="OpacityMask" xml:space="preserve">
-    <value>Opacity Mask</value>
-  </data>
-  <data name="BlendMode" xml:space="preserve">
-    <value>Blend Mode</value>
-  </data>
-  <data name="Opacity" xml:space="preserve">
-    <value>Opacity</value>
-  </data>
-  <data name="Angle" xml:space="preserve">
-    <value>Angle</value>
-  </data>
-  <data name="SpreadMethod" xml:space="preserve">
-    <value>Spread Method</value>
-  </data>
-  <data name="GradientStops" xml:space="preserve">
-    <value>Stops</value>
-  </data>
-  <data name="StartPoint" xml:space="preserve">
-    <value>Start Point</value>
-  </data>
-  <data name="EndPoint" xml:space="preserve">
-    <value>End Point</value>
-  </data>
-  <data name="GradientOrigin" xml:space="preserve">
-    <value>Gradient Origin</value>
-  </data>
-  <data name="Radius" xml:space="preserve">
-    <value>Radius</value>
-  </data>
-  <data name="DestinationRect" xml:space="preserve">
-    <value>Destination</value>
-  </data>
-  <data name="SourceRect" xml:space="preserve">
-    <value>Source</value>
-  </data>
-  <data name="Stretch" xml:space="preserve">
-    <value>Stretch</value>
-  </data>
-  <data name="TileMode" xml:space="preserve">
-    <value>Tile Mode</value>
-  </data>
-  <data name="BitmapInterpolationMode" xml:space="preserve">
-    <value>Bitmap Interpolation Mode</value>
   </data>
   <data name="ElementProperty" xml:space="preserve">
     <value>Element Property</value>
@@ -524,45 +262,6 @@
   </data>
   <data name="Rename" xml:space="preserve">
     <value>Rename</value>
-  </data>
-  <data name="ToggleMute" xml:space="preserve">
-    <value>Toggle Mute</value>
-  </data>
-  <data name="Ellipse" xml:space="preserve">
-    <value>Ellipse</value>
-  </data>
-  <data name="Rectangle" xml:space="preserve">
-    <value>Rectangle</value>
-  </data>
-  <data name="RoundedRect" xml:space="preserve">
-    <value>Rounded rectangle</value>
-  </data>
-  <data name="Translate" xml:space="preserve">
-    <value>Translate</value>
-  </data>
-  <data name="Skew" xml:space="preserve">
-    <value>Skew</value>
-  </data>
-  <data name="Scale" xml:space="preserve">
-    <value>Scale</value>
-  </data>
-  <data name="Rotation" xml:space="preserve">
-    <value>Rotation</value>
-  </data>
-  <data name="Rotation3D" xml:space="preserve">
-    <value>Rotation 3D</value>
-  </data>
-  <data name="Blur" xml:space="preserve">
-    <value>Blur</value>
-  </data>
-  <data name="DropShadow" xml:space="preserve">
-    <value>Drop Shadow</value>
-  </data>
-  <data name="InnerShadow" xml:space="preserve">
-    <value>Inner Shadow</value>
-  </data>
-  <data name="Border" xml:space="preserve">
-    <value>Border</value>
   </data>
   <data name="FinishEditing" xml:space="preserve">
     <value>Finish editing</value>
@@ -657,9 +356,6 @@
   <data name="NodeTree" xml:space="preserve">
     <value>Node Tree</value>
   </data>
-  <data name="Fill" xml:space="preserve">
-    <value>Fill</value>
-  </data>
   <data name="Library" xml:space="preserve">
     <value>Library</value>
   </data>
@@ -696,38 +392,8 @@
   <data name="DeleteSelectedItems" xml:space="preserve">
     <value>Delete {0} items?</value>
   </data>
-  <data name="Clipping" xml:space="preserve">
-    <value>Clipping</value>
-  </data>
-  <data name="Dilate" xml:space="preserve">
-    <value>Dilate</value>
-  </data>
-  <data name="Erode" xml:space="preserve">
-    <value>Erode</value>
-  </data>
-  <data name="HueRotate" xml:space="preserve">
-    <value>Hue Rotate</value>
-  </data>
-  <data name="Lighting" xml:space="preserve">
-    <value>Lighting</value>
-  </data>
-  <data name="LumaColor" xml:space="preserve">
-    <value>LumaColor</value>
-  </data>
-  <data name="Saturate" xml:space="preserve">
-    <value>Saturate</value>
-  </data>
-  <data name="Threshold" xml:space="preserve">
-    <value>Threshold</value>
-  </data>
   <data name="Group" xml:space="preserve">
     <value>Group</value>
-  </data>
-  <data name="SoundGroup" xml:space="preserve">
-    <value>Sound Group</value>
-  </data>
-  <data name="IsNotValid" xml:space="preserve">
-    <value>{0} is not a valid.</value>
   </data>
   <data name="GraphEditor" xml:space="preserve">
     <value>Graph Editor</value>
@@ -735,104 +401,17 @@
   <data name="Unknown" xml:space="preserve">
     <value>Unknown</value>
   </data>
-  <data name="InvalidJson" xml:space="preserve">
-    <value>Invalid Json.</value>
-  </data>
   <data name="Details" xml:space="preserve">
     <value>Details</value>
   </data>
   <data name="Completed" xml:space="preserve">
     <value>Completed</value>
   </data>
-  <data name="Image" xml:space="preserve">
-    <value>Image</value>
-  </data>
-  <data name="Sound" xml:space="preserve">
-    <value>Sound</value>
-  </data>
-  <data name="FilterEffect" xml:space="preserve">
-    <value>Filter Effect</value>
-  </data>
   <data name="Brightness" xml:space="preserve">
     <value>Brightness</value>
   </data>
-  <data name="Gamma" xml:space="preserve">
-    <value>Gamma</value>
-  </data>
   <data name="ColorGrading" xml:space="preserve">
     <value>Color Grading</value>
-  </data>
-  <data name="ColorGrading_Missing" xml:space="preserve">
-    <value>No Color Grading effect is selected.</value>
-  </data>
-  <data name="ColorCurves_Missing" xml:space="preserve">
-    <value>No Color Curves effect is selected.</value>
-  </data>
-  <data name="Temperature" xml:space="preserve">
-    <value>Temperature</value>
-  </data>
-  <data name="Tint" xml:space="preserve">
-    <value>Tint</value>
-  </data>
-  <data name="Exposure" xml:space="preserve">
-    <value>Exposure</value>
-  </data>
-  <data name="LowRange" xml:space="preserve">
-    <value>Low Range</value>
-  </data>
-  <data name="HighRange" xml:space="preserve">
-    <value>High Range</value>
-  </data>
-  <data name="Shadows" xml:space="preserve">
-    <value>Shadows</value>
-  </data>
-  <data name="Midtones" xml:space="preserve">
-    <value>Midtones</value>
-  </data>
-  <data name="Highlights" xml:space="preserve">
-    <value>Highlights</value>
-  </data>
-  <data name="Lift" xml:space="preserve">
-    <value>Lift</value>
-  </data>
-  <data name="Gain" xml:space="preserve">
-    <value>Gain</value>
-  </data>
-  <data name="Invert" xml:space="preserve">
-    <value>Invert</value>
-  </data>
-  <data name="LUT_Cube_File" xml:space="preserve">
-    <value>LUT (Cube File)</value>
-  </data>
-  <data name="Amount" xml:space="preserve">
-    <value>Amount</value>
-  </data>
-  <data name="RadiusX" xml:space="preserve">
-    <value>Radius X</value>
-  </data>
-  <data name="RadiusY" xml:space="preserve">
-    <value>Radius Y</value>
-  </data>
-  <data name="Strength" xml:space="preserve">
-    <value>Strength</value>
-  </data>
-  <data name="Grayscale" xml:space="preserve">
-    <value>Grayscale</value>
-  </data>
-  <data name="InvertStyle" xml:space="preserve">
-    <value>Invert Style</value>
-  </data>
-  <data name="Contrast" xml:space="preserve">
-    <value>Contrast</value>
-  </data>
-  <data name="ContrastPivot" xml:space="preserve">
-    <value>Contrast Pivot</value>
-  </data>
-  <data name="Addition" xml:space="preserve">
-    <value>Addition</value>
-  </data>
-  <data name="Multiplication" xml:space="preserve">
-    <value>Multiplication</value>
   </data>
   <data name="Number_of_Layers" xml:space="preserve">
     <value>Number of Layers</value>
@@ -845,15 +424,6 @@
   </data>
   <data name="EnableLivePreview" xml:space="preserve">
     <value>Enable Live Preview</value>
-  </data>
-  <data name="ExcludeAlphaChannel" xml:space="preserve">
-    <value>Exclude Alpha channel</value>
-  </data>
-  <data name="OpenNodeTree" xml:space="preserve">
-    <value>Open Node Tree</value>
-  </data>
-  <data name="UseNode" xml:space="preserve">
-    <value>UseNode</value>
   </data>
   <data name="DisableThumbnails" xml:space="preserve">
     <value>Disable Thumbnails</value>
@@ -873,18 +443,6 @@
   <data name="AddNode" xml:space="preserve">
     <value>Add node</value>
   </data>
-  <data name="Brush_ConicalGradient" xml:space="preserve">
-    <value>Conical gradient</value>
-  </data>
-  <data name="Brush_LinearGradient" xml:space="preserve">
-    <value>Linear gradient</value>
-  </data>
-  <data name="Brush_RadialGradient" xml:space="preserve">
-    <value>Radial gradient</value>
-  </data>
-  <data name="Brush_Solid" xml:space="preserve">
-    <value>Solid</value>
-  </data>
   <data name="Change" xml:space="preserve">
     <value>Change</value>
   </data>
@@ -893,9 +451,6 @@
   </data>
   <data name="Initialize" xml:space="preserve">
     <value>Initialize</value>
-  </data>
-  <data name="OpenDocument" xml:space="preserve">
-    <value>Open Document</value>
   </data>
   <data name="ResetZoom" xml:space="preserve">
     <value>Reset zoom</value>
@@ -917,9 +472,6 @@
   </data>
   <data name="CopyGetPropertyCode" xml:space="preserve">
     <value>Copy GetProperty code</value>
-  </data>
-  <data name="ColorPalette" xml:space="preserve">
-    <value>Color Palette</value>
   </data>
   <data name="ChangeToOriginalLength" xml:space="preserve">
     <value>Change to original length</value>
@@ -966,27 +518,6 @@
   <data name="RunningStartupTasks" xml:space="preserve">
     <value>Running startup tasks</value>
   </data>
-  <data name="Brush_PerlinNoise" xml:space="preserve">
-    <value>Perlin noise</value>
-  </data>
-  <data name="FlatShadow" xml:space="preserve">
-    <value>Flat Shadow</value>
-  </data>
-  <data name="StrokeEffect" xml:space="preserve">
-    <value>Stroke</value>
-  </data>
-  <data name="BlendEffect" xml:space="preserve">
-    <value>Blend</value>
-  </data>
-  <data name="Negaposi" xml:space="preserve">
-    <value>Negaposi</value>
-  </data>
-  <data name="ChromaKey" xml:space="preserve">
-    <value>Chroma key</value>
-  </data>
-  <data name="ColorKey" xml:space="preserve">
-    <value>Color key</value>
-  </data>
   <data name="SaveAsImage" xml:space="preserve">
     <value>Save as image</value>
   </data>
@@ -1020,102 +551,6 @@
   <data name="RightClickToOperateCache" xml:space="preserve">
     <value>Right-click to operate cache</value>
   </data>
-  <data name="Brush" xml:space="preserve">
-    <value>Brush</value>
-  </data>
-  <data name="Pen_DashArray" xml:space="preserve">
-    <value>Dashes and spaces</value>
-  </data>
-  <data name="Pen_DashOffset" xml:space="preserve">
-    <value>Dashed offset</value>
-  </data>
-  <data name="Pen_MiterLimit" xml:space="preserve">
-    <value>Miter Limit</value>
-  </data>
-  <data name="Pen_StrokeCap" xml:space="preserve">
-    <value>Cap style</value>
-  </data>
-  <data name="StrokeCap_Flat" xml:space="preserve">
-    <value>Flat</value>
-  </data>
-  <data name="StrokeCap_Round" xml:space="preserve">
-    <value>Round</value>
-  </data>
-  <data name="StrokeCap_Square" xml:space="preserve">
-    <value>Square</value>
-  </data>
-  <data name="Pen_StrokeJoin" xml:space="preserve">
-    <value>Join style</value>
-  </data>
-  <data name="StrokeJoin_Miter" xml:space="preserve">
-    <value>Mitered join</value>
-  </data>
-  <data name="StrokeJoin_Round" xml:space="preserve">
-    <value>Circular join</value>
-  </data>
-  <data name="StrokeJoin_Bevel" xml:space="preserve">
-    <value>Beveled join</value>
-  </data>
-  <data name="Pen_StrokeAlignment" xml:space="preserve">
-    <value>Location</value>
-  </data>
-  <data name="Pen_TrimStart" xml:space="preserve">
-    <value>Trim start</value>
-  </data>
-  <data name="Pen_TrimEnd" xml:space="preserve">
-    <value>Trim end</value>
-  </data>
-  <data name="Pen_TrimOffset" xml:space="preserve">
-    <value>Trim offset</value>
-  </data>
-  <data name="Pen_Offset" xml:space="preserve">
-    <value>Offset</value>
-  </data>
-  <data name="StrokeAlignment_Center" xml:space="preserve">
-    <value>Center</value>
-  </data>
-  <data name="StrokeAlignment_Inside" xml:space="preserve">
-    <value>Inside</value>
-  </data>
-  <data name="StrokeAlignment_Outside" xml:space="preserve">
-    <value>Outside</value>
-  </data>
-  <data name="Stroke" xml:space="preserve">
-    <value>Stroke</value>
-  </data>
-  <data name="HueRange" xml:space="preserve">
-    <value>Hue Range</value>
-  </data>
-  <data name="SaturationRange" xml:space="preserve">
-    <value>Saturation Range</value>
-  </data>
-  <data name="BrightnessRange" xml:space="preserve">
-    <value>Brightness Range</value>
-  </data>
-  <data name="Length" xml:space="preserve">
-    <value>Length</value>
-  </data>
-  <data name="SplitEquallyEffect" xml:space="preserve">
-    <value>Split equally</value>
-  </data>
-  <data name="SplitByPartsEffect" xml:space="preserve">
-    <value>Split by parts</value>
-  </data>
-  <data name="HorizontalDivisions" xml:space="preserve">
-    <value>Horizontal divisions</value>
-  </data>
-  <data name="VerticalDivisions" xml:space="preserve">
-    <value>Vertical divisions</value>
-  </data>
-  <data name="HorizontalSpacing" xml:space="preserve">
-    <value>Horizontal spacing</value>
-  </data>
-  <data name="VerticalSpacing" xml:space="preserve">
-    <value>Vertical spacing</value>
-  </data>
-  <data name="SplitByCharacters" xml:space="preserve">
-    <value>Split by characters</value>
-  </data>
   <data name="Linear" xml:space="preserve">
     <value>Linear</value>
   </data>
@@ -1140,38 +575,14 @@
   <data name="Hue" xml:space="preserve">
     <value>Hue</value>
   </data>
-  <data name="Intensity" xml:space="preserve">
-    <value>Intensity</value>
-  </data>
   <data name="Saturation" xml:space="preserve">
     <value>Saturation</value>
-  </data>
-  <data name="Vibrance" xml:space="preserve">
-    <value>Vibrance</value>
   </data>
   <data name="ShowSliders" xml:space="preserve">
     <value>Show sliders</value>
   </data>
   <data name="ShowRing" xml:space="preserve">
     <value>Show ring</value>
-  </data>
-  <data name="CubicBezierCurve" xml:space="preserve">
-    <value>Cubic Bezier curve</value>
-  </data>
-  <data name="QuadraticBezierCurve" xml:space="preserve">
-    <value>Quadratic Bezier curve</value>
-  </data>
-  <data name="Line" xml:space="preserve">
-    <value>Line</value>
-  </data>
-  <data name="EllipticalArc" xml:space="preserve">
-    <value>Elliptical arc</value>
-  </data>
-  <data name="Conic" xml:space="preserve">
-    <value>Conic</value>
-  </data>
-  <data name="IsLoop" xml:space="preserve">
-    <value>Loop</value>
   </data>
   <data name="Symmetry" xml:space="preserve">
     <value>Symmetry</value>
@@ -1203,35 +614,11 @@
   <data name="PathEditor" xml:space="preserve">
     <value>Path editor</value>
   </data>
-  <data name="GeometryShape" xml:space="preserve">
-    <value>Geometry</value>
-  </data>
   <data name="CopyAll" xml:space="preserve">
     <value>Copy All</value>
   </data>
-  <data name="Backdrop" xml:space="preserve">
-    <value>Backdrop</value>
-  </data>
-  <data name="ClearBuffer" xml:space="preserve">
-    <value>Clear Buffer</value>
-  </data>
-  <data name="Mosaic" xml:space="preserve">
-    <value>Mosaic</value>
-  </data>
-  <data name="AutomaticCentering" xml:space="preserve">
-    <value>Automatic Centering</value>
-  </data>
-  <data name="ClipTransparentArea" xml:space="preserve">
-    <value>Clip transparent area</value>
-  </data>
   <data name="EnableElement" xml:space="preserve">
     <value>Enable element</value>
-  </data>
-  <data name="Smoothing" xml:space="preserve">
-    <value>Smoothing</value>
-  </data>
-  <data name="ColorShift" xml:space="preserve">
-    <value>Color Shift</value>
   </data>
   <data name="DockArea_LeftTop" xml:space="preserve">
     <value>Left Top</value>
@@ -1259,9 +646,6 @@
   </data>
   <data name="MoveTo" xml:space="preserve">
     <value>Move to</value>
-  </data>
-  <data name="Keymap" xml:space="preserve">
-    <value>Keymap</value>
   </data>
   <data name="MainView" xml:space="preserve">
     <value>Main View</value>
@@ -1338,230 +722,17 @@
   <data name="Cut_Description" xml:space="preserve">
     <value>Cut the selected item.</value>
   </data>
-  <data name="ShakeEffect" xml:space="preserve">
-    <value>Shake</value>
-  </data>
-  <data name="DelayAnimationEffect" xml:space="preserve">
-    <value>Delay Animation</value>
-  </data>
-  <data name="StrengthX" xml:space="preserve">
-    <value>Strength X</value>
-  </data>
-  <data name="StrengthY" xml:space="preserve">
-    <value>Strength Y</value>
-  </data>
-  <data name="Speed" xml:space="preserve">
-    <value>Speed</value>
-  </data>
-  <data name="BlendMode_Clear" xml:space="preserve">
-    <value>Clear</value>
-  </data>
-  <data name="BlendMode_Clear_Description" xml:space="preserve">
-    <value>Clears the content to transparent.</value>
-  </data>
-  <data name="BlendMode_Src" xml:space="preserve">
-    <value>Overwrite</value>
-  </data>
-  <data name="BlendMode_Src_Description" xml:space="preserve">
-    <value>Paints over the existing content.</value>
-  </data>
-  <data name="BlendMode_Dst" xml:space="preserve">
-    <value>Keep Original</value>
-  </data>
-  <data name="BlendMode_Dst_Description" xml:space="preserve">
-    <value>Keeps the original content unchanged.</value>
-  </data>
-  <data name="BlendMode_SrcOver" xml:space="preserve">
-    <value>Foreground Over</value>
-  </data>
-  <data name="BlendMode_SrcOver_Description" xml:space="preserve">
-    <value>Places the foreground over the background.</value>
-  </data>
-  <data name="BlendMode_DstOver" xml:space="preserve">
-    <value>Background Over</value>
-  </data>
-  <data name="BlendMode_DstOver_Description" xml:space="preserve">
-    <value>Places the background beneath the foreground.</value>
-  </data>
-  <data name="BlendMode_SrcIn" xml:space="preserve">
-    <value>Foreground Inside</value>
-  </data>
-  <data name="BlendMode_SrcIn_Description" xml:space="preserve">
-    <value>Clips the foreground to the shape of the background.</value>
-  </data>
-  <data name="BlendMode_DstIn" xml:space="preserve">
-    <value>Background Inside</value>
-  </data>
-  <data name="BlendMode_DstIn_Description" xml:space="preserve">
-    <value>Clips the background to the shape of the foreground.</value>
-  </data>
-  <data name="BlendMode_SrcOut" xml:space="preserve">
-    <value>Foreground Outside</value>
-  </data>
-  <data name="BlendMode_SrcOut_Description" xml:space="preserve">
-    <value>Keeps the area outside the background for the foreground.</value>
-  </data>
-  <data name="BlendMode_DstOut" xml:space="preserve">
-    <value>Background Outside</value>
-  </data>
-  <data name="BlendMode_DstOut_Description" xml:space="preserve">
-    <value>Keeps the area outside the foreground for the background.</value>
-  </data>
-  <data name="BlendMode_SrcATop" xml:space="preserve">
-    <value>Foreground On Top</value>
-  </data>
-  <data name="BlendMode_SrcATop_Description" xml:space="preserve">
-    <value>Places the foreground on top and keeps the background outside.</value>
-  </data>
-  <data name="BlendMode_DstATop" xml:space="preserve">
-    <value>Background On Top</value>
-  </data>
-  <data name="BlendMode_DstATop_Description" xml:space="preserve">
-    <value>Places the background on top and keeps the foreground outside.</value>
-  </data>
-  <data name="BlendMode_Xor" xml:space="preserve">
-    <value>Exclusive Blend</value>
-  </data>
-  <data name="BlendMode_Xor_Description" xml:space="preserve">
-    <value>Makes overlapping areas transparent, keeping non-overlapping areas.</value>
-  </data>
-  <data name="BlendMode_Plus" xml:space="preserve">
-    <value>Additive</value>
-  </data>
-  <data name="BlendMode_Plus_Description" xml:space="preserve">
-    <value>Adds the colors of the foreground and background.</value>
-  </data>
-  <data name="BlendMode_Modulate" xml:space="preserve">
-    <value>Blend by Opacity</value>
-  </data>
-  <data name="BlendMode_Modulate_Description" xml:space="preserve">
-    <value>Combines the colors of the foreground and background based on their transparency (alpha values).</value>
-  </data>
-  <data name="BlendMode_Multiply" xml:space="preserve">
-    <value>Multiply Colors</value>
-  </data>
-  <data name="BlendMode_Multiply_Description" xml:space="preserve">
-    <value>Multiplies the RGB color values of the foreground and background, creating a darker effect.</value>
-  </data>
-  <data name="BlendMode_Overlay" xml:space="preserve">
-    <value>Overlay</value>
-  </data>
-  <data name="BlendMode_Overlay_Description" xml:space="preserve">
-    <value>Combines the foreground and background to enhance contrast.</value>
-  </data>
-  <data name="BlendMode_Darken" xml:space="preserve">
-    <value>Darken</value>
-  </data>
-  <data name="BlendMode_Darken_Description" xml:space="preserve">
-    <value>Keeps the darker color of the foreground or background.</value>
-  </data>
-  <data name="BlendMode_Lighten" xml:space="preserve">
-    <value>Lighten</value>
-  </data>
-  <data name="BlendMode_Lighten_Description" xml:space="preserve">
-    <value>Keeps the lighter color of the foreground or background.</value>
-  </data>
-  <data name="BlendMode_ColorDodge" xml:space="preserve">
-    <value>Color Dodge</value>
-  </data>
-  <data name="BlendMode_ColorDodge_Description" xml:space="preserve">
-    <value>Brightens the background by adding the foreground color.</value>
-  </data>
-  <data name="BlendMode_ColorBurn" xml:space="preserve">
-    <value>Color Burn</value>
-  </data>
-  <data name="BlendMode_ColorBurn_Description" xml:space="preserve">
-    <value>Darkens the background by burning it with the foreground color.</value>
-  </data>
-  <data name="BlendMode_HardLight" xml:space="preserve">
-    <value>Hard Light</value>
-  </data>
-  <data name="BlendMode_HardLight_Description" xml:space="preserve">
-    <value>Simulates a harsh spotlight effect to enhance contrast.</value>
-  </data>
-  <data name="BlendMode_SoftLight" xml:space="preserve">
-    <value>Soft Light</value>
-  </data>
-  <data name="BlendMode_SoftLight_Description" xml:space="preserve">
-    <value>Simulates a diffused spotlight for smoother lighting effects.</value>
-  </data>
-  <data name="BlendMode_Difference" xml:space="preserve">
-    <value>Difference</value>
-  </data>
-  <data name="BlendMode_Difference_Description" xml:space="preserve">
-    <value>Emphasizes the absolute color differences.</value>
-  </data>
-  <data name="BlendMode_Exclusion" xml:space="preserve">
-    <value>Exclusion</value>
-  </data>
-  <data name="BlendMode_Exclusion_Description" xml:space="preserve">
-    <value>Creates a softer difference effect.</value>
-  </data>
-  <data name="BlendMode_Hue" xml:space="preserve">
-    <value>Hue</value>
-  </data>
-  <data name="BlendMode_Hue_Description" xml:space="preserve">
-    <value>Applies the foreground hue to the background's luminance and saturation.</value>
-  </data>
-  <data name="BlendMode_Saturation" xml:space="preserve">
-    <value>Saturation</value>
-  </data>
-  <data name="BlendMode_Saturation_Description" xml:space="preserve">
-    <value>Applies the foreground saturation to the background's hue and luminance.</value>
-  </data>
-  <data name="BlendMode_Color" xml:space="preserve">
-    <value>Color</value>
-  </data>
-  <data name="BlendMode_Color_Description" xml:space="preserve">
-    <value>Applies the foreground hue and saturation to the background's luminance.</value>
-  </data>
-  <data name="BlendMode_Luminosity" xml:space="preserve">
-    <value>Luminosity</value>
-  </data>
-  <data name="BlendMode_Luminosity_Description" xml:space="preserve">
-    <value>Applies the foreground luminance to the background's hue and saturation.</value>
-  </data>
-  <data name="BlendMode_Screen" xml:space="preserve">
-    <value>Screen</value>
-  </data>
-  <data name="BlendMode_Screen_Description" xml:space="preserve">
-    <value>Multiplies the inverted colors of the foreground and background, creating a lighter effect.</value>
-  </data>
-  <data name="ExtensionsSettings" xml:space="preserve">
-    <value>Extensions Settings</value>
-  </data>
   <data name="AboutBeutl" xml:space="preserve">
     <value>About Beutl</value>
   </data>
   <data name="Update" xml:space="preserve">
     <value>Update</value>
   </data>
-  <data name="Source" xml:space="preserve">
-    <value>Source</value>
-  </data>
-  <data name="DisplacementMap" xml:space="preserve">
-    <value>Displacement Map</value>
-  </data>
-  <data name="ShowDisplacementMap" xml:space="preserve">
-    <value>Show Displacement Map</value>
-  </data>
-  <data name="Drawable" xml:space="preserve">
-    <value>Drawable</value>
-  </data>
   <data name="EditDrawable" xml:space="preserve">
     <value>Edit drawable</value>
   </data>
   <data name="Item" xml:space="preserve">
     <value>Item</value>
-  </data>
-  <data name="BoundaryCorrection" xml:space="preserve">
-    <value>Boundary correction</value>
-  </data>
-  <data name="TileSize" xml:space="preserve">
-    <value>Tile size</value>
-  </data>
-  <data name="Origin" xml:space="preserve">
-    <value>Origin</value>
   </data>
   <data name="Profiles" xml:space="preserve">
     <value>Profiles</value>
@@ -1571,18 +742,6 @@
   </data>
   <data name="Convert_to_preset" xml:space="preserve">
     <value>Convert to preset</value>
-  </data>
-  <data name="Geometry" xml:space="preserve">
-    <value>Geometry</value>
-  </data>
-  <data name="Progress" xml:space="preserve">
-    <value>Progress</value>
-  </data>
-  <data name="FollowRotation" xml:space="preserve">
-    <value>Follow Rotation</value>
-  </data>
-  <data name="PathFollowEffect" xml:space="preserve">
-    <value>Path Follow</value>
   </data>
   <data name="Expression_Input" xml:space="preserve">
     <value>Input</value>
@@ -1633,9 +792,6 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="Waveform" xml:space="preserve">
     <value>Waveform</value>
   </data>
-  <data name="Mode" xml:space="preserve">
-    <value>Mode</value>
-  </data>
   <data name="Luma" xml:space="preserve">
     <value>Luma</value>
   </data>
@@ -1644,24 +800,6 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   </data>
   <data name="RgbParade" xml:space="preserve">
     <value>RGB Parade</value>
-  </data>
-  <data name="ShowGrid" xml:space="preserve">
-    <value>Show Grid</value>
-  </data>
-  <data name="Decorator" xml:space="preserve">
-    <value>Decorator</value>
-  </data>
-  <data name="DelayTime" xml:space="preserve">
-    <value>Delay Time (ms)</value>
-  </data>
-  <data name="Feedback" xml:space="preserve">
-    <value>Feedback (%)</value>
-  </data>
-  <data name="DryMix" xml:space="preserve">
-    <value>Dry Mix (%)</value>
-  </data>
-  <data name="WetMix" xml:space="preserve">
-    <value>Wet Mix (%)</value>
   </data>
   <data name="AVFoundationEncoder" xml:space="preserve">
     <value>AVFoundation Encoder</value>
@@ -1677,21 +815,6 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   </data>
   <data name="OpenInTab" xml:space="preserve">
     <value>Open in tab</value>
-  </data>
-  <data name="VulkanVersion" xml:space="preserve">
-    <value>Vulkan Version</value>
-  </data>
-  <data name="SelectedGPU" xml:space="preserve">
-    <value>Selected GPU</value>
-  </data>
-  <data name="AvailableMemory" xml:space="preserve">
-    <value>Available Memory</value>
-  </data>
-  <data name="AvailableGPUs" xml:space="preserve">
-    <value>Available GPUs</value>
-  </data>
-  <data name="EnabledExtensions" xml:space="preserve">
-    <value>Enabled Extensions</value>
   </data>
   <data name="Previous" xml:space="preserve">
     <value>Previous</value>
@@ -1714,42 +837,6 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="APIError" xml:space="preserve">
     <value>API Error</value>
   </data>
-  <data name="FailedToCopyKeyframe" xml:space="preserve">
-    <value>Failed to copy keyframe</value>
-  </data>
-  <data name="FailedToPasteKeyframe" xml:space="preserve">
-    <value>Failed to paste keyframe</value>
-  </data>
-  <data name="FailedToCopyAnimation" xml:space="preserve">
-    <value>Failed to copy animation</value>
-  </data>
-  <data name="InvalidKeyframeDataFormat" xml:space="preserve">
-    <value>Invalid keyframe data format.</value>
-  </data>
-  <data name="InvalidKeyframeDataFormat_MissingType" xml:space="preserve">
-    <value>Invalid keyframe data format. missing $type.</value>
-  </data>
-  <data name="InvalidKeyframeDataFormat_TypeIsNotKeyFrame" xml:space="preserve">
-    <value>Invalid keyframe data format. $type is not KeyFrame.</value>
-  </data>
-  <data name="KeyframePropertyTypeMismatch_EasingApplied" xml:space="preserve">
-    <value>The property type of the pasted keyframe does not match. Only the easing is applied.</value>
-  </data>
-  <data name="InvalidJSON_MissingType" xml:space="preserve">
-    <value>Invalid JSON: missing $type</value>
-  </data>
-  <data name="InvalidJSON_TypeIsNotKeyFrameAnimation" xml:space="preserve">
-    <value>Invalid JSON: $type is not a KeyFrameAnimation</value>
-  </data>
-  <data name="InvalidJSON_TypeIsNotKeyFrame" xml:space="preserve">
-    <value>Invalid JSON: $type is not a KeyFrame</value>
-  </data>
-  <data name="AnimationPropertyTypeMismatch" xml:space="preserve">
-    <value>The property type of the pasted animation does not match. (Expected: {0}, Actual: {1})</value>
-  </data>
-  <data name="KeyframeExistsAtPastePosition" xml:space="preserve">
-    <value>A keyframe already exists at the paste position. The easing and value have been updated.</value>
-  </data>
   <data name="Website" xml:space="preserve">
     <value>Website</value>
   </data>
@@ -1767,30 +854,6 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   </data>
   <data name="Portal" xml:space="preserve">
     <value>Portal</value>
-  </data>
-  <data name="Layer" xml:space="preserve">
-    <value>Layer</value>
-  </data>
-  <data name="AudioEffect" xml:space="preserve">
-    <value>Audio Effect</value>
-  </data>
-  <data name="Delay" xml:space="preserve">
-    <value>Delay</value>
-  </data>
-  <data name="Presenter" xml:space="preserve">
-    <value>Presenter</value>
-  </data>
-  <data name="Script" xml:space="preserve">
-    <value>Script</value>
-  </data>
-  <data name="SKSLScriptEffect" xml:space="preserve">
-    <value>SKSL Script</value>
-  </data>
-  <data name="GLSLScriptEffect" xml:space="preserve">
-    <value>GLSL Script</value>
-  </data>
-  <data name="CSharpScriptEffect" xml:space="preserve">
-    <value>C# Script</value>
   </data>
   <data name="ExportProject" xml:space="preserve">
     <value>Export Project...</value>
@@ -1810,352 +873,7 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="SelectDestinationFolder" xml:space="preserve">
     <value>Select Destination Folder</value>
   </data>
-  <data name="Target" xml:space="preserve">
-    <value>Target</value>
-  </data>
-  <data name="ScaleX" xml:space="preserve">
-    <value>Scale X</value>
-  </data>
-  <data name="ScaleY" xml:space="preserve">
-    <value>Scale Y</value>
-  </data>
-  <data name="SkewX" xml:space="preserve">
-    <value>Skew X</value>
-  </data>
-  <data name="SkewY" xml:space="preserve">
-    <value>Skew Y</value>
-  </data>
-  <data name="X" xml:space="preserve">
-    <value>X</value>
-  </data>
-  <data name="Y" xml:space="preserve">
-    <value>Y</value>
-  </data>
-  <data name="RotationX" xml:space="preserve">
-    <value>Rotation X</value>
-  </data>
-  <data name="RotationY" xml:space="preserve">
-    <value>Rotation Y</value>
-  </data>
-  <data name="RotationZ" xml:space="preserve">
-    <value>Rotation Z</value>
-  </data>
-  <data name="CenterX" xml:space="preserve">
-    <value>Center X</value>
-  </data>
-  <data name="CenterY" xml:space="preserve">
-    <value>Center Y</value>
-  </data>
-  <data name="CenterZ" xml:space="preserve">
-    <value>Center Z</value>
-  </data>
-  <data name="Depth" xml:space="preserve">
-    <value>Depth</value>
-  </data>
-  <data name="Matrix" xml:space="preserve">
-    <value>Matrix</value>
-  </data>
-  <data name="MatrixTransform" xml:space="preserve">
-    <value>Matrix Transform</value>
-  </data>
-  <data name="OffsetPosition" xml:space="preserve">
-    <value>Offset Position</value>
-  </data>
-  <data name="Effect" xml:space="preserve">
-    <value>Effect</value>
-  </data>
-  <data name="RedOffset" xml:space="preserve">
-    <value>Red Offset</value>
-  </data>
-  <data name="GreenOffset" xml:space="preserve">
-    <value>Green Offset</value>
-  </data>
-  <data name="BlueOffset" xml:space="preserve">
-    <value>Blue Offset</value>
-  </data>
-  <data name="AlphaOffset" xml:space="preserve">
-    <value>Alpha Offset</value>
-  </data>
-  <data name="BaseFrequencyX" xml:space="preserve">
-    <value>Base Frequency X</value>
-  </data>
-  <data name="BaseFrequencyY" xml:space="preserve">
-    <value>Base Frequency Y</value>
-  </data>
-  <data name="Octaves" xml:space="preserve">
-    <value>Octaves</value>
-  </data>
-  <data name="Seed" xml:space="preserve">
-    <value>Seed</value>
-  </data>
-  <data name="PerlinNoiseType" xml:space="preserve">
-    <value>Noise Type</value>
-  </data>
-  <data name="FillType" xml:space="preserve">
-    <value>Fill Type</value>
-  </data>
-  <data name="IsClosed" xml:space="preserve">
-    <value>Is Closed</value>
-  </data>
-  <data name="Point" xml:space="preserve">
-    <value>Point</value>
-  </data>
-  <data name="ControlPoint" xml:space="preserve">
-    <value>Control Point</value>
-  </data>
-  <data name="ControlPoint1" xml:space="preserve">
-    <value>Control Point 1</value>
-  </data>
-  <data name="ControlPoint2" xml:space="preserve">
-    <value>Control Point 2</value>
-  </data>
-  <data name="Weight" xml:space="preserve">
-    <value>Weight</value>
-  </data>
-  <data name="Data" xml:space="preserve">
-    <value>Data</value>
-  </data>
-  <data name="RotationAngle" xml:space="preserve">
-    <value>Rotation Angle</value>
-  </data>
-  <data name="IsLargeArc" xml:space="preserve">
-    <value>Is Large Arc</value>
-  </data>
-  <data name="SweepClockwise" xml:space="preserve">
-    <value>Sweep Clockwise</value>
-  </data>
   <!-- 3D Graphics -->
-  <data name="OrthographicCamera" xml:space="preserve">
-    <value>Orthographic Camera</value>
-  </data>
-  <data name="PerspectiveCamera" xml:space="preserve">
-    <value>Perspective Camera</value>
-  </data>
-  <data name="DirectionalLight3D" xml:space="preserve">
-    <value>Directional Light</value>
-  </data>
-  <data name="PointLight3D" xml:space="preserve">
-    <value>Point Light</value>
-  </data>
-  <data name="SpotLight3D" xml:space="preserve">
-    <value>Spot Light</value>
-  </data>
-  <data name="BasicMaterial" xml:space="preserve">
-    <value>Basic Material</value>
-  </data>
-  <data name="PBRMaterial" xml:space="preserve">
-    <value>PBR Material</value>
-  </data>
-  <data name="TransparentMaterial" xml:space="preserve">
-    <value>Transparent Material</value>
-  </data>
-  <data name="ColorMap" xml:space="preserve">
-    <value>Color Map</value>
-  </data>
-  <data name="IndexOfRefraction" xml:space="preserve">
-    <value>Index of Refraction</value>
-  </data>
-  <data name="CubeMesh" xml:space="preserve">
-    <value>Cube Mesh</value>
-  </data>
-  <data name="SphereMesh" xml:space="preserve">
-    <value>Sphere Mesh</value>
-  </data>
-  <data name="MeshObject3D" xml:space="preserve">
-    <value>Mesh Object</value>
-  </data>
-  <data name="ModelMesh" xml:space="preserve">
-    <value>Model Mesh</value>
-  </data>
-  <data name="Cube3D" xml:space="preserve">
-    <value>Cube</value>
-  </data>
-  <data name="Sphere3D" xml:space="preserve">
-    <value>Sphere</value>
-  </data>
-  <data name="Model3D" xml:space="preserve">
-    <value>Model</value>
-  </data>
-  <data name="Plane3D" xml:space="preserve">
-    <value>Plane</value>
-  </data>
-  <data name="PlaneMesh" xml:space="preserve">
-    <value>Plane Mesh</value>
-  </data>
-  <data name="WidthSegments" xml:space="preserve">
-    <value>Width Segments</value>
-  </data>
-  <data name="HeightSegments" xml:space="preserve">
-    <value>Height Segments</value>
-  </data>
-  <data name="DrawableTextureSource" xml:space="preserve">
-    <value>Drawable Texture</value>
-  </data>
-  <data name="ImageTextureSource" xml:space="preserve">
-    <value>Image Texture</value>
-  </data>
-  <data name="Group3D" xml:space="preserve">
-    <value>Group</value>
-  </data>
-  <data name="Scene3D" xml:space="preserve">
-    <value>3D Scene</value>
-  </data>
-  <data name="FieldOfView" xml:space="preserve">
-    <value>Field of View</value>
-  </data>
-  <data name="NearPlane" xml:space="preserve">
-    <value>Near Plane</value>
-  </data>
-  <data name="FarPlane" xml:space="preserve">
-    <value>Far Plane</value>
-  </data>
-  <data name="Up" xml:space="preserve">
-    <value>Up</value>
-  </data>
-  <data name="Direction" xml:space="preserve">
-    <value>Direction</value>
-  </data>
-  <data name="CastsShadow" xml:space="preserve">
-    <value>Casts Shadow</value>
-  </data>
-  <data name="ShadowBias" xml:space="preserve">
-    <value>Shadow Bias</value>
-  </data>
-  <data name="ShadowNormalBias" xml:space="preserve">
-    <value>Shadow Normal Bias</value>
-  </data>
-  <data name="ShadowStrength" xml:space="preserve">
-    <value>Shadow Strength</value>
-  </data>
-  <data name="ShadowDistance" xml:space="preserve">
-    <value>Shadow Distance</value>
-  </data>
-  <data name="ShadowMapSize" xml:space="preserve">
-    <value>Shadow Map Size</value>
-  </data>
-  <data name="ConstantAttenuation" xml:space="preserve">
-    <value>Constant Attenuation</value>
-  </data>
-  <data name="LinearAttenuation" xml:space="preserve">
-    <value>Linear Attenuation</value>
-  </data>
-  <data name="QuadraticAttenuation" xml:space="preserve">
-    <value>Quadratic Attenuation</value>
-  </data>
-  <data name="Range" xml:space="preserve">
-    <value>Range</value>
-  </data>
-  <data name="InnerConeAngle" xml:space="preserve">
-    <value>Inner Cone Angle</value>
-  </data>
-  <data name="OuterConeAngle" xml:space="preserve">
-    <value>Outer Cone Angle</value>
-  </data>
-  <data name="DiffuseColor" xml:space="preserve">
-    <value>Diffuse Color</value>
-  </data>
-  <data name="DiffuseMap" xml:space="preserve">
-    <value>Diffuse Map</value>
-  </data>
-  <data name="AmbientColor" xml:space="preserve">
-    <value>Ambient Color</value>
-  </data>
-  <data name="SpecularColor" xml:space="preserve">
-    <value>Specular Color</value>
-  </data>
-  <data name="Shininess" xml:space="preserve">
-    <value>Shininess</value>
-  </data>
-  <data name="Albedo" xml:space="preserve">
-    <value>Albedo</value>
-  </data>
-  <data name="AlbedoMap" xml:space="preserve">
-    <value>Albedo Map</value>
-  </data>
-  <data name="Metallic" xml:space="preserve">
-    <value>Metallic</value>
-  </data>
-  <data name="Roughness" xml:space="preserve">
-    <value>Roughness</value>
-  </data>
-  <data name="MetallicRoughnessMap" xml:space="preserve">
-    <value>Metallic/Roughness Map</value>
-  </data>
-  <data name="AmbientOcclusion" xml:space="preserve">
-    <value>Ambient Occlusion</value>
-  </data>
-  <data name="AOMap" xml:space="preserve">
-    <value>AO Map</value>
-  </data>
-  <data name="Emissive" xml:space="preserve">
-    <value>Emissive</value>
-  </data>
-  <data name="EmissiveIntensity" xml:space="preserve">
-    <value>Emissive Intensity</value>
-  </data>
-  <data name="EmissiveMap" xml:space="preserve">
-    <value>Emissive Map</value>
-  </data>
-  <data name="NormalMap" xml:space="preserve">
-    <value>Normal Map</value>
-  </data>
-  <data name="NormalMapStrength" xml:space="preserve">
-    <value>Normal Map Strength</value>
-  </data>
-  <data name="Segments" xml:space="preserve">
-    <value>Segments</value>
-  </data>
-  <data name="Rings" xml:space="preserve">
-    <value>Rings</value>
-  </data>
-  <data name="Mesh" xml:space="preserve">
-    <value>Mesh</value>
-  </data>
-  <data name="Vertices" xml:space="preserve">
-    <value>Vertices</value>
-  </data>
-  <data name="Indices" xml:space="preserve">
-    <value>Indices</value>
-  </data>
-  <data name="TextureWidth" xml:space="preserve">
-    <value>Texture Width</value>
-  </data>
-  <data name="TextureHeight" xml:space="preserve">
-    <value>Texture Height</value>
-  </data>
-  <data name="Children" xml:space="preserve">
-    <value>Children</value>
-  </data>
-  <data name="Camera" xml:space="preserve">
-    <value>Camera</value>
-  </data>
-  <data name="Objects" xml:space="preserve">
-    <value>Objects</value>
-  </data>
-  <data name="Lights" xml:space="preserve">
-    <value>Lights</value>
-  </data>
-  <data name="AmbientIntensity" xml:space="preserve">
-    <value>Ambient Intensity</value>
-  </data>
-  <data name="RenderWidth" xml:space="preserve">
-    <value>Render Width</value>
-  </data>
-  <data name="RenderHeight" xml:space="preserve">
-    <value>Render Height</value>
-  </data>
-  <data name="BackgroundColor" xml:space="preserve">
-    <value>Background Color</value>
-  </data>
-  <data name="Material" xml:space="preserve">
-    <value>Material</value>
-  </data>
-  <data name="CastShadows" xml:space="preserve">
-    <value>Cast Shadows</value>
-  </data>
-  <data name="ReceiveShadows" xml:space="preserve">
-    <value>Receive Shadows</value>
-  </data>
   <data name="Experimental" xml:space="preserve">
     <value>Experimental</value>
   </data>
@@ -2174,137 +892,8 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="NoMediaFilesFound" xml:space="preserve">
     <value>No media files found</value>
   </data>
-  <data name="TimeController" xml:space="preserve">
-    <value>Time Controller</value>
-  </data>
-  <data name="AdjustTimeRange" xml:space="preserve">
-    <value>Adjust Time Range</value>
-  </data>
-  <data name="Loop" xml:space="preserve">
-    <value>Loop</value>
-  </data>
-  <data name="Reverse" xml:space="preserve">
-    <value>Reverse</value>
-  </data>
-  <data name="HoldFirstFrame" xml:space="preserve">
-    <value>Hold First Frame</value>
-  </data>
-  <data name="HoldLastFrame" xml:space="preserve">
-    <value>Hold Last Frame</value>
-  </data>
   <data name="Tutorials" xml:space="preserve">
     <value>Tutorials</value>
-  </data>
-  <data name="ParticleEmitter" xml:space="preserve">
-    <value>Particle Emitter</value>
-  </data>
-  <data name="ParticleEmitter_EmitterGroup" xml:space="preserve">
-    <value>Emitter</value>
-  </data>
-  <data name="ParticleEmitter_Seed" xml:space="preserve">
-    <value>Seed</value>
-  </data>
-  <data name="ParticleEmitter_EmitterShape" xml:space="preserve">
-    <value>Emitter Shape</value>
-  </data>
-  <data name="ParticleEmitter_EmitterWidth" xml:space="preserve">
-    <value>Emitter Width</value>
-  </data>
-  <data name="ParticleEmitter_EmitterHeight" xml:space="preserve">
-    <value>Emitter Height</value>
-  </data>
-  <data name="ParticleEmitter_MaxParticles" xml:space="preserve">
-    <value>Max Particles</value>
-  </data>
-  <data name="ParticleEmitter_EmissionGroup" xml:space="preserve">
-    <value>Emission</value>
-  </data>
-  <data name="ParticleEmitter_EmissionRate" xml:space="preserve">
-    <value>Emission Rate</value>
-  </data>
-  <data name="ParticleEmitter_Lifetime" xml:space="preserve">
-    <value>Lifetime</value>
-  </data>
-  <data name="ParticleEmitter_LifetimeRandom" xml:space="preserve">
-    <value>Lifetime Random</value>
-  </data>
-  <data name="ParticleEmitter_VelocityGroup" xml:space="preserve">
-    <value>Velocity</value>
-  </data>
-  <data name="ParticleEmitter_Speed" xml:space="preserve">
-    <value>Speed</value>
-  </data>
-  <data name="ParticleEmitter_SpeedRandom" xml:space="preserve">
-    <value>Speed Random</value>
-  </data>
-  <data name="ParticleEmitter_Direction" xml:space="preserve">
-    <value>Direction</value>
-  </data>
-  <data name="ParticleEmitter_Spread" xml:space="preserve">
-    <value>Spread</value>
-  </data>
-  <data name="ParticleEmitter_PhysicsGroup" xml:space="preserve">
-    <value>Physics</value>
-  </data>
-  <data name="ParticleEmitter_Gravity" xml:space="preserve">
-    <value>Gravity</value>
-  </data>
-  <data name="ParticleEmitter_AirResistance" xml:space="preserve">
-    <value>Air Resistance</value>
-  </data>
-  <data name="ParticleEmitter_TurbulenceStrength" xml:space="preserve">
-    <value>Turbulence Strength</value>
-  </data>
-  <data name="ParticleEmitter_TurbulenceScale" xml:space="preserve">
-    <value>Turbulence Scale</value>
-  </data>
-  <data name="ParticleEmitter_TurbulenceSpeed" xml:space="preserve">
-    <value>Turbulence Speed</value>
-  </data>
-  <data name="ParticleEmitter_VisualGroup" xml:space="preserve">
-    <value>Visual</value>
-  </data>
-  <data name="ParticleEmitter_ParticleDrawable" xml:space="preserve">
-    <value>Particle Drawable</value>
-  </data>
-  <data name="ParticleEmitter_ParticleSize" xml:space="preserve">
-    <value>Particle Size</value>
-  </data>
-  <data name="ParticleEmitter_SizeRandom" xml:space="preserve">
-    <value>Size Random</value>
-  </data>
-  <data name="ParticleEmitter_Color" xml:space="preserve">
-    <value>Color</value>
-  </data>
-  <data name="ParticleEmitter_ParticleOpacity" xml:space="preserve">
-    <value>Particle Opacity</value>
-  </data>
-  <data name="ParticleEmitter_RotationGroup" xml:space="preserve">
-    <value>Rotation</value>
-  </data>
-  <data name="ParticleEmitter_InitialRotation" xml:space="preserve">
-    <value>Initial Rotation</value>
-  </data>
-  <data name="ParticleEmitter_InitialRotationRandom" xml:space="preserve">
-    <value>Initial Rotation Random</value>
-  </data>
-  <data name="ParticleEmitter_AngularVelocity" xml:space="preserve">
-    <value>Angular Velocity</value>
-  </data>
-  <data name="ParticleEmitter_OverLifeGroup" xml:space="preserve">
-    <value>Over Life</value>
-  </data>
-  <data name="ParticleEmitter_EndSizeMultiplier" xml:space="preserve">
-    <value>End Size Multiplier</value>
-  </data>
-  <data name="ParticleEmitter_EndOpacityMultiplier" xml:space="preserve">
-    <value>End Opacity Multiplier</value>
-  </data>
-  <data name="ParticleEmitter_EndColor" xml:space="preserve">
-    <value>End Color</value>
-  </data>
-  <data name="ParticleEmitter_UseEndColor" xml:space="preserve">
-    <value>Use End Color</value>
   </data>
   <data name="BpmGrid" xml:space="preserve">
     <value>BPM Grid</value>
@@ -2320,29 +909,5 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   </data>
   <data name="BpmOffset" xml:space="preserve">
     <value>Offset</value>
-  </data>
-  <data name="SceneSoundReference" xml:space="preserve">
-    <value>Scene Reference (Audio)</value>
-  </data>
-  <data name="SceneGraphicsReference" xml:space="preserve">
-    <value>Scene Reference (Video)</value>
-  </data>
-  <data name="PixelSort" xml:space="preserve">
-    <value>Pixel Sort</value>
-  </data>
-  <data name="SortDirection" xml:space="preserve">
-    <value>Sort Direction</value>
-  </data>
-  <data name="SortKey" xml:space="preserve">
-    <value>Sort Key</value>
-  </data>
-  <data name="ThresholdMin" xml:space="preserve">
-    <value>Threshold Min</value>
-  </data>
-  <data name="ThresholdMax" xml:space="preserve">
-    <value>Threshold Max</value>
-  </data>
-  <data name="Ascending" xml:space="preserve">
-    <value>Ascending</value>
   </data>
 </root>

@@ -113,7 +113,7 @@ public sealed class EditorSettingsPageViewModel : IDisposable
         var availableGpus = GraphicsContextFactory.GetAvailableDevices();
 
         // Build GPU list with "Auto" as first item
-        var gpuItems = new List<GpuItem> { new(null, SettingsPage.SelectedGpu_Auto) };
+        var gpuItems = new List<GpuItem> { new(null, SettingsStrings.SelectedGpu_Auto) };
         gpuItems.AddRange(availableGpus.Select(g => new GpuItem(g.Name, g.Name)));
         AvailableGpus = gpuItems;
 

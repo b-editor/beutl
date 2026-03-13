@@ -19,7 +19,7 @@
 
             <Separator />
 
-            <TextBlock Text="{x:Static lang:SettingsPage.Editor_Extension_Priority}" />
+            <TextBlock Text="{x:Static lang:SettingsStrings.Editor_Extension_Priority}" />
         </StackPanel>
 
         <ScrollViewer Grid.Row="1">
@@ -69,14 +69,14 @@
                                                          CommandParameter="{Binding}"
                                                          IconSource="ChevronUp"
                                                          IsVisible="{Binding $parent[ListBoxItem].IsPointerOver}"
-                                                         Label="{x:Static lang:SettingsPage.Higher}" />
+                                                         Label="{x:Static lang:SettingsStrings.Higher}" />
 
                                     <ui:CommandBarButton Grid.Column="2"
                                                          Command="{Binding #root.DataContext.LowPriority}"
                                                          CommandParameter="{Binding}"
                                                          IconSource="ChevronDown"
                                                          IsVisible="{Binding $parent[ListBoxItem].IsPointerOver}"
-                                                         Label="{x:Static lang:SettingsPage.Lower}" />
+                                                         Label="{x:Static lang:SettingsStrings.Lower}" />
 
                                     <ui:CommandBarButton Grid.Column="3"
                                                          Command="{Binding #root.DataContext.RemoveExt}"
@@ -90,7 +90,7 @@
                     </ListBox>
                     <TextBlock Grid.Row="2"
                                Margin="4,8,4,4"
-                               Text="{x:Static lang:SettingsPage.All_Editor_Extensions}" />
+                               Text="{x:Static lang:SettingsStrings.All_Editor_Extensions}" />
                     <ListBox Grid.Row="3" ItemsSource="{CompiledBinding EditorExtensions2}">
                         <ListBox.ItemTemplate>
                             <DataTemplate>

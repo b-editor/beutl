@@ -8,7 +8,7 @@ namespace Beutl.Graphics3D.Meshes;
 /// <summary>
 /// A procedural plane mesh on the XZ plane with Y+ normal.
 /// </summary>
-[Display(Name = nameof(Strings.PlaneMesh), ResourceType = typeof(Strings))]
+[Display(Name = nameof(GraphicsStrings.PlaneMesh), ResourceType = typeof(GraphicsStrings))]
 public sealed partial class PlaneMesh : Mesh
 {
     public PlaneMesh()
@@ -19,28 +19,28 @@ public sealed partial class PlaneMesh : Mesh
     /// <summary>
     /// Gets the width of the plane (X-axis).
     /// </summary>
-    [Display(Name = nameof(Strings.Width), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.Width), ResourceType = typeof(GraphicsStrings))]
     [Range(0.001f, float.MaxValue)]
     public IProperty<float> Width { get; } = Property.CreateAnimatable(1f);
 
     /// <summary>
     /// Gets the height of the plane (Z-axis).
     /// </summary>
-    [Display(Name = nameof(Strings.Height), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.Height), ResourceType = typeof(GraphicsStrings))]
     [Range(0.001f, float.MaxValue)]
     public IProperty<float> Height { get; } = Property.CreateAnimatable(1f);
 
     /// <summary>
     /// Gets the number of segments along the width (X-axis).
     /// </summary>
-    [Display(Name = nameof(Strings.WidthSegments), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.PlaneMesh_WidthSegments), ResourceType = typeof(GraphicsStrings))]
     [Range(1, int.MaxValue)]
     public IProperty<int> WidthSegments { get; } = Property.CreateAnimatable(1);
 
     /// <summary>
     /// Gets the number of segments along the height (Z-axis).
     /// </summary>
-    [Display(Name = nameof(Strings.HeightSegments), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.PlaneMesh_HeightSegments), ResourceType = typeof(GraphicsStrings))]
     [Range(1, int.MaxValue)]
     public IProperty<int> HeightSegments { get; } = Property.CreateAnimatable(1);
 

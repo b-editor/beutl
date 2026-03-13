@@ -69,7 +69,7 @@ public sealed class LoadSideloadExtensionTask : StartupTask
         {
             var dialog = new ContentDialog
             {
-                Title = Message.DoYouWantToLoadSideloadExtensions,
+                Title = MessageStrings.ConfirmLoadSideloadExtensions,
                 Content = new ListBox
                 {
                     ItemsSource = sideloads.Select(x => x.Name).ToArray(),

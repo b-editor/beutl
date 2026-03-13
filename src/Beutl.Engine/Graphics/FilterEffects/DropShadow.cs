@@ -5,7 +5,7 @@ using Beutl.Media;
 
 namespace Beutl.Graphics.Effects;
 
-[Display(Name = nameof(Strings.DropShadow), ResourceType = typeof(Strings))]
+[Display(Name = nameof(GraphicsStrings.DropShadow), ResourceType = typeof(GraphicsStrings))]
 public sealed partial class DropShadow : FilterEffect
 {
     public DropShadow()
@@ -13,17 +13,17 @@ public sealed partial class DropShadow : FilterEffect
         ScanProperties<DropShadow>();
     }
 
-    [Display(Name = nameof(Strings.Position), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.Position), ResourceType = typeof(GraphicsStrings))]
     public IProperty<Point> Position { get; } = Property.CreateAnimatable(new Point());
 
-    [Display(Name = nameof(Strings.Sigma), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.Sigma), ResourceType = typeof(GraphicsStrings))]
     [Range(typeof(Size), "0,0", "max,max")]
     public IProperty<Size> Sigma { get; } = Property.CreateAnimatable(Size.Empty);
 
-    [Display(Name = nameof(Strings.Color), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.Color), ResourceType = typeof(GraphicsStrings))]
     public IProperty<Color> Color { get; } = Property.CreateAnimatable(Colors.Transparent);
 
-    [Display(Name = nameof(Strings.ShadowOnly), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.ShadowOnly), ResourceType = typeof(GraphicsStrings))]
     public IProperty<bool> ShadowOnly { get; } = Property.CreateAnimatable(false);
 
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)

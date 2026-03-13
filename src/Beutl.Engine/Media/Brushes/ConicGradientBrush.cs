@@ -8,7 +8,7 @@ namespace Beutl.Media;
 /// <summary>
 /// Paints an area with a swept circular gradient.
 /// </summary>
-[Display(Name = nameof(Strings.Brush_ConicalGradient), ResourceType = typeof(Strings))]
+[Display(Name = nameof(GraphicsStrings.ConicGradientBrush), ResourceType = typeof(GraphicsStrings))]
 public sealed partial class ConicGradientBrush : GradientBrush
 {
     public ConicGradientBrush()
@@ -19,12 +19,12 @@ public sealed partial class ConicGradientBrush : GradientBrush
     /// <summary>
     /// Gets or sets the center point of the gradient.
     /// </summary>
-    [Display(Name = nameof(Strings.Center), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.ConicGradientBrush_Center), ResourceType = typeof(GraphicsStrings))]
     public IProperty<RelativePoint> Center { get; } = Property.CreateAnimatable(RelativePoint.Center);
 
     /// <summary>
     /// Gets or sets the angle of the start and end of the sweep, measured from above the center point.
     /// </summary>
-    [Display(Name = nameof(Strings.Angle), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.Angle), ResourceType = typeof(GraphicsStrings))]
     public IProperty<float> Angle { get; } = Property.CreateAnimatable(0f);
 }

@@ -7,7 +7,7 @@ using SkiaSharp;
 
 namespace Beutl.Graphics.Effects;
 
-[Display(Name = nameof(Strings.Clipping), ResourceType = typeof(Strings))]
+[Display(Name = nameof(GraphicsStrings.Clipping), ResourceType = typeof(GraphicsStrings))]
 public sealed partial class Clipping : FilterEffect
 {
     public Clipping()
@@ -15,22 +15,22 @@ public sealed partial class Clipping : FilterEffect
         ScanProperties<Clipping>();
     }
 
-    [Display(Name = nameof(Strings.Left), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.Clipping_Left), ResourceType = typeof(GraphicsStrings))]
     public IProperty<float> Left { get; } = Property.CreateAnimatable<float>();
 
-    [Display(Name = nameof(Strings.Top), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.Clipping_Top), ResourceType = typeof(GraphicsStrings))]
     public IProperty<float> Top { get; } = Property.CreateAnimatable<float>();
 
-    [Display(Name = nameof(Strings.Right), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.Clipping_Right), ResourceType = typeof(GraphicsStrings))]
     public IProperty<float> Right { get; } = Property.CreateAnimatable<float>();
 
-    [Display(Name = nameof(Strings.Bottom), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.Clipping_Bottom), ResourceType = typeof(GraphicsStrings))]
     public IProperty<float> Bottom { get; } = Property.CreateAnimatable<float>();
 
-    [Display(Name = nameof(Strings.AutomaticCentering), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.Clipping_AutoCenter), ResourceType = typeof(GraphicsStrings))]
     public IProperty<bool> AutoCenter { get; } = Property.CreateAnimatable(false);
 
-    [Display(Name = nameof(Strings.ClipTransparentArea), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.Clipping_AutoClip), ResourceType = typeof(GraphicsStrings))]
     public IProperty<bool> AutoClip { get; } = Property.CreateAnimatable(false);
 
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)

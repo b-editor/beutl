@@ -35,7 +35,7 @@ public sealed class CheckForUpdatesTask : StartupTask
                     {
                         _logger.LogInformation("A new version is available: {VersionUrl}", v1.Url);
                         NotificationService.ShowInformation(
-                            Message.A_new_version_is_available,
+                            MessageStrings.NewVersionAvailable,
                             v1.Url,
                             onActionButtonClick: () =>
                             {
@@ -55,8 +55,8 @@ public sealed class CheckForUpdatesTask : StartupTask
                     {
                         _logger.LogInformation("A new version is available: {DownloadUrl}", v3.DownloadUrl);
                         NotificationService.ShowInformation(
-                            Message.A_new_version_is_available,
-                            message: Message.Do_you_want_to_install,
+                            MessageStrings.NewVersionAvailable,
+                            message: MessageStrings.ConfirmInstall,
                             onActionButtonClick: () =>
                             {
                                 var viewModel = new UpdateDialogViewModel(v3);
@@ -65,7 +65,7 @@ public sealed class CheckForUpdatesTask : StartupTask
                                 viewModel.Start();
                             },
                             // TODO: Stringsに移動
-                            actionButtonText: ExtensionsPage.Install);
+                            actionButtonText: ExtensionsStrings.Install);
                     }
                     else if (v3.MustLatest)
                     {
@@ -107,8 +107,8 @@ public sealed class CheckForUpdatesTask : StartupTask
         {
             var dialog = new ContentDialog
             {
-                Title = Message.Must_upgrade_for_continued_use,
-                Content = Message.This_version_has_been_discontinued_for_compatibility_reasonsversion,
+                Title = MessageStrings.UpgradeRequired,
+                Content = MessageStrings.VersionDiscontinued,
                 PrimaryButtonText = Strings.Yes,
                 CloseButtonText = Strings.No,
             };

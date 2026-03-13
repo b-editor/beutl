@@ -4,7 +4,7 @@ using Beutl.Language;
 
 namespace Beutl.Graphics.Effects;
 
-[Display(Name = nameof(Strings.Blur), ResourceType = typeof(Strings))]
+[Display(Name = nameof(GraphicsStrings.Blur), ResourceType = typeof(GraphicsStrings))]
 public sealed partial class Blur : FilterEffect
 {
     public Blur()
@@ -12,7 +12,7 @@ public sealed partial class Blur : FilterEffect
         ScanProperties<Blur>();
     }
 
-    [Display(Name = nameof(Strings.Sigma), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.Sigma), ResourceType = typeof(GraphicsStrings))]
     [Range(typeof(Size), "0,0", "max,max")]
     public IProperty<Size> Sigma { get; } = Property.CreateAnimatable(Size.Empty);
 

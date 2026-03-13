@@ -129,8 +129,8 @@ public sealed partial class MainView : UserControl
                 {
                     var dialog = new ContentDialog
                     {
-                        Title = Message.CheckDifferentVersion_Title,
-                        Content = Message.CheckDifferentVersion_Content,
+                        Title = MessageStrings.CheckDifferentVersion_Title,
+                        Content = MessageStrings.CheckDifferentVersion_Content,
                         PrimaryButtonText = Strings.Close
                     };
                     await dialog.ShowAsync();
@@ -223,9 +223,9 @@ public sealed partial class MainView : UserControl
                     else
                     {
                         NotificationService.ShowInformation(
-                            title: Message.ContextNotCreated,
+                            title: MessageStrings.ContextNotCreated,
                             message: string.Format(
-                                format: Message.CouldNotOpenFollowingFileWithExtension,
+                                format: MessageStrings.FailedToOpenFileWithExtension,
                                 arg0: editorExtension.DisplayName,
                                 arg1: selectedTab.FileName.Value));
                     }

@@ -122,7 +122,7 @@ public partial class PlayerView
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to save selected element as image.");
-                NotificationService.ShowError(Message.Failed_to_save_image, ex.Message);
+                NotificationService.ShowError(MessageStrings.FailedToSaveImage, ex.Message);
             }
         }
     }
@@ -149,7 +149,7 @@ public partial class PlayerView
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to save frame as image.");
-                NotificationService.ShowError(Message.Failed_to_save_image, ex.Message);
+                NotificationService.ShowError(MessageStrings.FailedToSaveImage, ex.Message);
             }
         }
     }

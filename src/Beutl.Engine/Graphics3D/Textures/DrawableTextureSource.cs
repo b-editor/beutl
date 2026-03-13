@@ -8,7 +8,7 @@ using Beutl.Media;
 
 namespace Beutl.Graphics3D.Textures;
 
-[Display(Name = nameof(Strings.DrawableTextureSource), ResourceType = typeof(Strings))]
+[Display(Name = nameof(GraphicsStrings.DrawableTextureSource), ResourceType = typeof(GraphicsStrings))]
 public sealed partial class DrawableTextureSource : TextureSource
 {
     public DrawableTextureSource()
@@ -16,14 +16,14 @@ public sealed partial class DrawableTextureSource : TextureSource
         ScanProperties<DrawableTextureSource>();
     }
 
-    [Display(Name = nameof(Strings.Drawable), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.Drawable), ResourceType = typeof(GraphicsStrings))]
     public IProperty<Drawable?> Drawable { get; } = Property.Create<Drawable?>(null);
 
-    [Display(Name = nameof(Strings.TextureWidth), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.DrawableTextureSource_TextureWidth), ResourceType = typeof(GraphicsStrings))]
     [Range(1, 8192)]
     public IProperty<int> TextureWidth { get; } = Property.CreateAnimatable(256);
 
-    [Display(Name = nameof(Strings.TextureHeight), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.DrawableTextureSource_TextureHeight), ResourceType = typeof(GraphicsStrings))]
     [Range(1, 8192)]
     public IProperty<int> TextureHeight { get; } = Property.CreateAnimatable(256);
 

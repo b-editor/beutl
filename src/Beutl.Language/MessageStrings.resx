@@ -1,0 +1,361 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:element name="root" msdata:IsDataSet="true">
+
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>1.3</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="ItemsSaved" xml:space="preserve">
+    <value>{0} items saved.</value>
+  </data>
+  <data name="ItemSaved" xml:space="preserve">
+    <value>{0} was saved.</value>
+  </data>
+  <data name="OperationFailed" xml:space="preserve">
+    <value>The operation could not be executed.</value>
+  </data>
+  <data name="OperationCompletedSuccessfully" xml:space="preserve">
+    <value>The operation completed successfully.</value>
+  </data>
+  <data name="ConfirmDeleteDirectory" xml:space="preserve">
+    <value>Do you want to delete this directory?</value>
+  </data>
+  <data name="ConfirmDeleteFile" xml:space="preserve">
+    <value>Do you want to delete this file?</value>
+  </data>
+  <data name="ConfirmExcludeItem" xml:space="preserve">
+    <value>Do you want to exclude this item from the project?</value>
+  </data>
+  <data name="FailedToOpenFileWithExtension" xml:space="preserve">
+    <value>Could not open the following file with '{0}'.
+'{1}'</value>
+  </data>
+  <data name="CannotDisplayContext" xml:space="preserve">
+    <value>Cannot display this context.</value>
+  </data>
+  <data name="ContextNotCreated" xml:space="preserve">
+    <value>Context not created.</value>
+  </data>
+  <data name="EditorContextAlreadyCreated" xml:space="preserve">
+    <value>The editor context has already been created.</value>
+  </data>
+  <data name="EditorContextNull" xml:space="preserve">
+    <value>Null was specified for the editor context.</value>
+  </data>
+  <data name="InputRequired" xml:space="preserve">
+    <value>Please enter a string.</value>
+  </data>
+  <data name="InvalidString" xml:space="preserve">
+    <value>Invalid string.</value>
+  </data>
+  <data name="MultipleTypesAvailable" xml:space="preserve">
+    <value>Multiple types are available.</value>
+  </data>
+  <data name="AnimationIsEnabled" xml:space="preserve">
+    <value>Animation is enabled</value>
+  </data>
+  <data name="AlreadyExists" xml:space="preserve">
+    <value>It already exists.</value>
+  </data>
+  <data name="ValueLessThanOrEqualToZero" xml:space="preserve">
+    <value>Cannot specify a value less than or equal to 0.</value>
+  </data>
+  <data name="ValueLessThanZero" xml:space="preserve">
+    <value>Cannot specify a value less than to 0.</value>
+  </data>
+  <data name="RenameConflict" xml:space="preserve">
+    <value>Cannot rename from "{0}" to "{1}"
+because the new name conflicts with an existing folder.</value>
+  </data>
+  <data name="FileDoesNotExist" xml:space="preserve">
+    <value>File does not exist.</value>
+  </data>
+  <data name="FailedToOpenProject" xml:space="preserve">
+    <value>Could not open project.</value>
+  </data>
+  <data name="ApiErrorOccurred" xml:space="preserve">
+    <value>API error occurred.</value>
+  </data>
+  <data name="UnexpectedError" xml:space="preserve">
+    <value>An unexpected error has occurred.</value>
+  </data>
+  <data name="ConfirmLoadSideloadExtensions" xml:space="preserve">
+    <value>Do you want to load sideload extensions?</value>
+  </data>
+  <data name="UnableToSaveFile" xml:space="preserve">
+    <value>Unable to save file.</value>
+  </data>
+  <data name="FailedToLoadPackage" xml:space="preserve">
+    <value>Failed to load package.</value>
+  </data>
+  <data name="FailedToLoadNPackages" xml:space="preserve">
+    <value>Failed to load {0} packages.</value>
+  </data>
+  <data name="AudioPlaybackException" xml:space="preserve">
+    <value>An exception occurred during audio playback.</value>
+  </data>
+  <data name="FrameDrawingException" xml:space="preserve">
+    <value>An exception occurred while drawing the frame.</value>
+  </data>
+  <data name="OutputException" xml:space="preserve">
+    <value>An exception occurred during output.</value>
+  </data>
+  <data name="RestrictedModePrompt" xml:space="preserve">
+    <value>It seems that an error occurred and the program terminated last time.
+Do you want to run in restricted mode because the cause is unknown?
+
+Restricted mode does not load extensions.</value>
+  </data>
+  <data name="PreviousSessionErrorTitle" xml:space="preserve">
+    <value>Looks like it ended with an error last time.</value>
+  </data>
+  <data name="PackageChangesInProgress" xml:space="preserve">
+    <value>Changes to the package are in progress.</value>
+  </data>
+  <data name="OpeningBeutl" xml:space="preserve">
+    <value>Opening Beutl</value>
+  </data>
+  <data name="ClosePackageToolsToOpenBeutl" xml:space="preserve">
+    <value>To open Beutl, close Beutl.PackageTools.</value>
+  </data>
+  <data name="NewVersionAvailable" xml:space="preserve">
+    <value>A new version is available.</value>
+  </data>
+  <data name="RestoreFailedTypeNotFound" xml:space="preserve">
+    <value>Could not restore because the type could not be found.</value>
+  </data>
+  <data name="RestoreFailedDeserializationError" xml:space="preserve">
+    <value>Could not restore because an exception occurred during deserialization.</value>
+  </data>
+  <data name="UpgradeRequired" xml:space="preserve">
+    <value>Must upgrade for continued use</value>
+  </data>
+  <data name="VersionDiscontinued" xml:space="preserve">
+    <value>This version has been discontinued for compatibility reasons. Please upgrade to a newer version.</value>
+  </data>
+  <data name="DoubleClickToHideGroup" xml:space="preserve">
+    <value>Double-click to hide group</value>
+  </data>
+  <data name="NoSupportedExtensionsFound" xml:space="preserve">
+    <value>No supported extensions were found</value>
+  </data>
+  <data name="PropertyUnset" xml:space="preserve">
+    <value>Property is unset.</value>
+  </data>
+  <data name="RightClickToShowMenu" xml:space="preserve">
+    <value>Right-click to show menu</value>
+  </data>
+  <data name="FailedToSaveImage" xml:space="preserve">
+    <value>Failed to save image.</value>
+  </data>
+  <data name="OpeningProject" xml:space="preserve">
+    <value>Opening a project</value>
+  </data>
+  <data name="PleaseWaitAMoment" xml:space="preserve">
+    <value>Please wait a moment.</value>
+  </data>
+  <data name="OpeningProjectMessage" xml:space="preserve">
+    <value>Opening '{0}'.
+Please wait a moment.</value>
+  </data>
+  <data name="FileSaveException" xml:space="preserve">
+    <value>An exception occurred while saving the file.</value>
+  </data>
+  <data name="FilesAutoSaved" xml:space="preserve">
+    <value>Files are saved automatically.</value>
+  </data>
+  <data name="SvgPathParsingException" xml:space="preserve">
+    <value>An exception occurred while parsing the SVG path.</value>
+  </data>
+  <data name="SigninInvalid" xml:space="preserve">
+    <value>Sign-in has become invalid. Please sign in again.</value>
+  </data>
+  <data name="FileNotSelected" xml:space="preserve">
+    <value>File is not selected</value>
+  </data>
+  <data name="CheckDifferentVersion_Title" xml:space="preserve">
+    <value>Opening a file that was opened in a previous version may result in file corruption.</value>
+  </data>
+  <data name="CheckDifferentVersion_Content" xml:space="preserve">
+    <value>You are running on a different version than last time.</value>
+  </data>
+  <data name="ProjectVersionMismatch_Title" xml:space="preserve">
+    <value>Version Mismatch</value>
+  </data>
+  <data name="ProjectVersionMismatch_Content" xml:space="preserve">
+    <value>The project was created with a newer version of Beutl (&gt;= {0}). Please update Beutl to open the project.</value>
+  </data>
+  <data name="FailedToLoadMetadata" xml:space="preserve">
+    <value>Failed to retrieve metadata.</value>
+  </data>
+  <data name="DownloadFailed" xml:space="preserve">
+    <value>Download failed.</value>
+  </data>
+  <data name="FailedToLoadScript" xml:space="preserve">
+    <value>Failed to load script.</value>
+  </data>
+  <data name="ApplicationRestartRequired" xml:space="preserve">
+    <value>The application needs to be restarted.
+Do you want to restart the application?</value>
+  </data>
+  <data name="StartInstaller" xml:space="preserve">
+    <value>Start the installer,</value>
+  </data>
+  <data name="Downloading" xml:space="preserve">
+    <value>Downloading...</value>
+  </data>
+  <data name="DownloadComplete" xml:space="preserve">
+    <value>Download is complete.</value>
+  </data>
+  <data name="Canceled" xml:space="preserve">
+    <value>Canceled.</value>
+  </data>
+  <data name="Extracting" xml:space="preserve">
+    <value>Extracting...</value>
+  </data>
+  <data name="ExtractionComplete" xml:space="preserve">
+    <value>Extraction is complete.</value>
+  </data>
+  <data name="ScriptErrorTerminated" xml:space="preserve">
+    <value>An error has occurred. Terminate script.</value>
+  </data>
+  <data name="PressEnterToContinue" xml:space="preserve">
+    <value>Press Enter to continue...</value>
+  </data>
+  <data name="UpdateDirectoryNotFound" xml:space="preserve">
+    <value>Error: Update directory does not exist.</value>
+  </data>
+  <data name="ExitApplication" xml:space="preserve">
+    <value>Exit the application (Beutl).</value>
+  </data>
+  <data name="PressEnterWhenFinished" xml:space="preserve">
+    <value>Press the Enter key when finished.</value>
+  </data>
+  <data name="AcquiringLock" xml:space="preserve">
+    <value>Getting a lock...</value>
+  </data>
+  <data name="LockAcquired" xml:space="preserve">
+    <value>Lock acquired.</value>
+  </data>
+  <data name="FailedToAcquireLock" xml:space="preserve">
+    <value>Failed to acquire lock.</value>
+  </data>
+  <data name="CreatingBackup" xml:space="preserve">
+    <value>Create backup of current application:</value>
+  </data>
+  <data name="FailedToCreateBackup" xml:space="preserve">
+    <value>Failed to create backup.</value>
+  </data>
+  <data name="UpdatingFiles" xml:space="preserve">
+    <value>Updating files in place...</value>
+  </data>
+  <data name="UpdateFailedRestoringBackup" xml:space="preserve">
+    <value>Update placement failed. Restore backup...</value>
+  </data>
+  <data name="UpdateCompleted" xml:space="preserve">
+    <value>The update has been completed.</value>
+  </data>
+  <data name="LockReleased" xml:space="preserve">
+    <value>Unlocked.</value>
+  </data>
+  <data name="UpdateCompletedLaunchPrompt" xml:space="preserve">
+    <value>Update completed. Do you want to start the application? (y/n):</value>
+  </data>
+  <data name="LaunchingApplication" xml:space="preserve">
+    <value>Launch the application...</value>
+  </data>
+  <data name="FailedToChangePermissions" xml:space="preserve">
+    <value>Failed to change application execution permissions.</value>
+  </data>
+  <data name="ApplicationPathNotSpecified" xml:space="preserve">
+    <value>The application execution path is not specified.</value>
+  </data>
+  <data name="ApplicationNotLaunched" xml:space="preserve">
+    <value>The application was not launched.</value>
+  </data>
+  <data name="ClickOkAfterCompletion" xml:space="preserve">
+    <value>Click OK after completion</value>
+  </data>
+  <data name="UpdateCompletedLaunchConfirm" xml:space="preserve">
+    <value>Update completed. Do you want to start the ߋn application?</value>
+  </data>
+  <data name="FailedToRestoreBackup" xml:space="preserve">
+    <value>Failed to restore backup.</value>
+  </data>
+  <data name="FailedToDeleteBackup" xml:space="preserve">
+    <value>Failed to delete backup.</value>
+  </data>
+  <data name="ConfirmInstall" xml:space="preserve">
+    <value>Do you want to install?
+(The update function is an experimental feature.)</value>
+  </data>
+  <data name="ExpressionIsSet" xml:space="preserve">
+    <value>Expression is set</value>
+  </data>
+  <data name="PackageUpdatesAvailable" xml:space="preserve">
+    <value>Package updates are available.</value>
+  </data>
+  <data name="PackagesCanBeUpdated" xml:space="preserve">
+    <value>{0} package(s) can be updated.</value>
+  </data>
+  <data name="IsNotValid" xml:space="preserve">
+    <value>{0} is not a valid.</value>
+  </data>
+  <data name="InvalidJson" xml:space="preserve">
+    <value>Invalid Json.</value>
+  </data>
+  <data name="ColorGradingMissing" xml:space="preserve">
+    <value>No Color Grading effect is selected.</value>
+  </data>
+  <data name="ColorCurvesMissing" xml:space="preserve">
+    <value>No Color Curves effect is selected.</value>
+  </data>
+  <data name="FailedToCopyKeyframe" xml:space="preserve">
+    <value>Failed to copy keyframe</value>
+  </data>
+  <data name="FailedToPasteKeyframe" xml:space="preserve">
+    <value>Failed to paste keyframe</value>
+  </data>
+  <data name="FailedToCopyAnimation" xml:space="preserve">
+    <value>Failed to copy animation</value>
+  </data>
+  <data name="InvalidKeyframeDataFormat" xml:space="preserve">
+    <value>Invalid keyframe data format.</value>
+  </data>
+  <data name="InvalidKeyframeDataFormat_MissingType" xml:space="preserve">
+    <value>Invalid keyframe data format. missing $type.</value>
+  </data>
+  <data name="InvalidKeyframeDataFormat_TypeIsNotKeyFrame" xml:space="preserve">
+    <value>Invalid keyframe data format. $type is not KeyFrame.</value>
+  </data>
+  <data name="KeyframePropertyTypeMismatch_EasingApplied" xml:space="preserve">
+    <value>The property type of the pasted keyframe does not match. Only the easing is applied.</value>
+  </data>
+  <data name="InvalidJSON_MissingType" xml:space="preserve">
+    <value>Invalid JSON: missing $type</value>
+  </data>
+  <data name="InvalidJSON_TypeIsNotKeyFrameAnimation" xml:space="preserve">
+    <value>Invalid JSON: $type is not a KeyFrameAnimation</value>
+  </data>
+  <data name="InvalidJSON_TypeIsNotKeyFrame" xml:space="preserve">
+    <value>Invalid JSON: $type is not a KeyFrame</value>
+  </data>
+  <data name="AnimationPropertyTypeMismatch" xml:space="preserve">
+    <value>The property type of the pasted animation does not match. (Expected: {0}, Actual: {1})</value>
+  </data>
+  <data name="KeyframeExistsAtPastePosition" xml:space="preserve">
+    <value>A keyframe already exists at the paste position. The easing and value have been updated.</value>
+  </data>
+</root>

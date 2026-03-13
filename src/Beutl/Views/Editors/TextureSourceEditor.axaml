@@ -32,11 +32,11 @@
                             <ui:RadioMenuFlyoutItem Click="ChangeTextureSourceType"
                                                     IsChecked="{Binding IsImageTextureSource.Value, Mode=OneWay}"
                                                     Tag="Image"
-                                                    Text="{x:Static lang:Strings.Image}" />
+                                                    Text="{x:Static lang:GraphicsStrings.ImageTextureSource}" />
                             <ui:RadioMenuFlyoutItem Click="ChangeTextureSourceType"
                                                     IsChecked="{Binding IsDrawableTextureSource.Value, Mode=OneWay}"
                                                     Tag="Drawable"
-                                                    Text="{x:Static lang:Strings.Drawable}" />
+                                                    Text="{x:Static lang:GraphicsStrings.DrawableTextureSource}" />
                             <ui:RadioMenuFlyoutItem Click="ChangeTextureSourceType"
                                                     IsChecked="{Binding !Value.Value, Mode=OneWay}"
                                                     Tag="Null"
@@ -53,7 +53,7 @@
                            Grid.Row="1"
                            LineBrush="{DynamicResource TreeLineBrush}">
             <Panel>
-                <TextBlock IsVisible="{Binding Value.Value, Converter={x:Static ObjectConverters.IsNull}}" Text="{x:Static lang:Message.Property_is_unset}" />
+                <TextBlock IsVisible="{Binding Value.Value, Converter={x:Static ObjectConverters.IsNull}}" Text="{x:Static lang:MessageStrings.PropertyUnset}" />
 
                 <local:PropertiesEditor Padding="0"
                                         DataContext="{Binding ChildContext.Value}"

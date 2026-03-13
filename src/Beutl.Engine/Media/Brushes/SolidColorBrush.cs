@@ -7,7 +7,7 @@ namespace Beutl.Media;
 /// <summary>
 /// Fills an area with a solid color.
 /// </summary>
-[Display(Name = nameof(Strings.Brush_Solid), ResourceType = typeof(Strings))]
+[Display(Name = nameof(GraphicsStrings.SolidColorBrush), ResourceType = typeof(GraphicsStrings))]
 public partial class SolidColorBrush : Brush
 {
     /// <summary>
@@ -41,6 +41,6 @@ public partial class SolidColorBrush : Brush
     /// <summary>
     /// Gets or sets the color of the brush.
     /// </summary>
-    [Display(Name = nameof(Strings.Color), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.Color), ResourceType = typeof(GraphicsStrings))]
     public IProperty<Color> Color { get; } = Property.CreateAnimatable<Color>();
 }

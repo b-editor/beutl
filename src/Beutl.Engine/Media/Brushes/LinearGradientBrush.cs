@@ -8,7 +8,7 @@ namespace Beutl.Media;
 /// <summary>
 /// A brush that draws with a linear gradient.
 /// </summary>
-[Display(Name = nameof(Strings.Brush_LinearGradient), ResourceType = typeof(Strings))]
+[Display(Name = nameof(GraphicsStrings.LinearGradientBrush), ResourceType = typeof(GraphicsStrings))]
 public sealed partial class LinearGradientBrush : GradientBrush
 {
     public LinearGradientBrush()
@@ -19,12 +19,12 @@ public sealed partial class LinearGradientBrush : GradientBrush
     /// <summary>
     /// Gets or sets the start point for the gradient.
     /// </summary>
-    [Display(Name = nameof(Strings.StartPoint), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.LinearGradientBrush_StartPoint), ResourceType = typeof(GraphicsStrings))]
     public IProperty<RelativePoint> StartPoint { get; } = Property.CreateAnimatable(RelativePoint.TopLeft);
 
     /// <summary>
     /// Gets or sets the end point for the gradient.
     /// </summary>
-    [Display(Name = nameof(Strings.EndPoint), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.EndPoint), ResourceType = typeof(GraphicsStrings))]
     public IProperty<RelativePoint> EndPoint { get; } = Property.CreateAnimatable(RelativePoint.BottomRight);
 }

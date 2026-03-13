@@ -153,7 +153,7 @@ public sealed class EngineObjectPropertyViewModel : IDisposable, IPropertyEditor
         int index = element.Objects.IndexOf(Model);
         if (index < 0) return;
 
-        string message = Strings.InvalidJson;
+        string message = MessageStrings.InvalidJson;
         _ = str ?? throw new Exception(message);
         JsonObject json = (JsonNode.Parse(str) as JsonObject) ?? throw new Exception(message);
 

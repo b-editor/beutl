@@ -56,7 +56,7 @@ public partial class FallbackObjectView : UserControl
             catch (Exception ex)
             {
                 _logger.LogError(ex, "An exception has occurred.");
-                NotificationService.ShowError(Message.OperationCouldNotBeExecuted, ex.Message);
+                NotificationService.ShowError(MessageStrings.OperationFailed, ex.Message);
             }
         }
     }

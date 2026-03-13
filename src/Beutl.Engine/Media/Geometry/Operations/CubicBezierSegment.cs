@@ -5,7 +5,7 @@ using Beutl.Language;
 
 namespace Beutl.Media;
 
-[Display(Name = nameof(Strings.CubicBezierCurve), ResourceType = typeof(Strings))]
+[Display(Name = nameof(GraphicsStrings.CubicBezierSegment), ResourceType = typeof(GraphicsStrings))]
 public sealed partial class CubicBezierSegment : PathSegment
 {
     public CubicBezierSegment()
@@ -20,13 +20,13 @@ public sealed partial class CubicBezierSegment : PathSegment
         EndPoint.CurrentValue = endPoint;
     }
 
-    [Display(Name = nameof(Strings.ControlPoint1), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.CubicBezierSegment_ControlPoint1), ResourceType = typeof(GraphicsStrings))]
     public IProperty<Point> ControlPoint1 { get; } = Property.CreateAnimatable<Point>();
 
-    [Display(Name = nameof(Strings.ControlPoint2), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.CubicBezierSegment_ControlPoint2), ResourceType = typeof(GraphicsStrings))]
     public IProperty<Point> ControlPoint2 { get; } = Property.CreateAnimatable<Point>();
 
-    [Display(Name = nameof(Strings.EndPoint), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.EndPoint), ResourceType = typeof(GraphicsStrings))]
     public IProperty<Point> EndPoint { get; } = Property.CreateAnimatable<Point>();
 
     public override void ApplyTo(IGeometryContext context, PathSegment.Resource resource)

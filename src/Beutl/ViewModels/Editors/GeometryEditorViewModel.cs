@@ -25,7 +25,7 @@ public sealed class GeometryEditorViewModel : ValueEditorViewModel<Geometry?>, I
             .DisposeWith(Disposables);
 
         FallbackMessage = Value.Select(FallbackHelper.GetFallbackMessage)
-            .ToReadOnlyReactivePropertySlim(Message.Could_not_restore_because_type_could_not_be_found)
+            .ToReadOnlyReactivePropertySlim(MessageStrings.RestoreFailedTypeNotFound)
             .DisposeWith(Disposables);
 
         IsGroup = Value.Select(v => v is PathGeometry)
@@ -105,7 +105,7 @@ public sealed class GeometryEditorViewModel : ValueEditorViewModel<Geometry?>, I
 
     public void SetJsonString(string? str)
     {
-        string message = Strings.InvalidJson;
+        string message = MessageStrings.InvalidJson;
         _ = str ?? throw new Exception(message);
         JsonObject json = (JsonNode.Parse(str) as JsonObject) ?? throw new Exception(message);
 

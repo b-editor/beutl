@@ -108,7 +108,7 @@ public partial class GeometryEditor : UserControl
             if (string.IsNullOrWhiteSpace(path))
             {
                 _logger.LogWarning("SVG path is empty.");
-                NotificationService.ShowWarning(Strings.ImportSvgPath, Message.PleaseEnterString);
+                NotificationService.ShowWarning(Strings.ImportSvgPath, MessageStrings.InputRequired);
                 return;
             }
 
@@ -122,7 +122,7 @@ public partial class GeometryEditor : UserControl
             {
                 _logger.LogError(ex, "An exception occurred while parsing the SVG path.");
                 NotificationService.ShowError(
-                    Message.An_exception_occurred_while_parsing_the_SVG_path,
+                    MessageStrings.SvgPathParsingException,
                     ex.Message);
             }
         }

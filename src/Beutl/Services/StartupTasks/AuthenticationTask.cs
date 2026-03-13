@@ -35,10 +35,10 @@ public sealed class AuthenticationTask : StartupTask
                             {
                                 _beutlApiApplication.SignOut();
                                 NotificationService.ShowError(
-                                    Strings.Account,
-                                    Message.Signin_has_become_invalid,
+                                    SettingsStrings.Account,
+                                    MessageStrings.SigninInvalid,
                                     onActionButtonClick: () => _ = _beutlApiApplication.SignInAsync(default),
-                                    actionButtonText: SettingsPage.SignIn);
+                                    actionButtonText: SettingsStrings.SignIn);
                             }
                         }
                         catch (Exception ex)

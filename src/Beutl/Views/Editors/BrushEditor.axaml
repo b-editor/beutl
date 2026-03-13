@@ -56,31 +56,31 @@
                                 <ui:RadioMenuFlyoutItem Click="ChangeBrushType"
                                                         IsChecked="{Binding IsSolid.Value, Mode=OneWay}"
                                                         Tag="Solid"
-                                                        Text="{x:Static lang:Strings.Brush_Solid}" />
+                                                        Text="{x:Static lang:GraphicsStrings.SolidColorBrush}" />
                                 <ui:RadioMenuFlyoutItem Click="ChangeBrushType"
                                                         IsChecked="{Binding IsLinearGradient.Value, Mode=OneWay}"
                                                         Tag="LinearGradient"
-                                                        Text="{x:Static lang:Strings.Brush_LinearGradient}" />
+                                                        Text="{x:Static lang:GraphicsStrings.LinearGradientBrush}" />
                                 <ui:RadioMenuFlyoutItem Click="ChangeBrushType"
                                                         IsChecked="{Binding IsConicGradient.Value, Mode=OneWay}"
                                                         Tag="ConicGradient"
-                                                        Text="{x:Static lang:Strings.Brush_ConicalGradient}" />
+                                                        Text="{x:Static lang:GraphicsStrings.ConicGradientBrush}" />
                                 <ui:RadioMenuFlyoutItem Click="ChangeBrushType"
                                                         IsChecked="{Binding IsRadialGradient.Value, Mode=OneWay}"
                                                         Tag="RadialGradient"
-                                                        Text="{x:Static lang:Strings.Brush_RadialGradient}" />
+                                                        Text="{x:Static lang:GraphicsStrings.RadialGradientBrush}" />
                                 <ui:RadioMenuFlyoutItem Click="ChangeBrushType"
                                                         IsChecked="{Binding IsPerlinNoise.Value, Mode=OneWay}"
                                                         Tag="PerlinNoise"
-                                                        Text="{x:Static lang:Strings.Brush_PerlinNoise}" />
+                                                        Text="{x:Static lang:GraphicsStrings.PerlinNoiseBrush}" />
                                 <ui:RadioMenuFlyoutItem Click="ChangeBrushType"
                                                         IsChecked="{Binding IsDrawable.Value, Mode=OneWay}"
                                                         Tag="Drawable"
-                                                        Text="{x:Static lang:Strings.Drawable}" />
+                                                        Text="{x:Static lang:GraphicsStrings.Drawable}" />
                                 <ui:RadioMenuFlyoutItem Click="ChangeBrushType"
                                                         IsChecked="{Binding IsPresenter.Value, Mode=OneWay}"
                                                         Tag="Presenter"
-                                                        Text="{x:Static lang:Strings.Presenter}" />
+                                                        Text="{x:Static lang:GraphicsStrings.Presenter}" />
                                 <ui:RadioMenuFlyoutItem Click="ChangeBrushType"
                                                         IsChecked="{Binding !Value.Value, Mode=OneWay}"
                                                         Tag="Null"
@@ -107,31 +107,31 @@
                             <ui:RadioMenuFlyoutItem Click="ChangeBrushType"
                                                     IsChecked="{Binding IsSolid.Value, Mode=OneWay}"
                                                     Tag="Solid"
-                                                    Text="{x:Static lang:Strings.Brush_Solid}" />
+                                                    Text="{x:Static lang:GraphicsStrings.SolidColorBrush}" />
                             <ui:RadioMenuFlyoutItem Click="ChangeBrushType"
                                                     IsChecked="{Binding IsLinearGradient.Value, Mode=OneWay}"
                                                     Tag="LinearGradient"
-                                                    Text="{x:Static lang:Strings.Brush_LinearGradient}" />
+                                                    Text="{x:Static lang:GraphicsStrings.LinearGradientBrush}" />
                             <ui:RadioMenuFlyoutItem Click="ChangeBrushType"
                                                     IsChecked="{Binding IsConicGradient.Value, Mode=OneWay}"
                                                     Tag="ConicGradient"
-                                                    Text="{x:Static lang:Strings.Brush_ConicalGradient}" />
+                                                    Text="{x:Static lang:GraphicsStrings.ConicGradientBrush}" />
                             <ui:RadioMenuFlyoutItem Click="ChangeBrushType"
                                                     IsChecked="{Binding IsRadialGradient.Value, Mode=OneWay}"
                                                     Tag="RadialGradient"
-                                                    Text="{x:Static lang:Strings.Brush_RadialGradient}" />
+                                                    Text="{x:Static lang:GraphicsStrings.RadialGradientBrush}" />
                             <ui:RadioMenuFlyoutItem Click="ChangeBrushType"
                                                     IsChecked="{Binding IsPerlinNoise.Value, Mode=OneWay}"
                                                     Tag="PerlinNoise"
-                                                    Text="{x:Static lang:Strings.Brush_PerlinNoise}" />
+                                                    Text="{x:Static lang:GraphicsStrings.PerlinNoiseBrush}" />
                             <ui:RadioMenuFlyoutItem Click="ChangeBrushType"
                                                     IsChecked="{Binding IsDrawable.Value, Mode=OneWay}"
                                                     Tag="Drawable"
-                                                    Text="{x:Static lang:Strings.Drawable}" />
+                                                    Text="{x:Static lang:GraphicsStrings.Drawable}" />
                             <ui:RadioMenuFlyoutItem Click="ChangeBrushType"
                                                     IsChecked="{Binding IsPresenter.Value, Mode=OneWay}"
                                                     Tag="Presenter"
-                                                    Text="{x:Static lang:Strings.Presenter}" />
+                                                    Text="{x:Static lang:GraphicsStrings.Presenter}" />
                             <ui:RadioMenuFlyoutItem Click="ChangeBrushType"
                                                     IsChecked="{Binding !Value.Value, Mode=OneWay}"
                                                     Tag="Null"
@@ -148,7 +148,7 @@
                                     IsVisible="{Binding !IsPresenter.Value}"
                                     LineBrush="{DynamicResource TreeLineBrush}">
             <Panel>
-                <TextBlock IsVisible="{Binding Value.Value, Converter={x:Static ObjectConverters.IsNull}}" Text="{x:Static lang:Message.Property_is_unset}" />
+                <TextBlock IsVisible="{Binding Value.Value, Converter={x:Static ObjectConverters.IsNull}}" Text="{x:Static lang:MessageStrings.PropertyUnset}" />
 
                 <local:PropertiesEditor Padding="0"
                                         DataContext="{Binding ChildContext.Value}"

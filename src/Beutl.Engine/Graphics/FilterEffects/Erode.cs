@@ -4,7 +4,7 @@ using Beutl.Language;
 
 namespace Beutl.Graphics.Effects;
 
-[Display(Name = nameof(Strings.Erode), ResourceType = typeof(Strings))]
+[Display(Name = nameof(GraphicsStrings.Erode), ResourceType = typeof(GraphicsStrings))]
 public sealed partial class Erode : FilterEffect
 {
     public Erode()
@@ -12,10 +12,10 @@ public sealed partial class Erode : FilterEffect
         ScanProperties<Erode>();
     }
 
-    [Display(Name = nameof(Strings.RadiusX), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.Erode_RadiusX), ResourceType = typeof(GraphicsStrings))]
     public IProperty<float> RadiusX { get; } = Property.CreateAnimatable<float>();
 
-    [Display(Name = nameof(Strings.RadiusY), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.Erode_RadiusY), ResourceType = typeof(GraphicsStrings))]
     public IProperty<float> RadiusY { get; } = Property.CreateAnimatable<float>();
 
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)

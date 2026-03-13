@@ -5,7 +5,7 @@ using Beutl.Language;
 
 namespace Beutl.Graphics.Transformation;
 
-[Display(Name = nameof(Strings.Translate), ResourceType = typeof(Strings))]
+[Display(Name = nameof(GraphicsStrings.TranslateTransform), ResourceType = typeof(GraphicsStrings))]
 public sealed class TranslateTransform : Transform
 {
     public TranslateTransform()
@@ -31,10 +31,10 @@ public sealed class TranslateTransform : Transform
         Y.CurrentValue = point.Y;
     }
 
-    [Display(Name = nameof(Strings.X), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.TranslateTransform_X), ResourceType = typeof(GraphicsStrings))]
     public IProperty<float> X { get; } = Property.CreateAnimatable(0f);
 
-    [Display(Name = nameof(Strings.Y), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.TranslateTransform_Y), ResourceType = typeof(GraphicsStrings))]
     public IProperty<float> Y { get; } = Property.CreateAnimatable(0f);
 
     public override Matrix CreateMatrix(CompositionContext context)

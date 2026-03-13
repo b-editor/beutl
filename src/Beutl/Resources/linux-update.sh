@@ -13,13 +13,13 @@
 
 # エラー発生時は即時終了する設定
 set -e
-trap 'echo "@(Message.An_error_has_occurred_Terminate_script)" >&2; exit 1' ERR
+trap 'echo "@(MessageStrings.ScriptErrorTerminated)" >&2; exit 1' ERR
 
 # ユーザーにメッセージを表示し、Enterキー待ちで続行させる関数
 prompt_continue() {
     local message="$1"
     echo "$message"
-    read -r -p "@(Message.Press_Enter_to_continue)" dummy
+    read -r -p "@(MessageStrings.PressEnterToContinue)" dummy
 }
 
 # 引数チェック
@@ -36,14 +36,14 @@ EXECUTABLE_PATH="$4"
 
 # 更新用ディレクトリの存在確認
 if [ ! -d "$UPDATE_DIR" ]; then
-    echo "@(Message.Error_Update_directory_does_not_exist)"
+    echo "@(MessageStrings.UpdateDirectoryNotFound)"
     exit 1
 fi
 
 # アプリケーション終了待機
 sleep 3
 while pgrep -x "$APP_PROCESS_NAME" >/dev/null; do
-    prompt_continue "@(Message.Exit_the_application)@(Message.Press_the_Enter_key_when_finished)"
+    prompt_continue "@(MessageStrings.ExitApplication)@(MessageStrings.PressEnterWhenFinished)"
 done
 
 # ロックの取得
@@ -71,11 +71,11 @@ release_lock() {
     rm -rf "$LOCKDIR"
 }
 
-echo "@(Message.Acquiring_lock)"
+echo "@(MessageStrings.AcquiringLock)"
 if acquire_lock; then
-    echo "@(Message.Lock_acquired)"
+    echo "@(MessageStrings.LockAcquired)"
 else
-    echo "@(Message.Failed_to_acquire_lock)"
+    echo "@(MessageStrings.FailedToAcquireLock)"
     exit 1
 fi
 
@@ -83,10 +83,10 @@ fi
 if [ -d "$TARGET_APP_PATH" ]; then
     TIMESTAMP=$(date +%Y%m%d%H%M%S)
     BACKUP_APP_PATH="${TARGET_APP_PATH}_backup_${TIMESTAMP}"
-    echo "@(Message.Create_backup_of_current_application) $BACKUP_APP_PATH"
+    echo "@(MessageStrings.CreatingBackup) $BACKUP_APP_PATH"
     cp -R "$TARGET_APP_PATH" "$BACKUP_APP_PATH"
     if [ $? -ne 0 ]; then
-        echo "@(Message.Failed_to_create_backup)"
+        echo "@(MessageStrings.FailedToCreateBackup)"
         release_lock
         exit 1
     fi
@@ -94,10 +94,10 @@ if [ -d "$TARGET_APP_PATH" ]; then
 fi
 
 # 更新ファイルの配置
-echo "@(Message.Updating_files_in_place)"
+echo "@(MessageStrings.UpdatingFiles)"
 cp -R "$UPDATE_DIR" "$TARGET_APP_PATH"
 if [ $? -ne 0 ]; then
-    echo "@(Message.Update_placement_failed_Restore_backup)"
+    echo "@(MessageStrings.UpdateFailedRestoringBackup)"
     cp -R "$BACKUP_APP_PATH" "$TARGET_APP_PATH"
     release_lock
     exit 1
@@ -108,24 +108,24 @@ rm -rf "$UPDATE_DIR"
 
 # 正常時はバックアップも削除（必要に応じてバックアップを保持してください）
 rm -rf "$BACKUP_APP_PATH"
-echo "@(Message.The_update_has_been_completed)"
+echo "@(MessageStrings.UpdateCompleted)"
 
 # ロック解除
 release_lock
-echo "@(Message.Lock_released)"
+echo "@(MessageStrings.LockReleased)"
 
 # アプリケーション起動の確認
-read -r -p "@(Message.Update_completed_yes_no)" USER_RESPONSE
+read -r -p "@(MessageStrings.UpdateCompletedLaunchPrompt)" USER_RESPONSE
 if [ "$USER_RESPONSE" = "y" ] || [ "$USER_RESPONSE" = "Y" ]; then
-    echo "@(Message.Launch_the_application)"
+    echo "@(MessageStrings.LaunchingApplication)"
     if [ -n "$EXECUTABLE_PATH" ]; then
-        chmod +x "$EXECUTABLE_PATH" || { echo "@(Message.Failed_to_change_application_execution_permissions)"; exit 1; }
+        chmod +x "$EXECUTABLE_PATH" || { echo "@(MessageStrings.FailedToChangePermissions)"; exit 1; }
         "$EXECUTABLE_PATH" &
     else
-        echo "@(Message.The_application_execution_path_is_not_specified)"
+        echo "@(MessageStrings.ApplicationPathNotSpecified)"
     fi
 else
-    echo "@(Message.The_application_was_not_launched)"
+    echo "@(MessageStrings.ApplicationNotLaunched)"
 fi
 
 exit 0

@@ -8,7 +8,7 @@ using SkiaSharp;
 
 namespace Beutl.Graphics.Effects;
 
-[Display(Name = nameof(Strings.ChromaKey), ResourceType = typeof(Strings))]
+[Display(Name = nameof(GraphicsStrings.ChromaKey), ResourceType = typeof(GraphicsStrings))]
 public partial class ChromaKey : FilterEffect
 {
     private static readonly ILogger s_logger = Log.CreateLogger<ChromaKey>();
@@ -87,16 +87,16 @@ public partial class ChromaKey : FilterEffect
         ScanProperties<ChromaKey>();
     }
 
-    [Display(Name = nameof(Strings.Color), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.Color), ResourceType = typeof(GraphicsStrings))]
     public IProperty<Color> Color { get; } = Property.CreateAnimatable<Color>();
 
-    [Display(Name = nameof(Strings.HueRange), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.ChromaKey_HueRange), ResourceType = typeof(GraphicsStrings))]
     public IProperty<float> HueRange { get; } = Property.CreateAnimatable<float>();
 
-    [Display(Name = nameof(Strings.SaturationRange), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.ChromaKey_SaturationRange), ResourceType = typeof(GraphicsStrings))]
     public IProperty<float> SaturationRange { get; } = Property.CreateAnimatable<float>();
 
-    [Display(Name = nameof(Strings.BoundaryCorrection), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.ChromaKey_Boundary), ResourceType = typeof(GraphicsStrings))]
     public IProperty<float> Boundary { get; } = Property.CreateAnimatable(2f);
 
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)

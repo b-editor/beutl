@@ -21,88 +21,88 @@ public static class LibraryRegistrar
     public static void RegisterAll()
     {
         LibraryService.Current
-            .AddMultiple(Strings.Ellipse, m => m
+            .AddMultiple(GraphicsStrings.EllipseShape, m => m
                 .BindDrawable<Graphics.Shapes.EllipseShape>()
                 .BindGeometry<EllipseGeometry>()
             );
 
         LibraryService.Current
-            .AddMultiple(Strings.Rectangle, m => m
+            .AddMultiple(GraphicsStrings.RectShape, m => m
                 .BindDrawable<Graphics.Shapes.RectShape>()
                 .BindGeometry<RectGeometry>()
             );
 
         LibraryService.Current
-            .AddMultiple(Strings.RoundedRect, m => m
+            .AddMultiple(GraphicsStrings.RoundedRectShape, m => m
                 .BindDrawable<Graphics.Shapes.RoundedRectShape>()
                 .BindGeometry<RoundedRectGeometry>()
             );
 
         LibraryService.Current
-            .AddMultiple(Strings.GeometryShape, m => m
+            .AddMultiple(GraphicsStrings.GeometryShape, m => m
                 .BindDrawable<Graphics.Shapes.GeometryShape>()
             );
 
         LibraryService.Current
-            .AddMultiple(Strings.Text, m => m
+            .AddMultiple(GraphicsStrings.TextBlock, m => m
                 .BindDrawable<Graphics.Shapes.TextBlock>()
             );
 
         LibraryService.Current
-            .AddMultiple(Strings.Video, m => m
+            .AddMultiple(GraphicsStrings.SourceVideo, m => m
                 .BindDrawable<SourceVideo>()
             );
 
         LibraryService.Current
-            .AddMultiple(Strings.Image, m => m
+            .AddMultiple(GraphicsStrings.SourceImage, m => m
                 .BindDrawable<SourceImage>()
             );
 
         LibraryService.Current
-            .AddMultiple(Strings.Backdrop, m => m
+            .AddMultiple(GraphicsStrings.SourceBackdrop, m => m
                 .BindDrawable<SourceBackdrop>()
             );
 
         LibraryService.Current
-            .AddMultiple(Strings.Sound, m => m
+            .AddMultiple(AudioStrings.SourceSound, m => m
                 .BindSound<SourceSound>()
             );
 
         LibraryService.Current.RegisterGroup($"3D ({Strings.Experimental})", g => g
-            .AddMultiple(Strings.Scene3D, m => m
+            .AddMultiple(GraphicsStrings.Scene3D, m => m
                 .BindDrawable<Scene3D>()
             )
-            .AddMultiple(Strings.Cube3D, m => m
+            .AddMultiple(GraphicsStrings.Cube3D, m => m
                 .BindEngineObject<Cube3D>()
             )
-            .AddMultiple(Strings.Sphere3D, m => m
+            .AddMultiple(GraphicsStrings.Sphere3D, m => m
                 .BindEngineObject<Sphere3D>()
             )
-            .AddMultiple(Strings.Plane3D, m => m
+            .AddMultiple(GraphicsStrings.Plane3D, m => m
                 .BindEngineObject<Plane3D>()
             )
-            .AddMultiple(Strings.Model3D, m => m
+            .AddMultiple(GraphicsStrings.Model3D, m => m
                 .BindEngineObject<Model3D>()
             )
             // Lights
-            .AddMultiple(Strings.DirectionalLight3D, m => m
+            .AddMultiple(GraphicsStrings.DirectionalLight3D, m => m
                 .BindEngineObject<DirectionalLight3D>()
             )
-            .AddMultiple(Strings.PointLight3D, m => m
+            .AddMultiple(GraphicsStrings.PointLight3D, m => m
                 .BindEngineObject<PointLight3D>()
             )
-            .AddMultiple(Strings.SpotLight3D, m => m
+            .AddMultiple(GraphicsStrings.SpotLight3D, m => m
                 .BindEngineObject<SpotLight3D>()
             )
         );
 
         LibraryService.Current
-            .AddMultiple(Strings.ParticleEmitter, m => m
+            .AddMultiple(GraphicsStrings.ParticleEmitter, m => m
                 .BindDrawable<ParticleEmitter>()
             );
 
         LibraryService.Current
-            .AddMultiple(Strings.NodeTree, m => m
+            .AddMultiple(GraphicsStrings.NodeTreeDrawable, m => m
                 .BindDrawable<NodeTreeDrawable>()
             );
 
@@ -112,85 +112,85 @@ public static class LibraryRegistrar
             );
 
         LibraryService.Current
-            .AddMultiple(Strings.SceneGraphicsReference, m => m
+            .AddMultiple(GraphicsStrings.SceneDrawable, m => m
                 .BindDrawable<SceneDrawable>()
             );
 
         LibraryService.Current
-            .AddMultiple(Strings.SceneSoundReference, m => m
+            .AddMultiple(AudioStrings.SceneSound, m => m
                 .BindSound<SceneSound>()
             );
 
         LibraryService.Current
-            .AddMultiple(Strings.Decorator, m => m
+            .AddMultiple(GraphicsStrings.DrawableDecorator, m => m
                 .BindDrawable<DrawableDecorator>()
             );
 
         LibraryService.Current
-            .AddMultiple(Strings.Group, m => m
+            .AddMultiple(GraphicsStrings.Group, m => m
                 .BindDrawable<DrawableGroup>()
             );
 
         LibraryService.Current
-            .AddMultiple(Strings.SoundGroup, m => m
+            .AddMultiple(AudioStrings.SoundGroup, m => m
                 .BindSound<SoundGroup>()
             );
 
         LibraryService.Current
-            .AddMultiple(Strings.TimeController, m => m
+            .AddMultiple(GraphicsStrings.DrawableTimeController, m => m
                 .BindDrawable<DrawableTimeController>()
             );
 
         LibraryService.Current
-            .RegisterGroup(Strings.Transform, g => g
-                .AddTransform<TranslateTransform>(Strings.Translate)
-                .AddTransform<SkewTransform>(Strings.Skew)
-                .AddTransform<ScaleTransform>(Strings.Scale)
-                .AddTransform<RotationTransform>(Strings.Rotation)
-                .AddTransform<Rotation3DTransform>(Strings.Rotation3D)
+            .RegisterGroup(GraphicsStrings.Transform, g => g
+                .AddTransform<TranslateTransform>(GraphicsStrings.TranslateTransform)
+                .AddTransform<SkewTransform>(GraphicsStrings.SkewTransform)
+                .AddTransform<ScaleTransform>(GraphicsStrings.Scale)
+                .AddTransform<RotationTransform>(GraphicsStrings.Rotation)
+                .AddTransform<Rotation3DTransform>(GraphicsStrings.Rotation3DTransform)
             );
 
         LibraryService.Current
-            .RegisterGroup(Strings.FilterEffect, g => g
-                .AddFilterEffect<Blur>(Strings.Blur)
-                .AddFilterEffect<DropShadow>(Strings.DropShadow)
-                .AddFilterEffect<InnerShadow>(Strings.InnerShadow)
-                .AddFilterEffect<FlatShadow>(Strings.FlatShadow)
-                .AddFilterEffect<StrokeEffect>(Strings.StrokeEffect)
-                .AddFilterEffect<Clipping>(Strings.Clipping)
-                .AddFilterEffect<Dilate>(Strings.Dilate)
-                .AddFilterEffect<Erode>(Strings.Erode)
-                .AddFilterEffect<HighContrast>(Strings.HighContrast)
-                .AddFilterEffect<HueRotate>(Strings.HueRotate)
-                .AddFilterEffect<Lighting>(Strings.Lighting)
-                .AddFilterEffect<LumaColor>(Strings.LumaColor)
-                .AddFilterEffect<Saturate>(Strings.Saturate)
-                .AddFilterEffect<Threshold>(Strings.Threshold)
-                .AddFilterEffect<Brightness>(Strings.Brightness)
-                .AddFilterEffect<Gamma>(Strings.Gamma)
-                .AddFilterEffect<ColorGrading>(Strings.ColorGrading)
-                .AddFilterEffect<Curves>(Strings.Curves)
-                .AddFilterEffect<Invert>(Strings.Invert)
-                .AddFilterEffect<LutEffect>(Strings.LUT_Cube_File)
-                .AddFilterEffect<BlendEffect>(Strings.BlendEffect)
-                .AddFilterEffect<Negaposi>(Strings.Negaposi)
-                .AddFilterEffect<ChromaKey>(Strings.ChromaKey)
-                .AddFilterEffect<ColorKey>(Strings.ColorKey)
-                .AddFilterEffect<SplitEffect>(Strings.SplitEquallyEffect)
-                .AddFilterEffect<PartsSplitEffect>(Strings.SplitByPartsEffect)
-                .AddFilterEffect<TransformEffect>(Strings.Transform)
-                .AddFilterEffect<MosaicEffect>(Strings.Mosaic)
-                .AddFilterEffect<ColorShift>(Strings.ColorShift)
-                .AddFilterEffect<ShakeEffect>(Strings.ShakeEffect)
-                .AddFilterEffect<DisplacementMapEffect>(Strings.DisplacementMap)
-                .AddFilterEffect<PathFollowEffect>(Strings.PathFollowEffect)
-                .AddFilterEffect<LayerEffect>(Strings.Layer)
-                .AddFilterEffect<DelayAnimationEffect>(Strings.DelayAnimationEffect)
-                .AddFilterEffect<PixelSortEffect>(Strings.PixelSort)
-                .AddGroup(Strings.Script, gg => gg
-                    .AddFilterEffect<CSharpScriptEffect>(Strings.CSharpScriptEffect)
-                    .AddFilterEffect<SKSLScriptEffect>(Strings.SKSLScriptEffect)
-                    .AddFilterEffect<GLSLScriptEffect>(Strings.GLSLScriptEffect)
+            .RegisterGroup(GraphicsStrings.FilterEffect, g => g
+                .AddFilterEffect<Blur>(GraphicsStrings.Blur)
+                .AddFilterEffect<DropShadow>(GraphicsStrings.DropShadow)
+                .AddFilterEffect<InnerShadow>(GraphicsStrings.InnerShadow)
+                .AddFilterEffect<FlatShadow>(GraphicsStrings.FlatShadow)
+                .AddFilterEffect<StrokeEffect>(GraphicsStrings.Stroke)
+                .AddFilterEffect<Clipping>(GraphicsStrings.Clipping)
+                .AddFilterEffect<Dilate>(GraphicsStrings.Dilate)
+                .AddFilterEffect<Erode>(GraphicsStrings.Erode)
+                .AddFilterEffect<HighContrast>(GraphicsStrings.HighContrast)
+                .AddFilterEffect<HueRotate>(GraphicsStrings.HueRotate)
+                .AddFilterEffect<Lighting>(GraphicsStrings.Lighting)
+                .AddFilterEffect<LumaColor>(GraphicsStrings.LumaColor)
+                .AddFilterEffect<Saturate>(GraphicsStrings.Saturate)
+                .AddFilterEffect<Threshold>(GraphicsStrings.Threshold)
+                .AddFilterEffect<Brightness>(GraphicsStrings.Brightness)
+                .AddFilterEffect<Gamma>(GraphicsStrings.Gamma)
+                .AddFilterEffect<ColorGrading>(GraphicsStrings.ColorGrading)
+                .AddFilterEffect<Curves>(GraphicsStrings.Curves)
+                .AddFilterEffect<Invert>(GraphicsStrings.Invert)
+                .AddFilterEffect<LutEffect>(GraphicsStrings.LutEffect)
+                .AddFilterEffect<BlendEffect>(GraphicsStrings.BlendEffect)
+                .AddFilterEffect<Negaposi>(GraphicsStrings.Negaposi)
+                .AddFilterEffect<ChromaKey>(GraphicsStrings.ChromaKey)
+                .AddFilterEffect<ColorKey>(GraphicsStrings.ColorKey)
+                .AddFilterEffect<SplitEffect>(GraphicsStrings.SplitEffect)
+                .AddFilterEffect<PartsSplitEffect>(GraphicsStrings.PartsSplitEffect)
+                .AddFilterEffect<TransformEffect>(GraphicsStrings.Transform)
+                .AddFilterEffect<MosaicEffect>(GraphicsStrings.MosaicEffect)
+                .AddFilterEffect<ColorShift>(GraphicsStrings.ColorShift)
+                .AddFilterEffect<ShakeEffect>(GraphicsStrings.ShakeEffect)
+                .AddFilterEffect<DisplacementMapEffect>(GraphicsStrings.DisplacementMapEffect)
+                .AddFilterEffect<PathFollowEffect>(GraphicsStrings.PathFollowEffect)
+                .AddFilterEffect<LayerEffect>(GraphicsStrings.LayerEffect)
+                .AddFilterEffect<DelayAnimationEffect>(GraphicsStrings.DelayAnimationEffect)
+                .AddFilterEffect<PixelSortEffect>(GraphicsStrings.PixelSortEffect)
+                .AddGroup(GraphicsStrings.Script, gg => gg
+                    .AddFilterEffect<CSharpScriptEffect>(GraphicsStrings.CSharpScriptEffect)
+                    .AddFilterEffect<SKSLScriptEffect>(GraphicsStrings.SKSLScriptEffect)
+                    .AddFilterEffect<GLSLScriptEffect>(GraphicsStrings.GLSLScriptEffect)
                 )
                 .AddGroup("OpenCV", gg => gg
                     .AddFilterEffect<Graphics.Effects.OpenCv.Blur>("CvBlur")
@@ -200,8 +200,8 @@ public static class LibraryRegistrar
             );
 
         LibraryService.Current
-            .RegisterGroup(Strings.AudioEffect, g => g
-                .AddAudioEffect<DelayEffect>(Strings.Delay)
+            .RegisterGroup(AudioStrings.AudioEffect, g => g
+                .AddAudioEffect<DelayEffect>(AudioStrings.DelayEffect)
             );
     }
 }

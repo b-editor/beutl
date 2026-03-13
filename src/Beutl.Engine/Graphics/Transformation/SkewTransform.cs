@@ -6,7 +6,7 @@ using Beutl.Utilities;
 
 namespace Beutl.Graphics.Transformation;
 
-[Display(Name = nameof(Strings.Skew), ResourceType = typeof(Strings))]
+[Display(Name = nameof(GraphicsStrings.SkewTransform), ResourceType = typeof(GraphicsStrings))]
 public sealed class SkewTransform : Transform
 {
     public SkewTransform(float skewX, float skewY) : this()
@@ -20,10 +20,10 @@ public sealed class SkewTransform : Transform
         ScanProperties<SkewTransform>();
     }
 
-    [Display(Name = nameof(Strings.SkewX), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.SkewTransform_SkewX), ResourceType = typeof(GraphicsStrings))]
     public IProperty<float> SkewX { get; } = Property.CreateAnimatable<float>();
 
-    [Display(Name = nameof(Strings.SkewY), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.SkewTransform_SkewY), ResourceType = typeof(GraphicsStrings))]
     public IProperty<float> SkewY { get; } = Property.CreateAnimatable<float>();
 
     public override Matrix CreateMatrix(CompositionContext context)

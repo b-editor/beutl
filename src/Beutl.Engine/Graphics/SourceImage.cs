@@ -7,7 +7,7 @@ using Beutl.Media.Source;
 
 namespace Beutl.Graphics;
 
-[Display(Name = nameof(Strings.Image), ResourceType = typeof(Strings))]
+[Display(Name = nameof(GraphicsStrings.SourceImage), ResourceType = typeof(GraphicsStrings))]
 public partial class SourceImage : Drawable
 {
     public SourceImage()
@@ -15,7 +15,7 @@ public partial class SourceImage : Drawable
         ScanProperties<SourceImage>();
     }
 
-    [Display(Name = nameof(Strings.Source), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.Source), ResourceType = typeof(GraphicsStrings))]
     public IProperty<ImageSource?> Source { get; } = Property.Create<ImageSource?>();
 
     protected override Size MeasureCore(Size availableSize, Drawable.Resource resource)

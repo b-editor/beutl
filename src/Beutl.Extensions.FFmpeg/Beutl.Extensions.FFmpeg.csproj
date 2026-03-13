@@ -12,6 +12,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Aigamo.ResXGenerator">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
     <PackageReference Include="FFmpeg.AutoGen.Bindings.DynamicallyLoaded" />
     <PackageReference Include="FFmpeg4Sharp" />
     <PackageReference Include="FluentAvaloniaUI" />
@@ -23,18 +27,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Compile Update="Properties\Strings.Designer.cs">
-      <DesignTime>True</DesignTime>
-      <AutoGen>True</AutoGen>
-      <DependentUpon>Strings.resx</DependentUpon>
-    </Compile>
-  </ItemGroup>
-
-  <ItemGroup>
-    <EmbeddedResource Update="Properties\Strings.resx">
-      <Generator>PublicResXFileCodeGenerator</Generator>
-      <LastGenOutput>Strings.Designer.cs</LastGenOutput>
-    </EmbeddedResource>
+    <EmbeddedResource Update="Properties\Strings.resx" />
     <EmbeddedResource Include="Properties\askpass.js">
       <LogicalName>askpass.js</LogicalName>
     </EmbeddedResource>

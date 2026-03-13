@@ -6,7 +6,7 @@ using Beutl.Media;
 
 namespace Beutl.Graphics.Shapes;
 
-[Display(Name = nameof(Strings.Rectangle), ResourceType = typeof(Strings))]
+[Display(Name = nameof(GraphicsStrings.RectShape), ResourceType = typeof(GraphicsStrings))]
 public sealed partial class RectShape : Shape
 {
     public RectShape()
@@ -14,11 +14,11 @@ public sealed partial class RectShape : Shape
         ScanProperties<RectShape>();
     }
 
-    [Display(Name = nameof(Strings.Width), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.Width), ResourceType = typeof(GraphicsStrings))]
     [Range(0, float.MaxValue)]
     public IProperty<float> Width { get; } = Property.CreateAnimatable<float>(100);
 
-    [Display(Name = nameof(Strings.Height), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.Height), ResourceType = typeof(GraphicsStrings))]
     [Range(0, float.MaxValue)]
     public IProperty<float> Height { get; } = Property.CreateAnimatable<float>(100);
 

@@ -5,7 +5,7 @@
                   xmlns:lang="using:Beutl.Language"
                   xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
                   xmlns:ui="using:FluentAvalonia.UI.Controls"
-                  Title="{x:Static lang:SettingsPage.Telemetry}"
+                  Title="{x:Static lang:SettingsStrings.Telemetry}"
                   d:DesignHeight="450"
                   d:DesignWidth="800"
                   CloseButtonText="{x:Static lang:Strings.Disagree}"
@@ -15,7 +15,7 @@
         <x:Double x:Key="ContentDialogMaxWidth">400</x:Double>
     </ui:ContentDialog.Resources>
     <StackPanel Spacing="16">
-        <SelectableTextBlock TextWrapping="WrapWithOverflow" Text="{x:Static lang:SettingsPage.Telemetry_Description}" />
+        <SelectableTextBlock TextWrapping="WrapWithOverflow" Text="{x:Static lang:SettingsStrings.Telemetry_Description}" />
 
         <Button Height="48"
                 HorizontalAlignment="Stretch"

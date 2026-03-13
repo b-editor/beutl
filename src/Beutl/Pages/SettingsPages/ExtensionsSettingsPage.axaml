@@ -28,7 +28,7 @@
                         VerticalAlignment="Stretch"
                         Orientation="Vertical"
                         Spacing="4">
-                <ctrls:OptionsDisplayItem Header="{x:Static lang:SettingsPage.Editor_Extension_Priority}"
+                <ctrls:OptionsDisplayItem Header="{x:Static lang:SettingsStrings.Editor_Extension_Priority}"
                                           Navigates="True"
                                           NavigationCommand="{Binding NavigateToEditorPriority}">
                     <ctrls:OptionsDisplayItem.Icon>
@@ -36,11 +36,11 @@
                     </ctrls:OptionsDisplayItem.Icon>
 
                 </ctrls:OptionsDisplayItem>
-                <ctrls:OptionsDisplayItem Header="{x:Static lang:SettingsPage.DecoderPriority}"
+                <ctrls:OptionsDisplayItem Header="{x:Static lang:SettingsStrings.DecoderPriority}"
                                           Navigates="True"
                                           NavigationCommand="{Binding NavigateToDecoderPriority}" />
 
-                <ctrls:OptionsDisplayItem Expands="True" Header="{x:Static lang:Strings.ExtensionsSettings}">
+                <ctrls:OptionsDisplayItem Expands="True" Header="{x:Static lang:SettingsStrings.ExtensionsSettings}">
                     <ctrls:OptionsDisplayItem.Styles>
                         <Style Selector="ctrls|OptionsDisplayItem /template/ ContentPresenter#ExpandedContentPresenter">
                             <Setter Property="Background" Value="Transparent" />

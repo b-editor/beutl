@@ -6,7 +6,7 @@ using Beutl.Language;
 
 namespace Beutl.Graphics.Effects;
 
-[Display(Name = nameof(Strings.ShakeEffect), ResourceType = typeof(Strings))]
+[Display(Name = nameof(GraphicsStrings.ShakeEffect), ResourceType = typeof(GraphicsStrings))]
 [SuppressResourceClassGeneration]
 public class ShakeEffect : FilterEffect
 {
@@ -23,13 +23,13 @@ public class ShakeEffect : FilterEffect
         ScanProperties<ShakeEffect>();
     }
 
-    [Display(Name = nameof(Strings.StrengthX), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.ShakeEffect_StrengthX), ResourceType = typeof(GraphicsStrings))]
     public IProperty<float> StrengthX { get; } = Property.CreateAnimatable(50f);
 
-    [Display(Name = nameof(Strings.StrengthY), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.ShakeEffect_StrengthY), ResourceType = typeof(GraphicsStrings))]
     public IProperty<float> StrengthY { get; } = Property.CreateAnimatable(50f);
 
-    [Display(Name = nameof(Strings.Speed), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.Speed), ResourceType = typeof(GraphicsStrings))]
     public IProperty<float> Speed { get; } = Property.CreateAnimatable(100f);
 
     protected override void OnPropertyChanged(PropertyChangedEventArgs args)

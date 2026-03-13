@@ -106,18 +106,18 @@ try {
     # アプリケーション終了待機
     Start-Sleep -Seconds 3
     while (Get-Process -Name $APP_PROCESS_NAME -ErrorAction SilentlyContinue) {
-        Show-Dialog "@(Message.Exit_the_application) (@(Message.Click_OK_after_completion))"
+        Show-Dialog "@(MessageStrings.ExitApplication) (@(MessageStrings.ClickOkAfterCompletion))"
     }
 
     # ロックの取得（テンポラリフォルダ内にロック用ディレクトリを作成）
     $lockDir = Join-Path ([System.IO.Path]::GetTempPath()) "${APP_PROCESS_NAME}_update.lock"
     $LOCK_WAIT_TIME = 10
-    Write-Log "@(Message.Acquiring_lock)"
+    Write-Log "@(MessageStrings.AcquiringLock)"
     if (Acquire-Lock -LockDir $lockDir -LockWaitTime $LOCK_WAIT_TIME) {
-        Write-Log "@(Message.Lock_acquired)"
+        Write-Log "@(MessageStrings.LockAcquired)"
     }
     else {
-        Show-Dialog "@(Message.Failed_to_acquire_lock)"
+        Show-Dialog "@(MessageStrings.FailedToAcquireLock)"
         exit 1
     }
 
@@ -125,29 +125,29 @@ try {
     if (Test-Path -Path $TARGET_APP_PATH -PathType Container) {
         $timestamp = Get-Date -Format "yyyyMMddHHmmss"
         $BACKUP_APP_PATH = "${TARGET_APP_PATH}_backup_$timestamp"
-        Write-Log "@(Message.Create_backup_of_current_application) $BACKUP_APP_PATH"
+        Write-Log "@(MessageStrings.CreatingBackup) $BACKUP_APP_PATH"
         try {
             Move-Item -Path $TARGET_APP_PATH -Destination $BACKUP_APP_PATH -Force
         }
         catch {
-            Show-Dialog "@(Message.Failed_to_create_backup)"
+            Show-Dialog "@(MessageStrings.FailedToCreateBackup)"
             Release-Lock -LockDir $lockDir
             exit 1
         }
     }
 
     # 更新ファイルの配置
-    Write-Log "@(Message.Updating_files_in_place)"
+    Write-Log "@(MessageStrings.UpdatingFiles)"
     try {
         Move-Item -Path $UPDATE_DIR -Destination $TARGET_APP_PATH -Force
     }
     catch {
-        Show-Dialog "@(Message.Update_placement_failed_Restore_backup)"
+        Show-Dialog "@(MessageStrings.UpdateFailedRestoringBackup)"
         try {
             Move-Item -Path $BACKUP_APP_PATH -Destination $TARGET_APP_PATH -Force
         }
         catch {
-            Show-Dialog "@(Message.Failed_to_restore_backup)"
+            Show-Dialog "@(MessageStrings.FailedToRestoreBackup)"
         }
         Release-Lock -LockDir $lockDir
         exit 1
@@ -159,33 +159,33 @@ try {
             Remove-Item -Path $BACKUP_APP_PATH -Recurse -Force
         }
         catch {
-            Write-Log "@(Message.Failed_to_delete_backup)"
+            Write-Log "@(MessageStrings.FailedToDeleteBackup)"
         }
     }
-    Write-Log "@(Message.The_update_has_been_completed)"
+    Write-Log "@(MessageStrings.UpdateCompleted)"
 
     # ロック解除
     Release-Lock -LockDir $lockDir
-    Write-Log "@(Message.Lock_released)"
+    Write-Log "@(MessageStrings.LockReleased)"
 
     # ユーザーにアプリケーション起動の確認をする
-    $response = Prompt-YesNo "@(Message.Update_completed_Do_you_want_to_start_the_ߋn_application)"
+    $response = Prompt-YesNo "@(MessageStrings.UpdateCompletedLaunchConfirm)"
     if ($response -eq [System.Windows.Forms.DialogResult]::Yes) {
-        Write-Log "@(Message.Launch_the_application)"
+        Write-Log "@(MessageStrings.LaunchingApplication)"
         if (![string]::IsNullOrEmpty($EXECUTABLE_PATH)) {
             Start-Process -FilePath $EXECUTABLE_PATH
         }
         else {
-            Show-Dialog "@(Message.The_application_execution_path_is_not_specified)"
+            Show-Dialog "@(MessageStrings.ApplicationPathNotSpecified)"
         }
     }
     else {
-        Write-Log "@(Message.The_application_was_not_launched)"
+        Write-Log "@(MessageStrings.ApplicationNotLaunched)"
     }
 
     exit 0
 }
 catch {
-    Show-Dialog "@(Message.An_error_has_occurred_Terminate_script)`n $_"
+    Show-Dialog "@(MessageStrings.ScriptErrorTerminated)`n $_"
     exit 1
 }

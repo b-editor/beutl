@@ -224,7 +224,7 @@ public sealed class DirectoryTreeView : TreeView
         {
             var dialog = new ContentDialog
             {
-                Content = Message.DoYouWantToDeleteThisDirectory,
+                Content = MessageStrings.ConfirmDeleteDirectory,
                 PrimaryButtonText = Strings.OK,
                 CloseButtonText = Strings.Cancel,
                 DefaultButton = ContentDialogButton.Primary,
@@ -240,7 +240,7 @@ public sealed class DirectoryTreeView : TreeView
         {
             var dialog = new ContentDialog
             {
-                Content = Message.DoYouWantToDeleteThisFile,
+                Content = MessageStrings.ConfirmDeleteFile,
                 PrimaryButtonText = Strings.OK,
                 CloseButtonText = Strings.Cancel,
                 DefaultButton = ContentDialogButton.Primary,
@@ -550,7 +550,7 @@ public sealed class FileTreeItem : TreeViewItem
             string @new = Path.Combine(Info.DirectoryName, tb.Text);
             if (File.Exists(@new))
             {
-                string content = Message.CannotRenameBecauseConflicts;
+                string content = MessageStrings.RenameConflict;
                 content = string.Format(content, Info.Name, tb.Text);
                 var dialog = new ContentDialog()
                 {
@@ -780,7 +780,7 @@ public sealed class DirectoryTreeItem : TreeViewItem
             string @new = Path.Combine(Info.Parent.FullName, tb.Text);
             if (Directory.Exists(@new))
             {
-                string content = Message.CannotRenameBecauseConflicts;
+                string content = MessageStrings.RenameConflict;
                 content = string.Format(content, Info.Name, tb.Text);
                 var dialog = new ContentDialog()
                 {

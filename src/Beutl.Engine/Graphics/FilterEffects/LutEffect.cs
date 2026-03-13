@@ -8,7 +8,7 @@ using SkiaSharp;
 
 namespace Beutl.Graphics.Effects;
 
-[Display(Name = nameof(Strings.LUT_Cube_File), ResourceType = typeof(Strings))]
+[Display(Name = nameof(GraphicsStrings.LutEffect), ResourceType = typeof(GraphicsStrings))]
 public sealed partial class LutEffect : FilterEffect
 {
     private static readonly ILogger<LutEffect> s_logger =
@@ -125,10 +125,10 @@ public sealed partial class LutEffect : FilterEffect
         ScanProperties<LutEffect>();
     }
 
-    [Display(Name = nameof(Strings.Source), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.Source), ResourceType = typeof(GraphicsStrings))]
     public IProperty<CubeSource?> Source { get; } = Property.Create<CubeSource?>();
 
-    [Display(Name = nameof(Strings.Strength), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.Strength), ResourceType = typeof(GraphicsStrings))]
     [Range(0, 100)]
     public IProperty<float> Strength { get; } = Property.CreateAnimatable(100f);
 

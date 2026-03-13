@@ -66,13 +66,13 @@
                         <TextBlock Grid.Column="2"
                                    VerticalAlignment="Center"
                                    FontSize="12"
-                                   Text="{x:Static lang:SettingsPage.SignOut}" />
+                                   Text="{x:Static lang:SettingsStrings.SignOut}" />
                     </Grid>
                 </Button>
             </Grid>
 
             <ctrls:OptionsDisplayItem Margin="0,24,0,0"
-                                      Header="{x:Static lang:SettingsPage.ChangeAccountSettings}"
+                                      Header="{x:Static lang:SettingsStrings.ChangeAccountSettings}"
                                       Navigates="True"
                                       NavigationCommand="{Binding OpenAccountSettings}">
 

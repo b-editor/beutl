@@ -9,7 +9,7 @@ using SkiaSharp;
 
 namespace Beutl.Graphics.Effects;
 
-[Display(Name = nameof(Strings.FlatShadow), ResourceType = typeof(Strings))]
+[Display(Name = nameof(GraphicsStrings.FlatShadow), ResourceType = typeof(GraphicsStrings))]
 public partial class FlatShadow : FilterEffect
 {
     public FlatShadow()
@@ -18,16 +18,16 @@ public partial class FlatShadow : FilterEffect
         Brush.CurrentValue = new SolidColorBrush(Colors.Gray);
     }
 
-    [Display(Name = nameof(Strings.Angle), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.Angle), ResourceType = typeof(GraphicsStrings))]
     public IProperty<float> Angle { get; } = Property.CreateAnimatable<float>();
 
-    [Display(Name = nameof(Strings.Length), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.FlatShadow_Length), ResourceType = typeof(GraphicsStrings))]
     public IProperty<float> Length { get; } = Property.CreateAnimatable<float>();
 
-    [Display(Name = nameof(Strings.Brush), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.Brush), ResourceType = typeof(GraphicsStrings))]
     public IProperty<Brush?> Brush { get; } = Property.Create<Brush?>();
 
-    [Display(Name = nameof(Strings.ShadowOnly), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.ShadowOnly), ResourceType = typeof(GraphicsStrings))]
     public IProperty<bool> ShadowOnly { get; } = Property.CreateAnimatable(false);
 
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)

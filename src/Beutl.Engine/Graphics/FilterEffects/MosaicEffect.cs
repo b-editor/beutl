@@ -6,7 +6,7 @@ using Microsoft.Extensions.Logging;
 
 namespace Beutl.Graphics.Effects;
 
-[Display(Name = nameof(Strings.Mosaic), ResourceType = typeof(Strings))]
+[Display(Name = nameof(GraphicsStrings.MosaicEffect), ResourceType = typeof(GraphicsStrings))]
 public partial class MosaicEffect : FilterEffect
 {
     private static readonly ILogger s_logger = Log.CreateLogger<MosaicEffect>();
@@ -43,10 +43,10 @@ public partial class MosaicEffect : FilterEffect
     }
 
     [Range(typeof(Size), "0.0001, 0.0001", "max,max")]
-    [Display(Name = nameof(Strings.TileSize), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.MosaicEffect_TileSize), ResourceType = typeof(GraphicsStrings))]
     public IProperty<Size> TileSize { get; } = Property.CreateAnimatable(new Size(10, 10));
 
-    [Display(Name = nameof(Strings.Origin), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.MosaicEffect_Origin), ResourceType = typeof(GraphicsStrings))]
     public IProperty<RelativePoint> Origin { get; } = Property.CreateAnimatable(RelativePoint.Center);
 
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)

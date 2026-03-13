@@ -5,7 +5,7 @@ using Beutl.Language;
 
 namespace Beutl.Graphics.Effects;
 
-[Display(Name = nameof(Strings.Invert), ResourceType = typeof(Strings))]
+[Display(Name = nameof(GraphicsStrings.Invert), ResourceType = typeof(GraphicsStrings))]
 public sealed partial class Invert : FilterEffect
 {
     public Invert()
@@ -14,10 +14,10 @@ public sealed partial class Invert : FilterEffect
     }
 
     [Range(0, 100)]
-    [Display(Name = nameof(Strings.Amount), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.Amount), ResourceType = typeof(GraphicsStrings))]
     public IProperty<float> Amount { get; } = Property.CreateAnimatable(100f);
 
-    [Display(Name = nameof(Strings.ExcludeAlphaChannel), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.Invert_ExcludeAlphaChannel), ResourceType = typeof(GraphicsStrings))]
     public IProperty<bool> ExcludeAlphaChannel { get; } = Property.CreateAnimatable(true);
 
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)

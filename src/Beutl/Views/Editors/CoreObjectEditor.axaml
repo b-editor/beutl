@@ -78,7 +78,7 @@
                IsVisible="{Binding !IsPresenter.Value}">
             <TextBlock Margin="16,0,0,0"
                        IsVisible="{Binding IsNull.Value}"
-                       Text="{x:Static lang:Message.Property_is_unset}" />
+                       Text="{x:Static lang:MessageStrings.PropertyUnset}" />
 
             <controls:TreeLineDecorator LineBrush="{DynamicResource TreeLineBrush}">
                 <local:PropertiesEditor Padding="0"

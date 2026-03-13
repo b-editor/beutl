@@ -57,14 +57,14 @@ public sealed class LocalUserPackageViewModel : BaseViewModel, IUserPackageViewM
                 {
                     IsBusy.Value = true;
 
-                    StatusText.Value = ExtensionsPage.Installing;
+                    StatusText.Value = ExtensionsStrings.Installing;
 
                     try
                     {
                         await _handler.DownloadAndLoadPackage(_packageIdentity);
                         NotificationService.ShowInformation(
-                            title: ExtensionsPage.PackageInstaller,
-                            message: string.Format(ExtensionsPage.PackageInstaller_Installed,
+                            title: ExtensionsStrings.PackageInstaller,
+                            message: string.Format(ExtensionsStrings.PackageInstaller_Installed,
                                 _packageIdentity.Id));
                     }
                     catch (Exception ex)
@@ -72,8 +72,8 @@ public sealed class LocalUserPackageViewModel : BaseViewModel, IUserPackageViewM
                         _logger.LogWarning(ex, "Immediate install failed, falling back to queue.");
                         _handler.Queue.InstallQueue(_packageIdentity);
                         NotificationService.ShowInformation(
-                            title: ExtensionsPage.PackageInstaller,
-                            message: string.Format(ExtensionsPage.PackageInstaller_ScheduledInstallation,
+                            title: ExtensionsStrings.PackageInstaller,
+                            message: string.Format(ExtensionsStrings.PackageInstaller_ScheduledInstallation,
                                 _packageIdentity.Id));
                     }
                 }
@@ -102,7 +102,7 @@ public sealed class LocalUserPackageViewModel : BaseViewModel, IUserPackageViewM
                     if (!await PackageOperationHandler.EnsureProjectClosed())
                         return;
 
-                    StatusText.Value = ExtensionsPage.Updating;
+                    StatusText.Value = ExtensionsStrings.Updating;
                     if (LatestRelease.Value != null)
                     {
                         var packageId = new PackageIdentity(Package.Name,
@@ -114,16 +114,16 @@ public sealed class LocalUserPackageViewModel : BaseViewModel, IUserPackageViewM
                             _handler.DeleteOldVersionFiles(Package.Name);
                             await _handler.DownloadAndLoadPackage(LatestRelease.Value, packageId);
                             NotificationService.ShowInformation(
-                                title: ExtensionsPage.PackageInstaller,
-                                message: string.Format(ExtensionsPage.PackageInstaller_Updated, packageId.Id));
+                                title: ExtensionsStrings.PackageInstaller,
+                                message: string.Format(ExtensionsStrings.PackageInstaller_Updated, packageId.Id));
                         }
                         catch (Exception ex)
                         {
                             _logger.LogWarning(ex, "Immediate update failed, falling back to queue.");
                             _handler.Queue.InstallQueue(packageId);
                             NotificationService.ShowInformation(
-                                title: ExtensionsPage.PackageInstaller,
-                                message: string.Format(ExtensionsPage.PackageInstaller_ScheduledUpdate, packageId.Id));
+                                title: ExtensionsStrings.PackageInstaller,
+                                message: string.Format(ExtensionsStrings.PackageInstaller_ScheduledUpdate, packageId.Id));
                         }
                     }
                 }
@@ -152,7 +152,7 @@ public sealed class LocalUserPackageViewModel : BaseViewModel, IUserPackageViewM
                     if (!await PackageOperationHandler.EnsureProjectClosed())
                         return;
 
-                    StatusText.Value = ExtensionsPage.Uninstalling;
+                    StatusText.Value = ExtensionsStrings.Uninstalling;
 
                     if (!await _handler.UnloadPackages(Package.Name))
                     {
@@ -162,15 +162,15 @@ public sealed class LocalUserPackageViewModel : BaseViewModel, IUserPackageViewM
                     if (!_handler.UninstallSinglePackage(Package.InstalledPath, _packageIdentity))
                     {
                         NotificationService.ShowInformation(
-                            title: ExtensionsPage.PackageInstaller,
-                            message: string.Format(ExtensionsPage.PackageInstaller_ScheduledUninstallation,
+                            title: ExtensionsStrings.PackageInstaller,
+                            message: string.Format(ExtensionsStrings.PackageInstaller_ScheduledUninstallation,
                                 _packageIdentity.Id));
                     }
                     else
                     {
                         NotificationService.ShowInformation(
-                            title: ExtensionsPage.PackageInstaller,
-                            message: string.Format(ExtensionsPage.PackageInstaller_Uninstalled,
+                            title: ExtensionsStrings.PackageInstaller,
+                            message: string.Format(ExtensionsStrings.PackageInstaller_Uninstalled,
                                 _packageIdentity.Id));
                     }
                 }
@@ -180,8 +180,8 @@ public sealed class LocalUserPackageViewModel : BaseViewModel, IUserPackageViewM
                     _logger.LogWarning(e, "Immediate uninstall failed, falling back to queue.");
                     _handler.Queue.UninstallQueue(_packageIdentity);
                     NotificationService.ShowInformation(
-                        title: ExtensionsPage.PackageInstaller,
-                        message: string.Format(ExtensionsPage.PackageInstaller_ScheduledUninstallation,
+                        title: ExtensionsStrings.PackageInstaller,
+                        message: string.Format(ExtensionsStrings.PackageInstaller_ScheduledUninstallation,
                             _packageIdentity.Id));
                 }
                 finally

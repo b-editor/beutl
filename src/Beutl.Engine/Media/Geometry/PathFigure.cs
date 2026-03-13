@@ -7,7 +7,7 @@ using Beutl.Serialization;
 
 namespace Beutl.Media;
 
-[Display(Name = nameof(Strings.Figure), ResourceType = typeof(Strings))]
+[Display(Name = nameof(GraphicsStrings.PathFigure), ResourceType = typeof(GraphicsStrings))]
 public sealed partial class PathFigure : EngineObject
 {
     public PathFigure()
@@ -15,10 +15,10 @@ public sealed partial class PathFigure : EngineObject
         ScanProperties<PathFigure>();
     }
 
-    [Display(Name = nameof(Strings.IsClosed), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.PathFigure_IsClosed), ResourceType = typeof(GraphicsStrings))]
     public IProperty<bool> IsClosed { get; } = Property.CreateAnimatable<bool>();
 
-    [Display(Name = nameof(Strings.StartPoint), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.PathFigure_StartPoint), ResourceType = typeof(GraphicsStrings))]
     public IProperty<Point> StartPoint { get; } = Property.CreateAnimatable(new Point(float.NaN, float.NaN));
 
     public IListProperty<PathSegment> Segments { get; } = Property.CreateList<PathSegment>();

@@ -13,7 +13,7 @@
     <Grid Margin="18" RowDefinitions="Auto,*">
 
         <TextBlock Margin="10,8"
-                   Text="{x:Static lang:Strings.Keymap}"
+                   Text="{x:Static lang:SettingsStrings.Keymap}"
                    Theme="{StaticResource SimpleLargeBreadcrumbBarTextBlock}" />
 
         <ScrollViewer Grid.Row="1" Margin="10,16,10,0">

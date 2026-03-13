@@ -6,7 +6,7 @@ using SkiaSharp;
 
 namespace Beutl.Graphics.Effects;
 
-[Display(Name = nameof(Strings.PathFollowEffect), ResourceType = typeof(Strings))]
+[Display(Name = nameof(GraphicsStrings.PathFollowEffect), ResourceType = typeof(GraphicsStrings))]
 public sealed partial class PathFollowEffect : FilterEffect
 {
     public PathFollowEffect()
@@ -15,13 +15,13 @@ public sealed partial class PathFollowEffect : FilterEffect
         Geometry.CurrentValue = new PathGeometry();
     }
 
-    [Display(Name = nameof(Strings.Geometry), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.PathFollowEffect_Geometry), ResourceType = typeof(GraphicsStrings))]
     public IProperty<Geometry?> Geometry { get; } = Property.Create<Geometry?>();
 
-    [Display(Name = nameof(Strings.Progress), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.PathFollowEffect_Progress), ResourceType = typeof(GraphicsStrings))]
     public IProperty<float> Progress { get; } = Property.CreateAnimatable(0f);
 
-    [Display(Name = nameof(Strings.FollowRotation), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.PathFollowEffect_FollowRotation), ResourceType = typeof(GraphicsStrings))]
     public IProperty<bool> FollowRotation { get; } = Property.CreateAnimatable(false);
 
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)

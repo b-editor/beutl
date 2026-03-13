@@ -150,7 +150,7 @@ public sealed class AccountSettingsPageViewModel : BasePageViewModel
                 activity?.SetStatus(ActivityStatusCode.Error);
                 _logger.LogError(apiex, "An unexpected error has occurred.");
                 // Todo: エラー説明
-                Error.Value = Message.ApiErrorOccurred;
+                Error.Value = MessageStrings.ApiErrorOccurred;
             }
             catch (OperationCanceledException)
             {
@@ -159,7 +159,7 @@ public sealed class AccountSettingsPageViewModel : BasePageViewModel
             {
                 activity?.SetStatus(ActivityStatusCode.Error);
                 _logger.LogError(ex, "An unexpected error has occurred.");
-                Error.Value = Message.AnUnexpectedErrorHasOccurred;
+                Error.Value = MessageStrings.UnexpectedError;
             }
             finally
             {

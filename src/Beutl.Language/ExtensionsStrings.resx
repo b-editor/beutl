@@ -1,0 +1,130 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:element name="root" msdata:IsDataSet="true">
+
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>1.3</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="NoLogoImageAvailable" xml:space="preserve">
+    <value>No logo image available</value>
+  </data>
+  <data name="Package_Screenshots" xml:space="preserve">
+    <value>Screenshots</value>
+  </data>
+  <data name="Install" xml:space="preserve">
+    <value>Install</value>
+  </data>
+  <data name="Update" xml:space="preserve">
+    <value>Update</value>
+  </data>
+  <data name="Uninstall" xml:space="preserve">
+    <value>Uninstall</value>
+  </data>
+  <data name="Package_LatestRelease" xml:space="preserve">
+    <value>Latest release</value>
+  </data>
+  <data name="Package_Tags" xml:space="preserve">
+    <value>Tags</value>
+  </data>
+  <data name="Package_LatestVersion" xml:space="preserve">
+    <value>Latest version</value>
+  </data>
+  <data name="Package_InstalledVersion" xml:space="preserve">
+    <value>Installed version</value>
+  </data>
+  <data name="OpenUrl_Title" xml:space="preserve">
+    <value>Open URL?</value>
+  </data>
+  <data name="OpenUrl_Content" xml:space="preserve">
+    <value>You are trying to open '{0}'.
+If the URL is ɑn suspicious, we recommend that you do not open it.</value>
+  </data>
+  <data name="Search_Packages" xml:space="preserve">
+    <value>Packages</value>
+  </data>
+  <data name="Profile_PublishedPackages" xml:space="preserve">
+    <value>Published Packages</value>
+  </data>
+  <data name="RemoveFromLibrary" xml:space="preserve">
+    <value>Remove from library</value>
+  </data>
+  <data name="CheckUpdate" xml:space="preserve">
+    <value>Check update</value>
+  </data>
+  <data name="LocalPackages" xml:space="preserve">
+    <value>Local Packages</value>
+  </data>
+  <data name="LocalPackage" xml:space="preserve">
+    <value>Local Package</value>
+  </data>
+  <data name="Could_not_find_a_package_from_remote" xml:space="preserve">
+    <value>Could not find '{0}' from remote.</value>
+  </data>
+  <data name="PackageInstaller" xml:space="preserve">
+    <value>Package Installer</value>
+  </data>
+  <data name="PackageInstaller_Installed" xml:space="preserve">
+    <value>'{0}' has been installed successfully.</value>
+  </data>
+  <data name="PackageInstaller_Updated" xml:space="preserve">
+    <value>'{0}' has been updated successfully.</value>
+  </data>
+  <data name="PackageInstaller_Uninstalled" xml:space="preserve">
+    <value>'{0}' has been uninstalled successfully.</value>
+  </data>
+  <data name="PackageInstaller_ScheduledInstallation" xml:space="preserve">
+    <value>'{0}' installation is scheduled.
+To apply the package changes, exit Beutl.</value>
+  </data>
+  <data name="PackageInstaller_ScheduledUpdate" xml:space="preserve">
+    <value>'{0}' update is scheduled.
+To apply the package changes, exit Beutl.</value>
+  </data>
+  <data name="PackageInstaller_ScheduledUninstallation" xml:space="preserve">
+    <value>'{0}' uninstallation is scheduled.
+To apply the package changes, exit Beutl.</value>
+  </data>
+  <data name="PackageInstaller_CloseProjectConfirmation" xml:space="preserve">
+    <value>A project is currently open. It needs to be closed before modifying packages. Do you want to close it?</value>
+  </data>
+  <data name="PackageInstaller_SaveAndClose" xml:space="preserve">
+    <value>Save and close</value>
+  </data>
+  <data name="Description" xml:space="preserve">
+    <value>Description</value>
+  </data>
+  <data name="May_not_work_correctly_when_downgrading" xml:space="preserve">
+    <value>May not work correctly when downgrading</value>
+  </data>
+  <data name="Package_SelectedRelease" xml:space="preserve">
+    <value>Selected release</value>
+  </data>
+  <data name="Release_TargetVersion" xml:space="preserve">
+    <value>Target version</value>
+  </data>
+  <data name="This_extension_does_not_support_your_Beutl_version" xml:space="preserve">
+    <value>This extension does not support your Beutl version.
+To force installation, use the CLI tool.</value>
+  </data>
+  <data name="Installing" xml:space="preserve">
+    <value>Installing...</value>
+  </data>
+  <data name="Updating" xml:space="preserve">
+    <value>Updating...</value>
+  </data>
+  <data name="Uninstalling" xml:space="preserve">
+    <value>Uninstalling...</value>
+  </data>
+</root>

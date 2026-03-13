@@ -7,65 +7,21 @@
   <ItemGroup>
     <!-- CS8032 -->
     <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" />
+    <PackageReference Include="Aigamo.ResXGenerator">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
   </ItemGroup>
 
   <ItemGroup>
-    <Compile Update="CommandNames.Designer.cs">
-      <DesignTime>True</DesignTime>
-      <AutoGen>True</AutoGen>
-      <DependentUpon>CommandNames.resx</DependentUpon>
-    </Compile>
-    <Compile Update="ExtensionsPage.Designer.cs">
-      <DesignTime>True</DesignTime>
-      <AutoGen>True</AutoGen>
-      <DependentUpon>ExtensionsPage.resx</DependentUpon>
-    </Compile>
-    <Compile Update="Message.Designer.cs">
-      <DesignTime>True</DesignTime>
-      <AutoGen>True</AutoGen>
-      <DependentUpon>Message.resx</DependentUpon>
-    </Compile>
-    <Compile Update="SettingsPage.Designer.cs">
-      <DesignTime>True</DesignTime>
-      <AutoGen>True</AutoGen>
-      <DependentUpon>SettingsPage.resx</DependentUpon>
-    </Compile>
-    <Compile Update="Strings.Designer.cs">
-      <DesignTime>True</DesignTime>
-      <AutoGen>True</AutoGen>
-      <DependentUpon>Strings.resx</DependentUpon>
-    </Compile>
-    <Compile Update="TutorialStrings.Designer.cs">
-      <DesignTime>True</DesignTime>
-      <AutoGen>True</AutoGen>
-      <DependentUpon>TutorialStrings.resx</DependentUpon>
-    </Compile>
-  </ItemGroup>
-  <ItemGroup>
-    <EmbeddedResource Update="CommandNames.resx">
-      <Generator>PublicResXFileCodeGenerator</Generator>
-      <LastGenOutput>CommandNames.Designer.cs</LastGenOutput>
-    </EmbeddedResource>
-    <EmbeddedResource Update="ExtensionsPage.resx">
-      <Generator>PublicResXFileCodeGenerator</Generator>
-      <LastGenOutput>ExtensionsPage.Designer.cs</LastGenOutput>
-    </EmbeddedResource>
-    <EmbeddedResource Update="Message.resx">
-      <Generator>PublicResXFileCodeGenerator</Generator>
-      <LastGenOutput>Message.Designer.cs</LastGenOutput>
-    </EmbeddedResource>
-    <EmbeddedResource Update="SettingsPage.resx">
-      <Generator>PublicResXFileCodeGenerator</Generator>
-      <LastGenOutput>SettingsPage.Designer.cs</LastGenOutput>
-    </EmbeddedResource>
-    <EmbeddedResource Update="Strings.resx">
-      <Generator>PublicResXFileCodeGenerator</Generator>
-      <LastGenOutput>Strings.Designer.cs</LastGenOutput>
-    </EmbeddedResource>
-    <EmbeddedResource Update="TutorialStrings.resx">
-      <Generator>PublicResXFileCodeGenerator</Generator>
-      <LastGenOutput>TutorialStrings.Designer.cs</LastGenOutput>
-    </EmbeddedResource>
+    <EmbeddedResource Update="CommandNames.resx" />
+    <EmbeddedResource Update="ExtensionsStrings.resx" />
+    <EmbeddedResource Update="MessageStrings.resx" />
+    <EmbeddedResource Update="SettingsStrings.resx" />
+    <EmbeddedResource Update="Strings.resx" />
+    <EmbeddedResource Update="TutorialStrings.resx" />
+    <EmbeddedResource Update="AudioStrings.resx" />
+    <EmbeddedResource Update="GraphicsStrings.resx" />
   </ItemGroup>
 
 </Project>

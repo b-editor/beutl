@@ -13,7 +13,7 @@
                 Padding="0,4"
                 Background="Transparent"
                 IsVisible="{Binding !IsFirst}"
-                ToolTip.Tip="{x:Static lang:Message.Double_click_to_hide_group}">
+                ToolTip.Tip="{x:Static lang:MessageStrings.DoubleClickToHideGroup}">
             <Separator Height="2" />
         </Border>
 

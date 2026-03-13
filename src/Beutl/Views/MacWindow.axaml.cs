@@ -212,9 +212,9 @@ public sealed partial class MacWindow : Window
                     else
                     {
                         NotificationService.ShowInformation(
-                            title: Message.ContextNotCreated,
+                            title: MessageStrings.ContextNotCreated,
                             message: string.Format(
-                                format: Message.CouldNotOpenFollowingFileWithExtension,
+                                format: MessageStrings.FailedToOpenFileWithExtension,
                                 arg0: editorExtension.DisplayName,
                                 arg1: selectedTab.FileName.Value));
                     }

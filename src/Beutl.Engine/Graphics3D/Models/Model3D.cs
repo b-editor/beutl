@@ -11,7 +11,7 @@ namespace Beutl.Graphics3D.Models;
 /// <summary>
 /// A 3D object that renders a model loaded from a file.
 /// </summary>
-[Display(Name = nameof(Strings.Model3D), ResourceType = typeof(Strings))]
+[Display(Name = nameof(GraphicsStrings.Model3D), ResourceType = typeof(GraphicsStrings))]
 public sealed partial class Model3D : Group3D
 {
     private bool _deserializing;
@@ -25,7 +25,7 @@ public sealed partial class Model3D : Group3D
     /// <summary>
     /// Gets the model source to load.
     /// </summary>
-    [Display(Name = nameof(Strings.Source), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.Source), ResourceType = typeof(GraphicsStrings))]
     public IProperty<ModelSource?> Source { get; } = Property.Create<ModelSource?>(null);
 
     public override void Deserialize(ICoreSerializationContext context)

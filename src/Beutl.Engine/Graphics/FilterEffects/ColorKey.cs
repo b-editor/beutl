@@ -8,7 +8,7 @@ using SkiaSharp;
 
 namespace Beutl.Graphics.Effects;
 
-[Display(Name = nameof(Strings.ColorKey), ResourceType = typeof(Strings))]
+[Display(Name = nameof(GraphicsStrings.ColorKey), ResourceType = typeof(GraphicsStrings))]
 public partial class ColorKey : FilterEffect
 {
     private static readonly ILogger s_logger = Log.CreateLogger<ColorKey>();
@@ -55,13 +55,13 @@ public partial class ColorKey : FilterEffect
         ScanProperties<ColorKey>();
     }
 
-    [Display(Name = nameof(Strings.Color), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.Color), ResourceType = typeof(GraphicsStrings))]
     public IProperty<Color> Color { get; } = Property.CreateAnimatable<Color>();
 
-    [Display(Name = nameof(Strings.BrightnessRange), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.ColorKey_Range), ResourceType = typeof(GraphicsStrings))]
     public IProperty<float> Range { get; } = Property.CreateAnimatable<float>();
 
-    [Display(Name = nameof(Strings.BoundaryCorrection), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.ColorKey_Boundary), ResourceType = typeof(GraphicsStrings))]
     public IProperty<float> Boundary { get; } = Property.CreateAnimatable(2f);
 
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)

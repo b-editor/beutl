@@ -1,0 +1,1350 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:element name="root" msdata:IsDataSet="true">
+
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>1.3</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="BlendEffect" xml:space="preserve">
+    <value>Blend</value>
+  </data>
+  <data name="BlendEffect_BlendMode" xml:space="preserve">
+    <value>Blend Mode</value>
+  </data>
+  <data name="BlendMode_Clear" xml:space="preserve">
+    <value>Clear</value>
+  </data>
+  <data name="BlendMode_Clear_Description" xml:space="preserve">
+    <value>Clears the content to transparent.</value>
+  </data>
+  <data name="BlendMode_Color" xml:space="preserve">
+    <value>Color</value>
+  </data>
+  <data name="BlendMode_ColorBurn" xml:space="preserve">
+    <value>Color Burn</value>
+  </data>
+  <data name="BlendMode_ColorBurn_Description" xml:space="preserve">
+    <value>Darkens the background by burning it with the foreground color.</value>
+  </data>
+  <data name="BlendMode_ColorDodge" xml:space="preserve">
+    <value>Color Dodge</value>
+  </data>
+  <data name="BlendMode_ColorDodge_Description" xml:space="preserve">
+    <value>Brightens the background by adding the foreground color.</value>
+  </data>
+  <data name="BlendMode_Color_Description" xml:space="preserve">
+    <value>Applies the foreground hue and saturation to the background's luminance.</value>
+  </data>
+  <data name="BlendMode_Darken" xml:space="preserve">
+    <value>Darken</value>
+  </data>
+  <data name="BlendMode_Darken_Description" xml:space="preserve">
+    <value>Keeps the darker color of the foreground or background.</value>
+  </data>
+  <data name="BlendMode_Difference" xml:space="preserve">
+    <value>Difference</value>
+  </data>
+  <data name="BlendMode_Difference_Description" xml:space="preserve">
+    <value>Emphasizes the absolute color differences.</value>
+  </data>
+  <data name="BlendMode_Dst" xml:space="preserve">
+    <value>Keep Original</value>
+  </data>
+  <data name="BlendMode_DstATop" xml:space="preserve">
+    <value>Background On Top</value>
+  </data>
+  <data name="BlendMode_DstATop_Description" xml:space="preserve">
+    <value>Places the background on top and keeps the foreground outside.</value>
+  </data>
+  <data name="BlendMode_DstIn" xml:space="preserve">
+    <value>Background Inside</value>
+  </data>
+  <data name="BlendMode_DstIn_Description" xml:space="preserve">
+    <value>Clips the background to the shape of the foreground.</value>
+  </data>
+  <data name="BlendMode_DstOut" xml:space="preserve">
+    <value>Background Outside</value>
+  </data>
+  <data name="BlendMode_DstOut_Description" xml:space="preserve">
+    <value>Keeps the area outside the foreground for the background.</value>
+  </data>
+  <data name="BlendMode_DstOver" xml:space="preserve">
+    <value>Background Over</value>
+  </data>
+  <data name="BlendMode_DstOver_Description" xml:space="preserve">
+    <value>Places the background beneath the foreground.</value>
+  </data>
+  <data name="BlendMode_Dst_Description" xml:space="preserve">
+    <value>Keeps the original content unchanged.</value>
+  </data>
+  <data name="BlendMode_Exclusion" xml:space="preserve">
+    <value>Exclusion</value>
+  </data>
+  <data name="BlendMode_Exclusion_Description" xml:space="preserve">
+    <value>Creates a softer difference effect.</value>
+  </data>
+  <data name="BlendMode_HardLight" xml:space="preserve">
+    <value>Hard Light</value>
+  </data>
+  <data name="BlendMode_HardLight_Description" xml:space="preserve">
+    <value>Simulates a harsh spotlight effect to enhance contrast.</value>
+  </data>
+  <data name="BlendMode_Hue" xml:space="preserve">
+    <value>Hue</value>
+  </data>
+  <data name="BlendMode_Hue_Description" xml:space="preserve">
+    <value>Applies the foreground hue to the background's luminance and saturation.</value>
+  </data>
+  <data name="BlendMode_Lighten" xml:space="preserve">
+    <value>Lighten</value>
+  </data>
+  <data name="BlendMode_Lighten_Description" xml:space="preserve">
+    <value>Keeps the lighter color of the foreground or background.</value>
+  </data>
+  <data name="BlendMode_Luminosity" xml:space="preserve">
+    <value>Luminosity</value>
+  </data>
+  <data name="BlendMode_Luminosity_Description" xml:space="preserve">
+    <value>Applies the foreground luminance to the background's hue and saturation.</value>
+  </data>
+  <data name="BlendMode_Modulate" xml:space="preserve">
+    <value>Blend by Opacity</value>
+  </data>
+  <data name="BlendMode_Modulate_Description" xml:space="preserve">
+    <value>Combines the colors of the foreground and background based on their transparency (alpha values).</value>
+  </data>
+  <data name="BlendMode_Multiply" xml:space="preserve">
+    <value>Multiply Colors</value>
+  </data>
+  <data name="BlendMode_Multiply_Description" xml:space="preserve">
+    <value>Multiplies the RGB color values of the foreground and background, creating a darker effect.</value>
+  </data>
+  <data name="BlendMode_Overlay" xml:space="preserve">
+    <value>Overlay</value>
+  </data>
+  <data name="BlendMode_Overlay_Description" xml:space="preserve">
+    <value>Combines the foreground and background to enhance contrast.</value>
+  </data>
+  <data name="BlendMode_Plus" xml:space="preserve">
+    <value>Additive</value>
+  </data>
+  <data name="BlendMode_Plus_Description" xml:space="preserve">
+    <value>Adds the colors of the foreground and background.</value>
+  </data>
+  <data name="BlendMode_Saturation" xml:space="preserve">
+    <value>Saturation</value>
+  </data>
+  <data name="BlendMode_Saturation_Description" xml:space="preserve">
+    <value>Applies the foreground saturation to the background's hue and luminance.</value>
+  </data>
+  <data name="BlendMode_Screen" xml:space="preserve">
+    <value>Screen</value>
+  </data>
+  <data name="BlendMode_Screen_Description" xml:space="preserve">
+    <value>Multiplies the inverted colors of the foreground and background, creating a lighter effect.</value>
+  </data>
+  <data name="BlendMode_SoftLight" xml:space="preserve">
+    <value>Soft Light</value>
+  </data>
+  <data name="BlendMode_SoftLight_Description" xml:space="preserve">
+    <value>Simulates a diffused spotlight for smoother lighting effects.</value>
+  </data>
+  <data name="BlendMode_Src" xml:space="preserve">
+    <value>Overwrite</value>
+  </data>
+  <data name="BlendMode_SrcATop" xml:space="preserve">
+    <value>Foreground On Top</value>
+  </data>
+  <data name="BlendMode_SrcATop_Description" xml:space="preserve">
+    <value>Places the foreground on top and keeps the background outside.</value>
+  </data>
+  <data name="BlendMode_SrcIn" xml:space="preserve">
+    <value>Foreground Inside</value>
+  </data>
+  <data name="BlendMode_SrcIn_Description" xml:space="preserve">
+    <value>Clips the foreground to the shape of the background.</value>
+  </data>
+  <data name="BlendMode_SrcOut" xml:space="preserve">
+    <value>Foreground Outside</value>
+  </data>
+  <data name="BlendMode_SrcOut_Description" xml:space="preserve">
+    <value>Keeps the area outside the background for the foreground.</value>
+  </data>
+  <data name="BlendMode_SrcOver" xml:space="preserve">
+    <value>Foreground Over</value>
+  </data>
+  <data name="BlendMode_SrcOver_Description" xml:space="preserve">
+    <value>Places the foreground over the background.</value>
+  </data>
+  <data name="BlendMode_Src_Description" xml:space="preserve">
+    <value>Paints over the existing content.</value>
+  </data>
+  <data name="BlendMode_Xor" xml:space="preserve">
+    <value>Exclusive Blend</value>
+  </data>
+  <data name="BlendMode_Xor_Description" xml:space="preserve">
+    <value>Makes overlapping areas transparent, keeping non-overlapping areas.</value>
+  </data>
+  <data name="Blur" xml:space="preserve">
+    <value>Blur</value>
+  </data>
+  <data name="Brightness" xml:space="preserve">
+    <value>Brightness</value>
+  </data>
+  <data name="ChromaKey" xml:space="preserve">
+    <value>Chroma key</value>
+  </data>
+  <data name="ChromaKey_Boundary" xml:space="preserve">
+    <value>Boundary correction</value>
+  </data>
+  <data name="ChromaKey_HueRange" xml:space="preserve">
+    <value>Hue Range</value>
+  </data>
+  <data name="ChromaKey_SaturationRange" xml:space="preserve">
+    <value>Saturation Range</value>
+  </data>
+  <data name="Clipping" xml:space="preserve">
+    <value>Clipping</value>
+  </data>
+  <data name="Clipping_AutoCenter" xml:space="preserve">
+    <value>Automatic Centering</value>
+  </data>
+  <data name="Clipping_AutoClip" xml:space="preserve">
+    <value>Clip transparent area</value>
+  </data>
+  <data name="Clipping_Bottom" xml:space="preserve">
+    <value>Bottom</value>
+  </data>
+  <data name="Clipping_Left" xml:space="preserve">
+    <value>Left</value>
+  </data>
+  <data name="Clipping_Right" xml:space="preserve">
+    <value>Right</value>
+  </data>
+  <data name="Clipping_Top" xml:space="preserve">
+    <value>Top</value>
+  </data>
+  <data name="ColorGrading" xml:space="preserve">
+    <value>Color Grading</value>
+  </data>
+  <data name="ColorGrading_Contrast" xml:space="preserve">
+    <value>Contrast</value>
+  </data>
+  <data name="ColorGrading_ContrastPivot" xml:space="preserve">
+    <value>Contrast Pivot</value>
+  </data>
+  <data name="ColorGrading_Exposure" xml:space="preserve">
+    <value>Exposure</value>
+  </data>
+  <data name="ColorGrading_Gain" xml:space="preserve">
+    <value>Gain</value>
+  </data>
+  <data name="ColorGrading_Gamma" xml:space="preserve">
+    <value>Gamma</value>
+  </data>
+  <data name="ColorGrading_HighRange" xml:space="preserve">
+    <value>High Range</value>
+  </data>
+  <data name="ColorGrading_Highlights" xml:space="preserve">
+    <value>Highlights</value>
+  </data>
+  <data name="ColorGrading_Hue" xml:space="preserve">
+    <value>Hue</value>
+  </data>
+  <data name="ColorGrading_Lift" xml:space="preserve">
+    <value>Lift</value>
+  </data>
+  <data name="ColorGrading_LowRange" xml:space="preserve">
+    <value>Low Range</value>
+  </data>
+  <data name="ColorGrading_Midtones" xml:space="preserve">
+    <value>Midtones</value>
+  </data>
+  <data name="ColorGrading_Offset" xml:space="preserve">
+    <value>Offset</value>
+  </data>
+  <data name="ColorGrading_Saturation" xml:space="preserve">
+    <value>Saturation</value>
+  </data>
+  <data name="ColorGrading_Shadows" xml:space="preserve">
+    <value>Shadows</value>
+  </data>
+  <data name="ColorGrading_Temperature" xml:space="preserve">
+    <value>Temperature</value>
+  </data>
+  <data name="ColorGrading_Tint" xml:space="preserve">
+    <value>Tint</value>
+  </data>
+  <data name="ColorGrading_Vibrance" xml:space="preserve">
+    <value>Vibrance</value>
+  </data>
+  <data name="ColorKey" xml:space="preserve">
+    <value>Color key</value>
+  </data>
+  <data name="ColorKey_Boundary" xml:space="preserve">
+    <value>Boundary correction</value>
+  </data>
+  <data name="ColorKey_Range" xml:space="preserve">
+    <value>Brightness Range</value>
+  </data>
+  <data name="ColorShift" xml:space="preserve">
+    <value>Color Shift</value>
+  </data>
+  <data name="ColorShift_AlphaOffset" xml:space="preserve">
+    <value>Alpha Offset</value>
+  </data>
+  <data name="ColorShift_BlueOffset" xml:space="preserve">
+    <value>Blue Offset</value>
+  </data>
+  <data name="ColorShift_GreenOffset" xml:space="preserve">
+    <value>Green Offset</value>
+  </data>
+  <data name="ColorShift_RedOffset" xml:space="preserve">
+    <value>Red Offset</value>
+  </data>
+  <data name="Curves" xml:space="preserve">
+    <value>Curves</value>
+  </data>
+  <data name="Curves_BlueCurve" xml:space="preserve">
+    <value>Blue curve</value>
+  </data>
+  <data name="Curves_GreenCurve" xml:space="preserve">
+    <value>Green curve</value>
+  </data>
+  <data name="Curves_HueVsHue" xml:space="preserve">
+    <value>Hue vs Hue</value>
+  </data>
+  <data name="Curves_HueVsLuminance" xml:space="preserve">
+    <value>Hue vs Luminance</value>
+  </data>
+  <data name="Curves_HueVsSaturation" xml:space="preserve">
+    <value>Hue vs Saturation</value>
+  </data>
+  <data name="Curves_LuminanceVsSaturation" xml:space="preserve">
+    <value>Luminance vs Saturation</value>
+  </data>
+  <data name="Curves_MasterCurve" xml:space="preserve">
+    <value>Custom (RGB)</value>
+  </data>
+  <data name="Curves_RedCurve" xml:space="preserve">
+    <value>Red curve</value>
+  </data>
+  <data name="Curves_SaturationVsSaturation" xml:space="preserve">
+    <value>Saturation vs Saturation</value>
+  </data>
+  <data name="DelayAnimationEffect" xml:space="preserve">
+    <value>Delay Animation</value>
+  </data>
+  <data name="DelayAnimationEffect_Delay" xml:space="preserve">
+    <value>Delay</value>
+  </data>
+  <data name="DelayAnimationEffect_Effect" xml:space="preserve">
+    <value>Filter Effect</value>
+  </data>
+  <data name="Dilate" xml:space="preserve">
+    <value>Dilate</value>
+  </data>
+  <data name="Dilate_RadiusX" xml:space="preserve">
+    <value>Radius X</value>
+  </data>
+  <data name="Dilate_RadiusY" xml:space="preserve">
+    <value>Radius Y</value>
+  </data>
+  <data name="DisplacementMapEffect" xml:space="preserve">
+    <value>Displacement Map</value>
+  </data>
+  <data name="DisplacementMapEffect_DisplacementMap" xml:space="preserve">
+    <value>Displacement Map</value>
+  </data>
+  <data name="DisplacementMapEffect_ShowDisplacementMap" xml:space="preserve">
+    <value>Show Displacement Map</value>
+  </data>
+  <data name="DisplacementMapEffect_SpreadMethod" xml:space="preserve">
+    <value>Spread Method</value>
+  </data>
+  <data name="PixelSortEffect" xml:space="preserve">
+    <value>Pixel Sort</value>
+  </data>
+  <data name="PixelSortEffect_Direction" xml:space="preserve">
+    <value>Sort Direction</value>
+  </data>
+  <data name="PixelSortEffect_SortKey" xml:space="preserve">
+    <value>Sort Key</value>
+  </data>
+  <data name="PixelSortEffect_ThresholdMin" xml:space="preserve">
+    <value>Threshold Min</value>
+  </data>
+  <data name="PixelSortEffect_ThresholdMax" xml:space="preserve">
+    <value>Threshold Max</value>
+  </data>
+  <data name="PixelSortEffect_Ascending" xml:space="preserve">
+    <value>Ascending</value>
+  </data>
+  <data name="DrawableDecorator" xml:space="preserve">
+    <value>Decorator</value>
+  </data>
+  <data name="DrawableTimeController" xml:space="preserve">
+    <value>Time Controller (Video)</value>
+  </data>
+  <data name="DrawableTimeController_AdjustTimeRange" xml:space="preserve">
+    <value>Adjust Time Range</value>
+  </data>
+  <data name="DrawableTimeController_FrameRate" xml:space="preserve">
+    <value>Frame rate</value>
+  </data>
+  <data name="DrawableTimeController_HoldFirstFrame" xml:space="preserve">
+    <value>Hold First Frame</value>
+  </data>
+  <data name="DrawableTimeController_HoldLastFrame" xml:space="preserve">
+    <value>Hold Last Frame</value>
+  </data>
+  <data name="DrawableTimeController_Loop" xml:space="preserve">
+    <value>Loop</value>
+  </data>
+  <data name="DrawableTimeController_OffsetPosition" xml:space="preserve">
+    <value>Offset Position</value>
+  </data>
+  <data name="DrawableTimeController_Reverse" xml:space="preserve">
+    <value>Reverse</value>
+  </data>
+  <data name="Drawable_AlignmentX" xml:space="preserve">
+    <value>Alignment X</value>
+  </data>
+  <data name="Drawable_AlignmentY" xml:space="preserve">
+    <value>Alignment Y</value>
+  </data>
+  <data name="Drawable_BlendMode" xml:space="preserve">
+    <value>Blend Mode</value>
+  </data>
+  <data name="DropShadow" xml:space="preserve">
+    <value>Drop Shadow</value>
+  </data>
+  <data name="EllipseShape" xml:space="preserve">
+    <value>Ellipse</value>
+  </data>
+  <data name="Erode" xml:space="preserve">
+    <value>Erode</value>
+  </data>
+  <data name="Erode_RadiusX" xml:space="preserve">
+    <value>Radius X</value>
+  </data>
+  <data name="Erode_RadiusY" xml:space="preserve">
+    <value>Radius Y</value>
+  </data>
+  <data name="FlatShadow" xml:space="preserve">
+    <value>Flat Shadow</value>
+  </data>
+  <data name="FlatShadow_Length" xml:space="preserve">
+    <value>Length</value>
+  </data>
+  <data name="SKSLScriptEffect" xml:space="preserve">
+    <value>SKSL Script</value>
+  </data>
+  <data name="GLSLScriptEffect" xml:space="preserve">
+    <value>GLSL Script</value>
+  </data>
+  <data name="CSharpScriptEffect" xml:space="preserve">
+    <value>C# Script</value>
+  </data>
+  <data name="Gamma" xml:space="preserve">
+    <value>Gamma</value>
+  </data>
+  <data name="GeometryShape" xml:space="preserve">
+    <value>Geometry</value>
+  </data>
+  <data name="GeometryShape_Data" xml:space="preserve">
+    <value>Data</value>
+  </data>
+  <data name="HighContrast" xml:space="preserve">
+    <value>High Contrast</value>
+  </data>
+  <data name="HighContrast_Contrast" xml:space="preserve">
+    <value>Contrast</value>
+  </data>
+  <data name="HighContrast_Grayscale" xml:space="preserve">
+    <value>Grayscale</value>
+  </data>
+  <data name="HighContrast_InvertStyle" xml:space="preserve">
+    <value>Invert Style</value>
+  </data>
+  <data name="HueRotate" xml:space="preserve">
+    <value>Hue Rotate</value>
+  </data>
+  <data name="InnerShadow" xml:space="preserve">
+    <value>Inner Shadow</value>
+  </data>
+  <data name="Invert" xml:space="preserve">
+    <value>Invert</value>
+  </data>
+  <data name="Invert_ExcludeAlphaChannel" xml:space="preserve">
+    <value>Exclude Alpha channel</value>
+  </data>
+  <data name="LayerEffect" xml:space="preserve">
+    <value>Layer</value>
+  </data>
+  <data name="Lighting" xml:space="preserve">
+    <value>Lighting</value>
+  </data>
+  <data name="Lighting_Add" xml:space="preserve">
+    <value>Addition</value>
+  </data>
+  <data name="Lighting_Multiply" xml:space="preserve">
+    <value>Multiplication</value>
+  </data>
+  <data name="LumaColor" xml:space="preserve">
+    <value>LumaColor</value>
+  </data>
+  <data name="LutEffect" xml:space="preserve">
+    <value>LUT (Cube File)</value>
+  </data>
+  <data name="MatrixTransform" xml:space="preserve">
+    <value>Matrix Transform</value>
+  </data>
+  <data name="MatrixTransform_Matrix" xml:space="preserve">
+    <value>Matrix</value>
+  </data>
+  <data name="MosaicEffect" xml:space="preserve">
+    <value>Mosaic</value>
+  </data>
+  <data name="MosaicEffect_Origin" xml:space="preserve">
+    <value>Origin</value>
+  </data>
+  <data name="MosaicEffect_TileSize" xml:space="preserve">
+    <value>Tile size</value>
+  </data>
+  <data name="Negaposi" xml:space="preserve">
+    <value>Negaposi</value>
+  </data>
+  <data name="Negaposi_Blue" xml:space="preserve">
+    <value>Blue</value>
+  </data>
+  <data name="Negaposi_Green" xml:space="preserve">
+    <value>Green</value>
+  </data>
+  <data name="Negaposi_Red" xml:space="preserve">
+    <value>Red</value>
+  </data>
+  <data name="ParticleEmitter" xml:space="preserve">
+    <value>Particle Emitter</value>
+  </data>
+  <data name="ParticleEmitter_AirResistance" xml:space="preserve">
+    <value>Air Resistance</value>
+  </data>
+  <data name="ParticleEmitter_AngularVelocity" xml:space="preserve">
+    <value>Angular Velocity</value>
+  </data>
+  <data name="ParticleEmitter_EmissionGroup" xml:space="preserve">
+    <value>Emission</value>
+  </data>
+  <data name="ParticleEmitter_EmissionRate" xml:space="preserve">
+    <value>Emission Rate</value>
+  </data>
+  <data name="ParticleEmitter_EmitterGroup" xml:space="preserve">
+    <value>Emitter</value>
+  </data>
+  <data name="ParticleEmitter_EmitterHeight" xml:space="preserve">
+    <value>Emitter Height</value>
+  </data>
+  <data name="ParticleEmitter_EmitterShape" xml:space="preserve">
+    <value>Emitter Shape</value>
+  </data>
+  <data name="ParticleEmitter_EmitterWidth" xml:space="preserve">
+    <value>Emitter Width</value>
+  </data>
+  <data name="ParticleEmitter_EndColor" xml:space="preserve">
+    <value>End Color</value>
+  </data>
+  <data name="ParticleEmitter_EndOpacityMultiplier" xml:space="preserve">
+    <value>End Opacity Multiplier</value>
+  </data>
+  <data name="ParticleEmitter_EndSizeMultiplier" xml:space="preserve">
+    <value>End Size Multiplier</value>
+  </data>
+  <data name="ParticleEmitter_Gravity" xml:space="preserve">
+    <value>Gravity</value>
+  </data>
+  <data name="ParticleEmitter_InitialRotation" xml:space="preserve">
+    <value>Initial Rotation</value>
+  </data>
+  <data name="ParticleEmitter_InitialRotationRandom" xml:space="preserve">
+    <value>Initial Rotation Random</value>
+  </data>
+  <data name="ParticleEmitter_Lifetime" xml:space="preserve">
+    <value>Lifetime</value>
+  </data>
+  <data name="ParticleEmitter_LifetimeRandom" xml:space="preserve">
+    <value>Lifetime Random</value>
+  </data>
+  <data name="ParticleEmitter_MaxParticles" xml:space="preserve">
+    <value>Max Particles</value>
+  </data>
+  <data name="ParticleEmitter_OverLifeGroup" xml:space="preserve">
+    <value>Over Life</value>
+  </data>
+  <data name="ParticleEmitter_ParticleDrawable" xml:space="preserve">
+    <value>Particle Drawable</value>
+  </data>
+  <data name="ParticleEmitter_ParticleOpacity" xml:space="preserve">
+    <value>Particle Opacity</value>
+  </data>
+  <data name="ParticleEmitter_ParticleSize" xml:space="preserve">
+    <value>Particle Size</value>
+  </data>
+  <data name="ParticleEmitter_PhysicsGroup" xml:space="preserve">
+    <value>Physics</value>
+  </data>
+  <data name="ParticleEmitter_Seed" xml:space="preserve">
+    <value>Seed</value>
+  </data>
+  <data name="ParticleEmitter_SizeRandom" xml:space="preserve">
+    <value>Size Random</value>
+  </data>
+  <data name="ParticleEmitter_SpeedRandom" xml:space="preserve">
+    <value>Speed Random</value>
+  </data>
+  <data name="ParticleEmitter_Spread" xml:space="preserve">
+    <value>Spread</value>
+  </data>
+  <data name="ParticleEmitter_TurbulenceScale" xml:space="preserve">
+    <value>Turbulence Scale</value>
+  </data>
+  <data name="ParticleEmitter_TurbulenceSpeed" xml:space="preserve">
+    <value>Turbulence Speed</value>
+  </data>
+  <data name="ParticleEmitter_TurbulenceStrength" xml:space="preserve">
+    <value>Turbulence Strength</value>
+  </data>
+  <data name="ParticleEmitter_UseEndColor" xml:space="preserve">
+    <value>Use End Color</value>
+  </data>
+  <data name="ParticleEmitter_VelocityGroup" xml:space="preserve">
+    <value>Velocity</value>
+  </data>
+  <data name="ParticleEmitter_VisualGroup" xml:space="preserve">
+    <value>Visual</value>
+  </data>
+  <data name="PartsSplitEffect" xml:space="preserve">
+    <value>Split by parts</value>
+  </data>
+  <data name="PathFollowEffect" xml:space="preserve">
+    <value>Path Follow</value>
+  </data>
+  <data name="PathFollowEffect_FollowRotation" xml:space="preserve">
+    <value>Follow Rotation</value>
+  </data>
+  <data name="PathFollowEffect_Geometry" xml:space="preserve">
+    <value>Geometry</value>
+  </data>
+  <data name="PathFollowEffect_Progress" xml:space="preserve">
+    <value>Progress</value>
+  </data>
+  <data name="RectShape" xml:space="preserve">
+    <value>Rectangle</value>
+  </data>
+  <data name="Rotation3DTransform" xml:space="preserve">
+    <value>Rotation 3D</value>
+  </data>
+  <data name="Rotation3DTransform_CenterZ" xml:space="preserve">
+    <value>Center Z</value>
+  </data>
+  <data name="Rotation3DTransform_RotationX" xml:space="preserve">
+    <value>Rotation X</value>
+  </data>
+  <data name="Rotation3DTransform_RotationY" xml:space="preserve">
+    <value>Rotation Y</value>
+  </data>
+  <data name="Rotation3DTransform_RotationZ" xml:space="preserve">
+    <value>Rotation Z</value>
+  </data>
+  <data name="RoundedRectShape" xml:space="preserve">
+    <value>Rounded rectangle</value>
+  </data>
+  <data name="RoundedRectShape_CornerRadius" xml:space="preserve">
+    <value>Corner Radius</value>
+  </data>
+  <data name="Saturate" xml:space="preserve">
+    <value>Saturate</value>
+  </data>
+  <data name="ScaleTransform_ScaleX" xml:space="preserve">
+    <value>Scale X</value>
+  </data>
+  <data name="ScaleTransform_ScaleY" xml:space="preserve">
+    <value>Scale Y</value>
+  </data>
+  <data name="ShakeEffect" xml:space="preserve">
+    <value>Shake</value>
+  </data>
+  <data name="ShakeEffect_StrengthX" xml:space="preserve">
+    <value>Strength X</value>
+  </data>
+  <data name="ShakeEffect_StrengthY" xml:space="preserve">
+    <value>Strength Y</value>
+  </data>
+  <data name="Fill" xml:space="preserve">
+    <value>Fill</value>
+  </data>
+  <data name="SkewTransform" xml:space="preserve">
+    <value>Skew</value>
+  </data>
+  <data name="SkewTransform_SkewX" xml:space="preserve">
+    <value>Skew X</value>
+  </data>
+  <data name="SkewTransform_SkewY" xml:space="preserve">
+    <value>Skew Y</value>
+  </data>
+  <data name="SourceBackdrop" xml:space="preserve">
+    <value>Backdrop</value>
+  </data>
+  <data name="SourceBackdrop_Clear" xml:space="preserve">
+    <value>Clear Buffer</value>
+  </data>
+  <data name="SourceImage" xml:space="preserve">
+    <value>Image</value>
+  </data>
+  <data name="SourceVideo" xml:space="preserve">
+    <value>Video</value>
+  </data>
+  <data name="SourceVideo_IsLoop" xml:space="preserve">
+    <value>Loop</value>
+  </data>
+  <data name="SourceVideo_OffsetPosition" xml:space="preserve">
+    <value>Offset Position</value>
+  </data>
+  <data name="SplitEffect" xml:space="preserve">
+    <value>Split equally</value>
+  </data>
+  <data name="SplitEffect_HorizontalDivisions" xml:space="preserve">
+    <value>Horizontal divisions</value>
+  </data>
+  <data name="SplitEffect_HorizontalSpacing" xml:space="preserve">
+    <value>Horizontal spacing</value>
+  </data>
+  <data name="SplitEffect_VerticalDivisions" xml:space="preserve">
+    <value>Vertical divisions</value>
+  </data>
+  <data name="SplitEffect_VerticalSpacing" xml:space="preserve">
+    <value>Vertical spacing</value>
+  </data>
+  <data name="StrokeEffect_Style" xml:space="preserve">
+    <value>Border Style</value>
+  </data>
+  <data name="TextBlock" xml:space="preserve">
+    <value>Text</value>
+  </data>
+  <data name="TextBlock_FontFamily" xml:space="preserve">
+    <value>Font Family</value>
+  </data>
+  <data name="TextBlock_FontStyle" xml:space="preserve">
+    <value>Font Style</value>
+  </data>
+  <data name="TextBlock_FontWeight" xml:space="preserve">
+    <value>Font Weight</value>
+  </data>
+  <data name="TextBlock_Size" xml:space="preserve">
+    <value>Size</value>
+  </data>
+  <data name="TextBlock_Spacing" xml:space="preserve">
+    <value>Character Spacing</value>
+  </data>
+  <data name="TextBlock_SplitByCharacters" xml:space="preserve">
+    <value>Split by characters</value>
+  </data>
+  <data name="TextBlock_Text" xml:space="preserve">
+    <value>Text</value>
+  </data>
+  <data name="Threshold" xml:space="preserve">
+    <value>Threshold</value>
+  </data>
+  <data name="TransformEffect_BitmapInterpolationMode" xml:space="preserve">
+    <value>Bitmap Interpolation Mode</value>
+  </data>
+  <data name="TranslateTransform" xml:space="preserve">
+    <value>Translate</value>
+  </data>
+  <data name="TranslateTransform_X" xml:space="preserve">
+    <value>X</value>
+  </data>
+  <data name="TranslateTransform_Y" xml:space="preserve">
+    <value>Y</value>
+  </data>
+  <data name="ArcSegment" xml:space="preserve">
+    <value>Elliptical arc</value>
+  </data>
+  <data name="ArcSegment_IsLargeArc" xml:space="preserve">
+    <value>Is Large Arc</value>
+  </data>
+  <data name="ArcSegment_Point" xml:space="preserve">
+    <value>Point</value>
+  </data>
+  <data name="ArcSegment_RotationAngle" xml:space="preserve">
+    <value>Rotation Angle</value>
+  </data>
+  <data name="ArcSegment_SweepClockwise" xml:space="preserve">
+    <value>Sweep Clockwise</value>
+  </data>
+  <data name="BasicMaterial" xml:space="preserve">
+    <value>Basic Material</value>
+  </data>
+  <data name="BasicMaterial_AmbientColor" xml:space="preserve">
+    <value>Ambient Color</value>
+  </data>
+  <data name="BasicMaterial_DiffuseColor" xml:space="preserve">
+    <value>Diffuse Color</value>
+  </data>
+  <data name="BasicMaterial_DiffuseMap" xml:space="preserve">
+    <value>Diffuse Map</value>
+  </data>
+  <data name="BasicMaterial_Shininess" xml:space="preserve">
+    <value>Shininess</value>
+  </data>
+  <data name="BasicMaterial_SpecularColor" xml:space="preserve">
+    <value>Specular Color</value>
+  </data>
+  <data name="Camera3D_FarPlane" xml:space="preserve">
+    <value>Far Plane</value>
+  </data>
+  <data name="Camera3D_NearPlane" xml:space="preserve">
+    <value>Near Plane</value>
+  </data>
+  <data name="Camera3D_Up" xml:space="preserve">
+    <value>Up</value>
+  </data>
+  <data name="ConicGradientBrush" xml:space="preserve">
+    <value>Conical gradient</value>
+  </data>
+  <data name="ConicGradientBrush_Center" xml:space="preserve">
+    <value>Center</value>
+  </data>
+  <data name="ConicSegment" xml:space="preserve">
+    <value>Conic</value>
+  </data>
+  <data name="ConicSegment_ControlPoint" xml:space="preserve">
+    <value>Control Point</value>
+  </data>
+  <data name="ConicSegment_Weight" xml:space="preserve">
+    <value>Weight</value>
+  </data>
+  <data name="Cube3D" xml:space="preserve">
+    <value>Cube</value>
+  </data>
+  <data name="CubeMesh" xml:space="preserve">
+    <value>Cube Mesh</value>
+  </data>
+  <data name="CubicBezierSegment" xml:space="preserve">
+    <value>Cubic Bezier curve</value>
+  </data>
+  <data name="CubicBezierSegment_ControlPoint1" xml:space="preserve">
+    <value>Control Point 1</value>
+  </data>
+  <data name="CubicBezierSegment_ControlPoint2" xml:space="preserve">
+    <value>Control Point 2</value>
+  </data>
+  <data name="DirectionalLight3D" xml:space="preserve">
+    <value>Directional Light</value>
+  </data>
+  <data name="DirectionalLight3D_ShadowDistance" xml:space="preserve">
+    <value>Shadow Distance</value>
+  </data>
+  <data name="DirectionalLight3D_ShadowMapSize" xml:space="preserve">
+    <value>Shadow Map Size</value>
+  </data>
+  <data name="DrawableTextureSource" xml:space="preserve">
+    <value>Drawable Texture</value>
+  </data>
+  <data name="DrawableTextureSource_TextureHeight" xml:space="preserve">
+    <value>Texture Height</value>
+  </data>
+  <data name="DrawableTextureSource_TextureWidth" xml:space="preserve">
+    <value>Texture Width</value>
+  </data>
+  <data name="EllipseGeometry" xml:space="preserve">
+    <value>Ellipse</value>
+  </data>
+  <data name="Geometry_FillType" xml:space="preserve">
+    <value>Fill Type</value>
+  </data>
+  <data name="GradientBrush_GradientStops" xml:space="preserve">
+    <value>Stops</value>
+  </data>
+  <data name="GradientBrush_SpreadMethod" xml:space="preserve">
+    <value>Spread Method</value>
+  </data>
+  <data name="Children" xml:space="preserve">
+    <value>Children</value>
+  </data>
+  <data name="ImageTextureSource" xml:space="preserve">
+    <value>Image Texture</value>
+  </data>
+  <data name="Light3D_CastsShadow" xml:space="preserve">
+    <value>Casts Shadow</value>
+  </data>
+  <data name="Light3D_Intensity" xml:space="preserve">
+    <value>Intensity</value>
+  </data>
+  <data name="Light3D_ShadowBias" xml:space="preserve">
+    <value>Shadow Bias</value>
+  </data>
+  <data name="Light3D_ShadowNormalBias" xml:space="preserve">
+    <value>Shadow Normal Bias</value>
+  </data>
+  <data name="Light3D_ShadowStrength" xml:space="preserve">
+    <value>Shadow Strength</value>
+  </data>
+  <data name="LineSegment" xml:space="preserve">
+    <value>Line</value>
+  </data>
+  <data name="LineSegment_Point" xml:space="preserve">
+    <value>Point</value>
+  </data>
+  <data name="LinearGradientBrush" xml:space="preserve">
+    <value>Linear gradient</value>
+  </data>
+  <data name="LinearGradientBrush_StartPoint" xml:space="preserve">
+    <value>Start Point</value>
+  </data>
+  <data name="MeshObject3D" xml:space="preserve">
+    <value>Mesh Object</value>
+  </data>
+  <data name="MeshObject3D_Mesh" xml:space="preserve">
+    <value>Mesh</value>
+  </data>
+  <data name="Model3D" xml:space="preserve">
+    <value>Model</value>
+  </data>
+  <data name="ModelMesh" xml:space="preserve">
+    <value>Model Mesh</value>
+  </data>
+  <data name="ModelMesh_Indices" xml:space="preserve">
+    <value>Indices</value>
+  </data>
+  <data name="ModelMesh_Vertices" xml:space="preserve">
+    <value>Vertices</value>
+  </data>
+  <data name="Object3D_CastShadows" xml:space="preserve">
+    <value>Cast Shadows</value>
+  </data>
+  <data name="Object3D_Material" xml:space="preserve">
+    <value>Material</value>
+  </data>
+  <data name="Object3D_ReceiveShadows" xml:space="preserve">
+    <value>Receive Shadows</value>
+  </data>
+  <data name="OrthographicCamera" xml:space="preserve">
+    <value>Orthographic Camera</value>
+  </data>
+  <data name="PBRMaterial" xml:space="preserve">
+    <value>PBR Material</value>
+  </data>
+  <data name="PBRMaterial_AOMap" xml:space="preserve">
+    <value>AO Map</value>
+  </data>
+  <data name="PBRMaterial_Albedo" xml:space="preserve">
+    <value>Albedo</value>
+  </data>
+  <data name="PBRMaterial_AlbedoMap" xml:space="preserve">
+    <value>Albedo Map</value>
+  </data>
+  <data name="PBRMaterial_AmbientOcclusion" xml:space="preserve">
+    <value>Ambient Occlusion</value>
+  </data>
+  <data name="PBRMaterial_Emissive" xml:space="preserve">
+    <value>Emissive</value>
+  </data>
+  <data name="PBRMaterial_EmissiveIntensity" xml:space="preserve">
+    <value>Emissive Intensity</value>
+  </data>
+  <data name="PBRMaterial_EmissiveMap" xml:space="preserve">
+    <value>Emissive Map</value>
+  </data>
+  <data name="PBRMaterial_Metallic" xml:space="preserve">
+    <value>Metallic</value>
+  </data>
+  <data name="PBRMaterial_MetallicRoughnessMap" xml:space="preserve">
+    <value>Metallic/Roughness Map</value>
+  </data>
+  <data name="PBRMaterial_NormalMap" xml:space="preserve">
+    <value>Normal Map</value>
+  </data>
+  <data name="PBRMaterial_NormalMapStrength" xml:space="preserve">
+    <value>Normal Map Strength</value>
+  </data>
+  <data name="PBRMaterial_Roughness" xml:space="preserve">
+    <value>Roughness</value>
+  </data>
+  <data name="PathFigure" xml:space="preserve">
+    <value>Figure</value>
+  </data>
+  <data name="PathFigure_IsClosed" xml:space="preserve">
+    <value>Is Closed</value>
+  </data>
+  <data name="PathFigure_StartPoint" xml:space="preserve">
+    <value>Start Point</value>
+  </data>
+  <data name="PathGeometry" xml:space="preserve">
+    <value>Geometry</value>
+  </data>
+  <data name="Pen_DashArray" xml:space="preserve">
+    <value>Dashes and spaces</value>
+  </data>
+  <data name="Pen_DashOffset" xml:space="preserve">
+    <value>Dashed offset</value>
+  </data>
+  <data name="Pen_MiterLimit" xml:space="preserve">
+    <value>Miter Limit</value>
+  </data>
+  <data name="Pen_StrokeAlignment" xml:space="preserve">
+    <value>Location</value>
+  </data>
+  <data name="Pen_StrokeCap" xml:space="preserve">
+    <value>Cap style</value>
+  </data>
+  <data name="Pen_StrokeJoin" xml:space="preserve">
+    <value>Join style</value>
+  </data>
+  <data name="Pen_Thickness" xml:space="preserve">
+    <value>Thickness</value>
+  </data>
+  <data name="Pen_TrimEnd" xml:space="preserve">
+    <value>Trim end</value>
+  </data>
+  <data name="Pen_TrimOffset" xml:space="preserve">
+    <value>Trim offset</value>
+  </data>
+  <data name="Pen_TrimStart" xml:space="preserve">
+    <value>Trim start</value>
+  </data>
+  <data name="Pen_Offset" xml:space="preserve">
+    <value>Offset</value>
+  </data>
+  <data name="PerlinNoiseBrush" xml:space="preserve">
+    <value>Perlin noise</value>
+  </data>
+  <data name="PerlinNoiseBrush_BaseFrequencyX" xml:space="preserve">
+    <value>Base Frequency X</value>
+  </data>
+  <data name="PerlinNoiseBrush_BaseFrequencyY" xml:space="preserve">
+    <value>Base Frequency Y</value>
+  </data>
+  <data name="PerlinNoiseBrush_Octaves" xml:space="preserve">
+    <value>Octaves</value>
+  </data>
+  <data name="PerlinNoiseBrush_PerlinNoiseType" xml:space="preserve">
+    <value>Noise Type</value>
+  </data>
+  <data name="PerlinNoiseBrush_Seed" xml:space="preserve">
+    <value>Seed</value>
+  </data>
+  <data name="PerspectiveCamera" xml:space="preserve">
+    <value>Perspective Camera</value>
+  </data>
+  <data name="PerspectiveCamera_FieldOfView" xml:space="preserve">
+    <value>Field of View</value>
+  </data>
+  <data name="Plane3D" xml:space="preserve">
+    <value>Plane</value>
+  </data>
+  <data name="Plane3D_HeightSegments" xml:space="preserve">
+    <value>Height Segments</value>
+  </data>
+  <data name="Plane3D_WidthSegments" xml:space="preserve">
+    <value>Width Segments</value>
+  </data>
+  <data name="PlaneMesh" xml:space="preserve">
+    <value>Plane Mesh</value>
+  </data>
+  <data name="PlaneMesh_HeightSegments" xml:space="preserve">
+    <value>Height Segments</value>
+  </data>
+  <data name="PlaneMesh_WidthSegments" xml:space="preserve">
+    <value>Width Segments</value>
+  </data>
+  <data name="PointLight3D" xml:space="preserve">
+    <value>Point Light</value>
+  </data>
+  <data name="PointLight3D_ConstantAttenuation" xml:space="preserve">
+    <value>Constant Attenuation</value>
+  </data>
+  <data name="PointLight3D_LinearAttenuation" xml:space="preserve">
+    <value>Linear Attenuation</value>
+  </data>
+  <data name="PointLight3D_QuadraticAttenuation" xml:space="preserve">
+    <value>Quadratic Attenuation</value>
+  </data>
+  <data name="PointLight3D_Range" xml:space="preserve">
+    <value>Range</value>
+  </data>
+  <data name="QuadraticBezierSegment" xml:space="preserve">
+    <value>Quadratic Bezier curve</value>
+  </data>
+  <data name="QuadraticBezierSegment_ControlPoint" xml:space="preserve">
+    <value>Control Point</value>
+  </data>
+  <data name="RadialGradientBrush" xml:space="preserve">
+    <value>Radial gradient</value>
+  </data>
+  <data name="RadialGradientBrush_Center" xml:space="preserve">
+    <value>Center</value>
+  </data>
+  <data name="RadialGradientBrush_GradientOrigin" xml:space="preserve">
+    <value>Gradient Origin</value>
+  </data>
+  <data name="RectGeometry" xml:space="preserve">
+    <value>Rectangle</value>
+  </data>
+  <data name="RoundedRectGeometry" xml:space="preserve">
+    <value>Rounded rectangle</value>
+  </data>
+  <data name="RoundedRectGeometry_CornerRadius" xml:space="preserve">
+    <value>Corner Radius</value>
+  </data>
+  <data name="Scene3D" xml:space="preserve">
+    <value>3D Scene</value>
+  </data>
+  <data name="Scene3D_AmbientColor" xml:space="preserve">
+    <value>Ambient Color</value>
+  </data>
+  <data name="Scene3D_AmbientIntensity" xml:space="preserve">
+    <value>Ambient Intensity</value>
+  </data>
+  <data name="Scene3D_BackgroundColor" xml:space="preserve">
+    <value>Background Color</value>
+  </data>
+  <data name="Scene3D_Camera" xml:space="preserve">
+    <value>Camera</value>
+  </data>
+  <data name="Scene3D_Lights" xml:space="preserve">
+    <value>Lights</value>
+  </data>
+  <data name="Scene3D_Objects" xml:space="preserve">
+    <value>Objects</value>
+  </data>
+  <data name="Scene3D_RenderHeight" xml:space="preserve">
+    <value>Render Height</value>
+  </data>
+  <data name="Scene3D_RenderWidth" xml:space="preserve">
+    <value>Render Width</value>
+  </data>
+  <data name="SolidColorBrush" xml:space="preserve">
+    <value>Solid</value>
+  </data>
+  <data name="Sphere3D" xml:space="preserve">
+    <value>Sphere</value>
+  </data>
+  <data name="Sphere3D_Rings" xml:space="preserve">
+    <value>Rings</value>
+  </data>
+  <data name="Sphere3D_Segments" xml:space="preserve">
+    <value>Segments</value>
+  </data>
+  <data name="SphereMesh" xml:space="preserve">
+    <value>Sphere Mesh</value>
+  </data>
+  <data name="SphereMesh_Rings" xml:space="preserve">
+    <value>Rings</value>
+  </data>
+  <data name="SphereMesh_Segments" xml:space="preserve">
+    <value>Segments</value>
+  </data>
+  <data name="SpotLight3D" xml:space="preserve">
+    <value>Spot Light</value>
+  </data>
+  <data name="SpotLight3D_ConstantAttenuation" xml:space="preserve">
+    <value>Constant Attenuation</value>
+  </data>
+  <data name="SpotLight3D_InnerConeAngle" xml:space="preserve">
+    <value>Inner Cone Angle</value>
+  </data>
+  <data name="SpotLight3D_LinearAttenuation" xml:space="preserve">
+    <value>Linear Attenuation</value>
+  </data>
+  <data name="SpotLight3D_OuterConeAngle" xml:space="preserve">
+    <value>Outer Cone Angle</value>
+  </data>
+  <data name="SpotLight3D_QuadraticAttenuation" xml:space="preserve">
+    <value>Quadratic Attenuation</value>
+  </data>
+  <data name="SpotLight3D_Range" xml:space="preserve">
+    <value>Range</value>
+  </data>
+  <data name="StrokeAlignment_Center" xml:space="preserve">
+    <value>Center</value>
+  </data>
+  <data name="StrokeAlignment_Inside" xml:space="preserve">
+    <value>Inside</value>
+  </data>
+  <data name="StrokeAlignment_Outside" xml:space="preserve">
+    <value>Outside</value>
+  </data>
+  <data name="StrokeCap_Flat" xml:space="preserve">
+    <value>Flat</value>
+  </data>
+  <data name="StrokeCap_Round" xml:space="preserve">
+    <value>Round</value>
+  </data>
+  <data name="StrokeCap_Square" xml:space="preserve">
+    <value>Square</value>
+  </data>
+  <data name="StrokeJoin_Bevel" xml:space="preserve">
+    <value>Beveled join</value>
+  </data>
+  <data name="StrokeJoin_Miter" xml:space="preserve">
+    <value>Mitered join</value>
+  </data>
+  <data name="StrokeJoin_Round" xml:space="preserve">
+    <value>Circular join</value>
+  </data>
+  <data name="TileBrush_AlignmentX" xml:space="preserve">
+    <value>Alignment X</value>
+  </data>
+  <data name="TileBrush_AlignmentY" xml:space="preserve">
+    <value>Alignment Y</value>
+  </data>
+  <data name="TileBrush_BitmapInterpolationMode" xml:space="preserve">
+    <value>Bitmap Interpolation Mode</value>
+  </data>
+  <data name="TileBrush_SourceRect" xml:space="preserve">
+    <value>Source</value>
+  </data>
+  <data name="TileBrush_DestinationRect" xml:space="preserve">
+    <value>Destination</value>
+  </data>
+  <data name="TileBrush_Stretch" xml:space="preserve">
+    <value>Stretch</value>
+  </data>
+  <data name="TileBrush_TileMode" xml:space="preserve">
+    <value>Tile Mode</value>
+  </data>
+  <data name="TransparentMaterial" xml:space="preserve">
+    <value>Transparent Material</value>
+  </data>
+  <data name="TransparentMaterial_ColorMap" xml:space="preserve">
+    <value>Color Map</value>
+  </data>
+  <data name="TransparentMaterial_IndexOfRefraction" xml:space="preserve">
+    <value>Index of Refraction</value>
+  </data>
+  <data name="TransparentMaterial_Roughness" xml:space="preserve">
+    <value>Roughness</value>
+  </data>
+  <data name="Amount" xml:space="preserve">
+    <value>Amount</value>
+  </data>
+  <data name="Angle" xml:space="preserve">
+    <value>Angle</value>
+  </data>
+  <data name="Brush" xml:space="preserve">
+    <value>Brush</value>
+  </data>
+  <data name="CenterX" xml:space="preserve">
+    <value>Center X</value>
+  </data>
+  <data name="CenterY" xml:space="preserve">
+    <value>Center Y</value>
+  </data>
+  <data name="Color" xml:space="preserve">
+    <value>Color</value>
+  </data>
+  <data name="Depth" xml:space="preserve">
+    <value>Depth</value>
+  </data>
+  <data name="Direction" xml:space="preserve">
+    <value>Direction</value>
+  </data>
+  <data name="Drawable" xml:space="preserve">
+    <value>Drawable</value>
+  </data>
+  <data name="EndPoint" xml:space="preserve">
+    <value>End Point</value>
+  </data>
+  <data name="FixImageSize" xml:space="preserve">
+    <value>Fix Image Size</value>
+  </data>
+  <data name="Group" xml:space="preserve">
+    <value>Group</value>
+  </data>
+  <data name="Height" xml:space="preserve">
+    <value>Height</value>
+  </data>
+  <data name="KernelSize" xml:space="preserve">
+    <value>Kernel Size</value>
+  </data>
+  <data name="Offset" xml:space="preserve">
+    <value>Offset</value>
+  </data>
+  <data name="Opacity" xml:space="preserve">
+    <value>Opacity</value>
+  </data>
+  <data name="Position" xml:space="preserve">
+    <value>Position</value>
+  </data>
+  <data name="Presenter" xml:space="preserve">
+    <value>Presenter</value>
+  </data>
+  <data name="Radius" xml:space="preserve">
+    <value>Radius</value>
+  </data>
+  <data name="Rotation" xml:space="preserve">
+    <value>Rotation</value>
+  </data>
+  <data name="Scale" xml:space="preserve">
+    <value>Scale</value>
+  </data>
+  <data name="Script" xml:space="preserve">
+    <value>Script</value>
+  </data>
+  <data name="ShadowOnly" xml:space="preserve">
+    <value>Shadow Only</value>
+  </data>
+  <data name="Sigma" xml:space="preserve">
+    <value>Sigma</value>
+  </data>
+  <data name="Smoothing" xml:space="preserve">
+    <value>Smoothing</value>
+  </data>
+  <data name="Source" xml:space="preserve">
+    <value>Source</value>
+  </data>
+  <data name="Speed" xml:space="preserve">
+    <value>Speed</value>
+  </data>
+  <data name="Strength" xml:space="preserve">
+    <value>Strength</value>
+  </data>
+  <data name="Stroke" xml:space="preserve">
+    <value>Stroke</value>
+  </data>
+  <data name="Target" xml:space="preserve">
+    <value>Target</value>
+  </data>
+  <data name="Transform" xml:space="preserve">
+    <value>Transform</value>
+  </data>
+  <data name="TransformOrigin" xml:space="preserve">
+    <value>Transform Origin</value>
+  </data>
+  <data name="Width" xml:space="preserve">
+    <value>Width</value>
+  </data>
+  <data name="NodeTreeDrawable" xml:space="preserve">
+    <value>Node Tree</value>
+  </data>
+  <data name="SceneDrawable" xml:space="preserve">
+    <value>Scene Reference (Video)</value>
+  </data>
+  <data name="FilterEffect" xml:space="preserve">
+    <value>Filter Effect</value>
+  </data>
+</root>

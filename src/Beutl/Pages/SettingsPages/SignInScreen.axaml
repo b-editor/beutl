@@ -13,10 +13,10 @@
              mc:Ignorable="d">
     <StackPanel>
         <TextBlock Margin="0,0,0,24"
-                   Text="{x:Static lang:SettingsPage.SignIn}"
+                   Text="{x:Static lang:SettingsStrings.SignIn}"
                    Theme="{StaticResource SubtitleTextBlockStyle}" />
         <TextBlock Margin="0,0,0,8"
-                   Text="{x:Static lang:SettingsPage.SignInWith}"
+                   Text="{x:Static lang:SettingsStrings.SignInWith}"
                    Theme="{StaticResource BodyStrongTextBlockStyle}" />
         <Grid ColumnDefinitions="*,16,*">
 
@@ -66,16 +66,16 @@
                 HorizontalAlignment="Stretch"
                 Classes="accent"
                 Command="{CompiledBinding SignIn}"
-                Content="{x:Static lang:SettingsPage.SignInViaBrowser}" />
+                Content="{x:Static lang:SettingsStrings.SignInViaBrowser}" />
 
         <Grid Margin="0,16,0,0" ColumnDefinitions="*,*">
             <HyperlinkButton Grid.Column="0"
                              HorizontalAlignment="Center"
-                             Content="{x:Static lang:Strings.PrivacyPolicy}"
+                             Content="{x:Static lang:SettingsStrings.PrivacyPolicy}"
                              NavigateUri="https://beutl.beditor.net/about/privacy" />
             <HyperlinkButton Grid.Column="1"
                              HorizontalAlignment="Center"
-                             Content="{x:Static lang:Strings.TermsOfService}"
+                             Content="{x:Static lang:SettingsStrings.TermsOfService}"
                              NavigateUri="https://beutl.beditor.net/about/toc" />
         </Grid>
 

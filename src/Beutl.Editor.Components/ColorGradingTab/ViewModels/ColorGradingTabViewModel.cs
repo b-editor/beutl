@@ -12,10 +12,10 @@ namespace Beutl.Editor.Components.ColorGradingTab.ViewModels;
 public record ColorGradingWheelMode(string Name, int Value)
 {
     public static readonly ColorGradingWheelMode ShadowsMidtonesHighlights =
-        new($"{Strings.Shadows} / {Strings.Midtones} / {Strings.Highlights}", 0);
+        new($"{GraphicsStrings.ColorGrading_Shadows} / {GraphicsStrings.ColorGrading_Midtones} / {GraphicsStrings.ColorGrading_Highlights}", 0);
 
     public static readonly ColorGradingWheelMode LiftGammaGainOffset =
-        new($"{Strings.Lift} / {Strings.Gamma} / {Strings.Gain} / {Strings.Offset}", 1);
+        new($"{GraphicsStrings.ColorGrading_Lift} / {GraphicsStrings.ColorGrading_Gamma} / {GraphicsStrings.ColorGrading_Gain} / {GraphicsStrings.ColorGrading_Offset}", 1);
 }
 
 public sealed class ColorGradingTabViewModel : IToolContext, IPropertyEditorContextVisitor

@@ -7,7 +7,7 @@ using Beutl.Utilities;
 
 namespace Beutl.Graphics.Transformation;
 
-[Display(Name = nameof(Strings.Rotation3D), ResourceType = typeof(Strings))]
+[Display(Name = nameof(GraphicsStrings.Rotation3DTransform), ResourceType = typeof(GraphicsStrings))]
 public sealed class Rotation3DTransform : Transform
 {
     public Rotation3DTransform()
@@ -31,25 +31,25 @@ public sealed class Rotation3DTransform : Transform
         CenterZ.CurrentValue = centerZ;
     }
 
-    [Display(Name = nameof(Strings.RotationX), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.Rotation3DTransform_RotationX), ResourceType = typeof(GraphicsStrings))]
     public IProperty<float> RotationX { get; } = Property.CreateAnimatable<float>();
 
-    [Display(Name = nameof(Strings.RotationY), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.Rotation3DTransform_RotationY), ResourceType = typeof(GraphicsStrings))]
     public IProperty<float> RotationY { get; } = Property.CreateAnimatable<float>();
 
-    [Display(Name = nameof(Strings.RotationZ), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.Rotation3DTransform_RotationZ), ResourceType = typeof(GraphicsStrings))]
     public IProperty<float> RotationZ { get; } = Property.CreateAnimatable<float>();
 
-    [Display(Name = nameof(Strings.CenterX), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.CenterX), ResourceType = typeof(GraphicsStrings))]
     public IProperty<float> CenterX { get; } = Property.CreateAnimatable<float>();
 
-    [Display(Name = nameof(Strings.CenterY), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.CenterY), ResourceType = typeof(GraphicsStrings))]
     public IProperty<float> CenterY { get; } = Property.CreateAnimatable<float>();
 
-    [Display(Name = nameof(Strings.CenterZ), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.Rotation3DTransform_CenterZ), ResourceType = typeof(GraphicsStrings))]
     public IProperty<float> CenterZ { get; } = Property.CreateAnimatable<float>();
 
-    [Display(Name = nameof(Strings.Depth), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.Depth), ResourceType = typeof(GraphicsStrings))]
     public IProperty<float> Depth { get; } = Property.CreateAnimatable(500f);
 
     public override Matrix CreateMatrix(CompositionContext context)

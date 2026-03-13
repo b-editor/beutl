@@ -5,7 +5,7 @@ using Beutl.Language;
 
 namespace Beutl.Graphics.Effects;
 
-[Display(Name = nameof(Strings.DelayAnimationEffect), ResourceType = typeof(Strings))]
+[Display(Name = nameof(GraphicsStrings.DelayAnimationEffect), ResourceType = typeof(GraphicsStrings))]
 [SuppressResourceClassGeneration]
 public class DelayAnimationEffect : FilterEffect
 {
@@ -15,10 +15,10 @@ public class DelayAnimationEffect : FilterEffect
         Effect.CurrentValue = new FilterEffectGroup();
     }
 
-    [Display(Name = nameof(Strings.Delay), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.DelayAnimationEffect_Delay), ResourceType = typeof(GraphicsStrings))]
     public IProperty<float> Delay { get; } = Property.CreateAnimatable(0f);
 
-    [Display(Name = nameof(Strings.FilterEffect), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.DelayAnimationEffect_Effect), ResourceType = typeof(GraphicsStrings))]
     public IProperty<FilterEffect?> Effect { get; } = Property.Create<FilterEffect?>();
 
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)

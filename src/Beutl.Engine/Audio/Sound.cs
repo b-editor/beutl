@@ -22,21 +22,21 @@ public abstract partial class Sound : EngineObject
 
     public override CompositionTarget GetCompositionTarget() => CompositionTarget.Audio;
 
-    [Display(Name = nameof(Strings.OffsetPosition), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(AudioStrings.Sound_OffsetPosition), ResourceType = typeof(AudioStrings))]
     [SuppressResourceClassGeneration]
     public IProperty<TimeSpan> OffsetPosition { get; } = Property.Create<TimeSpan>();
 
     [Range(0, float.MaxValue)]
-    [Display(Name = nameof(Strings.Gain), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(AudioStrings.Sound_Gain), ResourceType = typeof(AudioStrings))]
     [SuppressResourceClassGeneration]
     public IProperty<float> Gain { get; } = Property.CreateAnimatable(100f);
 
     [Range(0, float.MaxValue)]
-    [Display(Name = nameof(Strings.Speed), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(AudioStrings.Sound_Speed), ResourceType = typeof(AudioStrings))]
     [SuppressResourceClassGeneration]
     public IProperty<float> Speed { get; } = Property.CreateAnimatable(100f);
 
-    [Display(Name = nameof(Strings.Effect), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(AudioStrings.AudioEffect), ResourceType = typeof(AudioStrings))]
     public IProperty<AudioEffect?> Effect { get; } = Property.Create<AudioEffect?>();
 
     public virtual void Compose(AudioContext context, Resource resource)

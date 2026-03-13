@@ -6,7 +6,7 @@ using Beutl.Media.Source;
 
 namespace Beutl.Audio;
 
-[Display(Name = nameof(Strings.Sound), ResourceType = typeof(Strings))]
+[Display(Name = nameof(AudioStrings.SourceSound), ResourceType = typeof(AudioStrings))]
 public sealed partial class SourceSound : Sound, IOriginalDurationProvider, ISplittable
 {
     public SourceSound()
@@ -14,7 +14,7 @@ public sealed partial class SourceSound : Sound, IOriginalDurationProvider, ISpl
         ScanProperties<SourceSound>();
     }
 
-    [Display(Name = nameof(Strings.Source), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(AudioStrings.SourceSound_Source), ResourceType = typeof(AudioStrings))]
     public IProperty<SoundSource?> Source { get; } = Property.Create<SoundSource?>();
 
     public bool HasOriginalDuration()

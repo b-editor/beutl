@@ -14,7 +14,7 @@ namespace Beutl.Graphics.Effects;
 /// Only 3 draw calls regardless of image size: Prepare → Rank → Gather+Restore.
 /// Each pixel computes its rank within its segment in O(L) where L is segment length.
 /// </summary>
-[Display(Name = nameof(Strings.PixelSort), ResourceType = typeof(Strings))]
+[Display(Name = nameof(GraphicsStrings.PixelSortEffect), ResourceType = typeof(GraphicsStrings))]
 public sealed partial class PixelSortEffect : FilterEffect
 {
     private static readonly ILogger s_logger = Log.CreateLogger<PixelSortEffect>();
@@ -219,21 +219,21 @@ public sealed partial class PixelSortEffect : FilterEffect
         ScanProperties<PixelSortEffect>();
     }
 
-    [Display(Name = nameof(Strings.SortDirection), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.PixelSortEffect_Direction), ResourceType = typeof(GraphicsStrings))]
     public IProperty<PixelSortDirection> Direction { get; } = Property.Create(PixelSortDirection.Horizontal);
 
-    [Display(Name = nameof(Strings.SortKey), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.PixelSortEffect_SortKey), ResourceType = typeof(GraphicsStrings))]
     public IProperty<PixelSortKey> SortKey { get; } = Property.Create(PixelSortKey.Luminance);
 
-    [Display(Name = nameof(Strings.ThresholdMin), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.PixelSortEffect_ThresholdMin), ResourceType = typeof(GraphicsStrings))]
     [Range(0f, 100f)]
     public IProperty<float> ThresholdMin { get; } = Property.CreateAnimatable(25f);
 
-    [Display(Name = nameof(Strings.ThresholdMax), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.PixelSortEffect_ThresholdMax), ResourceType = typeof(GraphicsStrings))]
     [Range(0f, 100f)]
     public IProperty<float> ThresholdMax { get; } = Property.CreateAnimatable(80f);
 
-    [Display(Name = nameof(Strings.Ascending), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.PixelSortEffect_Ascending), ResourceType = typeof(GraphicsStrings))]
     public IProperty<bool> Ascending { get; } = Property.Create(true);
 
     private static void EnsureShadersInitialized()

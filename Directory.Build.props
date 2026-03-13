@@ -14,6 +14,19 @@
     <Version>1.0.99</Version>
   </PropertyGroup>
 
+  <PropertyGroup>
+    <ResXGenerator_PublicClass>true</ResXGenerator_PublicClass>
+    <ResXGenerator_GenerationType>CodeGeneration</ResXGenerator_GenerationType>
+    <ResXGenerator_NullForgivingOperators>true</ResXGenerator_NullForgivingOperators>
+    <ResXGenerator_GenerateCode>true</ResXGenerator_GenerateCode>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Update="@(EmbeddedResource)">
+      <GenerateResource>false</GenerateResource>
+    </EmbeddedResource>
+  </ItemGroup>
+
   <PropertyGroup Condition="'$(Configuration)'=='Debug'">
     <Optimize>false</Optimize>
   </PropertyGroup>

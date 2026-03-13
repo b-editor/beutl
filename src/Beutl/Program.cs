@@ -47,9 +47,9 @@ internal static class Program
         if (processes.Length > 0)
         {
             using (OutProcessDialog.Show(
-                Message.OpeningBeutl,
-                Message.Changes_to_the_package_are_in_progress,
-                Message.To_open_Beutl_close_Beutl_PackageTools,
+                MessageStrings.OpeningBeutl,
+                MessageStrings.PackageChangesInProgress,
+                MessageStrings.ClosePackageToolsToOpenBeutl,
                 icon: "Info",
                 progress: true))
             {

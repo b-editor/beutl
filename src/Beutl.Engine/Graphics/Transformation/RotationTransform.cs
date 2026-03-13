@@ -6,7 +6,7 @@ using Beutl.Utilities;
 
 namespace Beutl.Graphics.Transformation;
 
-[Display(Name = nameof(Strings.Rotation), ResourceType = typeof(Strings))]
+[Display(Name = nameof(GraphicsStrings.Rotation), ResourceType = typeof(GraphicsStrings))]
 public sealed class RotationTransform : Transform
 {
     public RotationTransform()
@@ -19,7 +19,7 @@ public sealed class RotationTransform : Transform
         Rotation.CurrentValue = rotation;
     }
 
-    [Display(Name = nameof(Strings.Rotation), ResourceType = typeof(Strings))]
+    [Display(Name = nameof(GraphicsStrings.Rotation), ResourceType = typeof(GraphicsStrings))]
     public IProperty<float> Rotation { get; } = Property.CreateAnimatable<float>();
 
     public override Matrix CreateMatrix(CompositionContext context)

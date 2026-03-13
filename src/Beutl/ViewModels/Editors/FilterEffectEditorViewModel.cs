@@ -26,7 +26,7 @@ public sealed class FilterEffectEditorViewModel : ValueEditorViewModel<FilterEff
             .DisposeWith(Disposables);
 
         FallbackMessage = Value.Select(FallbackHelper.GetFallbackMessage)
-            .ToReadOnlyReactivePropertySlim(Message.Could_not_restore_because_type_could_not_be_found)
+            .ToReadOnlyReactivePropertySlim(MessageStrings.RestoreFailedTypeNotFound)
             .DisposeWith(Disposables);
 
         FilterName = Value.Select(v =>
@@ -118,7 +118,7 @@ public sealed class FilterEffectEditorViewModel : ValueEditorViewModel<FilterEff
             .Select(t => t.Item2 is ReferenceExpression<FilterEffect>
                 ? t.Item1?.Target.GetValue(CompositionContext.Default)
                 : null)
-            .Select(fe => fe != null ? CoreObjectHelper.GetDisplayName(fe) : Message.Property_is_unset)
+            .Select(fe => fe != null ? CoreObjectHelper.GetDisplayName(fe) : MessageStrings.PropertyUnset)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
     }
@@ -308,7 +308,7 @@ public sealed class FilterEffectEditorViewModel : ValueEditorViewModel<FilterEff
 
     public void SetJsonString(string? str)
     {
-        string message = Strings.InvalidJson;
+        string message = MessageStrings.InvalidJson;
         _ = str ?? throw new Exception(message);
         JsonObject json = (JsonNode.Parse(str) as JsonObject) ?? throw new Exception(message);
 

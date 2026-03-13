@@ -116,13 +116,13 @@ public partial class TransformEditor : UserControl
     {
         var items = new (KnownTransformType Tag, string Name, string? Icon)[]
         {
-            (KnownTransformType.Group, Strings.Group, null),
-            (KnownTransformType.Translate, Strings.Translate, "TranslateTransformIconData"),
-            (KnownTransformType.Rotation, Strings.Rotation, "RotationTransformIconData"),
-            (KnownTransformType.Scale, Strings.Scale, "ScaleTransformIconData"),
-            (KnownTransformType.Skew, Strings.Skew, "SkewTransformIconData"),
-            (KnownTransformType.Rotation3D, Strings.Rotation3D, "Rotation3DTransformIconData"),
-            (KnownTransformType.Presenter, Strings.Presenter, null)
+            (KnownTransformType.Group, GraphicsStrings.Group, null),
+            (KnownTransformType.Translate, GraphicsStrings.TranslateTransform, "TranslateTransformIconData"),
+            (KnownTransformType.Rotation, GraphicsStrings.Rotation, "RotationTransformIconData"),
+            (KnownTransformType.Scale, GraphicsStrings.Scale, "ScaleTransformIconData"),
+            (KnownTransformType.Skew, GraphicsStrings.SkewTransform, "SkewTransformIconData"),
+            (KnownTransformType.Rotation3D, GraphicsStrings.Rotation3DTransform, "Rotation3DTransformIconData"),
+            (KnownTransformType.Presenter, GraphicsStrings.Presenter, null)
         };
         return items.Select(x =>
             {

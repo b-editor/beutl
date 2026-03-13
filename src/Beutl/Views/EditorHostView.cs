@@ -13,7 +13,7 @@ public sealed class EditorHostView : ContentControl
             {
                 Text = $"""
                         Error:
-                            {Message.NullWasSpecifiedForEditorContext}
+                            {MessageStrings.EditorContextNull}
                         """
             };
             return;
@@ -34,10 +34,10 @@ public sealed class EditorHostView : ContentControl
             {
                 Text = $"""
                            Error:
-                               {string.Format(Message.CouldNotOpenFollowingFileWithExtension, viewModel.Extension.DisplayName, viewModel.Object.Uri)}
+                               {string.Format(MessageStrings.FailedToOpenFileWithExtension, viewModel.Extension.DisplayName, viewModel.Object.Uri)}
 
                            Message:
-                               {Message.EditorContextHasAlreadyBeenCreated}
+                               {MessageStrings.EditorContextAlreadyCreated}
                         """
             };
         }

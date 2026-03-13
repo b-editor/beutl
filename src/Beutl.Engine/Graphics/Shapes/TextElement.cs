@@ -1,6 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
-using System.Diagnostics;
-using Beutl.Language;
+﻿using System.Diagnostics;
 using Beutl.Media;
 using Beutl.Media.TextFormatting;
 
@@ -9,23 +7,16 @@ namespace Beutl.Graphics.Shapes;
 [DebuggerDisplay("{Text}")]
 public class TextElement
 {
-    [Display(Name = nameof(Strings.FontWeight), ResourceType = typeof(Strings))]
     public FontWeight FontWeight { get; set; } = FontWeight.Regular;
 
-    [Display(Name = nameof(Strings.FontStyle), ResourceType = typeof(Strings))]
     public FontStyle FontStyle { get; set; } = FontStyle.Normal;
 
-    [Display(Name = nameof(Strings.FontFamily), ResourceType = typeof(Strings))]
     public FontFamily FontFamily { get; set; } = FontFamily.Default;
 
-    [Display(Name = nameof(Strings.Size), ResourceType = typeof(Strings))]
-    [Range(0, float.MaxValue)]
     public float Size { get; set; }
 
-    [Display(Name = nameof(Strings.CharactorSpacing), ResourceType = typeof(Strings))]
     public float Spacing { get; set; }
 
-    [Display(Name = nameof(Strings.Text), ResourceType = typeof(Strings))]
     public string Text { get; set; } = string.Empty;
 
     public Brush.Resource? Brush { get; set; }

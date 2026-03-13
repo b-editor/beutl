@@ -7,7 +7,7 @@ using SkiaSharp;
 
 namespace Beutl.Graphics.Effects;
 
-[Display(Name = nameof(Strings.SplitByPartsEffect), ResourceType = typeof(Strings))]
+[Display(Name = nameof(GraphicsStrings.PartsSplitEffect), ResourceType = typeof(GraphicsStrings))]
 public partial class PartsSplitEffect : FilterEffect
 {
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)

@@ -109,7 +109,7 @@ public sealed class SceneSettingsTabViewModel : IToolContext
         {
             if (time <= TimeSpan.Zero)
             {
-                return Message.ValueLessThanOrEqualToZero;
+                return MessageStrings.ValueLessThanOrEqualToZero;
             }
             else
             {
@@ -118,7 +118,7 @@ public sealed class SceneSettingsTabViewModel : IToolContext
         }
         else
         {
-            return Message.InvalidString;
+            return MessageStrings.InvalidString;
         }
     }
 
@@ -128,7 +128,7 @@ public sealed class SceneSettingsTabViewModel : IToolContext
         {
             if (time < TimeSpan.Zero)
             {
-                return Message.ValueLessThanZero;
+                return MessageStrings.ValueLessThanZero;
             }
             else
             {
@@ -137,7 +137,7 @@ public sealed class SceneSettingsTabViewModel : IToolContext
         }
         else
         {
-            return Message.InvalidString;
+            return MessageStrings.InvalidString;
         }
     }
 
@@ -171,7 +171,7 @@ public sealed class SceneSettingsTabViewModel : IToolContext
 
     private string? ValidateSize(int observable)
     {
-        return observable <= 0 ? Message.ValueLessThanOrEqualToZero : null;
+        return observable <= 0 ? MessageStrings.ValueLessThanOrEqualToZero : null;
     }
 
     public void Dispose()

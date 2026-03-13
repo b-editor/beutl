@@ -87,7 +87,7 @@ public sealed partial class SettingsDialog : AppWindow
         [
             new NavigationViewItem()
             {
-                Content = Strings.Account,
+                Content = SettingsStrings.Account,
                 Tag = typeof(AccountSettingsPage),
                 IconSource = new SymbolIconSource { Symbol = Symbol.People }
             },
@@ -105,13 +105,13 @@ public sealed partial class SettingsDialog : AppWindow
             },
             new NavigationViewItem()
             {
-                Content = Strings.Keymap,
+                Content = SettingsStrings.Keymap,
                 Tag = typeof(KeyMapSettingsPage),
                 IconSource = new SymbolIconSource { Symbol = Symbol.Keyboard }
             },
             new NavigationViewItem()
             {
-                Content = Strings.Font,
+                Content = SettingsStrings.Font,
                 Tag = typeof(FontSettingsPage),
                 IconSource = new SymbolIconSource { Symbol = Symbol.Font }
             },

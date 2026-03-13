@@ -60,13 +60,13 @@ public sealed class TransformEditorViewModel : ValueEditorViewModel<Transform?>,
     {
         return type switch
         {
-            KnownTransformType.Group => Strings.Group,
-            KnownTransformType.Translate => Strings.Translate,
-            KnownTransformType.Rotation => Strings.Rotation,
-            KnownTransformType.Scale => Strings.Scale,
-            KnownTransformType.Skew => Strings.Skew,
-            KnownTransformType.Rotation3D => Strings.Rotation3D,
-            KnownTransformType.Presenter => Strings.Presenter,
+            KnownTransformType.Group => GraphicsStrings.Group,
+            KnownTransformType.Translate => GraphicsStrings.TranslateTransform,
+            KnownTransformType.Rotation => GraphicsStrings.Rotation,
+            KnownTransformType.Scale => GraphicsStrings.Scale,
+            KnownTransformType.Skew => GraphicsStrings.SkewTransform,
+            KnownTransformType.Rotation3D => GraphicsStrings.Rotation3DTransform,
+            KnownTransformType.Presenter => GraphicsStrings.Presenter,
             _ => "Null"
         };
     }
@@ -83,7 +83,7 @@ public sealed class TransformEditorViewModel : ValueEditorViewModel<Transform?>,
             .DisposeWith(Disposables);
 
         FallbackMessage = Value.Select(FallbackHelper.GetFallbackMessage)
-            .ToReadOnlyReactivePropertySlim(Message.Could_not_restore_because_type_could_not_be_found)
+            .ToReadOnlyReactivePropertySlim(MessageStrings.RestoreFailedTypeNotFound)
             .DisposeWith(Disposables);
 
         TransformType = Value.Select(GetTransformType)
@@ -170,7 +170,7 @@ public sealed class TransformEditorViewModel : ValueEditorViewModel<Transform?>,
             .Select(t => t.Item2 is ReferenceExpression<Transform>
                 ? t.Item1?.Target.GetValue(CompositionContext.Default)
                 : null)
-            .Select(fe => fe != null ? CoreObjectHelper.GetDisplayName(fe) : Message.Property_is_unset)
+            .Select(fe => fe != null ? CoreObjectHelper.GetDisplayName(fe) : MessageStrings.PropertyUnset)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
     }
@@ -216,7 +216,7 @@ public sealed class TransformEditorViewModel : ValueEditorViewModel<Transform?>,
 
     public void SetJsonString(string? str)
     {
-        string message = Strings.InvalidJson;
+        string message = MessageStrings.InvalidJson;
         _ = str ?? throw new Exception(message);
         JsonObject json = (JsonNode.Parse(str) as JsonObject) ?? throw new Exception(message);
 

@@ -1,141 +1,25 @@
 <?xml version="1.0" encoding="utf-8"?>
 <root>
-  <!--
-    Microsoft ResX Schema
-
-    Version 2.0
-
-    The primary goals of this format is to allow a simple XML format
-    that is mostly human readable. The generation and parsing of the
-    various data types are done through the TypeConverter classes
-    associated with the data types.
-
-    Example:
-
-    ... ado.net/XML headers & schema ...
-    <resheader name="resmimetype">text/microsoft-resx</resheader>
-    <resheader name="version">2.0</resheader>
-    <resheader name="reader">System.Resources.ResXResourceReader, System.Windows.Forms, ...</resheader>
-    <resheader name="writer">System.Resources.ResXResourceWriter, System.Windows.Forms, ...</resheader>
-    <data name="Name1"><value>this is my long string</value><comment>this is a comment</comment></data>
-    <data name="Color1" type="System.Drawing.Color, System.Drawing">Blue</data>
-    <data name="Bitmap1" mimetype="application/x-microsoft.net.object.binary.base64">
-        <value>[base64 mime encoded serialized .NET Framework object]</value>
-    </data>
-    <data name="Icon1" type="System.Drawing.Icon, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
-        <value>[base64 mime encoded string representing a byte array form of the .NET Framework object]</value>
-        <comment>This is a comment</comment>
-    </data>
-
-    There are any number of "resheader" rows that contain simple
-    name/value pairs.
-
-    Each data row contains a name, and value. The row also contains a
-    type or mimetype. Type corresponds to a .NET class that support
-    text/value conversion through the TypeConverter architecture.
-    Classes that don't support this are serialized and stored with the
-    mimetype set.
-
-    The mimetype is used for serialized objects, and tells the
-    ResXResourceReader how to depersist the object. This is currently not
-    extensible. For a given mimetype the value must be set accordingly:
-
-    Note - application/x-microsoft.net.object.binary.base64 is the format
-    that the ResXResourceWriter will generate, however the reader can
-    read any of the formats listed below.
-
-    mimetype: application/x-microsoft.net.object.binary.base64
-    value   : The object must be serialized with
-            : System.Runtime.Serialization.Formatters.Binary.BinaryFormatter
-            : and then encoded with base64 encoding.
-
-    mimetype: application/x-microsoft.net.object.soap.base64
-    value   : The object must be serialized with
-            : System.Runtime.Serialization.Formatters.Soap.SoapFormatter
-            : and then encoded with base64 encoding.
-
-    mimetype: application/x-microsoft.net.object.bytearray.base64
-    value   : The object must be serialized into a byte array
-            : using a System.ComponentModel.TypeConverter
-            : and then encoded with base64 encoding.
-    -->
-  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema"
-              xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
-    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
-    <xsd:element name="root" msdata:IsDataSet="true">
-      <xsd:complexType>
-        <xsd:choice maxOccurs="unbounded">
-          <xsd:element name="metadata">
-            <xsd:complexType>
-              <xsd:sequence>
-                <xsd:element name="value" type="xsd:string" minOccurs="0" />
-              </xsd:sequence>
-              <xsd:attribute name="name" use="required" type="xsd:string" />
-              <xsd:attribute name="type" type="xsd:string" />
-              <xsd:attribute name="mimetype" type="xsd:string" />
-              <xsd:attribute ref="xml:space" />
-            </xsd:complexType>
-          </xsd:element>
-          <xsd:element name="assembly">
-            <xsd:complexType>
-              <xsd:attribute name="alias" type="xsd:string" />
-              <xsd:attribute name="name" type="xsd:string" />
-            </xsd:complexType>
-          </xsd:element>
-          <xsd:element name="data">
-            <xsd:complexType>
-              <xsd:sequence>
-                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
-                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
-              </xsd:sequence>
-              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
-              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
-              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
-              <xsd:attribute ref="xml:space" />
-            </xsd:complexType>
-          </xsd:element>
-          <xsd:element name="resheader">
-            <xsd:complexType>
-              <xsd:sequence>
-                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
-              </xsd:sequence>
-              <xsd:attribute name="name" type="xsd:string" use="required" />
-            </xsd:complexType>
-          </xsd:element>
-        </xsd:choice>
-      </xsd:complexType>
-    </xsd:element>
-  </xsd:schema>
   <resheader name="resmimetype">
     <value>text/microsoft-resx</value>
   </resheader>
   <resheader name="version">
-    <value>2.0</value>
+    <value>1.3</value>
   </resheader>
   <resheader name="reader">
-    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral,
-      PublicKeyToken=b77a5c561934e089
-    </value>
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
   <resheader name="writer">
-    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral,
-      PublicKeyToken=b77a5c561934e089
-    </value>
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
   <data name="File" xml:space="preserve">
     <value>ファイル</value>
-  </data>
-  <data name="BlueCurve" xml:space="preserve">
-    <value>ブルーカーブ</value>
   </data>
   <data name="Curves" xml:space="preserve">
     <value>カーブ</value>
   </data>
   <data name="CustomCurve" xml:space="preserve">
     <value>カスタム(RGB)</value>
-  </data>
-  <data name="GreenCurve" xml:space="preserve">
-    <value>グリーンカーブ</value>
   </data>
   <data name="HueVsHue" xml:space="preserve">
     <value>色相 vs 色相</value>
@@ -148,9 +32,6 @@
   </data>
   <data name="LuminanceVsSaturation" xml:space="preserve">
     <value>輝度 vs 彩度</value>
-  </data>
-  <data name="RedCurve" xml:space="preserve">
-    <value>レッドカーブ</value>
   </data>
   <data name="SaturationVsSaturation" xml:space="preserve">
     <value>彩度 vs 彩度</value>
@@ -179,17 +60,8 @@
   <data name="Cancel" xml:space="preserve">
     <value>キャンセル</value>
   </data>
-  <data name="Center" xml:space="preserve">
-    <value>中心</value>
-  </data>
-  <data name="CharactorSpacing" xml:space="preserve">
-    <value>字間</value>
-  </data>
   <data name="CloseProject" xml:space="preserve">
     <value>プロジェクトを閉じる</value>
-  </data>
-  <data name="Color" xml:space="preserve">
-    <value>色</value>
   </data>
   <data name="Copy" xml:space="preserve">
     <value>コピー</value>
@@ -205,9 +77,6 @@
   </data>
   <data name="Cut" xml:space="preserve">
     <value>カット</value>
-  </data>
-  <data name="Dark" xml:space="preserve">
-    <value>ダーク</value>
   </data>
   <data name="Delete" xml:space="preserve">
     <value>削除</value>
@@ -236,21 +105,6 @@
   <data name="Extensions" xml:space="preserve">
     <value>拡張機能</value>
   </data>
-  <data name="FollowSystem" xml:space="preserve">
-    <value>システムに従う</value>
-  </data>
-  <data name="Font" xml:space="preserve">
-    <value>フォント</value>
-  </data>
-  <data name="FontFamily" xml:space="preserve">
-    <value>フォントファミリー</value>
-  </data>
-  <data name="FontStyle" xml:space="preserve">
-    <value>フォントスタイル</value>
-  </data>
-  <data name="FontWeight" xml:space="preserve">
-    <value>フォントの太さ</value>
-  </data>
   <data name="FrameRate" xml:space="preserve">
     <value>フレームレート</value>
   </data>
@@ -259,9 +113,6 @@
   </data>
   <data name="Help" xml:space="preserve">
     <value>ヘルプ</value>
-  </data>
-  <data name="HighContrast" xml:space="preserve">
-    <value>ハイコントラスト</value>
   </data>
   <data name="Info" xml:space="preserve">
     <value>情報</value>
@@ -272,16 +123,7 @@
   <data name="Left" xml:space="preserve">
     <value>左</value>
   </data>
-  <data name="License" xml:space="preserve">
-    <value>ライセンス</value>
-  </data>
-  <data name="Light" xml:space="preserve">
-    <value>ライト</value>
-  </data>
   <data name="Link" xml:space="preserve">
-    <value>リンク</value>
-  </data>
-  <data name="Links" xml:space="preserve">
     <value>リンク</value>
   </data>
   <data name="Location" xml:space="preserve">
@@ -338,15 +180,6 @@
   <data name="SceneFile" xml:space="preserve">
     <value>シーンファイル</value>
   </data>
-  <data name="SourceCode" xml:space="preserve">
-    <value>ソースコード</value>
-  </data>
-  <data name="ThirdPartyLicenses" xml:space="preserve">
-    <value>サードパーティライセンス</value>
-  </data>
-  <data name="Theme" xml:space="preserve">
-    <value>テーマ</value>
-  </data>
   <data name="StartTime" xml:space="preserve">
     <value>開始時間</value>
   </data>
@@ -395,119 +228,14 @@
   <data name="Yes" xml:space="preserve">
     <value>はい</value>
   </data>
-  <data name="TermsOfService" xml:space="preserve">
-    <value>利用規約</value>
-  </data>
-  <data name="PrivacyPolicy" xml:space="preserve">
-    <value>プライバシーポリシー</value>
-  </data>
   <data name="Animation" xml:space="preserve">
     <value>アニメーション</value>
-  </data>
-  <data name="Account" xml:space="preserve">
-    <value>アカウント</value>
-  </data>
-  <data name="Language" xml:space="preserve">
-    <value>言語</value>
   </data>
   <data name="OK" xml:space="preserve">
     <value>OK</value>
   </data>
   <data name="Easing" xml:space="preserve">
     <value>イージング</value>
-  </data>
-  <data name="KernelSize" xml:space="preserve">
-    <value>カーネルサイズ</value>
-  </data>
-  <data name="FixImageSize" xml:space="preserve">
-    <value>画像サイズを固定</value>
-  </data>
-  <data name="Sigma" xml:space="preserve">
-    <value>シグマ</value>
-  </data>
-  <data name="Position" xml:space="preserve">
-    <value>位置</value>
-  </data>
-  <data name="ShadowOnly" xml:space="preserve">
-    <value>影のみ</value>
-  </data>
-  <data name="Offset" xml:space="preserve">
-    <value>オフセット</value>
-  </data>
-  <data name="Thickness" xml:space="preserve">
-    <value>厚み</value>
-  </data>
-  <data name="MaskType" xml:space="preserve">
-    <value>マスクの種類</value>
-  </data>
-  <data name="BorderStyle" xml:space="preserve">
-    <value>ボーダースタイル</value>
-  </data>
-  <data name="CornerRadius" xml:space="preserve">
-    <value>角の半径</value>
-  </data>
-  <data name="Text" xml:space="preserve">
-    <value>テキスト</value>
-  </data>
-  <data name="Transform" xml:space="preserve">
-    <value>トランスフォーム</value>
-  </data>
-  <data name="TransformOrigin" xml:space="preserve">
-    <value>トランスフォームの起点</value>
-  </data>
-  <data name="GradientOrigin" xml:space="preserve">
-    <value>グラデーションの起点</value>
-  </data>
-  <data name="ImageFilter" xml:space="preserve">
-    <value>画像フィルター</value>
-  </data>
-  <data name="AlignmentX" xml:space="preserve">
-    <value>アライメントX</value>
-  </data>
-  <data name="AlignmentY" xml:space="preserve">
-    <value>アライメントY</value>
-  </data>
-  <data name="OpacityMask" xml:space="preserve">
-    <value>不透明マスク</value>
-  </data>
-  <data name="BlendMode" xml:space="preserve">
-    <value>ブレンドモード</value>
-  </data>
-  <data name="Opacity" xml:space="preserve">
-    <value>不透明度</value>
-  </data>
-  <data name="Angle" xml:space="preserve">
-    <value>角度</value>
-  </data>
-  <data name="SpreadMethod" xml:space="preserve">
-    <value>広がり方</value>
-  </data>
-  <data name="GradientStops" xml:space="preserve">
-    <value>分岐点</value>
-  </data>
-  <data name="StartPoint" xml:space="preserve">
-    <value>開始点</value>
-  </data>
-  <data name="EndPoint" xml:space="preserve">
-    <value>終了点</value>
-  </data>
-  <data name="Radius" xml:space="preserve">
-    <value>半径</value>
-  </data>
-  <data name="DestinationRect" xml:space="preserve">
-    <value>デスティネーション</value>
-  </data>
-  <data name="SourceRect" xml:space="preserve">
-    <value>ソース</value>
-  </data>
-  <data name="Stretch" xml:space="preserve">
-    <value>ストレッチ</value>
-  </data>
-  <data name="TileMode" xml:space="preserve">
-    <value>タイルモード</value>
-  </data>
-  <data name="BitmapInterpolationMode" xml:space="preserve">
-    <value>ビットマップ補間モード</value>
   </data>
   <data name="ElementProperty" xml:space="preserve">
     <value>要素プロパティ</value>
@@ -529,45 +257,6 @@
   </data>
   <data name="Rename" xml:space="preserve">
     <value>名前を変更</value>
-  </data>
-  <data name="ToggleMute" xml:space="preserve">
-    <value>ミュート切替</value>
-  </data>
-  <data name="Ellipse" xml:space="preserve">
-    <value>楕円</value>
-  </data>
-  <data name="Rectangle" xml:space="preserve">
-    <value>矩形</value>
-  </data>
-  <data name="RoundedRect" xml:space="preserve">
-    <value>角丸四角形</value>
-  </data>
-  <data name="Translate" xml:space="preserve">
-    <value>移動</value>
-  </data>
-  <data name="Skew" xml:space="preserve">
-    <value>歪み</value>
-  </data>
-  <data name="Scale" xml:space="preserve">
-    <value>スケール</value>
-  </data>
-  <data name="Rotation" xml:space="preserve">
-    <value>回転</value>
-  </data>
-  <data name="Rotation3D" xml:space="preserve">
-    <value>回転3D</value>
-  </data>
-  <data name="Blur" xml:space="preserve">
-    <value>ぼかし</value>
-  </data>
-  <data name="DropShadow" xml:space="preserve">
-    <value>ドロップシャドウ</value>
-  </data>
-  <data name="InnerShadow" xml:space="preserve">
-    <value>内側シャドウ</value>
-  </data>
-  <data name="Border" xml:space="preserve">
-    <value>縁取り</value>
   </data>
   <data name="FinishEditing" xml:space="preserve">
     <value>編集を終了する</value>
@@ -662,9 +351,6 @@
   <data name="NodeTree" xml:space="preserve">
     <value>ノードツリー</value>
   </data>
-  <data name="Fill" xml:space="preserve">
-    <value>塗りつぶし</value>
-  </data>
   <data name="Library" xml:space="preserve">
     <value>ライブラリ</value>
   </data>
@@ -701,38 +387,8 @@
   <data name="DeleteSelectedItems" xml:space="preserve">
     <value>{0}個のアイテムを削除しますか？</value>
   </data>
-  <data name="Clipping" xml:space="preserve">
-    <value>クリッピング</value>
-  </data>
-  <data name="Dilate" xml:space="preserve">
-    <value>膨張</value>
-  </data>
-  <data name="Erode" xml:space="preserve">
-    <value>収縮</value>
-  </data>
-  <data name="HueRotate" xml:space="preserve">
-    <value>色相調整</value>
-  </data>
-  <data name="Lighting" xml:space="preserve">
-    <value>明るさ調整</value>
-  </data>
-  <data name="LumaColor" xml:space="preserve">
-    <value>LumaColor</value>
-  </data>
-  <data name="Saturate" xml:space="preserve">
-    <value>彩度調整</value>
-  </data>
-  <data name="Threshold" xml:space="preserve">
-    <value>二階調化</value>
-  </data>
   <data name="Group" xml:space="preserve">
     <value>グループ</value>
-  </data>
-  <data name="SoundGroup" xml:space="preserve">
-    <value>サウンドグループ</value>
-  </data>
-  <data name="IsNotValid" xml:space="preserve">
-    <value>{0}は無効です。</value>
   </data>
   <data name="GraphEditor" xml:space="preserve">
     <value>グラフエディタ</value>
@@ -740,104 +396,17 @@
   <data name="Unknown" xml:space="preserve">
     <value>不明</value>
   </data>
-  <data name="InvalidJson" xml:space="preserve">
-    <value>無効なJsonです。</value>
-  </data>
   <data name="Details" xml:space="preserve">
     <value>詳細</value>
   </data>
   <data name="Completed" xml:space="preserve">
     <value>完了しました</value>
   </data>
-  <data name="Image" xml:space="preserve">
-    <value>画像</value>
-  </data>
-  <data name="Sound" xml:space="preserve">
-    <value>サウンド</value>
-  </data>
-  <data name="FilterEffect" xml:space="preserve">
-    <value>フィルタエフェクト</value>
-  </data>
   <data name="Brightness" xml:space="preserve">
     <value>輝度</value>
   </data>
-  <data name="Gamma" xml:space="preserve">
-    <value>ガンマ</value>
-  </data>
   <data name="ColorGrading" xml:space="preserve">
     <value>カラーグレーディング</value>
-  </data>
-  <data name="ColorGrading_Missing" xml:space="preserve">
-    <value>カラーグレーディングエフェクトが選択されていません。</value>
-  </data>
-  <data name="ColorCurves_Missing" xml:space="preserve">
-    <value>カラーカーブエフェクトが選択されていません。</value>
-  </data>
-  <data name="Temperature" xml:space="preserve">
-    <value>色温度</value>
-  </data>
-  <data name="Tint" xml:space="preserve">
-    <value>色かぶり補正</value>
-  </data>
-  <data name="Exposure" xml:space="preserve">
-    <value>露出</value>
-  </data>
-  <data name="LowRange" xml:space="preserve">
-    <value>ローレンジ</value>
-  </data>
-  <data name="HighRange" xml:space="preserve">
-    <value>ハイレンジ</value>
-  </data>
-  <data name="Shadows" xml:space="preserve">
-    <value>シャドウ</value>
-  </data>
-  <data name="Midtones" xml:space="preserve">
-    <value>ミッドトーン</value>
-  </data>
-  <data name="Highlights" xml:space="preserve">
-    <value>ハイライト</value>
-  </data>
-  <data name="Lift" xml:space="preserve">
-    <value>リフト</value>
-  </data>
-  <data name="Gain" xml:space="preserve">
-    <value>ゲイン</value>
-  </data>
-  <data name="Invert" xml:space="preserve">
-    <value>反転</value>
-  </data>
-  <data name="LUT_Cube_File" xml:space="preserve">
-    <value>LUT (Cubeファイル)</value>
-  </data>
-  <data name="Amount" xml:space="preserve">
-    <value>量</value>
-  </data>
-  <data name="RadiusX" xml:space="preserve">
-    <value>半径X</value>
-  </data>
-  <data name="RadiusY" xml:space="preserve">
-    <value>半径Y</value>
-  </data>
-  <data name="Strength" xml:space="preserve">
-    <value>強さ</value>
-  </data>
-  <data name="Grayscale" xml:space="preserve">
-    <value>グレースケール</value>
-  </data>
-  <data name="InvertStyle" xml:space="preserve">
-    <value>反転モード</value>
-  </data>
-  <data name="Contrast" xml:space="preserve">
-    <value>コントラスト</value>
-  </data>
-  <data name="ContrastPivot" xml:space="preserve">
-    <value>コントラストのピボット</value>
-  </data>
-  <data name="Addition" xml:space="preserve">
-    <value>加算</value>
-  </data>
-  <data name="Multiplication" xml:space="preserve">
-    <value>乗算</value>
   </data>
   <data name="Number_of_Layers" xml:space="preserve">
     <value>レイヤーの数</value>
@@ -850,15 +419,6 @@
   </data>
   <data name="EnableLivePreview" xml:space="preserve">
     <value>ライブプレビューを有効化</value>
-  </data>
-  <data name="ExcludeAlphaChannel" xml:space="preserve">
-    <value>Alphaチャンネルを除外</value>
-  </data>
-  <data name="OpenNodeTree" xml:space="preserve">
-    <value>ノードツリーを開く</value>
-  </data>
-  <data name="UseNode" xml:space="preserve">
-    <value>ノードを使う</value>
   </data>
   <data name="DisableThumbnails" xml:space="preserve">
     <value>サムネイルを無効化</value>
@@ -878,18 +438,6 @@
   <data name="AddNode" xml:space="preserve">
     <value>ノードを追加</value>
   </data>
-  <data name="Brush_ConicalGradient" xml:space="preserve">
-    <value>円錐型グラデーション</value>
-  </data>
-  <data name="Brush_LinearGradient" xml:space="preserve">
-    <value>線形グラデーション</value>
-  </data>
-  <data name="Brush_RadialGradient" xml:space="preserve">
-    <value>放射状グラデーション</value>
-  </data>
-  <data name="Brush_Solid" xml:space="preserve">
-    <value>塗りつぶし</value>
-  </data>
   <data name="Change" xml:space="preserve">
     <value>変更</value>
   </data>
@@ -898,9 +446,6 @@
   </data>
   <data name="Initialize" xml:space="preserve">
     <value>初期化</value>
-  </data>
-  <data name="OpenDocument" xml:space="preserve">
-    <value>ドキュメントを開く</value>
   </data>
   <data name="ResetZoom" xml:space="preserve">
     <value>拡大率をリセット</value>
@@ -922,9 +467,6 @@
   </data>
   <data name="CopyGetPropertyCode" xml:space="preserve">
     <value>GetPropertyコードをコピー</value>
-  </data>
-  <data name="ColorPalette" xml:space="preserve">
-    <value>カラーパレット</value>
   </data>
   <data name="ChangeToOriginalLength" xml:space="preserve">
     <value>オリジナルの長さに変更</value>
@@ -971,27 +513,6 @@
   <data name="RunningStartupTasks" xml:space="preserve">
     <value>スタートアップタスクを実行中</value>
   </data>
-  <data name="Brush_PerlinNoise" xml:space="preserve">
-    <value>パーリンノイズ</value>
-  </data>
-  <data name="FlatShadow" xml:space="preserve">
-    <value>フラットシャドウ</value>
-  </data>
-  <data name="StrokeEffect" xml:space="preserve">
-    <value>ストローク</value>
-  </data>
-  <data name="BlendEffect" xml:space="preserve">
-    <value>ブレンド</value>
-  </data>
-  <data name="Negaposi" xml:space="preserve">
-    <value>ネガポジ</value>
-  </data>
-  <data name="ChromaKey" xml:space="preserve">
-    <value>クロマキー</value>
-  </data>
-  <data name="ColorKey" xml:space="preserve">
-    <value>カラーキー</value>
-  </data>
   <data name="SaveAsImage" xml:space="preserve">
     <value>画像として保存</value>
   </data>
@@ -1025,102 +546,6 @@
   <data name="RightClickToOperateCache" xml:space="preserve">
     <value>右クリックでキャッシュを操作</value>
   </data>
-  <data name="Brush" xml:space="preserve">
-    <value>ブラシ</value>
-  </data>
-  <data name="Pen_DashArray" xml:space="preserve">
-    <value>破線と空白</value>
-  </data>
-  <data name="Pen_DashOffset" xml:space="preserve">
-    <value>破線の始点</value>
-  </data>
-  <data name="Pen_MiterLimit" xml:space="preserve">
-    <value>鋭角の厚み上限</value>
-  </data>
-  <data name="Pen_StrokeCap" xml:space="preserve">
-    <value>キャップ</value>
-  </data>
-  <data name="StrokeCap_Flat" xml:space="preserve">
-    <value>フラット</value>
-  </data>
-  <data name="StrokeCap_Round" xml:space="preserve">
-    <value>ラウンド</value>
-  </data>
-  <data name="StrokeCap_Square" xml:space="preserve">
-    <value>スクエア</value>
-  </data>
-  <data name="Pen_StrokeJoin" xml:space="preserve">
-    <value>結合部</value>
-  </data>
-  <data name="StrokeJoin_Miter" xml:space="preserve">
-    <value>マイター結合</value>
-  </data>
-  <data name="StrokeJoin_Round" xml:space="preserve">
-    <value>円形結合</value>
-  </data>
-  <data name="StrokeJoin_Bevel" xml:space="preserve">
-    <value>斜めの結合</value>
-  </data>
-  <data name="Pen_StrokeAlignment" xml:space="preserve">
-    <value>位置</value>
-  </data>
-  <data name="Pen_TrimStart" xml:space="preserve">
-    <value>トリム開始</value>
-  </data>
-  <data name="Pen_TrimEnd" xml:space="preserve">
-    <value>トリム終了</value>
-  </data>
-  <data name="Pen_TrimOffset" xml:space="preserve">
-    <value>トリムオフセット</value>
-  </data>
-  <data name="Pen_Offset" xml:space="preserve">
-    <value>オフセット</value>
-  </data>
-  <data name="StrokeAlignment_Center" xml:space="preserve">
-    <value>中央</value>
-  </data>
-  <data name="StrokeAlignment_Inside" xml:space="preserve">
-    <value>内側</value>
-  </data>
-  <data name="StrokeAlignment_Outside" xml:space="preserve">
-    <value>外側</value>
-  </data>
-  <data name="Stroke" xml:space="preserve">
-    <value>ストローク</value>
-  </data>
-  <data name="HueRange" xml:space="preserve">
-    <value>色相範囲</value>
-  </data>
-  <data name="SaturationRange" xml:space="preserve">
-    <value>彩度範囲</value>
-  </data>
-  <data name="BrightnessRange" xml:space="preserve">
-    <value>輝度範囲</value>
-  </data>
-  <data name="Length" xml:space="preserve">
-    <value>長さ</value>
-  </data>
-  <data name="SplitEquallyEffect" xml:space="preserve">
-    <value>均等に分割</value>
-  </data>
-  <data name="SplitByPartsEffect" xml:space="preserve">
-    <value>パーツごとに分割</value>
-  </data>
-  <data name="HorizontalDivisions" xml:space="preserve">
-    <value>水平分割数</value>
-  </data>
-  <data name="VerticalDivisions" xml:space="preserve">
-    <value>垂直分割数</value>
-  </data>
-  <data name="HorizontalSpacing" xml:space="preserve">
-    <value>水平方向の間隔</value>
-  </data>
-  <data name="VerticalSpacing" xml:space="preserve">
-    <value>垂直方向の間隔</value>
-  </data>
-  <data name="SplitByCharacters" xml:space="preserve">
-    <value>文字ごとに分割</value>
-  </data>
   <data name="Linear" xml:space="preserve">
     <value>線形</value>
   </data>
@@ -1145,38 +570,14 @@
   <data name="Hue" xml:space="preserve">
     <value>色相</value>
   </data>
-  <data name="Intensity" xml:space="preserve">
-    <value>強度</value>
-  </data>
   <data name="Saturation" xml:space="preserve">
     <value>彩度</value>
-  </data>
-  <data name="Vibrance" xml:space="preserve">
-    <value>バイブランス</value>
   </data>
   <data name="ShowSliders" xml:space="preserve">
     <value>スライダーを表示</value>
   </data>
   <data name="ShowRing" xml:space="preserve">
     <value>リングを表示</value>
-  </data>
-  <data name="CubicBezierCurve" xml:space="preserve">
-    <value>3次ベジェ曲線</value>
-  </data>
-  <data name="QuadraticBezierCurve" xml:space="preserve">
-    <value>2次ベジェ曲線</value>
-  </data>
-  <data name="Line" xml:space="preserve">
-    <value>直線</value>
-  </data>
-  <data name="EllipticalArc" xml:space="preserve">
-    <value>円弧</value>
-  </data>
-  <data name="Conic" xml:space="preserve">
-    <value>円錐</value>
-  </data>
-  <data name="IsLoop" xml:space="preserve">
-    <value>ループ</value>
   </data>
   <data name="Symmetry" xml:space="preserve">
     <value>対称</value>
@@ -1208,35 +609,11 @@
   <data name="PathEditor" xml:space="preserve">
     <value>パスエディタ</value>
   </data>
-  <data name="GeometryShape" xml:space="preserve">
-    <value>ジオメトリー</value>
-  </data>
   <data name="CopyAll" xml:space="preserve">
     <value>すべてコピー</value>
   </data>
-  <data name="Backdrop" xml:space="preserve">
-    <value>バックドロップ</value>
-  </data>
-  <data name="ClearBuffer" xml:space="preserve">
-    <value>バッファをクリア</value>
-  </data>
-  <data name="Mosaic" xml:space="preserve">
-    <value>モザイク</value>
-  </data>
-  <data name="AutomaticCentering" xml:space="preserve">
-    <value>自動センタリング</value>
-  </data>
-  <data name="ClipTransparentArea" xml:space="preserve">
-    <value>透明部分をクリップ</value>
-  </data>
   <data name="EnableElement" xml:space="preserve">
     <value>要素を有効化</value>
-  </data>
-  <data name="Smoothing" xml:space="preserve">
-    <value>なめらかさ</value>
-  </data>
-  <data name="ColorShift" xml:space="preserve">
-    <value>色ずれ</value>
   </data>
   <data name="DockArea_BottomLeft" xml:space="preserve">
     <value>下 左</value>
@@ -1264,9 +641,6 @@
   </data>
   <data name="MoveTo" xml:space="preserve">
     <value>移動</value>
-  </data>
-  <data name="Keymap" xml:space="preserve">
-    <value>キーマップ</value>
   </data>
   <data name="MainView" xml:space="preserve">
     <value>メイン表示</value>
@@ -1343,230 +717,17 @@
   <data name="Cut_Description" xml:space="preserve">
     <value>選択したアイテムをカットします。</value>
   </data>
-  <data name="ShakeEffect" xml:space="preserve">
-    <value>振動</value>
-  </data>
-  <data name="DelayAnimationEffect" xml:space="preserve">
-    <value>遅延アニメーション</value>
-  </data>
-  <data name="StrengthX" xml:space="preserve">
-    <value>強さX</value>
-  </data>
-  <data name="StrengthY" xml:space="preserve">
-    <value>強さY</value>
-  </data>
-  <data name="Speed" xml:space="preserve">
-    <value>スピード</value>
-  </data>
-  <data name="BlendMode_Clear" xml:space="preserve">
-    <value>クリア</value>
-  </data>
-  <data name="BlendMode_Src" xml:space="preserve">
-    <value>上書き</value>
-  </data>
-  <data name="BlendMode_Dst" xml:space="preserve">
-    <value>そのまま</value>
-  </data>
-  <data name="BlendMode_SrcOver" xml:space="preserve">
-    <value>前面合成</value>
-  </data>
-  <data name="BlendMode_DstOver" xml:space="preserve">
-    <value>背面合成</value>
-  </data>
-  <data name="BlendMode_SrcIn" xml:space="preserve">
-    <value>前面内描画</value>
-  </data>
-  <data name="BlendMode_DstIn" xml:space="preserve">
-    <value>背面内描画</value>
-  </data>
-  <data name="BlendMode_SrcOut" xml:space="preserve">
-    <value>前面外描画</value>
-  </data>
-  <data name="BlendMode_DstOut" xml:space="preserve">
-    <value>背面外描画</value>
-  </data>
-  <data name="BlendMode_SrcATop" xml:space="preserve">
-    <value>前面上描画</value>
-  </data>
-  <data name="BlendMode_DstATop" xml:space="preserve">
-    <value>背面上描画</value>
-  </data>
-  <data name="BlendMode_Xor" xml:space="preserve">
-    <value>排他的合成</value>
-  </data>
-  <data name="BlendMode_Plus" xml:space="preserve">
-    <value>加算</value>
-  </data>
-  <data name="BlendMode_Modulate" xml:space="preserve">
-    <value>変調</value>
-  </data>
-  <data name="BlendMode_Screen" xml:space="preserve">
-    <value>スクリーン</value>
-  </data>
-  <data name="BlendMode_Overlay" xml:space="preserve">
-    <value>オーバーレイ</value>
-  </data>
-  <data name="BlendMode_Darken" xml:space="preserve">
-    <value>比較（暗）</value>
-  </data>
-    <data name="BlendMode_Lighten" xml:space="preserve">
-    <value>比較（明）</value>
-  </data>
-  <data name="BlendMode_ColorDodge" xml:space="preserve">
-    <value>覆い焼きカラー</value>
-  </data>
-  <data name="BlendMode_ColorBurn" xml:space="preserve">
-    <value>焼き込みカラー</value>
-  </data>
-  <data name="BlendMode_HardLight" xml:space="preserve">
-    <value>ハードライト</value>
-  </data>
-  <data name="BlendMode_SoftLight" xml:space="preserve">
-    <value>ソフトライト</value>
-  </data>
-  <data name="BlendMode_Difference" xml:space="preserve">
-    <value>差の絶対値</value>
-  </data>
-  <data name="BlendMode_Exclusion" xml:space="preserve">
-    <value>除外</value>
-  </data>
-  <data name="BlendMode_Multiply" xml:space="preserve">
-    <value>乗算</value>
-  </data>
-  <data name="BlendMode_Hue" xml:space="preserve">
-    <value>色相</value>
-  </data>
-  <data name="BlendMode_Saturation" xml:space="preserve">
-    <value>彩度</value>
-  </data>
-  <data name="BlendMode_Color" xml:space="preserve">
-    <value>カラー</value>
-  </data>
-  <data name="BlendMode_Luminosity" xml:space="preserve">
-    <value>輝度</value>
-  </data>
-  <data name="BlendMode_Clear_Description" xml:space="preserve">
-    <value>描画内容を透明にします。</value>
-  </data>
-  <data name="BlendMode_Src_Description" xml:space="preserve">
-    <value>元の内容を無視して新しい内容で塗りつぶします。</value>
-  </data>
-  <data name="BlendMode_Dst_Description" xml:space="preserve">
-    <value>描画をせず、元の内容を維持します。</value>
-  </data>
-  <data name="BlendMode_SrcOver_Description" xml:space="preserve">
-    <value>前面の内容を背景に重ねて描画します。</value>
-  </data>
-  <data name="BlendMode_DstOver_Description" xml:space="preserve">
-    <value>背面の内容を前面の下に描画します。</value>
-  </data>
-  <data name="BlendMode_SrcIn_Description" xml:space="preserve">
-    <value>前面の内容を背景の形にクリップして描画します。</value>
-  </data>
-  <data name="BlendMode_DstIn_Description" xml:space="preserve">
-    <value>背面の内容を前面の形にクリップします。</value>
-  </data>
-  <data name="BlendMode_SrcOut_Description" xml:space="preserve">
-    <value>背景部分を切り取り、前面の外側だけを描画します。</value>
-  </data>
-  <data name="BlendMode_DstOut_Description" xml:space="preserve">
-    <value>前面部分を切り取り、背景の外側だけを描画します。</value>
-  </data>
-  <data name="BlendMode_SrcATop_Description" xml:space="preserve">
-    <value>前面を背景の上に描画し、背景の外側を残します。</value>
-  </data>
-  <data name="BlendMode_DstATop_Description" xml:space="preserve">
-    <value>背景を前面の上に描画し、前面の外側を残します。</value>
-  </data>
-  <data name="BlendMode_Xor_Description" xml:space="preserve">
-    <value>重なった部分を透明にし、その他の部分を描画します。</value>
-  </data>
-  <data name="BlendMode_Plus_Description" xml:space="preserve">
-    <value>前面と背景の色を加算します。</value>
-  </data>
-  <data name="BlendMode_Modulate_Description" xml:space="preserve">
-    <value>透明度を考慮し、前景と背景の色を掛け合わせます。</value>
-  </data>
-  <data name="BlendMode_Screen_Description" xml:space="preserve">
-    <value>前面と背景の色を反転して乗算し、反転して戻します。</value>
-  </data>
-  <data name="BlendMode_Overlay_Description" xml:space="preserve">
-    <value>背景と前景を掛け合わせ、コントラストを強調します。</value>
-  </data>
-  <data name="BlendMode_Darken_Description" xml:space="preserve">
-    <value>背景と前景の色を比較し、暗い方を残します。</value>
-  </data>
-  <data name="BlendMode_Lighten_Description" xml:space="preserve">
-    <value>背景と前景の色を比較し、明るい方を残します。</value>
-  </data>
-  <data name="BlendMode_ColorDodge_Description" xml:space="preserve">
-    <value>背景の明るさを前景で強調し、明るい色を際立たせます。</value>
-  </data>
-  <data name="BlendMode_ColorBurn_Description" xml:space="preserve">
-    <value>背景の暗さを前景で強調し、暗い色を際立たせます。</value>
-  </data>
-  <data name="BlendMode_HardLight_Description" xml:space="preserve">
-    <value>前景を光源として扱い、乗算とスクリーンを切り替えます。</value>
-  </data>
-  <data name="BlendMode_SoftLight_Description" xml:space="preserve">
-    <value>柔らかな光を加えるように、色を自然に調整します。</value>
-  </data>
-  <data name="BlendMode_Difference_Description" xml:space="preserve">
-    <value>背景と前景の色の差の絶対値を計算して描画します。</value>
-  </data>
-  <data name="BlendMode_Exclusion_Description" xml:space="preserve">
-    <value>背景と前景の色を混ぜ、コントラストを抑えた結果を描画します。</value>
-  </data>
-  <data name="BlendMode_Multiply_Description" xml:space="preserve">
-    <value>前景と背景の色を掛け合わせ、全体を暗くします。</value>
-  </data>
-  <data name="BlendMode_Hue_Description" xml:space="preserve">
-    <value>背景の明度と彩度を維持し、前景の色相を適用します。</value>
-  </data>
-  <data name="BlendMode_Saturation_Description" xml:space="preserve">
-    <value>背景の明度と色相を維持し、前景の彩度を適用します。</value>
-  </data>
-  <data name="BlendMode_Color_Description" xml:space="preserve">
-    <value>背景の明度を維持し、前景の色相と彩度を適用します。</value>
-  </data>
-  <data name="BlendMode_Luminosity_Description" xml:space="preserve">
-    <value>背景の色相と彩度を維持し、前景の明度を適用します。</value>
-  </data>
-  <data name="ExtensionsSettings" xml:space="preserve">
-    <value>拡張機能の設定</value>
-  </data>
   <data name="AboutBeutl" xml:space="preserve">
     <value>Beutlについて</value>
   </data>
   <data name="Update" xml:space="preserve">
     <value>更新</value>
   </data>
-  <data name="Source" xml:space="preserve">
-    <value>ソース</value>
-  </data>
-  <data name="DisplacementMap" xml:space="preserve">
-    <value>ディスプレイスメントマップ</value>
-  </data>
-  <data name="ShowDisplacementMap" xml:space="preserve">
-    <value>ディスプレイスメントマップを表示</value>
-  </data>
-  <data name="Drawable" xml:space="preserve">
-    <value>描画オブジェクト</value>
-  </data>
   <data name="EditDrawable" xml:space="preserve">
     <value>描画オブジェクトを編集</value>
   </data>
   <data name="Item" xml:space="preserve">
     <value>アイテム</value>
-  </data>
-  <data name="BoundaryCorrection" xml:space="preserve">
-    <value>境界補正</value>
-  </data>
-  <data name="TileSize" xml:space="preserve">
-    <value>タイルサイズ</value>
-  </data>
-  <data name="Origin" xml:space="preserve">
-    <value>起点</value>
   </data>
   <data name="Profiles" xml:space="preserve">
     <value>プロファイル</value>
@@ -1576,18 +737,6 @@
   </data>
   <data name="Convert_to_preset" xml:space="preserve">
     <value>プリセットに変換</value>
-  </data>
-  <data name="Geometry" xml:space="preserve">
-    <value>ジオメトリ</value>
-  </data>
-  <data name="Progress" xml:space="preserve">
-    <value>進捗</value>
-  </data>
-  <data name="FollowRotation" xml:space="preserve">
-    <value>回転に追従</value>
-  </data>
-  <data name="PathFollowEffect" xml:space="preserve">
-    <value>パス追従</value>
   </data>
   <data name="Expression_Input" xml:space="preserve">
     <value>入力</value>
@@ -1638,9 +787,6 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="Waveform" xml:space="preserve">
     <value>ウェーブフォーム</value>
   </data>
-  <data name="Mode" xml:space="preserve">
-    <value>モード</value>
-  </data>
   <data name="Luma" xml:space="preserve">
     <value>輝度</value>
   </data>
@@ -1649,24 +795,6 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   </data>
   <data name="RgbParade" xml:space="preserve">
     <value>RGBパレード</value>
-  </data>
-  <data name="ShowGrid" xml:space="preserve">
-    <value>グリッドを表示</value>
-  </data>
-  <data name="Decorator" xml:space="preserve">
-    <value>デコレーター</value>
-  </data>
-  <data name="DelayTime" xml:space="preserve">
-    <value>ディレイタイム (ms)</value>
-  </data>
-  <data name="Feedback" xml:space="preserve">
-    <value>フィードバック (%)</value>
-  </data>
-  <data name="DryMix" xml:space="preserve">
-    <value>ドライミックス (%)</value>
-  </data>
-  <data name="WetMix" xml:space="preserve">
-    <value>ウェットミックス (%)</value>
   </data>
   <data name="AVFoundationEncoder" xml:space="preserve">
     <value>AVFoundation エンコーダー</value>
@@ -1682,21 +810,6 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   </data>
   <data name="OpenInTab" xml:space="preserve">
     <value>タブで開く</value>
-  </data>
-  <data name="VulkanVersion" xml:space="preserve">
-    <value>Vulkanバージョン</value>
-  </data>
-  <data name="SelectedGPU" xml:space="preserve">
-    <value>選択されたGPU</value>
-  </data>
-  <data name="AvailableMemory" xml:space="preserve">
-    <value>使用可能なメモリ</value>
-  </data>
-  <data name="AvailableGPUs" xml:space="preserve">
-    <value>使用可能なGPU</value>
-  </data>
-  <data name="EnabledExtensions" xml:space="preserve">
-    <value>有効な拡張機能</value>
   </data>
   <data name="Previous" xml:space="preserve">
     <value>前</value>
@@ -1719,42 +832,6 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="APIError" xml:space="preserve">
     <value>APIエラー</value>
   </data>
-  <data name="FailedToCopyKeyframe" xml:space="preserve">
-    <value>キーフレームのコピーに失敗しました</value>
-  </data>
-  <data name="FailedToPasteKeyframe" xml:space="preserve">
-    <value>キーフレームの貼り付けに失敗しました</value>
-  </data>
-  <data name="FailedToCopyAnimation" xml:space="preserve">
-    <value>アニメーションのコピーに失敗しました</value>
-  </data>
-  <data name="InvalidKeyframeDataFormat" xml:space="preserve">
-    <value>無効なキーフレームデータ形式です。</value>
-  </data>
-  <data name="InvalidKeyframeDataFormat_MissingType" xml:space="preserve">
-    <value>無効なキーフレームデータ形式です。$typeがありません。</value>
-  </data>
-  <data name="InvalidKeyframeDataFormat_TypeIsNotKeyFrame" xml:space="preserve">
-    <value>無効なキーフレームデータ形式です。$typeがKeyFrameではありません。</value>
-  </data>
-  <data name="KeyframePropertyTypeMismatch_EasingApplied" xml:space="preserve">
-    <value>貼り付けたキーフレームのプロパティタイプが一致しません。イージングのみが適用されました。</value>
-  </data>
-  <data name="InvalidJSON_MissingType" xml:space="preserve">
-    <value>無効なJSON: $typeがありません</value>
-  </data>
-  <data name="InvalidJSON_TypeIsNotKeyFrameAnimation" xml:space="preserve">
-    <value>無効なJSON: $typeがKeyFrameAnimationではありません</value>
-  </data>
-  <data name="InvalidJSON_TypeIsNotKeyFrame" xml:space="preserve">
-    <value>無効なJSON: $typeがKeyFrameではありません</value>
-  </data>
-  <data name="AnimationPropertyTypeMismatch" xml:space="preserve">
-    <value>貼り付けたアニメーションのプロパティタイプが一致しません。(期待: {0}, 実際: {1})</value>
-  </data>
-  <data name="KeyframeExistsAtPastePosition" xml:space="preserve">
-    <value>貼り付け位置にキーフレームが既に存在します。イージングと値が更新されました。</value>
-  </data>
   <data name="Website" xml:space="preserve">
     <value>ウェブサイト</value>
   </data>
@@ -1772,30 +849,6 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   </data>
   <data name="Portal" xml:space="preserve">
     <value>ポータル</value>
-  </data>
-  <data name="Layer" xml:space="preserve">
-    <value>レイヤー</value>
-  </data>
-  <data name="AudioEffect" xml:space="preserve">
-    <value>音声エフェクト</value>
-  </data>
-  <data name="Delay" xml:space="preserve">
-    <value>ディレイ</value>
-  </data>
-  <data name="Presenter" xml:space="preserve">
-    <value>プレセンター</value>
-  </data>
-  <data name="Script" xml:space="preserve">
-    <value>スクリプト</value>
-  </data>
-  <data name="SKSLScriptEffect" xml:space="preserve">
-    <value>SKSLスクリプト</value>
-  </data>
-  <data name="GLSLScriptEffect" xml:space="preserve">
-    <value>GLSLスクリプト</value>
-  </data>
-  <data name="CSharpScriptEffect" xml:space="preserve">
-    <value>C#スクリプト</value>
   </data>
   <data name="ExportProject" xml:space="preserve">
     <value>プロジェクトをエクスポート...</value>
@@ -1815,352 +868,6 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="SelectDestinationFolder" xml:space="preserve">
     <value>展開先フォルダを選択</value>
   </data>
-  <data name="Target" xml:space="preserve">
-    <value>ターゲット</value>
-  </data>
-  <data name="ScaleX" xml:space="preserve">
-    <value>X拡大率</value>
-  </data>
-  <data name="ScaleY" xml:space="preserve">
-    <value>Y拡大率</value>
-  </data>
-  <data name="SkewX" xml:space="preserve">
-    <value>X傾き</value>
-  </data>
-  <data name="SkewY" xml:space="preserve">
-    <value>Y傾き</value>
-  </data>
-  <data name="X" xml:space="preserve">
-    <value>X</value>
-  </data>
-  <data name="Y" xml:space="preserve">
-    <value>Y</value>
-  </data>
-  <data name="RotationX" xml:space="preserve">
-    <value>X回転</value>
-  </data>
-  <data name="RotationY" xml:space="preserve">
-    <value>Y回転</value>
-  </data>
-  <data name="RotationZ" xml:space="preserve">
-    <value>Z回転</value>
-  </data>
-  <data name="CenterX" xml:space="preserve">
-    <value>中心X</value>
-  </data>
-  <data name="CenterY" xml:space="preserve">
-    <value>中心Y</value>
-  </data>
-  <data name="CenterZ" xml:space="preserve">
-    <value>中心Z</value>
-  </data>
-  <data name="Depth" xml:space="preserve">
-    <value>深度</value>
-  </data>
-  <data name="Matrix" xml:space="preserve">
-    <value>行列</value>
-  </data>
-  <data name="MatrixTransform" xml:space="preserve">
-    <value>行列変形</value>
-  </data>
-  <data name="OffsetPosition" xml:space="preserve">
-    <value>オフセット位置</value>
-  </data>
-  <data name="Effect" xml:space="preserve">
-    <value>エフェクト</value>
-  </data>
-  <data name="RedOffset" xml:space="preserve">
-    <value>赤オフセット</value>
-  </data>
-  <data name="GreenOffset" xml:space="preserve">
-    <value>緑オフセット</value>
-  </data>
-  <data name="BlueOffset" xml:space="preserve">
-    <value>青オフセット</value>
-  </data>
-  <data name="AlphaOffset" xml:space="preserve">
-    <value>透明度オフセット</value>
-  </data>
-  <data name="BaseFrequencyX" xml:space="preserve">
-    <value>基本周波数X</value>
-  </data>
-  <data name="BaseFrequencyY" xml:space="preserve">
-    <value>基本周波数Y</value>
-  </data>
-  <data name="Octaves" xml:space="preserve">
-    <value>オクターブ</value>
-  </data>
-  <data name="Seed" xml:space="preserve">
-    <value>シード</value>
-  </data>
-  <data name="PerlinNoiseType" xml:space="preserve">
-    <value>ノイズタイプ</value>
-  </data>
-  <data name="FillType" xml:space="preserve">
-    <value>塗りつぶしタイプ</value>
-  </data>
-  <data name="IsClosed" xml:space="preserve">
-    <value>閉じる</value>
-  </data>
-  <data name="Point" xml:space="preserve">
-    <value>点</value>
-  </data>
-  <data name="ControlPoint" xml:space="preserve">
-    <value>制御点</value>
-  </data>
-  <data name="ControlPoint1" xml:space="preserve">
-    <value>制御点1</value>
-  </data>
-  <data name="ControlPoint2" xml:space="preserve">
-    <value>制御点2</value>
-  </data>
-  <data name="Weight" xml:space="preserve">
-    <value>重み</value>
-  </data>
-  <data name="Data" xml:space="preserve">
-    <value>データ</value>
-  </data>
-  <data name="RotationAngle" xml:space="preserve">
-    <value>回転角度</value>
-  </data>
-  <data name="IsLargeArc" xml:space="preserve">
-    <value>大弧</value>
-  </data>
-  <data name="SweepClockwise" xml:space="preserve">
-    <value>時計回り</value>
-  </data>
-  <!-- 3D Graphics -->
-  <data name="OrthographicCamera" xml:space="preserve">
-    <value>正射投影カメラ</value>
-  </data>
-  <data name="PerspectiveCamera" xml:space="preserve">
-    <value>透視投影カメラ</value>
-  </data>
-  <data name="DirectionalLight3D" xml:space="preserve">
-    <value>平行光源</value>
-  </data>
-  <data name="PointLight3D" xml:space="preserve">
-    <value>点光源</value>
-  </data>
-  <data name="SpotLight3D" xml:space="preserve">
-    <value>スポットライト</value>
-  </data>
-  <data name="BasicMaterial" xml:space="preserve">
-    <value>基本マテリアル</value>
-  </data>
-  <data name="PBRMaterial" xml:space="preserve">
-    <value>PBRマテリアル</value>
-  </data>
-  <data name="TransparentMaterial" xml:space="preserve">
-    <value>透明マテリアル</value>
-  </data>
-  <data name="ColorMap" xml:space="preserve">
-    <value>カラーマップ</value>
-  </data>
-  <data name="IndexOfRefraction" xml:space="preserve">
-    <value>屈折率</value>
-  </data>
-  <data name="CubeMesh" xml:space="preserve">
-    <value>立方体メッシュ</value>
-  </data>
-  <data name="SphereMesh" xml:space="preserve">
-    <value>球体メッシュ</value>
-  </data>
-  <data name="MeshObject3D" xml:space="preserve">
-    <value>メッシュオブジェクト</value>
-  </data>
-  <data name="ModelMesh" xml:space="preserve">
-    <value>モデルメッシュ</value>
-  </data>
-  <data name="Cube3D" xml:space="preserve">
-    <value>立方体</value>
-  </data>
-  <data name="Sphere3D" xml:space="preserve">
-    <value>球体</value>
-  </data>
-  <data name="Plane3D" xml:space="preserve">
-    <value>平面</value>
-  </data>
-  <data name="PlaneMesh" xml:space="preserve">
-    <value>平面メッシュ</value>
-  </data>
-  <data name="WidthSegments" xml:space="preserve">
-    <value>幅の分割数</value>
-  </data>
-  <data name="HeightSegments" xml:space="preserve">
-    <value>高さの分割数</value>
-  </data>
-  <data name="DrawableTextureSource" xml:space="preserve">
-    <value>描画テクスチャ</value>
-  </data>
-  <data name="ImageTextureSource" xml:space="preserve">
-    <value>画像テクスチャ</value>
-  </data>
-  <data name="Group3D" xml:space="preserve">
-    <value>グループ</value>
-  </data>
-  <data name="Scene3D" xml:space="preserve">
-    <value>3Dシーン</value>
-  </data>
-  <data name="FieldOfView" xml:space="preserve">
-    <value>視野角</value>
-  </data>
-  <data name="NearPlane" xml:space="preserve">
-    <value>近クリップ面</value>
-  </data>
-  <data name="FarPlane" xml:space="preserve">
-    <value>遠クリップ面</value>
-  </data>
-  <data name="Up" xml:space="preserve">
-    <value>上方向</value>
-  </data>
-  <data name="Direction" xml:space="preserve">
-    <value>方向</value>
-  </data>
-  <data name="CastsShadow" xml:space="preserve">
-    <value>影を投影</value>
-  </data>
-  <data name="ShadowBias" xml:space="preserve">
-    <value>シャドウバイアス</value>
-  </data>
-  <data name="ShadowNormalBias" xml:space="preserve">
-    <value>シャドウ法線バイアス</value>
-  </data>
-  <data name="ShadowStrength" xml:space="preserve">
-    <value>影の強度</value>
-  </data>
-  <data name="ShadowDistance" xml:space="preserve">
-    <value>影の距離</value>
-  </data>
-  <data name="ShadowMapSize" xml:space="preserve">
-    <value>シャドウマップサイズ</value>
-  </data>
-  <data name="ConstantAttenuation" xml:space="preserve">
-    <value>定数減衰</value>
-  </data>
-  <data name="LinearAttenuation" xml:space="preserve">
-    <value>線形減衰</value>
-  </data>
-  <data name="QuadraticAttenuation" xml:space="preserve">
-    <value>二次減衰</value>
-  </data>
-  <data name="Range" xml:space="preserve">
-    <value>範囲</value>
-  </data>
-  <data name="InnerConeAngle" xml:space="preserve">
-    <value>内側コーン角度</value>
-  </data>
-  <data name="OuterConeAngle" xml:space="preserve">
-    <value>外側コーン角度</value>
-  </data>
-  <data name="DiffuseColor" xml:space="preserve">
-    <value>拡散色</value>
-  </data>
-  <data name="DiffuseMap" xml:space="preserve">
-    <value>拡散マップ</value>
-  </data>
-  <data name="AmbientColor" xml:space="preserve">
-    <value>環境色</value>
-  </data>
-  <data name="SpecularColor" xml:space="preserve">
-    <value>鏡面反射色</value>
-  </data>
-  <data name="Shininess" xml:space="preserve">
-    <value>光沢度</value>
-  </data>
-  <data name="Albedo" xml:space="preserve">
-    <value>アルベド</value>
-  </data>
-  <data name="AlbedoMap" xml:space="preserve">
-    <value>アルベドマップ</value>
-  </data>
-  <data name="Metallic" xml:space="preserve">
-    <value>金属度</value>
-  </data>
-  <data name="Roughness" xml:space="preserve">
-    <value>粗さ</value>
-  </data>
-  <data name="MetallicRoughnessMap" xml:space="preserve">
-    <value>金属度/粗さマップ</value>
-  </data>
-  <data name="AmbientOcclusion" xml:space="preserve">
-    <value>環境遮蔽</value>
-  </data>
-  <data name="AOMap" xml:space="preserve">
-    <value>環境遮蔽マップ</value>
-  </data>
-  <data name="Emissive" xml:space="preserve">
-    <value>発光色</value>
-  </data>
-  <data name="EmissiveIntensity" xml:space="preserve">
-    <value>発光強度</value>
-  </data>
-  <data name="EmissiveMap" xml:space="preserve">
-    <value>発光マップ</value>
-  </data>
-  <data name="NormalMap" xml:space="preserve">
-    <value>法線マップ</value>
-  </data>
-  <data name="NormalMapStrength" xml:space="preserve">
-    <value>法線マップ強度</value>
-  </data>
-  <data name="Segments" xml:space="preserve">
-    <value>セグメント数</value>
-  </data>
-  <data name="Rings" xml:space="preserve">
-    <value>リング数</value>
-  </data>
-  <data name="Mesh" xml:space="preserve">
-    <value>メッシュ</value>
-  </data>
-  <data name="Vertices" xml:space="preserve">
-    <value>頂点</value>
-  </data>
-  <data name="Indices" xml:space="preserve">
-    <value>インデックス</value>
-  </data>
-  <data name="TextureWidth" xml:space="preserve">
-    <value>テクスチャ幅</value>
-  </data>
-  <data name="TextureHeight" xml:space="preserve">
-    <value>テクスチャ高さ</value>
-  </data>
-  <data name="Children" xml:space="preserve">
-    <value>子要素</value>
-  </data>
-  <data name="Camera" xml:space="preserve">
-    <value>カメラ</value>
-  </data>
-  <data name="Objects" xml:space="preserve">
-    <value>オブジェクト</value>
-  </data>
-  <data name="Lights" xml:space="preserve">
-    <value>ライト</value>
-  </data>
-  <data name="AmbientIntensity" xml:space="preserve">
-    <value>環境光強度</value>
-  </data>
-  <data name="RenderWidth" xml:space="preserve">
-    <value>レンダリング幅</value>
-  </data>
-  <data name="RenderHeight" xml:space="preserve">
-    <value>レンダリング高さ</value>
-  </data>
-  <data name="BackgroundColor" xml:space="preserve">
-    <value>背景色</value>
-  </data>
-  <data name="Material" xml:space="preserve">
-    <value>マテリアル</value>
-  </data>
-  <data name="CastShadows" xml:space="preserve">
-    <value>影を投影する</value>
-  </data>
-  <data name="ReceiveShadows" xml:space="preserve">
-    <value>影を受ける</value>
-  </data>
-  <data name="Model3D" xml:space="preserve">
-    <value>モデル</value>
-  </data>
   <data name="Experimental" xml:space="preserve">
     <value>実験的</value>
   </data>
@@ -2179,137 +886,8 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="NoMediaFilesFound" xml:space="preserve">
     <value>メディアファイルが見つかりません</value>
   </data>
-  <data name="TimeController" xml:space="preserve">
-    <value>タイムコントローラー</value>
-  </data>
-  <data name="AdjustTimeRange" xml:space="preserve">
-    <value>時間範囲を調整</value>
-  </data>
-  <data name="Loop" xml:space="preserve">
-    <value>ループ</value>
-  </data>
-  <data name="Reverse" xml:space="preserve">
-    <value>逆再生</value>
-  </data>
-  <data name="HoldFirstFrame" xml:space="preserve">
-    <value>最初のフレームを保持</value>
-  </data>
-  <data name="HoldLastFrame" xml:space="preserve">
-    <value>最後のフレームを保持</value>
-  </data>
   <data name="Tutorials" xml:space="preserve">
     <value>チュートリアル</value>
-  </data>
-  <data name="ParticleEmitter" xml:space="preserve">
-    <value>パーティクルエミッタ</value>
-  </data>
-  <data name="ParticleEmitter_EmitterGroup" xml:space="preserve">
-    <value>エミッタ</value>
-  </data>
-  <data name="ParticleEmitter_Seed" xml:space="preserve">
-    <value>シード</value>
-  </data>
-  <data name="ParticleEmitter_EmitterShape" xml:space="preserve">
-    <value>エミッタ形状</value>
-  </data>
-  <data name="ParticleEmitter_EmitterWidth" xml:space="preserve">
-    <value>エミッタ幅</value>
-  </data>
-  <data name="ParticleEmitter_EmitterHeight" xml:space="preserve">
-    <value>エミッタ高さ</value>
-  </data>
-  <data name="ParticleEmitter_MaxParticles" xml:space="preserve">
-    <value>最大パーティクル数</value>
-  </data>
-  <data name="ParticleEmitter_EmissionGroup" xml:space="preserve">
-    <value>放出</value>
-  </data>
-  <data name="ParticleEmitter_EmissionRate" xml:space="preserve">
-    <value>放出レート</value>
-  </data>
-  <data name="ParticleEmitter_Lifetime" xml:space="preserve">
-    <value>寿命</value>
-  </data>
-  <data name="ParticleEmitter_LifetimeRandom" xml:space="preserve">
-    <value>寿命ランダム</value>
-  </data>
-  <data name="ParticleEmitter_VelocityGroup" xml:space="preserve">
-    <value>速度</value>
-  </data>
-  <data name="ParticleEmitter_Speed" xml:space="preserve">
-    <value>スピード</value>
-  </data>
-  <data name="ParticleEmitter_SpeedRandom" xml:space="preserve">
-    <value>スピードランダム</value>
-  </data>
-  <data name="ParticleEmitter_Direction" xml:space="preserve">
-    <value>方向</value>
-  </data>
-  <data name="ParticleEmitter_Spread" xml:space="preserve">
-    <value>拡散</value>
-  </data>
-  <data name="ParticleEmitter_PhysicsGroup" xml:space="preserve">
-    <value>物理</value>
-  </data>
-  <data name="ParticleEmitter_Gravity" xml:space="preserve">
-    <value>重力</value>
-  </data>
-  <data name="ParticleEmitter_AirResistance" xml:space="preserve">
-    <value>空気抵抗</value>
-  </data>
-  <data name="ParticleEmitter_TurbulenceStrength" xml:space="preserve">
-    <value>タービュランス強度</value>
-  </data>
-  <data name="ParticleEmitter_TurbulenceScale" xml:space="preserve">
-    <value>タービュランススケール</value>
-  </data>
-  <data name="ParticleEmitter_TurbulenceSpeed" xml:space="preserve">
-    <value>タービュランス速度</value>
-  </data>
-  <data name="ParticleEmitter_VisualGroup" xml:space="preserve">
-    <value>ビジュアル</value>
-  </data>
-  <data name="ParticleEmitter_ParticleDrawable" xml:space="preserve">
-    <value>パーティクル描画</value>
-  </data>
-  <data name="ParticleEmitter_ParticleSize" xml:space="preserve">
-    <value>パーティクルサイズ</value>
-  </data>
-  <data name="ParticleEmitter_SizeRandom" xml:space="preserve">
-    <value>サイズランダム</value>
-  </data>
-  <data name="ParticleEmitter_Color" xml:space="preserve">
-    <value>色</value>
-  </data>
-  <data name="ParticleEmitter_ParticleOpacity" xml:space="preserve">
-    <value>パーティクル不透明度</value>
-  </data>
-  <data name="ParticleEmitter_RotationGroup" xml:space="preserve">
-    <value>回転</value>
-  </data>
-  <data name="ParticleEmitter_InitialRotation" xml:space="preserve">
-    <value>初期回転</value>
-  </data>
-  <data name="ParticleEmitter_InitialRotationRandom" xml:space="preserve">
-    <value>初期回転ランダム</value>
-  </data>
-  <data name="ParticleEmitter_AngularVelocity" xml:space="preserve">
-    <value>角速度</value>
-  </data>
-  <data name="ParticleEmitter_OverLifeGroup" xml:space="preserve">
-    <value>ライフタイム変化</value>
-  </data>
-  <data name="ParticleEmitter_EndSizeMultiplier" xml:space="preserve">
-    <value>終了サイズ倍率</value>
-  </data>
-  <data name="ParticleEmitter_EndOpacityMultiplier" xml:space="preserve">
-    <value>終了不透明度倍率</value>
-  </data>
-  <data name="ParticleEmitter_EndColor" xml:space="preserve">
-    <value>終了色</value>
-  </data>
-  <data name="ParticleEmitter_UseEndColor" xml:space="preserve">
-    <value>終了色を使用</value>
   </data>
   <data name="BpmGrid" xml:space="preserve">
     <value>BPMグリッド</value>
@@ -2325,29 +903,5 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   </data>
   <data name="BpmOffset" xml:space="preserve">
     <value>オフセット</value>
-  </data>
-  <data name="SceneSoundReference" xml:space="preserve">
-    <value>シーン参照 (音声)</value>
-  </data>
-  <data name="SceneGraphicsReference" xml:space="preserve">
-    <value>シーン参照 (動画)</value>
-  </data>
-  <data name="PixelSort" xml:space="preserve">
-    <value>ピクセルソート</value>
-  </data>
-  <data name="SortDirection" xml:space="preserve">
-    <value>ソート方向</value>
-  </data>
-  <data name="SortKey" xml:space="preserve">
-    <value>ソートキー</value>
-  </data>
-  <data name="ThresholdMin" xml:space="preserve">
-    <value>閾値最小</value>
-  </data>
-  <data name="ThresholdMax" xml:space="preserve">
-    <value>閾値最大</value>
-  </data>
-  <data name="Ascending" xml:space="preserve">
-    <value>昇順</value>
   </data>
 </root>
