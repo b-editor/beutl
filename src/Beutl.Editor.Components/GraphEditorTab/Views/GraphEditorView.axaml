@@ -119,19 +119,10 @@
                                 <icons:SymbolIcon Symbol="MusicNote1" />
                             </MenuItem.Icon>
                         </MenuItem>
-                        <MenuItem Classes.checked="{Binding UseGlobalClock.Value}"
-                                  Command="{Binding ToggleUseGlobalClock}"
-                                  Header="{x:Static lang:Strings.UseGlobalClock}">
-                            <MenuItem.Styles>
-                                <Style Selector="MenuItem.checked">
-                                    <Setter Property="Icon">
-                                        <Template>
-                                            <ui:SymbolIcon Symbol="Checkmark" />
-                                        </Template>
-                                    </Setter>
-                                </Style>
-                            </MenuItem.Styles>
-                        </MenuItem>
+                        <MenuItem Command="{Binding ToggleUseGlobalClock}"
+                                  Header="{x:Static lang:Strings.UseGlobalClock}"
+                                  IsChecked="{Binding UseGlobalClock.Value, Mode=OneWay}"
+                                  ToggleType="CheckBox" />
                     </ContextMenu>
                 </Panel.ContextMenu>
 
