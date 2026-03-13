@@ -84,7 +84,7 @@ public partial class ImmediateCanvas : ICanvas
     {
         void DisposeCore()
         {
-            GraphicsContextFactory.SharedContext?.SkiaContext.Flush(true, true);
+            // Flush は行わない（PrepareForSampling / Snapshot に委譲）
             _sharedFillPaint.Dispose();
             _sharedStrokePaint.Dispose();
             GC.SuppressFinalize(this);
@@ -116,14 +116,24 @@ public partial class ImmediateCanvas : ICanvas
 
     public void DrawRenderTarget(RenderTarget renderTarget, Point point)
     {
-        // NOTE: renderTargetを保持しておいて次回Flushされたときに開放すると効率的
         renderTarget.VerifyAccess();
         _sharedFillPaint.Reset();
         _sharedFillPaint.IsAntialias = true;
 
         Canvas.DrawSurface(renderTarget.Value, point.X, point.Y, _sharedFillPaint);
 
-        renderTarget.Value.Flush(true, true);
+        if (_dispatcher != null)
+        {
+            // renderTarget の pending releases を先に移管（多段レンダリング対応）
+            renderTarget.TransferPendingReleasesTo(_renderTarget);
+            // renderTarget 自体を pending に追加
+            _renderTarget.AddPendingRelease(renderTarget.ShallowCopy());
+        }
+        else
+        {
+            // RenderThread 以外: 従来通り即 Flush
+            renderTarget.Value.Flush(true, true);
+        }
     }
 
     public void DrawDrawable(Drawable.Resource drawable)

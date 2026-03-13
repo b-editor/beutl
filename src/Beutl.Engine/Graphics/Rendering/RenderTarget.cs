@@ -12,6 +12,7 @@ public class RenderTarget : IDisposable
     private readonly SKSurfaceCounter<SKSurface> _surface;
     private readonly SKSurfaceCounter<ITexture2D>? _texture;
     private readonly Dispatcher? _dispatcher = Dispatcher.Current;
+    private List<RenderTarget>? _pendingReleases;
 
     private RenderTarget(SKSurfaceCounter<SKSurface> surface, int width, int height,
         SKSurfaceCounter<ITexture2D>? texture = null)
@@ -55,8 +56,16 @@ public class RenderTarget : IDisposable
 
                 if (context != null)
                 {
-                    sharedTexture = context.CreateTexture2D(width, height, TextureFormat.BGRA8Unorm);
-                    surface = sharedTexture.CreateSkiaSurface();
+                    if (RenderTargetPool.TryRent(width, height, out var pooledTex, out var pooledSurf))
+                    {
+                        sharedTexture = pooledTex;
+                        surface = pooledSurf;
+                    }
+                    else
+                    {
+                        sharedTexture = context.CreateTexture2D(width, height, TextureFormat.BGRA8Unorm);
+                        surface = sharedTexture.CreateSkiaSurface();
+                    }
                 }
                 else
                 {
@@ -117,6 +126,68 @@ public class RenderTarget : IDisposable
     {
         if (IsDisposed) return;
 
+        // pending releases がある場合は GPU sync して処理（レアケース）
+        if (_pendingReleases is { Count: > 0 })
+        {
+            GraphicsContextFactory.SharedContext?.SkiaContext.Flush(true, true);
+            foreach (var rt in _pendingReleases)
+                rt.ReturnToPool();
+            _pendingReleases.Clear();
+        }
+
+        _surface.Release();
+        _texture?.Release();
+        IsDisposed = true;
+        GC.SuppressFinalize(this);
+    }
+
+    internal void AddPendingRelease(RenderTarget rt)
+    {
+        (_pendingReleases ??= []).Add(rt);
+    }
+
+    /// <summary>ShallowCopy が _pendingReleases を引き継がないため、DrawRenderTarget 内で明示的に移管する。</summary>
+    internal void TransferPendingReleasesTo(RenderTarget target)
+    {
+        if (_pendingReleases is { Count: > 0 })
+        {
+            foreach (var rt in _pendingReleases)
+                target.AddPendingRelease(rt);
+            _pendingReleases.Clear();
+        }
+    }
+
+    /// <summary>呼び出し元が GPU sync 済みであることを保証すること。</summary>
+    internal void ReturnToPool()
+    {
+        if (IsDisposed) return;
+
+        // 入れ子の pending releases も再帰的に処理（GPU sync 済み）
+        if (_pendingReleases is { Count: > 0 })
+        {
+            foreach (var rt in _pendingReleases)
+                rt.ReturnToPool();
+            _pendingReleases.Clear();
+        }
+
+        if (_texture != null
+            && _surface.RefCount == 1
+            && _texture.RefCount == 1
+            && _surface.Value != null
+            && _texture.Value != null)
+        {
+            var surf = _surface.Value;
+            var tex = _texture.Value;
+            if (RenderTargetPool.TryReturn(Width, Height, tex, surf))
+            {
+                _surface.Abandon();
+                _texture.Abandon();
+                IsDisposed = true;
+                GC.SuppressFinalize(this);
+                return;
+            }
+        }
+
         _surface.Release();
         _texture?.Release();
         IsDisposed = true;
@@ -136,6 +207,14 @@ public class RenderTarget : IDisposable
 
         _surface.Value!.Flush(true, true);
         _texture?.Value?.PrepareForSampling();
+
+        // GPU sync 完了後、pending releases をプールへ返却
+        if (_pendingReleases is { Count: > 0 })
+        {
+            foreach (var rt in _pendingReleases)
+                rt.ReturnToPool();
+            _pendingReleases.Clear();
+        }
     }
 
     private sealed class SKSurfaceCounter<T>(T value)
@@ -202,6 +281,13 @@ public class RenderTarget : IDisposable
 
                 old = current;
             }
+        }
+
+        /// <summary>所有権をプールに移管。Dispose は呼ばない。RefCount == 1 の場合にのみ安全。</summary>
+        public void Abandon()
+        {
+            Value = null;
+            _refs = 0;
         }
     }
 }

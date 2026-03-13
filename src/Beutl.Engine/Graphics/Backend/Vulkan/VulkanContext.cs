@@ -1,5 +1,6 @@
 ﻿using System.Runtime.InteropServices;
 using System.Text.Json;
+using Beutl.Graphics.Rendering;
 using Beutl.Graphics3D;
 using Beutl.Logging;
 using Microsoft.Extensions.Logging;
@@ -707,6 +708,7 @@ internal sealed class VulkanContext : IGraphicsContext
         _disposed = true;
 
         _vulkanDevice.WaitIdle();
+        RenderTargetPool.Clear();
 
         _skiaContext?.Dispose();
         _skiaContext = null;
