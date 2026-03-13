@@ -9,7 +9,7 @@ public class Frame
     /// <summary>
     ///     Gets or Sets the acTL chunk
     /// </summary>
-    public IHDRChunk IHDRChunk { get; set; }
+    public IHDRChunk? IHDRChunk { get; set; }
 
     /// <summary>
     ///     Gets or Sets the fcTL chunk
@@ -19,7 +19,7 @@ public class Frame
     /// <summary>
     ///     Gets or Sets the IEND chunk
     /// </summary>
-    public IENDChunk IENDChunk { get; set; }
+    public IENDChunk? IENDChunk { get; set; }
 
     /// <summary>
     ///     Gets or Sets the other chunks
@@ -52,6 +52,11 @@ public class Frame
     /// </summary>
     public MemoryStream GetStream()
     {
+        if (IHDRChunk == null)
+            throw new InvalidOperationException("IHDR chunk is required.");
+        if (IENDChunk == null)
+            throw new InvalidOperationException("IEND chunk is required.");
+
         var ihdrChunk = new IHDRChunk(IHDRChunk);
         if (fcTLChunk != null)
         {

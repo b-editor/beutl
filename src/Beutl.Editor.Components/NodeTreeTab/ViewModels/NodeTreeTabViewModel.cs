@@ -59,7 +59,6 @@ public sealed class NodeTreeTabViewModel : IToolContext
     private readonly ReactiveProperty<bool> _isSelected = new(false);
     private readonly CompositeDisposable _disposables = [];
     private IEditorContext _editorContext;
-    private NodeTreeModel? _oldModel;
 
     public NodeTreeTabViewModel(IEditorContext editorContext)
     {

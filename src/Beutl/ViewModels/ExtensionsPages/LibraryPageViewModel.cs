@@ -136,8 +136,6 @@ public sealed class LibraryPageViewModel : BasePageViewModel, ISupportRefreshVie
 
     public AsyncReactiveCommand CheckUpdate { get; }
 
-    public AsyncReactiveCommand More { get; }
-
     public ReactivePropertySlim<bool> IsBusy { get; } = new();
 
     public override void Dispose()

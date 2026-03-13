@@ -52,7 +52,7 @@ public static class ResourceClassEmitter
         {
             string fieldName = EmitHelpers.ToFieldName(property.Name);
             string valueTypeDisplay = property.ValueType.ToDisplayString(EmitHelpers.TypeDisplayFormat);
-            sb.Append(innerIndent).AppendLine($"private {valueTypeDisplay} {fieldName};");
+            sb.Append(innerIndent).AppendLine($"private {valueTypeDisplay} {fieldName} = default!;");
             sb.AppendLine();
         }
 
@@ -60,7 +60,7 @@ public static class ResourceClassEmitter
         {
             string fieldName = EmitHelpers.ToFieldName(property.Name);
             string resourceType = EmitHelpers.GetResourceTypeName(property.ValueType);
-            sb.Append(innerIndent).AppendLine($"private {resourceType} {fieldName};");
+            sb.Append(innerIndent).AppendLine($"private {resourceType} {fieldName} = default!;");
             sb.AppendLine();
         }
 

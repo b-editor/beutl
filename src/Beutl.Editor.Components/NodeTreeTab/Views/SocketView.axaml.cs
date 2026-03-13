@@ -22,10 +22,8 @@ public partial class SocketView : UserControl
     private SocketPoint? _socketPt;
     private StackPanel? _listSocketPanel;
     private NodeView? _nodeView;
-    private Canvas? _canvas;
     private Control? _editor;
     private TextBlock? _label;
-    private CancellationTokenSource? _updateSocketCts;
 
     public SocketView()
     {
@@ -37,7 +35,6 @@ public partial class SocketView : UserControl
     {
         base.OnAttachedToVisualTree(e);
         _nodeView = this.FindAncestorOfType<NodeView>();
-        _canvas = this.FindAncestorOfType<Canvas>();
     }
 
     private void OnDataContextDetached(NodeItemViewModel obj)
