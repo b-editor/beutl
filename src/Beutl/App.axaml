@@ -8,10 +8,6 @@
              Name="Beutl">
     <Application.Resources>
         <ResourceDictionary>
-            <ResourceDictionary.MergedDictionaries>
-                <ResourceInclude Source="avares://Beutl.Editor.Components/GraphEditorTab/Views/GraphEditorResources.axaml" />
-            </ResourceDictionary.MergedDictionaries>
-
             <aconverters:ColorToBrushConverter x:Key="ColorToBrushConverter" />
 
             <KeyGesture x:Key="CreateNewProjectKeyGesture">Ctrl+Shift+N</KeyGesture>
@@ -31,6 +27,7 @@
         <StyleInclude Source="avares://Beutl.Controls/Styles.axaml" />
         <StyleInclude Source="avares://AsyncImageLoader.Avalonia/AdvancedImage.axaml" />
         <StyleInclude Source="avares://ReDocking/Styles.axaml" />
+        <StyleInclude Source="avares://Beutl.Editor.Components/Styles.axaml" />
 
         <Style Selector="asyncImageLoader|AdvancedImage">
             <Setter Property="Template">

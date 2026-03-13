@@ -252,10 +252,11 @@ public abstract class GraphEditorViewModel : IDisposable
         CalculateMaxHeight();
     }
 
-    public void UpdateUseGlobalClock(bool value)
+    public void ToggleUseGlobalClock()
     {
-        _logger.LogInformation("Updating UseGlobalClock to {Value}", value);
-        ((KeyFrameAnimation)Animation).UseGlobalClock = value;
+        var newValue = !UseGlobalClock.Value;
+        _logger.LogInformation("Updating UseGlobalClock to {Value}", newValue);
+        ((KeyFrameAnimation)Animation).UseGlobalClock = newValue;
         HistoryManager.Commit(CommandNames.ChangeUseGlobalClock);
     }
 

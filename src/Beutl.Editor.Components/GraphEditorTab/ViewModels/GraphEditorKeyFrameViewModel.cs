@@ -270,7 +270,7 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
         }
     }
 
-    public void SubmitCrossed(TimeSpan timeSpan)
+    public void UpdateKeyTime(TimeSpan timeSpan)
     {
         int rate = Parent.Parent.Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;
         Model.KeyTime = timeSpan.RoundToRate(rate);

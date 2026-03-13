@@ -1,0 +1,62 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:ui="using:FluentAvalonia.UI.Controls">
+    <ControlTheme x:Key="LayerHeaderColorPickerButtonTheme"
+                  TargetType="ui:ColorPickerButton"
+                  BasedOn="{StaticResource {x:Type ui:ColorPickerButton}}">
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Button Name="ShowFlyoutButton"
+                        Padding="0"
+                        HorizontalContentAlignment="Stretch"
+                        BorderThickness="0"
+                        CornerRadius="{TemplateBinding CornerRadius}"
+                        Theme="{StaticResource TransparentButton}">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <Border MinWidth="18"
+                                MinHeight="18"
+                                Margin="5,4"
+                                HorizontalAlignment="Left"
+                                VerticalAlignment="Center"
+                                Background="{TemplateBinding Color, Converter={StaticResource ColorBrushConv}}"
+                                BorderBrush="{DynamicResource ColorPickerButtonOutline}"
+                                BorderThickness="1"
+                                CornerRadius="{TemplateBinding CornerRadius}" />
+
+                        <ui:SymbolIcon Grid.Column="1"
+                                       Margin="0,0,8,0"
+                                       HorizontalAlignment="Right"
+                                       FontSize="18"
+                                       Symbol="ChevronDown" />
+                    </Grid>
+                </Button>
+            </ControlTemplate>
+        </Setter>
+    </ControlTheme>
+
+    <ControlTheme x:Key="LayerHeaderNameTextBoxTheme"
+                  TargetType="TextBox"
+                  BasedOn="{StaticResource {x:Type TextBox}}">
+        <ControlTheme.Resources>
+            <Thickness x:Key="TextControlBorderThemeThicknessFocused">0</Thickness>
+        </ControlTheme.Resources>
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Padding" Value="10,0,6,0" />
+        <Setter Property="MinHeight" Value="{DynamicResource LayerHeight}" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+
+        <Style Selector="^:pointerover /template/ Border#PART_BorderElement">
+            <Setter Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
+        </Style>
+    </ControlTheme>
+
+    <ControlTheme x:Key="LayerHeaderButtonTheme"
+                  TargetType="Button"
+                  BasedOn="{StaticResource TransparentButton}">
+        <Setter Property="Padding" Value="0,0,0,0" />
+        <Setter Property="VerticalAlignment" Value="Stretch" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+    </ControlTheme>
+</ResourceDictionary>

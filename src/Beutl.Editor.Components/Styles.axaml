@@ -1,0 +1,13 @@
+<Styles xmlns="https://github.com/avaloniaui">
+    <Styles.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceInclude Source="/ColorGradingTab/Resources/ColorGradingResources.axaml" />
+                <ResourceInclude Source="/PathEditorTab/Resources/PathEditorResources.axaml" />
+                <ResourceInclude Source="/TimelineTab/Resources/TimelineResources.axaml" />
+                <ResourceInclude Source="/ColorScopesTab/Resources/ColorScopesResources.axaml" />
+                <ResourceInclude Source="/GraphEditorTab/Resources/GraphEditorResources.axaml" />
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </Styles.Resources>
+</Styles>
