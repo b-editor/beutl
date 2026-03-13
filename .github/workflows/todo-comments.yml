@@ -34,7 +34,7 @@ jobs:
           return body;
 
     - name: Comment on the pull request
-      uses: marocchino/sticky-pull-request-comment@v2
+      uses: marocchino/sticky-pull-request-comment@v3
       continue-on-error: true
       with:
         header: todo-cooments
