@@ -25,7 +25,14 @@ public sealed class LoadInstalledExtensionTask : StartupTask
             using (Activity? activity = Telemetry.StartActivity("LoadInstalledExtensionTask"))
             {
                 // 依存関係の再復元完了を待機
-                await startup.GetTask<ResolvePackageDependenciesTask>().Task;
+                ResolvePackageDependenciesTask resolveTask =
+                    startup.GetTask<ResolvePackageDependenciesTask>();
+                await resolveTask.Task;
+
+                // 依存関係の再復元に失敗したパッケージIDを収集
+                HashSet<string> failedPackageIds = new(
+                    resolveTask.Failures.Select(f => f.Package.Id),
+                    StringComparer.OrdinalIgnoreCase);
 
                 // .beutl/packages/ 内のパッケージを読み込む
                 if (!await AsksRunInRestrictedMode())
@@ -36,6 +43,16 @@ public sealed class LoadInstalledExtensionTask : StartupTask
 
                     Parallel.ForEach(packages, item =>
                     {
+                        if (failedPackageIds.Contains(item.Name))
+                        {
+                            _logger.LogWarning(
+                                "Skipping package {PackageName} due to dependency re-resolution failure.",
+                                item.Name);
+                            Failures.Add((item, new InvalidOperationException(
+                                $"Dependency re-resolution failed for package '{item.Name}'.")));
+                            return;
+                        }
+
                         try
                         {
                             _manager.Load(item);
