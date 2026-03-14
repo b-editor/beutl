@@ -6,15 +6,17 @@ namespace Beutl;
 
 public static class TypeDisplayHelpers
 {
+    private record DisplayInfo(string Name, string? Description);
+
     static TypeDisplayHelpers()
     {
         TypeUnloadNotifier.TypesUnloading += Unregister;
     }
 
-    private static readonly ConditionalWeakTable<Type, Tuple<string, string?>> s_displayCache = new();
-    private static readonly ConditionalWeakTable<MemberInfo, Tuple<string, string?>> s_memberDisplayCache = new();
+    private static readonly ConditionalWeakTable<Type, DisplayInfo> s_displayCache = new();
+    private static readonly ConditionalWeakTable<MemberInfo, DisplayInfo> s_memberDisplayCache = new();
 
-    public static string GetLocalizedName(Type type)
+    private static DisplayInfo GetDisplayInfo(Type type)
     {
         ArgumentNullException.ThrowIfNull(type);
 
@@ -23,47 +25,47 @@ public static class TypeDisplayHelpers
             var displayAttribute = t.GetCustomAttribute<DisplayAttribute>();
             var name = displayAttribute?.GetName() ?? t.Name;
             var description = displayAttribute?.GetDescription();
-            return Tuple.Create(name, description);
-        }).Item1;
+            return new DisplayInfo(name, description);
+        });
+    }
+
+    private static DisplayInfo GetDisplayInfo(MemberInfo member)
+    {
+        return s_memberDisplayCache.GetOrAdd(member, m =>
+        {
+            var displayAttribute = m.GetCustomAttribute<DisplayAttribute>();
+            var name = displayAttribute?.GetName() ?? m.Name;
+            var description = displayAttribute?.GetDescription();
+            return new DisplayInfo(name, description);
+        });
+    }
+
+    public static string GetLocalizedName(Type type)
+    {
+        ArgumentNullException.ThrowIfNull(type);
+
+        return GetDisplayInfo(type).Name;
     }
 
     public static string? GetLocalizedDescription(Type type)
     {
         ArgumentNullException.ThrowIfNull(type);
 
-        return s_displayCache.GetOrAdd(type, t =>
-        {
-            var displayAttribute = t.GetCustomAttribute<DisplayAttribute>();
-            var name = displayAttribute?.GetName() ?? t.Name;
-            var description = displayAttribute?.GetDescription();
-            return Tuple.Create(name, description);
-        }).Item2;
+        return GetDisplayInfo(type).Description;
     }
 
     public static string GetLocalizedName(MemberInfo member)
     {
         ArgumentNullException.ThrowIfNull(member);
 
-        return s_memberDisplayCache.GetOrAdd(member, m =>
-        {
-            var displayAttribute = m.GetCustomAttribute<DisplayAttribute>();
-            var name = displayAttribute?.GetName() ?? m.Name;
-            var description = displayAttribute?.GetDescription();
-            return Tuple.Create(name, description);
-        }).Item1;
+        return GetDisplayInfo(member).Name;
     }
 
     public static string? GetLocalizedDescription(MemberInfo member)
     {
         ArgumentNullException.ThrowIfNull(member);
 
-        return s_memberDisplayCache.GetOrAdd(member, m =>
-        {
-            var displayAttribute = m.GetCustomAttribute<DisplayAttribute>();
-            var name = displayAttribute?.GetName() ?? m.Name;
-            var description = displayAttribute?.GetDescription();
-            return Tuple.Create(name, description);
-        }).Item2;
+        return GetDisplayInfo(member).Description;
     }
 
     private static void Unregister(Type[] types)
