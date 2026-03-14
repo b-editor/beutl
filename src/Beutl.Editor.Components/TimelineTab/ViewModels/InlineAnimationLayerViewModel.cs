@@ -2,6 +2,7 @@
 using Avalonia;
 using Avalonia.Input;
 using Avalonia.Input.Platform;
+using Avalonia.Threading;
 using Beutl.Animation;
 using Beutl.Animation.Easings;
 using Beutl.Editor.Components.Helpers;
@@ -121,7 +122,6 @@ public abstract class InlineAnimationLayerViewModel : IDisposable
             {
                 if (Property.Animation is { } animation)
                 {
-                    Timeline.EditorContext.GetService<ISupportCloseAnimation>()?.Close(animation);
                     DeleteAnimation();
                 }
             })
@@ -157,6 +157,14 @@ public abstract class InlineAnimationLayerViewModel : IDisposable
                     ((CoreObject)t.NewValue).GetObservable(KeyFrameAnimation.UseGlobalClockProperty)
                         .Subscribe(v => _useGlobalClock.Value = v)
                         .DisposeWith(_innerDisposables);
+
+                    // アニメーションの DetachedFromHierarchy を購読
+                    if (t.NewValue is IHierarchical hierarchical)
+                    {
+                        hierarchical.DetachedFromHierarchy += OnAnimationDetached;
+                        Disposable.Create(hierarchical, h => h.DetachedFromHierarchy -= OnAnimationDetached)
+                            .DisposeWith(_innerDisposables);
+                    }
                 }
             })
             .DisposeWith(_disposables);
@@ -428,6 +436,11 @@ public abstract class InlineAnimationLayerViewModel : IDisposable
     private void OnAnimationEdited(object? sender, EventArgs e)
     {
         UpdateWidth();
+    }
+
+    private void OnAnimationDetached(object? sender, HierarchyAttachmentEventArgs e)
+    {
+        Dispatcher.UIThread.Post(() => Timeline.DetachInline(this));
     }
 
     public PrepareAnimationContext PrepareAnimation()

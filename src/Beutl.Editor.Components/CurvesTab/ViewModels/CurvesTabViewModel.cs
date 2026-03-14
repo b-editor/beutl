@@ -359,7 +359,7 @@ public sealed class CurvesTabViewModel : IToolContext
 
     private void OnEffectDetached(object? sender, HierarchyAttachmentEventArgs e)
     {
-        Effect.Value = null;
+        _editorContext.CloseToolTab(this);
     }
 
     private CurvePresenterViewModel CreateCurve(IProperty<CurveMap> property, HistoryManager history)
