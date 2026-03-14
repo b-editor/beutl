@@ -13,6 +13,7 @@
         <TextBlock Margin="8,10,0,0"
                    HorizontalAlignment="Left"
                    VerticalAlignment="Top"
+                   ToolTip.Tip="{Binding Description.Value}"
                    Text="{Binding Header}" />
 
         <TextBox x:Name="textBox"

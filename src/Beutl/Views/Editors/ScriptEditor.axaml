@@ -15,7 +15,7 @@
                               Classes="multiline"
                               Text="{Binding Value.Value}"
                               Header="{Binding Header, Mode=OneTime}"
-                              Description="{Binding Description, Mode=OneTime}"
+                              Description="{Binding Description.Value}"
                               KeyFrameCount="{Binding KeyFrameCount.Value}"
                               KeyFrameIndex="{Binding KeyFrameIndex.Value}"
                               IsReadOnly="{Binding IsReadOnly.Value}">

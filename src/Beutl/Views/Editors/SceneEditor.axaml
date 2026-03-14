@@ -9,6 +9,7 @@
              x:DataType="viewModel:SceneEditorViewModel"
              Background="Transparent">
     <pe:ReferenceEditor Header="{Binding Header, FallbackValue=Scene}"
+                        ToolTip.Tip="{Binding Description.Value}"
                         SelectTargetRequested="SelectTarget_Requested"
                         TargetName="{Binding CurrentTargetName.Value}">
         <pe:ReferenceEditor.MenuContent>

@@ -17,6 +17,7 @@
     <Grid RowDefinitions="Auto,Auto">
         <ToggleButton x:Name="expandToggle"
                       Margin="8,4"
+                      ToolTip.Tip="{Binding Description.Value}"
                       IsChecked="{Binding IsExpanded.Value}"
                       IsVisible="{Binding !IsPresenter.Value}"
                       Theme="{DynamicResource PropertyEditorMiniExpanderToggleButton}">
@@ -48,6 +49,7 @@
         </ToggleButton>
 
         <pe:ReferenceEditor Header="{Binding Header}"
+                            ToolTip.Tip="{Binding Description.Value}"
                             IsVisible="{Binding IsPresenter.Value}"
                             SelectTargetRequested="SelectTarget_Requested"
                             TargetName="{Binding CurrentTargetName.Value}">

@@ -17,7 +17,7 @@ namespace Beutl.ViewModels.Editors;
 public sealed class ProvidedChoiceEditorViewModel<T, TProvider> : ValueEditorViewModel<T?>
     where TProvider : IChoicesProvider
 {
-    private readonly ReadOnlyObservableCollection<string> _choices;
+    private readonly ReadOnlyObservableCollection<EnumItem> _choices;
     private readonly IReadOnlyList<object> _originalChoices;
 
     public ProvidedChoiceEditorViewModel(IPropertyAdapter<T?> property)
@@ -35,7 +35,7 @@ public sealed class ProvidedChoiceEditorViewModel<T, TProvider> : ValueEditorVie
             observable = _originalChoices.AsObservableChangeSet();
         }
 
-        observable.Cast(i => i?.ToString() ?? "null")
+        observable.Cast(i => new EnumItem(i.ToString() ?? "null", null, i))
             .ObserveOnUIDispatcher()
             .Bind(out _choices)
             .Subscribe()

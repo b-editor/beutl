@@ -18,6 +18,7 @@
         <ToggleButton x:Name="expandToggle"
                       Margin="8,4"
                       IsChecked="{Binding IsExpanded.Value}"
+                      ToolTip.Tip="{Binding Description.Value}"
                       Theme="{DynamicResource PropertyEditorMiniExpanderToggleButton}">
             <ToggleButton.ContextFlyout>
                 <ui:FAMenuFlyout>

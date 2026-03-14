@@ -17,6 +17,7 @@
               ColumnDefinitions="*,Auto,Auto"
               IsVisible="{Binding !IsPresenter.Value}">
             <ToggleButton x:Name="reorderHandle"
+                          ToolTip.Tip="{Binding Description.Value}"
                           Content="{Binding TransformName.Value}"
                           Cursor="SizeNorthSouth"
                           IsChecked="{Binding IsExpanded.Value}"
@@ -44,6 +45,7 @@
         </Grid>
 
         <pe:ReferenceEditor x:Name="presenterEditor"
+                             ToolTip.Tip="{Binding Description.Value}"
                              Margin="8,0,0,0"
                              EditorStyle="ListItem"
                              IsVisible="{Binding IsPresenter.Value}"

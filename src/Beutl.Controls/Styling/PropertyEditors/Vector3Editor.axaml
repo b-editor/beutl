@@ -51,6 +51,7 @@
                                    Margin="4,0,0,0"
                                    HorizontalAlignment="Left"
                                    VerticalAlignment="Center"
+                                   ToolTip.Tip="{TemplateBinding Description}"
                                    Text="{TemplateBinding Header}" />
 
                         <DataValidationErrors Grid.Row="2">
@@ -291,6 +292,7 @@
                                        HorizontalAlignment="Left"
                                        VerticalAlignment="Center"
                                        ClipToBounds="False"
+                                       ToolTip.Tip="{TemplateBinding Description}"
                                        Text="{TemplateBinding Header}"
                                        TextTrimming="CharacterEllipsis" />
 
@@ -354,6 +356,7 @@
                                        Margin="4,0,0,0"
                                        HorizontalAlignment="Left"
                                        VerticalAlignment="Center"
+                                       ToolTip.Tip="{TemplateBinding Description}"
                                        Text="{TemplateBinding Header}" />
 
                             <DataValidationErrors Grid.Row="2">

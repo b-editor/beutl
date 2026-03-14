@@ -17,7 +17,7 @@
             <SolidColorBrush x:Key="ExpanderContentBackground" Color="Transparent" />
         </Expander.Resources>
         <Expander.Header>
-            <StackPanel Orientation="Horizontal">
+            <StackPanel Orientation="Horizontal" x:Name="headerPanel">
                 <StackPanel.ContextMenu>
                     <ContextMenu>
                         <MenuItem Click="Remove_Click" Header="{x:Static lang:Strings.Remove}">

@@ -24,6 +24,7 @@
                                    HorizontalAlignment="Left"
                                    VerticalAlignment="Center"
                                    ClipToBounds="False"
+                                   ToolTip.Tip="{TemplateBinding Description}"
                                    Text="{TemplateBinding Header}"
                                    TextTrimming="CharacterEllipsis" />
 

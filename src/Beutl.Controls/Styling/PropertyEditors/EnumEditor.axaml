@@ -38,6 +38,7 @@
                                    VerticalAlignment="Center"
                                    ClipToBounds="False"
                                    Text="{TemplateBinding Header}"
+                                   ToolTip.Tip="{TemplateBinding Description}"
                                    TextTrimming="CharacterEllipsis" />
 
                         <GridSplitter Grid.Column="1" Background="Transparent" />
@@ -50,7 +51,15 @@
                                       HorizontalAlignment="Stretch"
                                       IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}"
                                       ItemsSource="{TemplateBinding Items, Mode=TwoWay}"
-                                      SelectedIndex="{TemplateBinding SelectedIndex, Mode=TwoWay}" />
+                                      SelectedIndex="{TemplateBinding SelectedIndex, Mode=TwoWay}">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate x:DataType="local:EnumItem">
+                                        <TextBlock ToolTip.Tip="{Binding Description}"
+                                                   Text="{Binding DisplayName}" 
+                                                   Background="Transparent" />
+                                    </DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
 
                             <StackPanel Name="LeftRightButtons"
                                         Grid.Column="1"
@@ -89,6 +98,7 @@
                                        Margin="4,0,0,0"
                                        HorizontalAlignment="Left"
                                        VerticalAlignment="Center"
+                                       ToolTip.Tip="{TemplateBinding Description}"
                                        Text="{TemplateBinding Header}" />
 
                             <ComboBox x:Name="PART_InnerComboBox"
@@ -97,7 +107,15 @@
                                       HorizontalAlignment="Stretch"
                                       IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}"
                                       ItemsSource="{TemplateBinding Items, Mode=TwoWay}"
-                                      SelectedIndex="{TemplateBinding SelectedIndex, Mode=TwoWay}" />
+                                      SelectedIndex="{TemplateBinding SelectedIndex, Mode=TwoWay}">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate x:DataType="local:EnumItem">
+                                        <TextBlock ToolTip.Tip="{Binding Description}"
+                                                Text="{Binding DisplayName}"
+                                                Background="Transparent" />
+                                    </DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
 
                             <StackPanel Name="LeftRightButtons"
                                         Margin="0,0,4,0"
@@ -139,7 +157,15 @@
                                       HorizontalAlignment="Stretch"
                                       IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}"
                                       ItemsSource="{TemplateBinding Items, Mode=TwoWay}"
-                                      SelectedIndex="{TemplateBinding SelectedIndex, Mode=TwoWay}" />
+                                      SelectedIndex="{TemplateBinding SelectedIndex, Mode=TwoWay}">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate x:DataType="local:EnumItem">
+                                        <TextBlock ToolTip.Tip="{Binding Description}"
+                                                   Text="{Binding DisplayName}" 
+                                                   Background="Transparent" />
+                                    </DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
 
                             <Button Name="PART_DeleteButton"
                                     Grid.Column="2"
@@ -176,7 +202,15 @@
                                       HorizontalAlignment="Stretch"
                                       IsEnabled="{Binding IsReadOnly, Converter={x:Static BoolConverters.Not}, RelativeSource={RelativeSource AncestorType={x:Type local:EnumEditor}}}"
                                       ItemsSource="{Binding Items, Mode=TwoWay, RelativeSource={RelativeSource AncestorType={x:Type local:EnumEditor}}}"
-                                      SelectedIndex="{Binding SelectedIndex, Mode=TwoWay, RelativeSource={RelativeSource AncestorType={x:Type local:EnumEditor}}}" />
+                                      SelectedIndex="{Binding SelectedIndex, Mode=TwoWay, RelativeSource={RelativeSource AncestorType={x:Type local:EnumEditor}}}">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate x:DataType="local:EnumItem">
+                                        <TextBlock ToolTip.Tip="{Binding Description}"
+                                                   Text="{Binding DisplayName}" 
+                                                   Background="Transparent" />
+                                    </DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
                         </OptionsDisplayItem.ActionButton>
                     </OptionsDisplayItem>
                 </ControlTemplate>

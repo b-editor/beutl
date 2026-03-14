@@ -35,6 +35,7 @@
                                    Margin="4,0,0,0"
                                    HorizontalAlignment="Left"
                                    VerticalAlignment="Center"
+                                   ToolTip.Tip="{TemplateBinding Description}"
                                    Text="{TemplateBinding Header}" />
 
                         <DataValidationErrors Grid.Row="2">
@@ -220,6 +221,7 @@
                                        VerticalAlignment="Center"
                                        ClipToBounds="False"
                                        Text="{TemplateBinding Header}"
+                                       ToolTip.Tip="{TemplateBinding Description}"
                                        TextTrimming="CharacterEllipsis" />
 
                             <GridSplitter Grid.Column="1" Background="Transparent" />
@@ -350,6 +352,7 @@
                                        Margin="4,0,0,0"
                                        HorizontalAlignment="Left"
                                        VerticalAlignment="Center"
+                                       ToolTip.Tip="{TemplateBinding Description}"
                                        Text="{TemplateBinding Header}" />
 
                             <DataValidationErrors Grid.Row="2">

@@ -12,6 +12,7 @@
              mc:Ignorable="d">
     <Grid RowDefinitions="Auto,Auto">
         <Grid Margin="8,0,0,0"
+              ToolTip.Tip="{Binding Description.Value}"
               ColumnDefinitions="*,Auto,Auto"
               IsVisible="{Binding !IsPresenter.Value}">
             <ToggleButton x:Name="reorderHandle"
@@ -38,6 +39,7 @@
         </Grid>
 
         <pe:ReferenceEditor x:Name="presenterEditor"
+                             ToolTip.Tip="{Binding Description.Value}"
                              Margin="8,0,0,0"
                              EditorStyle="ListItem"
                              IsVisible="{Binding IsPresenter.Value}"

@@ -88,6 +88,7 @@ public sealed partial class EngineObjectPropertyView : UserControl
                 EngineObject obj = viewModel.Model;
                 Type type = obj.GetType();
                 headerText.Text = TypeDisplayHelpers.GetLocalizedName(type);
+                ToolTip.SetTip(headerPanel, TypeDisplayHelpers.GetLocalizedDescription(type));
 
                 if (panel.Children.Count == 2)
                 {

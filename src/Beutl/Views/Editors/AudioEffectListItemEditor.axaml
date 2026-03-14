@@ -13,6 +13,7 @@
         <Grid Margin="8,0,0,0" ColumnDefinitions="*,Auto,Auto">
             <ToggleButton x:Name="reorderHandle"
                           Content="{Binding FilterName.Value}"
+                          ToolTip.Tip="{Binding Description.Value}"
                           Cursor="SizeNorthSouth"
                           IsChecked="{Binding IsExpanded.Value}"
                           Theme="{StaticResource ListEditorMiniExpanderToggleButton}" />

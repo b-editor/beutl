@@ -23,6 +23,7 @@
         <ToggleButton x:Name="expandToggle"
                       Margin="8,4"
                       Classes="center-fill"
+                      ToolTip.Tip="{Binding Description.Value}"
                       Content="{Binding Header, FallbackValue=Brush}"
                       FontWeight="DemiBold"
                       IsChecked="{Binding IsExpanded.Value}"
@@ -94,6 +95,7 @@
         </ToggleButton>
 
         <pe:ReferenceEditor Header="{Binding Header, FallbackValue=Brush}"
+                            ToolTip.Tip="{Binding Description.Value}"
                             IsVisible="{Binding IsPresenter.Value}"
                             SelectTargetRequested="SelectTarget_Requested"
                             TargetName="{Binding CurrentTargetName.Value}">

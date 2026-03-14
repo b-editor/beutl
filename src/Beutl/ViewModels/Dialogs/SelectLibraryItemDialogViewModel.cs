@@ -44,7 +44,7 @@ public class SelectLibraryItemDialogViewModel
                 IsBusy.Value = true;
                 return items.Select(i => LibraryService.Current.FindItem(i))
                     .Where(i => i != null)
-                    .Select(i => new PinnableLibraryItem(i!.DisplayName, false, i))
+                    .Select(i => new PinnableLibraryItem(i!.DisplayName, false, i, i.Description))
                     .ToArray();
             }
             finally
@@ -108,7 +108,7 @@ public class SelectLibraryItemDialogViewModel
                         item ??= new SingleTypeLibraryItem(
                             _format, type,
                             TypeDisplayHelpers.GetLocalizedName(type));
-                        return new PinnableLibraryItem(item.DisplayName, false, item);
+                        return new PinnableLibraryItem(item.DisplayName, false, item, item.Description);
                     })
                     .ToArray();
             }
@@ -175,7 +175,7 @@ public class SelectLibraryItemDialogViewModel
     {
         Items.ClearOnScheduler();
         var items = ShowAll.Value ? await LoadAllItems() : await _itemsTask;
-        items = items.Select(i => new PinnableLibraryItem(i.DisplayName, IsPinned((LibraryItem)i.UserData), i.UserData))
+        items = items.Select(i => new PinnableLibraryItem(i.DisplayName, IsPinned((LibraryItem)i.UserData), i.UserData, i.Description))
             .OrderByDescending(t => t.IsPinned)
             .ToArray();
 
@@ -193,7 +193,7 @@ public class SelectLibraryItemDialogViewModel
                 .Where(v => v.score > 0)
                 .OrderByDescending(t => t.IsPinned)
                 .ThenByDescending(v => v.score)
-                .Select(v => new PinnableLibraryItem(((LibraryItem)v.item.Data!).DisplayName, v.IsPinned, v.item.Data))
+                .Select(v => new PinnableLibraryItem(((LibraryItem)v.item.Data!).DisplayName, v.IsPinned, v.item.Data, ((LibraryItem)v.item.Data!).Description))
                 .ToArray();
             Items.AddRange(newItems);
         }

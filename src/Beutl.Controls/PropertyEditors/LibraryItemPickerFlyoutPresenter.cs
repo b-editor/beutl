@@ -6,13 +6,15 @@ using Reactive.Bindings;
 
 namespace Beutl.Controls.PropertyEditors;
 
-public class PinnableLibraryItem(string displayName, bool isPinned, object userData) : IEquatable<PinnableLibraryItem?>
+public class PinnableLibraryItem(string displayName, bool isPinned, object userData, string? description = null) : IEquatable<PinnableLibraryItem?>
 {
     public string DisplayName { get; } = displayName;
 
     public bool IsPinned { get; } = isPinned;
 
     public object UserData { get; } = userData;
+
+    public string? Description { get; } = description;
 
     public bool Equals(PinnableLibraryItem? other)
     {
