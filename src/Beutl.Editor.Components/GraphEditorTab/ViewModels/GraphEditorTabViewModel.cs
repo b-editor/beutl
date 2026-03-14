@@ -156,7 +156,7 @@ public sealed class GraphEditorTabViewModel : IToolContext
                     {
                         SelectedItem.Value = null;
                     }
-                    
+
                     item.Object.DetachedFromHierarchy -= OnAnimationDetached;
                     Items.Remove(item);
                 }
