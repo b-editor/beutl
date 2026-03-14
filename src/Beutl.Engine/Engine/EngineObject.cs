@@ -246,7 +246,7 @@ public class EngineObject : Hierarchical, INotifyEdited
             if (property == null) continue;
 
             var attrs = PropertyReflectionCache.GetOrCreateAttributes(type, propertyInfo.Name,
-                () => [.. propertyInfo.GetCustomAttributes(inherit: true)]);
+                () => [.. propertyInfo.GetCustomAttributes()]);
             var validator = PropertyReflectionCache.GetOrCreateValidator(type, propertyInfo.Name,
                 () => property.CreateValidator(attrs));
 
