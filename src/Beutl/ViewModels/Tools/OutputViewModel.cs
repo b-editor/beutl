@@ -206,15 +206,12 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
                     _logger.LogInformation("Using encoding controller: {Controller}", controller);
                 }
 
-                // キャッシュ無効化
-                DisableAllCache();
+                // エンコード前にEditViewModelのレンダラーキャッシュを削除してメモリ解放
+                ClearEditViewModelCaches();
 
-                // Rendererを新しく作成しない理由:
-                // エンコード時のRenderInvalidatedがプレビューを更新しようとしてしまうため
-
-                // フレームプロバイダー作成
-                // using var renderer = new SceneRenderer(scene);
-                var renderer = _editViewModel.Renderer.Value;
+                // エンコード専用のRendererを作成（キャッシュ無効）
+                using var renderer = new SceneRenderer(Model);
+                renderer.CacheOptions = RenderCacheOptions.Disabled;
                 var frameProgress = new Subject<TimeSpan>();
                 using var frameProvider = new FrameProviderImpl(Model, videoSettings.FrameRate, renderer, frameProgress);
                 // サンプルプロバイダー作成
@@ -241,7 +238,6 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
         }
         finally
         {
-            EnableAllCache();
             _progress.Value = 0;
             ProgressMax.Value = 0;
             ProgressValue.Value = 0;
@@ -253,25 +249,14 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
         }
     }
 
-    private static void DisableAllCache()
+    private static void ClearEditViewModelCaches()
     {
         foreach (EditorTabItem item in EditorService.Current.TabItems)
         {
             if (item.Context.Value is EditViewModel editViewModel)
             {
-                editViewModel.Renderer.Value.CacheOptions = RenderCacheOptions.Disabled;
+                editViewModel.Renderer.Value.ClearAllCaches();
                 editViewModel.FrameCacheManager.Value.Clear();
-            }
-        }
-    }
-
-    private static void EnableAllCache()
-    {
-        foreach (EditorTabItem item in EditorService.Current.TabItems)
-        {
-            if (item.Context.Value is EditViewModel editViewModel)
-            {
-                editViewModel.Renderer.Value.CacheOptions = RenderCacheOptions.CreateFromGlobalConfiguration();
             }
         }
     }

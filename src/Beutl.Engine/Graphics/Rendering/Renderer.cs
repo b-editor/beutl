@@ -365,11 +365,14 @@ public class Renderer : IRenderer
         return _surface.Snapshot();
     }
 
-    private void ClearAllCaches()
+    public void ClearAllCaches()
     {
-        foreach (var item in _nodeCache)
+        var entries = _nodeCache.ToArray();
+        _nodeCache.Clear();
+        foreach (var item in entries)
         {
             RenderNodeCacheHelper.ClearCache(item.Value.Node);
+            item.Value.Dispose();
         }
     }
 
@@ -380,6 +383,7 @@ public class Renderer : IRenderer
             // Compositor側でDisposeされるのでResourceはDisposeせず、NodeだけがDisposeされるようにする
             item.Value.Dispose();
         }
+        _nodeCache.Clear();
     }
 
     public static ImmediateCanvas GetInternalCanvas(Renderer renderer)
