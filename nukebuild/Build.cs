@@ -189,7 +189,6 @@ class Build : NukeBuild
                 "Beutl.Extensibility",
                 "Beutl.Engine",
                 "Beutl.Language",
-                "Beutl.Operators",
                 "Beutl.ProjectSystem",
                 "Beutl.Threading",
                 "Beutl.Utilities",

@@ -11,7 +11,6 @@
     <ProjectReference Include="..\Beutl.Editor\Beutl.Editor.csproj" />
     <ProjectReference Include="..\Beutl.Configuration\Beutl.Configuration.csproj" />
     <ProjectReference Include="..\Beutl.Language\Beutl.Language.csproj" />
-    <ProjectReference Include="..\Beutl.Operators\Beutl.Operators.csproj" />
     <ProjectReference Include="..\Beutl.ProjectSystem\Beutl.ProjectSystem.csproj" />
   </ItemGroup>
 

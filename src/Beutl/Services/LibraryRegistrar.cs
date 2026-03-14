@@ -8,13 +8,11 @@ using Beutl.Graphics3D;
 using Beutl.Graphics3D.Lighting;
 using Beutl.Graphics3D.Models;
 using Beutl.Graphics3D.Primitives;
-using Beutl.Language;
 using Beutl.Media;
 using Beutl.NodeGraph;
 using Beutl.ProjectSystem;
-using Beutl.Services;
 
-namespace Beutl.Operators;
+namespace Beutl.Services;
 
 public static class LibraryRegistrar
 {

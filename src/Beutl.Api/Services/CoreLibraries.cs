@@ -83,7 +83,6 @@ internal static class CoreLibraries
                             case "Beutl.Engine":
                             case "Beutl.Extensibility":
                             case "Beutl.Language":
-                            case "Beutl.Operators":
                             case "Beutl.ProjectSystem":
                             case "Beutl.Threading":
                             case "Beutl.Utilities":
