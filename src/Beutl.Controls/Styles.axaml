@@ -1,6 +1,7 @@
 <Styles xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:b="using:Beutl.Controls.Behaviors"
+        xmlns:ui="using:FluentAvalonia.UI.Controls"
         xmlns:i="using:Avalonia.Xaml.Interactivity"
         xmlns:lang="using:Beutl.Language"
         xmlns:local="using:Beutl.Controls"
@@ -159,6 +160,10 @@
         <Style Selector="^ &gt; TextBlock">
             <Setter Property="Theme" Value="{StaticResource SimpleLargeBreadcrumbBarTextBlock}" />
         </Style>
+    </Style>
+
+    <Style Selector="ui|ContentDialog /template/ ContentControl#Title">
+        <Setter Property="FontFamily" Value="{DynamicResource ContentControlThemeFontFamily}" />
     </Style>
 
     <StyleInclude Source="avares://Beutl.Controls/Styling/NavigationView.axaml" />
