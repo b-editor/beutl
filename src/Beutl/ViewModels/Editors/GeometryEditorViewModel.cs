@@ -5,7 +5,6 @@ using Beutl.Editor.Components.PropertyEditors.Services;
 using Beutl.Media;
 using Beutl.PropertyAdapters;
 using Beutl.Serialization;
-using Microsoft.Extensions.DependencyInjection;
 
 using Reactive.Bindings;
 
@@ -67,11 +66,6 @@ public sealed class GeometryEditorViewModel : ValueEditorViewModel<Geometry?>, I
                 .DisposeWith(Disposables))
             .DisposeWith(Disposables);
 
-        Value.CombineWithPrevious()
-            .Select(v => v.OldValue)
-            .Where(v => v != null)
-            .Subscribe(v => this.GetService<ISupportCloseAnimation>()?.Close(v!))
-            .DisposeWith(Disposables);
     }
 
     public ReadOnlyReactivePropertySlim<bool> IsGroup { get; }

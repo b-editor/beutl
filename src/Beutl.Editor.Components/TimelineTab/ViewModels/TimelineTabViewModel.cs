@@ -110,7 +110,6 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler
                     ElementViewModel element = Elements[idx];
                     _logger.LogDebug("Element removed {Id}.", element.Model.Id);
                     SelectedElements.Remove(element);
-                    this.GetService<ISupportCloseAnimation>()?.Close(element.Model);
                     Elements.RemoveAt(idx);
                     element.Dispose();
                 },

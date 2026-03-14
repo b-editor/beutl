@@ -42,12 +42,6 @@ public sealed class PathFigureEditorViewModel : ValueEditorViewModel<PathFigure>
                     .DisposeWith(Disposables))
             .DisposeWith(Disposables);
 
-        Value.CombineWithPrevious()
-            .Select(v => v.OldValue)
-            .Where(v => v != null)
-            .Subscribe(v => this.GetService<ISupportCloseAnimation>()?.Close(v!))
-            .DisposeWith(Disposables);
-
         EditingPath = _editViewModel
             .Select(v => v?.Player.PathEditor.PathFigure ?? Observable.ReturnThenNever<PathFigure?>(null))
             .Switch()

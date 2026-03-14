@@ -5,7 +5,6 @@ using Beutl.Editor.Components.Helpers;
 using Beutl.Engine;
 using Beutl.PropertyAdapters;
 using Beutl.Serialization;
-using Microsoft.Extensions.DependencyInjection;
 
 using Reactive.Bindings;
 
@@ -84,11 +83,6 @@ public sealed class AudioEffectEditorViewModel : ValueEditorViewModel<AudioEffec
             })
             .DisposeWith(Disposables);
 
-        Value.CombineWithPrevious()
-            .Select(v => v.OldValue)
-            .Where(v => v != null)
-            .Subscribe(v => this.GetService<ISupportCloseAnimation>()?.Close(v!))
-            .DisposeWith(Disposables);
     }
 
     public ReadOnlyReactivePropertySlim<string?> FilterName { get; }

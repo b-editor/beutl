@@ -3,9 +3,7 @@ using Beutl.Engine;
 using Beutl.Engine.Expressions;
 using Beutl.Graphics;
 using Beutl.Graphics3D.Textures;
-using Beutl.Language;
 using Beutl.Services;
-using Microsoft.Extensions.DependencyInjection;
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
 
@@ -41,11 +39,6 @@ public sealed class TextureSourceEditorViewModel : BaseEditorViewModel
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 
-        Value.CombineWithPrevious()
-            .Select(v => v.OldValue)
-            .Where(v => v != null)
-            .Subscribe(v => this.GetService<ISupportCloseAnimation>()?.Close(v!))
-            .DisposeWith(Disposables);
     }
 
     public ReadOnlyReactiveProperty<TextureSource?> Value { get; }

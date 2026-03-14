@@ -36,7 +36,7 @@ using LibraryService = Beutl.Services.LibraryService;
 namespace Beutl.ViewModels;
 
 public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProvider,
-    ISupportCloseAnimation, ISupportAutoSaveEditorContext, IEditorClock, IEditorSelection, IElementAdder
+    ISupportAutoSaveEditorContext, IEditorClock, IEditorSelection, IElementAdder
 {
     private readonly ILogger _logger = Log.CreateLogger<EditViewModel>();
     private readonly AutoSaveService _autoSaveService = new();
@@ -627,9 +627,6 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
         if (serviceType.IsAssignableTo(typeof(IEditorContext)))
             return this;
 
-        if (serviceType.IsAssignableTo(typeof(ISupportCloseAnimation)))
-            return this;
-
         if (serviceType == typeof(HistoryManager))
             return HistoryManager;
 
@@ -893,56 +890,6 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
             "*.avif",
         ];
         return MatchFileExtensions(filePath, extensions);
-    }
-
-    void ISupportCloseAnimation.Close(object obj)
-    {
-        _logger.LogInformation("Closing animations related to object ({ObjectId}).", obj);
-
-        var searcher = new ObjectSearcher(obj, v => v is IAnimation);
-
-        IAnimation[] animations = searcher.SearchAll().OfType<IAnimation>().ToArray();
-        TimelineTabViewModel? timeline = FindToolTab<TimelineTabViewModel>();
-
-        // Timelineのインライン表示を削除
-        if (timeline != null)
-        {
-            foreach (InlineAnimationLayerViewModel? item in timeline.Inlines
-                         .IntersectBy(animations, v => v.Property.Animation)
-                         .ToArray())
-            {
-                timeline.DetachInline(item);
-                _logger.LogInformation("Detached inline animation ({AnimationId}) from timeline.",
-                    item.Property.Animation);
-            }
-        }
-
-        // BottomTabItemsから削除する
-        foreach (var list in DockHost.GetNestedTools())
-        {
-            for (int index = list.Count - 1; index >= 0; index--)
-            {
-                ToolTabViewModel item = list[index];
-                if (item.Context is not GraphEditorTabViewModel graph) continue;
-
-                for (int i = graph.Items.Count - 1; i >= 0; i--)
-                {
-                    var animation = graph.Items[i];
-                    if (animations.Contains(animation.Object))
-                    {
-                        graph.Items.Remove(animation);
-                        _logger.LogInformation("Removed animation ({AnimationId}) from graph editor.", animation);
-                    }
-                }
-
-                if (graph.Items.Count == 0)
-                {
-                    list.Remove(item);
-                    item.Dispose();
-                    _logger.LogInformation("Disposed empty graph editor tab.");
-                }
-            }
-        }
     }
 
     private sealed class KnownCommandsImpl(Scene scene, EditViewModel viewModel) : IKnownEditorCommands

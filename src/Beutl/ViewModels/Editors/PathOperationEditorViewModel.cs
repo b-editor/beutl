@@ -1,7 +1,5 @@
 ﻿using System.Text.Json.Nodes;
 using Beutl.Media;
-using Beutl.Services;
-using Microsoft.Extensions.DependencyInjection;
 using Reactive.Bindings;
 
 namespace Beutl.ViewModels.Editors;
@@ -63,11 +61,6 @@ public sealed class PathOperationEditorViewModel : ValueEditorViewModel<PathSegm
                     .DisposeWith(Disposables))
             .DisposeWith(Disposables);
 
-        Value.CombineWithPrevious()
-            .Select(v => v.OldValue)
-            .Where(v => v != null)
-            .Subscribe(v => this.GetService<ISupportCloseAnimation>()?.Close(v!))
-            .DisposeWith(Disposables);
     }
 
     public ReadOnlyReactivePropertySlim<string?> OpName { get; }

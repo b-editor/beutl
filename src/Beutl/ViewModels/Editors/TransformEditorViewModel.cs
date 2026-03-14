@@ -146,12 +146,6 @@ public sealed class TransformEditorViewModel : ValueEditorViewModel<Transform?>,
             })
             .DisposeWith(Disposables);
 
-        Value.CombineWithPrevious()
-            .Select(v => v.OldValue)
-            .Where(v => v != null)
-            .Subscribe(v => this.GetService<ISupportCloseAnimation>()?.Close(v!))
-            .DisposeWith(Disposables);
-
         var expressionObservable = Value
             .Select(v => v switch
             {
