@@ -123,14 +123,6 @@
                    PointerReleased="TimelinePanel_PointerReleased">
                 <Panel.ContextFlyout>
                     <ui:FAMenuFlyout>
-                        <ui:MenuFlyoutItem Command="{Binding SetStartTimeToPointerPosition}"
-                                           InputGesture="{h:GetCommandGesture SetStartTime}"
-                                           Text="{x:Static lang:Strings.SetStartTime}" />
-                        <ui:MenuFlyoutItem Command="{Binding SetEndTimeToPointerPosition}"
-                                           InputGesture="{h:GetCommandGesture SetEndTime}"
-                                           Text="{x:Static lang:Strings.SetEndTime}" />
-                        <ui:ToggleMenuFlyoutItem IsChecked="{Binding AutoAdjustSceneDuration.Value, Mode=TwoWay}" Text="{x:Static lang:SettingsStrings.AutoAdjustSceneDuration}" />
-                        <ui:MenuFlyoutSeparator />
                         <ui:MenuFlyoutSubItem x:Name="AddElementSubMenu" Text="{x:Static lang:Strings.AddElement}" />
                         <ui:MenuFlyoutItem Command="{CompiledBinding Paste}"
                                            InputGesture="{h:GetCommandGesture Paste}"
@@ -139,6 +131,15 @@
                                 <icons:SymbolIconSource Symbol="ClipboardPaste" />
                             </ui:MenuFlyoutItem.IconSource>
                         </ui:MenuFlyoutItem>
+                        <ui:MenuFlyoutSeparator />
+                        <ui:MenuFlyoutItem Command="{Binding SetStartTimeToPointerPosition}"
+                                           InputGesture="{h:GetCommandGesture SetStartTime}"
+                                           Text="{x:Static lang:Strings.SetStartTime}" />
+                        <ui:MenuFlyoutItem Command="{Binding SetEndTimeToPointerPosition}"
+                                           InputGesture="{h:GetCommandGesture SetEndTime}"
+                                           Text="{x:Static lang:Strings.SetEndTime}" />
+                        <ui:ToggleMenuFlyoutItem IsChecked="{Binding AutoAdjustSceneDuration.Value, Mode=TwoWay}" Text="{x:Static lang:SettingsStrings.AutoAdjustSceneDuration}" />
+                        <ui:MenuFlyoutSeparator />
                         <ui:MenuFlyoutItem Click="ShowSceneSettings" Text="{x:Static lang:Strings.Settings}">
                             <ui:MenuFlyoutItem.IconSource>
                                 <icons:SymbolIconSource Symbol="Settings" />
