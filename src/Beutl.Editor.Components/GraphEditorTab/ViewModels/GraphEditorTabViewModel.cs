@@ -84,11 +84,10 @@ public sealed class GraphEditorTabViewModel : IToolContext
 
     public void Refresh()
     {
-        _animationDisposables.Clear();
-
         var selected = SelectedItem.Value;
         if (Element.Value == null)
         {
+            _animationDisposables.Clear();
             Items.Clear();
             return;
         }
@@ -119,6 +118,7 @@ public sealed class GraphEditorTabViewModel : IToolContext
 
         if (Items.SequenceEqual(tmp)) return;
 
+        _animationDisposables.Clear();
         Items.Clear();
         Items.AddRange(tmp);
         SelectedItem.Value = Items.FirstOrDefault(i => i.Object == selected?.Object);
@@ -186,11 +186,7 @@ public sealed class GraphEditorTabViewModel : IToolContext
                 && scene.FindById(elmId) is Element elm)
             {
                 Element.Value = elm;
-                var searcher = new ObjectSearcher(elm, v => v is KeyFrameAnimation anm && anm.Id == anmId);
-                if (searcher.Search() is KeyFrameAnimation anm)
-                {
-                    Select(anm);
-                }
+                Select(Items.FirstOrDefault(i => i.Object.Id == anmId)?.Object);
             }
         }
         catch
