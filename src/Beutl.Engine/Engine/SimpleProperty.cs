@@ -1,5 +1,4 @@
 ﻿using System.ComponentModel.DataAnnotations;
-using System.Reflection;
 using System.Text.Json.Nodes;
 using Beutl.Animation;
 using Beutl.Composition;
@@ -14,7 +13,7 @@ public class SimpleProperty<T>(T defaultValue, IValidator<T>? validator = null) 
 {
     private IValidator<T>? _validator = validator;
     private T _currentValue = defaultValue;
-    private PropertyInfo? _propertyInfo;
+    private Attribute[]? _attributes;
     private string? _name;
     private EngineObject? _owner;
     private IExpression<T>? _expression;
@@ -142,17 +141,16 @@ public class SimpleProperty<T>(T defaultValue, IValidator<T>? validator = null) 
         return _currentValue;
     }
 
-    public void SetPropertyInfo(PropertyInfo propertyInfo)
+    public void SetAttributes(string name, Attribute[] attributes)
     {
-        _propertyInfo = propertyInfo;
-        _name = propertyInfo.Name;
+        _name = name;
+        _attributes = attributes;
     }
 
-    public PropertyInfo? GetPropertyInfo() => _propertyInfo;
+    public Attribute[]? GetAttributes() => _attributes;
 
-    public IValidator CreateValidator(PropertyInfo propertyInfo)
+    public IValidator CreateValidator(Attribute[] attributes)
     {
-        var attributes = propertyInfo.GetCustomAttributes().ToArray();
         IValidator<T>[] validations = attributes.OfType<ValidationAttribute>()
             .Select(CorePropertyMetadata<T>.ConvertValidator)
             .ToArray();

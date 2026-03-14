@@ -1,5 +1,4 @@
 ﻿using System.ComponentModel.DataAnnotations;
-using System.Reflection;
 using System.Text.Json.Nodes;
 using Beutl.Animation;
 using Beutl.Composition;
@@ -16,7 +15,7 @@ public class AnimatableProperty<T> : IProperty<T>
     private IAnimation<T>? _animation;
     private IExpression<T>? _expression;
     private IValidator<T>? _validator;
-    private PropertyInfo? _propertyInfo;
+    private Attribute[]? _attributes;
     private string? _name;
     private EngineObject? _owner;
     private PropertyLookup? _propertyLookup;
@@ -187,17 +186,16 @@ public class AnimatableProperty<T> : IProperty<T>
         return value;
     }
 
-    public void SetPropertyInfo(PropertyInfo propertyInfo)
+    public void SetAttributes(string name, Attribute[] attributes)
     {
-        _propertyInfo = propertyInfo;
-        _name = propertyInfo.Name;
+        _name = name;
+        _attributes = attributes;
     }
 
-    public PropertyInfo? GetPropertyInfo() => _propertyInfo;
+    public Attribute[]? GetAttributes() => _attributes;
 
-    public IValidator CreateValidator(PropertyInfo propertyInfo)
+    public IValidator CreateValidator(Attribute[] attributes)
     {
-        var attributes = propertyInfo.GetCustomAttributes().ToArray();
         IValidator<T>[] validations = attributes.OfType<ValidationAttribute>()
             .Select(CorePropertyMetadata<T>.ConvertValidator)
             .ToArray();

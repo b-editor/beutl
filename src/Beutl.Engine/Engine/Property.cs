@@ -1,5 +1,4 @@
 ﻿using System.ComponentModel.DataAnnotations;
-using System.Reflection;
 using Beutl.Animation;
 using Beutl.Media;
 using Beutl.Validation;
@@ -55,5 +54,11 @@ public static class Property
     public static IListProperty<T> CreateList<T>()
     {
         return new ListProperty<T>();
+    }
+
+    public static string GetLocalizedName(IProperty property)
+    {
+        var displayAttr = property.GetAttributes()?.OfType<DisplayAttribute>().FirstOrDefault();
+        return displayAttr?.GetName() ?? property.Name;
     }
 }
