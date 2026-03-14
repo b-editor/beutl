@@ -235,11 +235,11 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
 
     public Func<TimeSpan>? GetClickedTime { get; set; }
 
-    public TimelineTabViewModel Timeline { get; private set; }
+    public TimelineTabViewModel Timeline { get; }
 
-    public Element Model { get; private set; }
+    public Element Model { get; }
 
-    public ElementScopeViewModel Scope { get; private set; }
+    public ElementScopeViewModel Scope { get; }
 
     public Scene Scene { get; }
 
@@ -370,9 +370,6 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
         WaveformChunkCount.Dispose();
 
         LayerHeader.Value = null!;
-        Timeline = null!;
-        Model = null!;
-        Scope = null!;
         AnimationRequested = (_, _) => Task.CompletedTask;
         GetClickedTime = null;
         GetMissingThumbnailIndices = null;

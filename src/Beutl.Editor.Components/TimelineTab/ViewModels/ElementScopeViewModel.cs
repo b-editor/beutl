@@ -1,6 +1,4 @@
-﻿using System.ComponentModel;
-
-using Avalonia;
+﻿using Avalonia;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Engine;
 using Beutl.ProjectSystem;
@@ -70,9 +68,9 @@ public sealed class ElementScopeViewModel : IDisposable
 
     public ReactivePropertySlim<int> Count { get; } = new();
 
-    public ElementViewModel Parent { get; private set; }
+    public ElementViewModel Parent { get; }
 
-    public Element Model { get; private set; }
+    public Element Model { get; }
 
     private void OnChildrenDetached(EngineObject obj)
     {
@@ -158,9 +156,6 @@ public sealed class ElementScopeViewModel : IDisposable
 
         _disposables.Dispose();
         Count.Dispose();
-        Model = null!;
-        _model = null!;
-        Parent = null!;
         AnimationRequested = (_, _) => Task.CompletedTask;
     }
 

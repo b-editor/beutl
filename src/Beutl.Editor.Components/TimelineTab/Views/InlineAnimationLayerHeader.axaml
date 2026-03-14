@@ -7,7 +7,6 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:vm="using:Beutl.Editor.Components.TimelineTab.ViewModels"
-             Height="{Binding ObserveHeight.Value}"
              HorizontalAlignment="Stretch"
              VerticalAlignment="Top"
              VerticalContentAlignment="Top"

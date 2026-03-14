@@ -296,7 +296,7 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler
         SetEndTimeCore(time);
     }
 
-    public Scene Scene { get; private set; }
+    public Scene Scene { get; }
 
     public IObservable<float> Scale { get; }
 
@@ -308,7 +308,7 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler
 
     public IBufferStatus BufferStatus { get; }
 
-    public IEditorContext EditorContext { get; private set; }
+    public IEditorContext EditorContext { get; }
 
     public ReadOnlyReactivePropertySlim<double> PanelWidth { get; }
 
@@ -414,8 +414,6 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler
         Inlines.Clear();
         LayerHeaders.Clear();
         Elements.Clear();
-        Scene = null!;
-        EditorContext = null!;
         _logger.LogInformation("TimelineViewModel disposed successfully.");
     }
 
