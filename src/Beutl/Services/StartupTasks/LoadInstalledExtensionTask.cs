@@ -16,7 +16,7 @@ public sealed class LoadInstalledExtensionTask : StartupTask
     private readonly ILogger<LoadInstalledExtensionTask> _logger = Log.CreateLogger<LoadInstalledExtensionTask>();
     private readonly PackageManager _manager;
 
-    public LoadInstalledExtensionTask(PackageManager manager)
+    public LoadInstalledExtensionTask(PackageManager manager, Startup startup)
     {
         _manager = manager;
 
@@ -24,6 +24,9 @@ public sealed class LoadInstalledExtensionTask : StartupTask
         {
             using (Activity? activity = Telemetry.StartActivity("LoadInstalledExtensionTask"))
             {
+                // 依存関係の再復元完了を待機
+                await startup.GetTask<ResolvePackageDependenciesTask>().Task;
+
                 // .beutl/packages/ 内のパッケージを読み込む
                 if (!await AsksRunInRestrictedMode())
                 {

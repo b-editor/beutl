@@ -1,6 +1,6 @@
 ﻿using System.Reflection;
 using System.Runtime.Loader;
-
+using Beutl.Logging;
 using NuGet.Common;
 using NuGet.Frameworks;
 using NuGet.Packaging;
@@ -11,6 +11,7 @@ namespace Beutl.Api.Services;
 // https://github.com/dotnet/runtime/blob/9ec7fc21862f3446c6c6f7dcfff275942e3884d3/src/libraries/System.Private.CoreLib/src/System/Runtime/Loader/AssemblyDependencyResolver.cs
 internal sealed class PluginDependencyResolver
 {
+    private readonly ILogger _logger = new LoggerAdapter(Log.CreateLogger<PluginDependencyResolver>());
     private const string NeutralCultureName = "neutral";
     private const string ResourceAssemblyExtension = ".dll";
 
@@ -32,7 +33,7 @@ internal sealed class PluginDependencyResolver
                 reader,
                 reader.GetIdentity(),
                 framework,
-                NullLogger.Instance,
+                _logger,
                 availablePackages);
         }
         else

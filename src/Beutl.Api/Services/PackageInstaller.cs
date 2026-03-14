@@ -286,6 +286,16 @@ public partial class PackageInstaller : IBeutlApiResource
         }
     }
 
+    public async Task ReResolveDependencies(
+        PackageIdentity package,
+        ILogger? logger,
+        CancellationToken cancellationToken = default)
+    {
+        var context = PrepareForInstall(
+            package.Id, package.Version.ToString(), force: true, cancellationToken);
+        await ResolveDependencies(context, logger, cancellationToken);
+    }
+
     public async Task ResolveDependencies(
         PackageInstallContext context,
         ILogger? logger,
@@ -304,11 +314,7 @@ public partial class PackageInstaller : IBeutlApiResource
                 NuGetFramework nuGetFramework = Helper.GetFrameworkName();
                 package = new PackageIdentity(packageId, NuGetVersion.Parse(version));
 
-#if DEBUG
-                logger ??= ConsoleLogger.Instance;
-#else
-                logger ??= NullLogger.Instance;
-#endif
+                logger ??= new LoggerAdapter(_logger);
 
                 IEnumerable<SourceRepository> repositories = _sourceRepositoryProvider.GetRepositories();
                 var availablePackages = new HashSet<SourcePackageDependencyInfo>(PackageIdentityComparer.Default);

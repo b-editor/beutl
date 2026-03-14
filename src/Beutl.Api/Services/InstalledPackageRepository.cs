@@ -16,6 +16,7 @@ public class InstalledPackageRepository : IBeutlApiResource
 {
     private readonly ILogger _logger = Log.CreateLogger<InstalledPackageRepository>();
     private readonly HashSet<PackageIdentity> _packages = [];
+    private readonly Dictionary<string, string?> _resolvedBeutlVersions = new(StringComparer.OrdinalIgnoreCase);
     private readonly Subject<(PackageIdentity Package, bool Exists)> _subject = new();
     private const string FileName = "installedPackages.json";
 
@@ -44,6 +45,7 @@ public class InstalledPackageRepository : IBeutlApiResource
         }
         _packages.RemoveWhere(x => StringComparer.OrdinalIgnoreCase.Equals(x.Id, package.Id));
         _packages.Add(package);
+        _resolvedBeutlVersions[package.Id] = BeutlApplication.Version;
         Save();
 
         foreach (PackageIdentity removed in removedItems)
@@ -68,6 +70,7 @@ public class InstalledPackageRepository : IBeutlApiResource
 
         if (_packages.Add(package))
         {
+            _resolvedBeutlVersions[package.Id] = BeutlApplication.Version;
             Save();
             _subject.OnNext((package, true));
         }
@@ -87,6 +90,7 @@ public class InstalledPackageRepository : IBeutlApiResource
 
         if (_packages.Add(package))
         {
+            _resolvedBeutlVersions[package.Id] = BeutlApplication.Version;
             Save();
             _subject.OnNext((package, true));
         }
@@ -101,6 +105,7 @@ public class InstalledPackageRepository : IBeutlApiResource
             x => StringComparer.OrdinalIgnoreCase.Equals(x.Id, name) && x.Version == nugetVersion);
         if (package != null && _packages.Remove(package))
         {
+            _resolvedBeutlVersions.Remove(name);
             Save();
             _subject.OnNext((package, false));
         }
@@ -112,6 +117,7 @@ public class InstalledPackageRepository : IBeutlApiResource
         _logger.LogInformation("Removing package: {PackageId} with version: {PackageVersion}", package.Id, package.Version);
         if (_packages.Remove(package))
         {
+            _resolvedBeutlVersions.Remove(package.Id);
             Save();
             _subject.OnNext((package, false));
         }
@@ -127,6 +133,7 @@ public class InstalledPackageRepository : IBeutlApiResource
             removed = GetLocalPackages(name).ToArray();
         }
         _packages.RemoveWhere(x => StringComparer.OrdinalIgnoreCase.Equals(x.Id, name));
+        _resolvedBeutlVersions.Remove(name);
         Save();
         foreach (PackageIdentity package in removed)
         {
@@ -157,6 +164,22 @@ public class InstalledPackageRepository : IBeutlApiResource
         return new _Observable(this, name, version);
     }
 
+    public PackageIdentity[] GetPackagesNeedingDependencyReResolution()
+    {
+        string currentVersion = BeutlApplication.Version;
+        return [.. _packages.Where(p =>
+        {
+            _resolvedBeutlVersions.TryGetValue(p.Id, out string? ver);
+            return ver != currentVersion;
+        })];
+    }
+
+    public void SetResolvedBeutlVersion(string packageId, string beutlVersion)
+    {
+        _resolvedBeutlVersions[packageId] = beutlVersion;
+        Save();
+    }
+
     private void Save()
     {
         _logger.LogInformation("Saving installed packages to file.");
@@ -164,7 +187,10 @@ public class InstalledPackageRepository : IBeutlApiResource
         using (FileStream stream = File.Create(fileName))
         {
             JsonSerializer.Serialize(stream, _packages
-                .Select(x => new S_Package(x.Id, x.Version.ToString()))
+                .Select(x => new S_Package(
+                    x.Id,
+                    x.Version.ToString(),
+                    _resolvedBeutlVersions.GetValueOrDefault(x.Id)))
                 .ToArray());
         }
         _logger.LogInformation("Saved {Count} packages to file.", _packages.Count);
@@ -183,8 +209,17 @@ public class InstalledPackageRepository : IBeutlApiResource
                     if (JsonSerializer.Deserialize<S_Package[]>(stream) is S_Package[] packages)
                     {
                         _packages.Clear();
+                        _resolvedBeutlVersions.Clear();
 
                         _packages.AddRange(packages.Select(x => new PackageIdentity(x.Name, new NuGetVersion(x.Version))));
+
+                        foreach (S_Package pkg in packages)
+                        {
+                            if (pkg.BeutlVersion is { } beutlVersion)
+                            {
+                                _resolvedBeutlVersions[pkg.Name] = beutlVersion;
+                            }
+                        }
                     }
                 }
                 catch (Exception ex)
@@ -202,7 +237,7 @@ public class InstalledPackageRepository : IBeutlApiResource
     }
 
     // Serializable
-    private record S_Package(string Name, string Version);
+    private record S_Package(string Name, string Version, string? BeutlVersion = null);
 
     private sealed class _Observable : LightweightObservableBase<bool>
     {
