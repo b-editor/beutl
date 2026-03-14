@@ -4,7 +4,6 @@ using Beutl.Editor.Components.Helpers;
 using Beutl.Engine;
 using Beutl.Engine.Expressions;
 using Beutl.Graphics.Effects;
-using Beutl.Graphics.Rendering;
 using Beutl.PropertyAdapters;
 using Beutl.Serialization;
 using Microsoft.Extensions.DependencyInjection;
@@ -92,12 +91,6 @@ public sealed class FilterEffectEditorViewModel : ValueEditorViewModel<FilterEff
                     Commit();
                 }
             })
-            .DisposeWith(Disposables);
-
-        Value.CombineWithPrevious()
-            .Select(v => v.OldValue)
-            .Where(v => v != null)
-            .Subscribe(v => this.GetService<ISupportCloseAnimation>()?.Close(v!))
             .DisposeWith(Disposables);
 
         var expressionObservable = Value

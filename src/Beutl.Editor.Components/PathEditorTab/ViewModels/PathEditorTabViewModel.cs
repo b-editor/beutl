@@ -64,6 +64,17 @@ public sealed class PathEditorTabViewModel : IDisposable, IPathEditorContext, IT
 
         FigureContext.Subscribe(_ => SelectedOperation.Value = null)
             .DisposeWith(_disposables);
+
+        // PathFigure の DetachedFromHierarchy を購読し、detach 時に FigureContext をクリア
+        PathFigure.CombineWithPrevious()
+            .Subscribe(v =>
+            {
+                if (v.OldValue is IHierarchical old)
+                    old.DetachedFromHierarchy -= OnPathFigureDetached;
+                if (v.NewValue is IHierarchical @new)
+                    @new.DetachedFromHierarchy += OnPathFigureDetached;
+            })
+            .DisposeWith(_disposables);
     }
 
     public IEditorContext EditorContext { get; }
@@ -124,8 +135,15 @@ public sealed class PathEditorTabViewModel : IDisposable, IPathEditorContext, IT
 
     public void Dispose()
     {
+        if (PathFigure.Value is IHierarchical h)
+            h.DetachedFromHierarchy -= OnPathFigureDetached;
         _disposables.Dispose();
         FigureContext.Dispose();
+    }
+
+    private void OnPathFigureDetached(object? sender, HierarchyAttachmentEventArgs e)
+    {
+        FigureContext.Value = null;
     }
 
     public void WriteToJson(JsonObject json)

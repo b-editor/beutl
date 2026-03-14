@@ -1,7 +1,5 @@
 ﻿using System.Text.Json.Nodes;
-using Beutl.Animation;
 using Beutl.Graphics.Effects;
-using Microsoft.Extensions.DependencyInjection;
 using Reactive.Bindings;
 
 namespace Beutl.ViewModels.Editors;
@@ -94,11 +92,6 @@ public sealed class DisplacementMapTransformEditorViewModel : ValueEditorViewMod
                     .DisposeWith(Disposables))
             .DisposeWith(Disposables);
 
-        Value.CombineWithPrevious()
-            .Select(v => v.OldValue)
-            .Where(v => v != null)
-            .Subscribe(v => this.GetService<ISupportCloseAnimation>()?.Close(v!))
-            .DisposeWith(Disposables);
     }
 
     public ReadOnlyReactivePropertySlim<string?> TransformName { get; }

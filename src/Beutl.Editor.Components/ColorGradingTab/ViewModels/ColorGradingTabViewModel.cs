@@ -225,7 +225,7 @@ public sealed class ColorGradingTabViewModel : IToolContext, IPropertyEditorCont
 
     private void OnEffectDetached(object? sender, HierarchyAttachmentEventArgs e)
     {
-        Effect.Value = null;
+        _editorContext.CloseToolTab(this);
     }
 
     private void ClearEditors()

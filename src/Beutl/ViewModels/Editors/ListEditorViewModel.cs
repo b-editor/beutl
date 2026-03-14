@@ -194,12 +194,6 @@ public sealed class ListEditorViewModel<TItem> : BaseEditorViewModel, IListEdito
         void Removed(int index)
         {
             ListItemEditorViewModel<TItem> item = Items[index];
-            if (this.GetService<ISupportCloseAnimation>() is { } service
-                && item.ItemAccessor.GetValue() is { } value)
-            {
-                service.Close(value);
-            }
-
             Items.RemoveAt(index);
             item.Dispose();
         }

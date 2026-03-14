@@ -1,4 +1,5 @@
 ﻿using System.Text.Json.Nodes;
+using Avalonia.Threading;
 using Beutl.Animation;
 using Beutl.Editor.Services;
 using Beutl.Engine;
@@ -15,11 +16,25 @@ public sealed class GraphEditorTabViewModel : IToolContext
 {
     private readonly IEditorContext _editorContext;
     private readonly CompositeDisposable _disposables = [];
+    private readonly CompositeDisposable _animationDisposables = [];
+    private bool _disposed;
 
     public GraphEditorTabViewModel(IEditorContext editorContext)
     {
         _editorContext = editorContext;
         Element.Subscribe(_ => Refresh()).DisposeWith(_disposables);
+
+        // Element の DetachedFromHierarchy を購読
+        Element.CombineWithPrevious()
+            .Subscribe(v =>
+            {
+                if (v.OldValue is IHierarchical old)
+                    old.DetachedFromHierarchy -= OnElementDetached;
+                if (v.NewValue is IHierarchical @new)
+                    @new.DetachedFromHierarchy += OnElementDetached;
+            })
+            .DisposeWith(_disposables);
+
         SelectedAnimation = SelectedItem.CombineLatest(Element)
             .Select(t =>
             {
@@ -55,6 +70,10 @@ public sealed class GraphEditorTabViewModel : IToolContext
 
     public void Dispose()
     {
+        _disposed = true;
+        if (Element.Value is IHierarchical h)
+            h.DetachedFromHierarchy -= OnElementDetached;
+        _animationDisposables.Dispose();
         _disposables.Dispose();
     }
 
@@ -68,6 +87,7 @@ public sealed class GraphEditorTabViewModel : IToolContext
         var selected = SelectedItem.Value;
         if (Element.Value == null)
         {
+            _animationDisposables.Clear();
             Items.Clear();
             return;
         }
@@ -98,9 +118,55 @@ public sealed class GraphEditorTabViewModel : IToolContext
 
         if (Items.SequenceEqual(tmp)) return;
 
+        _animationDisposables.Clear();
         Items.Clear();
         Items.AddRange(tmp);
         SelectedItem.Value = Items.FirstOrDefault(i => i.Object == selected?.Object);
+
+        // 各アニメーションの DetachedFromHierarchy を購読
+        foreach (var item in Items)
+        {
+            item.Object.DetachedFromHierarchy += OnAnimationDetached;
+            _animationDisposables.Add(Disposable.Create(item.Object, obj => obj.DetachedFromHierarchy -= OnAnimationDetached));
+        }
+    }
+
+    private void OnElementDetached(object? sender, HierarchyAttachmentEventArgs e)
+    {
+        if (_disposed) return;
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (!_disposed)
+                _editorContext.CloseToolTab(this);
+        });
+    }
+
+    private void OnAnimationDetached(object? sender, HierarchyAttachmentEventArgs e)
+    {
+        if (_disposed) return;
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (_disposed) return;
+            if (sender is KeyFrameAnimation animation)
+            {
+                var item = Items.FirstOrDefault(i => i.Object == animation);
+                if (item != null)
+                {
+                    if (SelectedItem.Value?.Object == animation)
+                    {
+                        SelectedItem.Value = null;
+                    }
+
+                    item.Object.DetachedFromHierarchy -= OnAnimationDetached;
+                    Items.Remove(item);
+                }
+            }
+
+            if (Items.Count == 0)
+            {
+                _editorContext.CloseToolTab(this);
+            }
+        });
     }
 
     public void Select(KeyFrameAnimation? animation)
@@ -126,11 +192,7 @@ public sealed class GraphEditorTabViewModel : IToolContext
                 && scene.FindById(elmId) is Element elm)
             {
                 Element.Value = elm;
-                var searcher = new ObjectSearcher(elm, v => v is KeyFrameAnimation anm && anm.Id == anmId);
-                if (searcher.Search() is KeyFrameAnimation anm)
-                {
-                    Select(anm);
-                }
+                Select(Items.FirstOrDefault(i => i.Object.Id == anmId)?.Object);
             }
         }
         catch

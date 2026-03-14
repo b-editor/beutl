@@ -45,10 +45,8 @@ public sealed class ElementPropertyTabViewModel : IToolContext
                     {
                         void RemoveItems(CoreList<EngineObjectPropertyViewModel> items, int index, int count)
                         {
-                            ISupportCloseAnimation? closeAnm = this.GetService<ISupportCloseAnimation>();
                             foreach (EngineObjectPropertyViewModel item in items.GetMarshal().Value.Slice(index, count))
                             {
-                                closeAnm?.Close(item.Model);
                                 item?.Dispose();
                             }
                             items.RemoveRange(index, count);
@@ -90,7 +88,7 @@ public sealed class ElementPropertyTabViewModel : IToolContext
                                 break;
 
                             case NotifyCollectionChangedAction.Reset:
-                                ClearItems(true);
+                                ClearItems();
                                 break;
                         }
                     });
@@ -192,12 +190,10 @@ public sealed class ElementPropertyTabViewModel : IToolContext
         }
     }
 
-    private void ClearItems(bool closeAnm = false)
+    private void ClearItems()
     {
-        ISupportCloseAnimation? closeService = closeAnm ? this.GetService<ISupportCloseAnimation>() : null;
         foreach (EngineObjectPropertyViewModel? item in Items.GetMarshal().Value)
         {
-            closeService?.Close(item.Model);
             item?.Dispose();
         }
         Items.Clear();

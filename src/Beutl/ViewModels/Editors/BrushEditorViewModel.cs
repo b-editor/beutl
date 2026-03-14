@@ -73,12 +73,6 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel, IFallbackObjectV
             .ToReadOnlyReactivePropertySlim(MessageStrings.RestoreFailedTypeNotFound)
             .DisposeWith(Disposables);
 
-        Value.CombineWithPrevious()
-            .Select(v => v.OldValue)
-            .Where(v => v != null)
-            .Subscribe(v => this.GetService<ISupportCloseAnimation>()?.Close(v!))
-            .DisposeWith(Disposables);
-
         var expressionObservable = Value
             .Select(v => v switch
             {

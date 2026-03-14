@@ -95,11 +95,8 @@ public sealed partial class PropertyEditorMenu : UserControl
 
     private void RemoveAnimation_Click(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is BaseEditorViewModel { IsDisposed: false } viewModel
-            && viewModel.PropertyAdapter is IAnimatablePropertyAdapter { Animation: { } animation }
-            && viewModel.GetService<EditViewModel>() is { } editViewModel)
+        if (DataContext is BaseEditorViewModel { IsDisposed: false } viewModel)
         {
-            (editViewModel as ISupportCloseAnimation).Close(animation);
             viewModel.RemoveAnimation();
         }
     }
