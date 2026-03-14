@@ -152,6 +152,12 @@ public sealed class GraphEditorTabViewModel : IToolContext
                 var item = Items.FirstOrDefault(i => i.Object == animation);
                 if (item != null)
                 {
+                    if (SelectedItem.Value?.Object == animation)
+                    {
+                        SelectedItem.Value = null;
+                    }
+                    
+                    item.Object.DetachedFromHierarchy -= OnAnimationDetached;
                     Items.Remove(item);
                 }
             }
