@@ -19,6 +19,7 @@
     <Grid RowDefinitions="Auto,Auto">
         <ToggleButton x:Name="expandToggle"
                       Margin="8,4"
+                      ToolTip.Tip="{Binding Description.Value}"
                       Content="{Binding Header, FallbackValue=Pen}"
                       IsChecked="{Binding IsExpanded.Value}"
                       Theme="{DynamicResource PropertyEditorMiniExpanderToggleButton}">

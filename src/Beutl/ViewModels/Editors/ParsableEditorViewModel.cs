@@ -10,6 +10,8 @@ public interface IParsableEditorViewModel
 
     string Header { get; }
 
+    ReactivePropertySlim<string?> Description { get; }
+
     bool IsDisposed { get; }
 
     void SetValueString(string? s);

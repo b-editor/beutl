@@ -19,7 +19,8 @@
         <ToggleButton x:Name="expandToggle"
                       Margin="8,4"
                       IsChecked="{Binding IsExpanded.Value}"
-                      Theme="{DynamicResource PropertyEditorMiniExpanderToggleButton}">
+                      Theme="{DynamicResource PropertyEditorMiniExpanderToggleButton}"
+                      ToolTip.Tip="{Binding Description.Value}">
             <ToggleButton.ContextFlyout>
                 <ui:FAMenuFlyout>
                     <ui:MenuFlyoutItem Click="SetNullClick"

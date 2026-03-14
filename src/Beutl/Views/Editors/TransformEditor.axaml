@@ -20,7 +20,8 @@
                       Margin="8,4"
                       IsChecked="{Binding IsExpanded.Value}"
                       IsVisible="{Binding !IsPresenter.Value}"
-                      Theme="{DynamicResource PropertyEditorMiniExpanderToggleButton}">
+                      Theme="{DynamicResource PropertyEditorMiniExpanderToggleButton}"
+                      ToolTip.Tip="{Binding Description.Value}">
             <ToggleButton.ContextFlyout>
                 <ui:FAMenuFlyout>
                     <ui:MenuFlyoutSubItem x:Name="ChangeTypeMenu"
@@ -63,6 +64,7 @@
         </ToggleButton>
 
         <pe:ReferenceEditor Header="{Binding Header, FallbackValue=Transform}"
+                            ToolTip.Tip="{Binding Description.Value}"
                             IsVisible="{Binding IsPresenter.Value}"
                             SelectTargetRequested="SelectTarget_Requested"
                             TargetName="{Binding CurrentTargetName.Value}">

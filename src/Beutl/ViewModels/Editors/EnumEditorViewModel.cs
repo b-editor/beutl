@@ -10,15 +10,31 @@ public sealed class EnumEditorViewModel<T> : ValueEditorViewModel<T>
     where T : struct, Enum
 {
     private readonly T[] _enumValues;
-    private readonly string[] _enumStrings;
+    private readonly EnumItem[] _enumItems;
 
     public EnumEditorViewModel(IPropertyAdapter<T> property) : base(property)
     {
         _enumValues = Enum.GetValues<T>();
-        _enumStrings = Enum.GetNames<T>()
+        _enumItems = Enum.GetNames<T>()
             .Select(typeof(T).GetField)
-            .Where(x => x != null)
-            .Select(x => TypeDisplayHelpers.GetLocalizedName(x!))
+            .Zip(_enumValues)
+            .Select(t =>
+            {
+                if (t.First != null)
+                {
+                    return new EnumItem(
+                        TypeDisplayHelpers.GetLocalizedName(t.First),
+                        TypeDisplayHelpers.GetLocalizedDescription(t.First),
+                        t.Second);
+                }
+                else
+                {
+                    return new EnumItem(
+                        t.Second.ToString(),
+                        null,
+                        t.Second);
+                }
+            })
             .ToArray();
         SelectedIndex = Value.Select(v => _enumValues.IndexOf(v))
             .ToReadOnlyReactivePropertySlim()
@@ -32,7 +48,7 @@ public sealed class EnumEditorViewModel<T> : ValueEditorViewModel<T>
         base.Accept(visitor);
         if (visitor is EnumEditor editor && !Disposables.IsDisposed)
         {
-            editor.Items = _enumStrings;
+            editor.Items = _enumItems;
             editor.Bind(EnumEditor.SelectedIndexProperty, SelectedIndex.ToBinding())
                 .DisposeWith(Disposables);
             editor.AddDisposableHandler(PropertyEditor.ValueConfirmedEvent, OnValueConfirmed)

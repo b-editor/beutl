@@ -22,6 +22,7 @@
                    HorizontalAlignment="Left"
                    VerticalAlignment="Center"
                    ClipToBounds="False"
+                   ToolTip.Tip="{Binding Description.Value}"
                    Text="{Binding Header}"
                    TextTrimming="CharacterEllipsis" />
 

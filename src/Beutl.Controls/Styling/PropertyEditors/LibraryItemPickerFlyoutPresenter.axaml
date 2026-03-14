@@ -256,7 +256,7 @@
                                      SelectedItem="{Binding $parent[local:LibraryItemPickerFlyoutPresenter].SelectedItem, Mode=TwoWay}">
                                 <ListBox.ItemTemplate>
                                     <DataTemplate x:DataType="local:PinnableLibraryItem">
-                                        <TextBlock VerticalAlignment="Center" Text="{Binding DisplayName}" />
+                                        <TextBlock VerticalAlignment="Center" Text="{Binding DisplayName}" ToolTip.Tip="{Binding Description}" />
                                     </DataTemplate>
                                 </ListBox.ItemTemplate>
                             </ListBox>
@@ -269,7 +269,7 @@
                                      SelectedItem="{Binding $parent[local:LibraryItemPickerFlyoutPresenter].SelectedItem, Mode=TwoWay}">
                                 <ListBox.ItemTemplate>
                                     <DataTemplate x:DataType="local:PinnableLibraryItem">
-                                        <TextBlock VerticalAlignment="Center" Text="{Binding DisplayName}" />
+                                        <TextBlock VerticalAlignment="Center" Text="{Binding DisplayName}" ToolTip.Tip="{Binding Description}" />
                                     </DataTemplate>
                                 </ListBox.ItemTemplate>
                             </ListBox>

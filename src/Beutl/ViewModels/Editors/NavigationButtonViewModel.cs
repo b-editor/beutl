@@ -6,6 +6,8 @@ public interface INavigationButtonViewModel
 {
     string Header { get; }
 
+    ReactivePropertySlim<string?> Description { get; }
+
     ReadOnlyReactivePropertySlim<bool> CanEdit { get; }
 
     ReadOnlyReactivePropertySlim<bool> IsSet { get; }

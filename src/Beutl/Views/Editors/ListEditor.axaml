@@ -16,6 +16,7 @@
         <ToggleButton x:Name="expandToggle"
                       Margin="8,4"
                       Content="{Binding Header, FallbackValue=List}"
+                      ToolTip.Tip="{Binding Description.Value}"
                       IsChecked="{Binding IsExpanded.Value}"
                       Theme="{DynamicResource PropertyEditorMiniExpanderToggleButton}">
             <ToggleButton.Tag>

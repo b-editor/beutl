@@ -28,18 +28,7 @@ public sealed class AudioEffectEditorViewModel : ValueEditorViewModel<AudioEffec
             .ToReadOnlyReactivePropertySlim(MessageStrings.RestoreFailedTypeNotFound)
             .DisposeWith(Disposables);
 
-        FilterName = Value.Select(v =>
-            {
-                if (v != null)
-                {
-                    Type type = v.GetType();
-                    return TypeDisplayHelpers.GetLocalizedName(type);
-                }
-                else
-                {
-                    return "Null";
-                }
-            })
+        FilterName = Value.Select(v => v != null ? TypeDisplayHelpers.GetLocalizedName(v.GetType()) : "Null")
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 

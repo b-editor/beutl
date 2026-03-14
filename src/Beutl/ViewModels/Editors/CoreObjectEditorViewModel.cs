@@ -14,6 +14,8 @@ public interface ICoreObjectEditorViewModel : IServiceProvider
 {
     string Header { get; }
 
+    ReactivePropertySlim<string?> Description { get; }
+
     IReadOnlyReactiveProperty<CoreObject?> Value { get; }
 
     ReadOnlyReactivePropertySlim<PropertiesEditorViewModel?> Properties { get; }

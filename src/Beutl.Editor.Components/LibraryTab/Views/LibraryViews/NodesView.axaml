@@ -16,7 +16,7 @@
               SelectionMode="Single">
         <TreeView.ItemTemplate>
             <TreeDataTemplate ItemsSource="{Binding Children}">
-                <TextBlock Text="{Binding DisplayName}" />
+                <TextBlock Text="{Binding DisplayName}" ToolTip.Tip="{Binding Description}" />
             </TreeDataTemplate>
         </TreeView.ItemTemplate>
     </TreeView>

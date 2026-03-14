@@ -38,7 +38,7 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
         PropertyAdapter = property;
 
         Header = property.DisplayName;
-        Description = property.Description;
+        Description = new ReactivePropertySlim<string?>(property.Description).AddTo(Disposables);
 
         _currentTime = new Subject<TimeSpan>().DisposeWith(Disposables);
         CurrentTime = _currentTime.Publish(TimeSpan.Zero).RefCount();
@@ -151,7 +151,7 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
 
     public string Header { get; }
 
-    public string? Description { get; }
+    public ReactivePropertySlim<string?> Description { get; }
 
     public ReadOnlyReactivePropertySlim<bool> CanEdit { get; }
 
@@ -265,7 +265,7 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
         {
             editor[!PropertyEditor.IsReadOnlyProperty] = IsReadOnly.ToBinding();
             editor.Header = Header;
-            editor.Description = Description;
+            editor[!PropertyEditor.DescriptionProperty] = Description.ToBinding();
             if (PropertyAdapter is IAnimatablePropertyAdapter animatableProperty)
             {
                 editor[!PropertyEditor.KeyFrameCountProperty] = KeyFrameCount.ToBinding();
@@ -361,6 +361,36 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
             .Select(x => x as KeyFrame<T>)
             .ToReadOnlyReactiveProperty()
             .DisposeWith(Disposables);
+
+        if (typeof(T).IsAssignableTo(typeof(CoreObject)))
+        {
+            PropertyAdapter.GetObservable()
+                .Subscribe(value =>
+                {
+                    if (value is CoreObject obj)
+                    {
+                        var desc = PropertyAdapter.Description;
+                        var typeDesc = TypeDisplayHelpers.GetLocalizedDescription(obj.GetType());
+                        if (!string.IsNullOrEmpty(desc) && !string.IsNullOrEmpty(typeDesc))
+                        {
+                            Description.Value = $"{desc}\n{typeDesc}";
+                        }
+                        else if (!string.IsNullOrEmpty(typeDesc))
+                        {
+                            Description.Value = typeDesc;
+                        }
+                        else
+                        {
+                            Description.Value = desc;
+                        }
+                    }
+                    else
+                    {
+                        Description.Value = PropertyAdapter.Description;
+                    }
+                })
+                .DisposeWith(Disposables);
+        }
     }
 
     public new IPropertyAdapter<T> PropertyAdapter => (IPropertyAdapter<T>)base.PropertyAdapter;

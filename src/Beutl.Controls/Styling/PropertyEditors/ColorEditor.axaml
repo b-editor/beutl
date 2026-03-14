@@ -26,6 +26,7 @@
                                    VerticalAlignment="Center"
                                    ClipToBounds="False"
                                    Text="{TemplateBinding Header}"
+                                   ToolTip.Tip="{TemplateBinding Description}"
                                    TextTrimming="CharacterEllipsis" />
 
                         <Button Name="PART_ColorPickerButton"
