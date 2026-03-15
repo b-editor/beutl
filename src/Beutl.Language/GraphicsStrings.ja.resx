@@ -370,6 +370,9 @@
   <data name="DisplacementMapEffect_Channel" xml:space="preserve">
     <value>チャンネル</value>
   </data>
+  <data name="DisplacementMapEffect_Signed" xml:space="preserve">
+    <value>符号あり</value>
+  </data>
   <data name="DisplacementMapEffect_SpreadMethod" xml:space="preserve">
     <value>広がり方</value>
   </data>

@@ -375,6 +375,9 @@
   <data name="DisplacementMapEffect_Channel" xml:space="preserve">
     <value>Channel</value>
   </data>
+  <data name="DisplacementMapEffect_Signed" xml:space="preserve">
+    <value>Signed</value>
+  </data>
   <data name="DisplacementMapEffect_SpreadMethod" xml:space="preserve">
     <value>Spread Method</value>
   </data>
