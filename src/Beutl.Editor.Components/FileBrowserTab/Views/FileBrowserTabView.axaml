@@ -216,7 +216,7 @@
         <Panel Grid.Row="1">
             <!--  ホームビュー  -->
             <ScrollViewer IsVisible="{Binding IsHomeView.Value}">
-                <StackPanel Spacing="0">
+                <StackPanel Spacing="0" Background="Transparent">
                     <!--  お気に入りセクション  -->
                     <Grid x:Name="favoritesSection" RowDefinitions="Auto,Auto">
                         <ToggleButton x:Name="favoritesToggle"
@@ -285,7 +285,7 @@
                     </Grid>
 
                     <!--  プロジェクトディレクトリセクション  -->
-                    <Grid RowDefinitions="Auto,Auto">
+                    <Grid RowDefinitions="Auto,Auto" x:Name="projectDirectorySection">
                         <ToggleButton x:Name="projectDirToggle"
                                       Margin="8,4"
                                       IsChecked="True"

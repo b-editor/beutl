@@ -248,26 +248,27 @@ public partial class FileBrowserTabView : UserControl
             return;
         }
 
+        if (IsDropOverElement(projectDirectorySection, e))
+        {
+            // その他（プロジェクトディレクトリセクション等）
+            FileSystemItemViewModel? folderItem = FindFolderItemUnderCursor(e);
+            if (folderItem != null && Directory.Exists(folderItem.FullPath))
+            {
+                ViewModel.CopyFilesToDirectory(files.Select(f => (f.LocalPath, f.IsDirectory)), folderItem.FullPath);
+                return;
+            }
+
+            string? targetDir = ViewModel.ProjectDirectory;
+            if (!string.IsNullOrEmpty(targetDir) && Directory.Exists(targetDir))
+            {
+                ViewModel.CopyFilesToDirectory(files.Select(f => (f.LocalPath, f.IsDirectory)), targetDir);
+            }
+
+            return;
+        }
+
         // メディアファイルセクション上にドロップ → resources フォルダにコピー
-        if (IsDropOverElement(mediaFilesSection, e))
-        {
-            ViewModel.CopyFilesToResources(files.Select(f => (f.LocalPath, f.IsDirectory)));
-            return;
-        }
-
-        // その他（プロジェクトディレクトリセクション等）
-        FileSystemItemViewModel? folderItem = FindFolderItemUnderCursor(e);
-        if (folderItem != null && Directory.Exists(folderItem.FullPath))
-        {
-            ViewModel.CopyFilesToDirectory(files.Select(f => (f.LocalPath, f.IsDirectory)), folderItem.FullPath);
-            return;
-        }
-
-        string? targetDir = ViewModel.ProjectDirectory;
-        if (!string.IsNullOrEmpty(targetDir) && Directory.Exists(targetDir))
-        {
-            ViewModel.CopyFilesToDirectory(files.Select(f => (f.LocalPath, f.IsDirectory)), targetDir);
-        }
+        ViewModel.CopyFilesToResources(files.Select(f => (f.LocalPath, f.IsDirectory)));
     }
 
     private void HandleBrowseViewDrop(DragEventArgs e)
