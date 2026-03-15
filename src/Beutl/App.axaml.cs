@@ -11,7 +11,6 @@ using Beutl.Configuration;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Graphics.Backend;
 using Beutl.NodeGraph.Nodes;
-using Beutl.Operators;
 using Beutl.Pages;
 using Beutl.Services;
 using Beutl.Services.StartupTasks;

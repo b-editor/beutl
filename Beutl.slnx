@@ -52,7 +52,6 @@
   <Project Path="src\Beutl.Extensions.FFmpeg\Beutl.Extensions.FFmpeg.csproj" />
   <Project Path="src\Beutl.Extensions.MediaFoundation\Beutl.Extensions.MediaFoundation.csproj" />
   <Project Path="src\Beutl.Language\Beutl.Language.csproj" />
-  <Project Path="src\Beutl.Operators\Beutl.Operators.csproj" />
   <Project Path="src\Beutl.PackageTools.UI\Beutl.PackageTools.UI.csproj" />
   <Project Path="src\Beutl.NodeGraph\Beutl.NodeGraph.csproj" />
   <Project Path="src\Beutl.ProjectSystem\Beutl.ProjectSystem.csproj" />
