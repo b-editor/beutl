@@ -31,11 +31,11 @@ public static class ClassInfoExtractor
             return null;
         }
 
-        // Socket type symbols for Node subclasses
-        INamedTypeSymbol? inputSocketSymbol = compilation.GetTypeByMetadataName("Beutl.NodeTree.InputSocket`1");
-        INamedTypeSymbol? outputSocketSymbol = compilation.GetTypeByMetadataName("Beutl.NodeTree.OutputSocket`1");
-        INamedTypeSymbol? nodeItemGenericSymbol = compilation.GetTypeByMetadataName("Beutl.NodeTree.NodeItem`1");
-        INamedTypeSymbol? nodeSymbol = compilation.GetTypeByMetadataName("Beutl.NodeTree.Node");
+        // NodePort type symbols for GraphNode subclasses
+        INamedTypeSymbol? inputNodePortSymbol = compilation.GetTypeByMetadataName("Beutl.NodeGraph.InputPort`1");
+        INamedTypeSymbol? outputNodePortSymbol = compilation.GetTypeByMetadataName("Beutl.NodeGraph.OutputPort`1");
+        INamedTypeSymbol? nodeMemberGenericSymbol = compilation.GetTypeByMetadataName("Beutl.NodeGraph.NodeMember`1");
+        INamedTypeSymbol? nodeSymbol = compilation.GetTypeByMetadataName("Beutl.NodeGraph.GraphNode");
 
         if (SymbolEqualityComparer.Default.Equals(symbol, engineObjectSymbol))
         {
@@ -115,11 +115,11 @@ public static class ClassInfoExtractor
             }
         }
 
-        // Socket property detection for Node subclasses
-        var socketProperties = ImmutableArray.CreateBuilder<SocketPropertyInfo>();
+        // NodePort property detection for GraphNode subclasses
+        var portProperties = ImmutableArray.CreateBuilder<NodePortPropertyInfo>();
         bool isNodeSubclass = nodeSymbol != null && TypeAnalysisHelpers.InheritsFrom(symbol, nodeSymbol);
 
-        if (isNodeSubclass && inputSocketSymbol != null && outputSocketSymbol != null && nodeItemGenericSymbol != null)
+        if (isNodeSubclass && inputNodePortSymbol != null && outputNodePortSymbol != null && nodeMemberGenericSymbol != null)
         {
             foreach (ISymbol member in symbol.GetMembers())
             {
@@ -141,19 +141,19 @@ public static class ClassInfoExtractor
                     continue;
 
                 INamedTypeSymbol constructedFrom = namedType.ConstructedFrom;
-                SocketKind? kind = null;
+                NodePortKind? kind = null;
 
-                if (SymbolEqualityComparer.Default.Equals(constructedFrom, inputSocketSymbol))
-                    kind = SocketKind.Input;
-                else if (SymbolEqualityComparer.Default.Equals(constructedFrom, outputSocketSymbol))
-                    kind = SocketKind.Output;
-                else if (SymbolEqualityComparer.Default.Equals(constructedFrom, nodeItemGenericSymbol))
-                    kind = SocketKind.Item;
+                if (SymbolEqualityComparer.Default.Equals(constructedFrom, inputNodePortSymbol))
+                    kind = NodePortKind.Input;
+                else if (SymbolEqualityComparer.Default.Equals(constructedFrom, outputNodePortSymbol))
+                    kind = NodePortKind.Output;
+                else if (SymbolEqualityComparer.Default.Equals(constructedFrom, nodeMemberGenericSymbol))
+                    kind = NodePortKind.Item;
 
                 if (kind.HasValue)
                 {
                     ITypeSymbol valueType = namedType.TypeArguments[0];
-                    socketProperties.Add(new SocketPropertyInfo(propertySymbol.Name, valueType, kind.Value));
+                    portProperties.Add(new NodePortPropertyInfo(propertySymbol.Name, valueType, kind.Value));
                 }
             }
         }
@@ -172,7 +172,7 @@ public static class ClassInfoExtractor
             valueProperties.ToImmutable(),
             objectProperties.ToImmutable(),
             listProperties.ToImmutable(),
-            socketProperties.ToImmutable(),
+            portProperties.ToImmutable(),
             orderedProperties.ToImmutable(),
             isNodeSubclass);
     }

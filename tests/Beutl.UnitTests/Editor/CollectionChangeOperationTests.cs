@@ -3,7 +3,7 @@ using Beutl.Editor;
 using Beutl.Editor.Operations;
 using Beutl.Engine;
 using Beutl.Logging;
-using Beutl.NodeTree;
+using Beutl.NodeGraph;
 using Microsoft.Extensions.Logging;
 
 namespace Beutl.UnitTests.Editor;
@@ -1081,20 +1081,20 @@ public class CollectionChangeOperationTests
 
     #endregion
 
-    #region NodeItem Tests
+    #region NodeMember Tests
 
     [Test]
-    public void InsertCollectionItemOperation_ApplyToNodeItem_ShouldInsertItemAtIndex()
+    public void InsertCollectionItemOperation_ApplyToNodeMember_ShouldInsertItemAtIndex()
     {
         // Arrange
         var list = new CoreList<string>(["A", "B", "C"]);
         var adapter = new NodePropertyAdapter<CoreList<string>>("Property", list, null);
-        var nodeItem = new DefaultNodeItem<CoreList<string>>();
-        nodeItem.SetProperty(adapter);
+        var nodeMember = new DefaultNodeMember<CoreList<string>>();
+        nodeMember.SetProperty(adapter);
 
         var operation = new InsertCollectionItemOperation<string>
         {
-            Object = nodeItem,
+            Object = nodeMember,
             PropertyPath = "Property",
             Item = "X",
             Index = 1,
@@ -1111,17 +1111,17 @@ public class CollectionChangeOperationTests
     }
 
     [Test]
-    public void InsertCollectionItemOperation_RevertToNodeItem_ShouldRemoveItemAtIndex()
+    public void InsertCollectionItemOperation_RevertToNodeMember_ShouldRemoveItemAtIndex()
     {
         // Arrange
         var list = new CoreList<string>(["A", "X", "B", "C"]);
         var adapter = new NodePropertyAdapter<CoreList<string>>("Property", list, null);
-        var nodeItem = new DefaultNodeItem<CoreList<string>>();
-        nodeItem.SetProperty(adapter);
+        var nodeMember = new DefaultNodeMember<CoreList<string>>();
+        nodeMember.SetProperty(adapter);
 
         var operation = new InsertCollectionItemOperation<string>
         {
-            Object = nodeItem,
+            Object = nodeMember,
             PropertyPath = "Property",
             Item = "X",
             Index = 1,
@@ -1137,17 +1137,17 @@ public class CollectionChangeOperationTests
     }
 
     [Test]
-    public void InsertCollectionRangeOperation_ApplyToNodeItem_ShouldInsertItemsAtIndex()
+    public void InsertCollectionRangeOperation_ApplyToNodeMember_ShouldInsertItemsAtIndex()
     {
         // Arrange
         var list = new CoreList<string>(["A", "D"]);
         var adapter = new NodePropertyAdapter<CoreList<string>>("Property", list, null);
-        var nodeItem = new DefaultNodeItem<CoreList<string>>();
-        nodeItem.SetProperty(adapter);
+        var nodeMember = new DefaultNodeMember<CoreList<string>>();
+        nodeMember.SetProperty(adapter);
 
         var operation = new InsertCollectionRangeOperation<string>
         {
-            Object = nodeItem,
+            Object = nodeMember,
             PropertyPath = "Property",
             Items = ["B", "C"],
             Index = 1,
@@ -1163,17 +1163,17 @@ public class CollectionChangeOperationTests
     }
 
     [Test]
-    public void InsertCollectionRangeOperation_RevertToNodeItem_ShouldRemoveItemsAtIndex()
+    public void InsertCollectionRangeOperation_RevertToNodeMember_ShouldRemoveItemsAtIndex()
     {
         // Arrange
         var list = new CoreList<string>(["A", "B", "C", "D"]);
         var adapter = new NodePropertyAdapter<CoreList<string>>("Property", list, null);
-        var nodeItem = new DefaultNodeItem<CoreList<string>>();
-        nodeItem.SetProperty(adapter);
+        var nodeMember = new DefaultNodeMember<CoreList<string>>();
+        nodeMember.SetProperty(adapter);
 
         var operation = new InsertCollectionRangeOperation<string>
         {
-            Object = nodeItem,
+            Object = nodeMember,
             PropertyPath = "Property",
             Items = ["B", "C"],
             Index = 1,
@@ -1189,17 +1189,17 @@ public class CollectionChangeOperationTests
     }
 
     [Test]
-    public void RemoveCollectionItemOperation_ApplyToNodeItem_ShouldRemoveItemAtIndex()
+    public void RemoveCollectionItemOperation_ApplyToNodeMember_ShouldRemoveItemAtIndex()
     {
         // Arrange
         var list = new CoreList<string>(["A", "B", "C"]);
         var adapter = new NodePropertyAdapter<CoreList<string>>("Property", list, null);
-        var nodeItem = new DefaultNodeItem<CoreList<string>>();
-        nodeItem.SetProperty(adapter);
+        var nodeMember = new DefaultNodeMember<CoreList<string>>();
+        nodeMember.SetProperty(adapter);
 
         var operation = new RemoveCollectionItemOperation<string>
         {
-            Object = nodeItem,
+            Object = nodeMember,
             PropertyPath = "Property",
             Item = "B",
             Index = 1,
@@ -1215,17 +1215,17 @@ public class CollectionChangeOperationTests
     }
 
     [Test]
-    public void RemoveCollectionItemOperation_RevertToNodeItem_ShouldInsertItemAtIndex()
+    public void RemoveCollectionItemOperation_RevertToNodeMember_ShouldInsertItemAtIndex()
     {
         // Arrange
         var list = new CoreList<string>(["A", "C"]);
         var adapter = new NodePropertyAdapter<CoreList<string>>("Property", list, null);
-        var nodeItem = new DefaultNodeItem<CoreList<string>>();
-        nodeItem.SetProperty(adapter);
+        var nodeMember = new DefaultNodeMember<CoreList<string>>();
+        nodeMember.SetProperty(adapter);
 
         var operation = new RemoveCollectionItemOperation<string>
         {
-            Object = nodeItem,
+            Object = nodeMember,
             PropertyPath = "Property",
             Item = "B",
             Index = 1,
@@ -1241,17 +1241,17 @@ public class CollectionChangeOperationTests
     }
 
     [Test]
-    public void RemoveCollectionRangeOperation_ApplyToNodeItem_ShouldRemoveItemsAtIndex()
+    public void RemoveCollectionRangeOperation_ApplyToNodeMember_ShouldRemoveItemsAtIndex()
     {
         // Arrange
         var list = new CoreList<string>(["A", "B", "C", "D"]);
         var adapter = new NodePropertyAdapter<CoreList<string>>("Property", list, null);
-        var nodeItem = new DefaultNodeItem<CoreList<string>>();
-        nodeItem.SetProperty(adapter);
+        var nodeMember = new DefaultNodeMember<CoreList<string>>();
+        nodeMember.SetProperty(adapter);
 
         var operation = new RemoveCollectionRangeOperation<string>
         {
-            Object = nodeItem,
+            Object = nodeMember,
             PropertyPath = "Property",
             Items = ["B", "C"],
             Index = 1,
@@ -1267,17 +1267,17 @@ public class CollectionChangeOperationTests
     }
 
     [Test]
-    public void RemoveCollectionRangeOperation_RevertToNodeItem_ShouldInsertItemsAtIndex()
+    public void RemoveCollectionRangeOperation_RevertToNodeMember_ShouldInsertItemsAtIndex()
     {
         // Arrange
         var list = new CoreList<string>(["A", "D"]);
         var adapter = new NodePropertyAdapter<CoreList<string>>("Property", list, null);
-        var nodeItem = new DefaultNodeItem<CoreList<string>>();
-        nodeItem.SetProperty(adapter);
+        var nodeMember = new DefaultNodeMember<CoreList<string>>();
+        nodeMember.SetProperty(adapter);
 
         var operation = new RemoveCollectionRangeOperation<string>
         {
-            Object = nodeItem,
+            Object = nodeMember,
             PropertyPath = "Property",
             Items = ["B", "C"],
             Index = 1,
@@ -1293,17 +1293,17 @@ public class CollectionChangeOperationTests
     }
 
     [Test]
-    public void MoveCollectionItemOperation_ApplyToNodeItem_ShouldMoveItem()
+    public void MoveCollectionItemOperation_ApplyToNodeMember_ShouldMoveItem()
     {
         // Arrange
         var list = new CoreList<string>(["A", "B", "C", "D"]);
         var adapter = new NodePropertyAdapter<CoreList<string>>("Property", list, null);
-        var nodeItem = new DefaultNodeItem<CoreList<string>>();
-        nodeItem.SetProperty(adapter);
+        var nodeMember = new DefaultNodeMember<CoreList<string>>();
+        nodeMember.SetProperty(adapter);
 
         var operation = new MoveCollectionItemOperation<string>
         {
-            Object = nodeItem,
+            Object = nodeMember,
             PropertyPath = "Property",
             OldIndex = 0,
             NewIndex = 2,
@@ -1318,17 +1318,17 @@ public class CollectionChangeOperationTests
     }
 
     [Test]
-    public void MoveCollectionItemOperation_RevertToNodeItem_ShouldMoveItemBack()
+    public void MoveCollectionItemOperation_RevertToNodeMember_ShouldMoveItemBack()
     {
         // Arrange
         var list = new CoreList<string>(["B", "C", "A", "D"]);
         var adapter = new NodePropertyAdapter<CoreList<string>>("Property", list, null);
-        var nodeItem = new DefaultNodeItem<CoreList<string>>();
-        nodeItem.SetProperty(adapter);
+        var nodeMember = new DefaultNodeMember<CoreList<string>>();
+        nodeMember.SetProperty(adapter);
 
         var operation = new MoveCollectionItemOperation<string>
         {
-            Object = nodeItem,
+            Object = nodeMember,
             PropertyPath = "Property",
             OldIndex = 0,
             NewIndex = 2,
@@ -1343,17 +1343,17 @@ public class CollectionChangeOperationTests
     }
 
     [Test]
-    public void MoveCollectionRangeOperation_ApplyToNodeItem_ShouldMoveItems()
+    public void MoveCollectionRangeOperation_ApplyToNodeMember_ShouldMoveItems()
     {
         // Arrange
         var list = new CoreList<string>(["A", "B", "C", "D", "E"]);
         var adapter = new NodePropertyAdapter<CoreList<string>>("Property", list, null);
-        var nodeItem = new DefaultNodeItem<CoreList<string>>();
-        nodeItem.SetProperty(adapter);
+        var nodeMember = new DefaultNodeMember<CoreList<string>>();
+        nodeMember.SetProperty(adapter);
 
         var operation = new MoveCollectionRangeOperation<string>
         {
-            Object = nodeItem,
+            Object = nodeMember,
             PropertyPath = "Property",
             OldIndex = 0,
             NewIndex = 3,
@@ -1369,17 +1369,17 @@ public class CollectionChangeOperationTests
     }
 
     [Test]
-    public void MoveCollectionRangeOperation_RevertToNodeItem_ShouldMoveItemsBack()
+    public void MoveCollectionRangeOperation_RevertToNodeMember_ShouldMoveItemsBack()
     {
         // Arrange
         var list = new CoreList<string>(["C", "D", "E", "A", "B"]);
         var adapter = new NodePropertyAdapter<CoreList<string>>("Property", list, null);
-        var nodeItem = new DefaultNodeItem<CoreList<string>>();
-        nodeItem.SetProperty(adapter);
+        var nodeMember = new DefaultNodeMember<CoreList<string>>();
+        nodeMember.SetProperty(adapter);
 
         var operation = new MoveCollectionRangeOperation<string>
         {
-            Object = nodeItem,
+            Object = nodeMember,
             PropertyPath = "Property",
             OldIndex = 0,
             NewIndex = 3,
@@ -1395,15 +1395,15 @@ public class CollectionChangeOperationTests
     }
 
     [Test]
-    public void CollectionChangeOperation_Apply_WhenNodeItemPropertyIsNull_ShouldThrowInvalidOperationException()
+    public void CollectionChangeOperation_Apply_WhenNodeMemberPropertyIsNull_ShouldThrowInvalidOperationException()
     {
         // Arrange
-        var nodeItem = new DefaultNodeItem<CoreList<string>>();
+        var nodeMember = new DefaultNodeMember<CoreList<string>>();
         // Property is null (not set)
 
         var operation = new InsertCollectionItemOperation<string>
         {
-            Object = nodeItem,
+            Object = nodeMember,
             PropertyPath = "Property",
             Item = "X",
             Index = 0,
@@ -1415,16 +1415,16 @@ public class CollectionChangeOperationTests
     }
 
     [Test]
-    public void CollectionChangeOperation_Apply_WhenNodeItemPropertyValueIsNull_ShouldThrowInvalidOperationException()
+    public void CollectionChangeOperation_Apply_WhenNodeMemberPropertyValueIsNull_ShouldThrowInvalidOperationException()
     {
         // Arrange
         var adapter = new NodePropertyAdapter<CoreList<string>>("Property", null, null);
-        var nodeItem = new DefaultNodeItem<CoreList<string>>();
-        nodeItem.SetProperty(adapter);
+        var nodeMember = new DefaultNodeMember<CoreList<string>>();
+        nodeMember.SetProperty(adapter);
 
         var operation = new InsertCollectionItemOperation<string>
         {
-            Object = nodeItem,
+            Object = nodeMember,
             PropertyPath = "Property",
             Item = "X",
             Index = 0,
@@ -1436,17 +1436,17 @@ public class CollectionChangeOperationTests
     }
 
     [Test]
-    public void CollectionChangeOperation_Apply_WhenNodeItemPropertyPathNotProperty_ShouldInvalidOperationException()
+    public void CollectionChangeOperation_Apply_WhenNodeMemberPropertyPathNotProperty_ShouldInvalidOperationException()
     {
-        // Arrange - NodeItem with PropertyPath != "Property" should fall through to CoreObject path
+        // Arrange - NodeMember with PropertyPath != "Property" should fall through to CoreObject path
         var list = new CoreList<string>(["A", "B", "C"]);
         var adapter = new NodePropertyAdapter<CoreList<string>>("Property", list, null);
-        var nodeItem = new DefaultNodeItem<CoreList<string>>();
-        nodeItem.SetProperty(adapter);
+        var nodeMember = new DefaultNodeMember<CoreList<string>>();
+        nodeMember.SetProperty(adapter);
 
         var operation = new InsertCollectionItemOperation<string>
         {
-            Object = nodeItem,
+            Object = nodeMember,
             PropertyPath = "OtherProperty", // Not "Property"
             Item = "X",
             Index = 0,

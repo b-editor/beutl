@@ -14,7 +14,7 @@ using Beutl.Graphics3D.Models;
 using Beutl.Graphics3D.Textures;
 using Beutl.Media;
 using Beutl.Media.Source;
-using Beutl.NodeTree;
+using Beutl.NodeGraph;
 using Beutl.ProjectSystem;
 using Beutl.ViewModels.Editors;
 using Beutl.Views.Editors;
@@ -112,7 +112,6 @@ public static class PropertyEditorService
             // プロパティのIdから、プロパティエディタを作成
         ];
 
-        // IList<StreamOperator>
         private static readonly FrozenDictionary<Type, Editor> s_editors = new KeyValuePair<Type, Editor>[]
         {
             // Number
@@ -175,7 +174,7 @@ public static class PropertyEditorService
             new(typeof(ICoreList<GradientStop>), new(_ => new GradientStopsEditor(), s => new GradientStopsEditorViewModel(s.ToTyped<ICoreList<GradientStop>>()))),
             new(typeof(DisplacementMapTransform), new(_ => new DisplacementMapTransformEditor(), s => new DisplacementMapTransformEditorViewModel(s.ToTyped<DisplacementMapTransform?>()))),
             new(typeof(IList), new(_ => new ListEditor(), CreateListEditorViewModel)),
-            new(typeof(NodeTreeModel), new(_ => new NodeTreeModelEditor(), s => new NodeTreeModelEditorViewModel(s.ToTyped<NodeTreeModel?>()))),
+            new(typeof(GraphModel), new(_ => new GraphModelEditor(), s => new GraphModelEditorViewModel(s.ToTyped<GraphModel?>()))),
             new(typeof(CoreObject), new(_ => new CoreObjectEditor(), CreateCoreObjectEditorViewModel)),
             new(typeof(IParsable<>), new(_ => new ParsableEditor(), CreateParsableEditorViewModel))
         }.ToFrozenDictionary();

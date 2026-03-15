@@ -5,7 +5,7 @@ using System.Text.RegularExpressions;
 using Beutl.Animation.Easings;
 using Beutl.Configuration;
 using Beutl.Editor.Components.Helpers;
-using Beutl.NodeTree;
+using Beutl.NodeGraph;
 using Beutl.Services;
 
 using Reactive.Bindings;
@@ -23,14 +23,14 @@ public sealed class LibraryTabViewModel : IDisposable, IToolContext
 
         IReadOnlyList<LibraryItem> libItems = LibraryService.Current.Items;
         LibraryItems = new List<LibraryItemViewModel>(libItems.Count);
-        LibraryItems.AddRange(libItems.Select(x => LibraryItemViewModel.CreateFromOperatorRegistryItem(x)));
+        LibraryItems.AddRange(libItems.Select(x => LibraryItemViewModel.CreateFromLibraryItem(x)));
 
-        IList<NodeRegistry.BaseRegistryItem> nodes = NodeRegistry.GetRegistered();
+        IList<GraphNodeRegistry.BaseRegistryItem> nodes = GraphNodeRegistry.GetRegistered();
         Nodes = new List<LibraryItemViewModel>(nodes.Count);
-        Nodes.AddRange(nodes.Select(x => LibraryItemViewModel.CreateFromNodeRegistryItem(x)));
+        Nodes.AddRange(nodes.Select(x => LibraryItemViewModel.CreateFromGraphNodeRegistryItem(x)));
         Nodes = new List<LibraryItemViewModel>();
 
-        AllItems = new(LibraryService.Current._totalCount + NodeRegistry.s_totalCount);
+        AllItems = new(LibraryService.Current._totalCount + GraphNodeRegistry.s_totalCount);
         AddAllItems(LibraryItems);
         AddAllItems(Nodes);
     }

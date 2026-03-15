@@ -48,7 +48,6 @@
   <data name="UngroupElements" xml:space="preserve">
     <value>グループを解除</value>
   </data>
-  <!-- Timeline Operations -->
   <data name="ChangeSceneDuration" xml:space="preserve">
     <value>シーンの長さを変更</value>
   </data>
@@ -92,7 +91,6 @@
   <data name="DeleteAnimation" xml:space="preserve">
     <value>アニメーションを削除</value>
   </data>
-  <!-- Node Tree Operations -->
   <data name="AddNode" xml:space="preserve">
     <value>ノードを追加</value>
   </data>
@@ -105,28 +103,27 @@
   <data name="RenameNode" xml:space="preserve">
     <value>ノード名を変更</value>
   </data>
-  <data name="ConnectSocket" xml:space="preserve">
-    <value>ソケットを接続</value>
+  <data name="ConnectPort" xml:space="preserve">
+    <value>ポートを接続</value>
   </data>
-  <data name="DisconnectSocket" xml:space="preserve">
-    <value>ソケットを切断</value>
+  <data name="DisconnectPort" xml:space="preserve">
+    <value>ポートを切断</value>
   </data>
   <data name="MoveConnection" xml:space="preserve">
     <value>接続を移動</value>
   </data>
-  <data name="AddSocket" xml:space="preserve">
-    <value>ソケットを追加</value>
+  <data name="AddPort" xml:space="preserve">
+    <value>ポートを追加</value>
   </data>
-  <data name="RemoveSocket" xml:space="preserve">
-    <value>ソケットを削除</value>
+  <data name="RemovePort" xml:space="preserve">
+    <value>ポートを削除</value>
   </data>
-  <data name="RenameSocket" xml:space="preserve">
-    <value>ソケット名を変更</value>
+  <data name="RenamePort" xml:space="preserve">
+    <value>ポート名を変更</value>
   </data>
   <data name="ChangeUseNode" xml:space="preserve">
     <value>ノードの使用を変更</value>
   </data>
-  <!-- Source Operator Operations -->
   <data name="AddObject" xml:space="preserve">
     <value>オブジェクトを追加</value>
   </data>
@@ -142,19 +139,15 @@
   <data name="MoveObject" xml:space="preserve">
     <value>オブジェクトを移動</value>
   </data>
-  <!-- Scene Settings Operations -->
   <data name="ChangeSceneSettings" xml:space="preserve">
     <value>シーン設定を変更</value>
   </data>
-  <!-- Path Editor Operations -->
   <data name="EditPathPoint" xml:space="preserve">
     <value>パスポイントを編集</value>
   </data>
-  <!-- Transform Operations -->
   <data name="TransformElement" xml:space="preserve">
     <value>要素を変形</value>
   </data>
-  <!-- Property Editor Operations -->
   <data name="EditProperty" xml:space="preserve">
     <value>プロパティを編集</value>
   </data>

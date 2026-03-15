@@ -13,7 +13,7 @@ public static class BeutlDataFormats
     public static readonly DataFormat<string> KeyFrame = DataFormat.CreateStringApplicationFormat(nameof(Animation.KeyFrame));
     public static readonly DataFormat<string> KeyFrameAnimation = DataFormat.CreateStringApplicationFormat(nameof(Animation.KeyFrameAnimation));
     public static readonly DataFormat<string> EngineObject = DataFormat.CreateStringApplicationFormat(KnownLibraryItemFormats.EngineObject);
-    public static readonly DataFormat<string> Node = DataFormat.CreateStringApplicationFormat(KnownLibraryItemFormats.Node);
+    public static readonly DataFormat<string> GraphNode = DataFormat.CreateStringApplicationFormat(KnownLibraryItemFormats.GraphNode);
     public static readonly DataFormat<string> Drawable = DataFormat.CreateStringApplicationFormat(KnownLibraryItemFormats.Drawable);
     public static readonly DataFormat<string> Sound = DataFormat.CreateStringApplicationFormat(KnownLibraryItemFormats.Sound);
     public static readonly DataFormat<string> Transform = DataFormat.CreateStringApplicationFormat(KnownLibraryItemFormats.Transform);

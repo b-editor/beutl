@@ -353,8 +353,8 @@
   <data name="On" xml:space="preserve">
     <value>On</value>
   </data>
-  <data name="NodeTree" xml:space="preserve">
-    <value>Node Tree</value>
+  <data name="NodeGraph" xml:space="preserve">
+    <value>Node Graph</value>
   </data>
   <data name="Library" xml:space="preserve">
     <value>Library</value>

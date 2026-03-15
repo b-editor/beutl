@@ -6,7 +6,7 @@ using Beutl.Editor;
 using Beutl.Editor.Operations;
 using Beutl.Engine;
 using Beutl.Logging;
-using Beutl.NodeTree;
+using Beutl.NodeGraph;
 using Microsoft.Extensions.Logging;
 
 namespace Beutl.UnitTests.Editor;
@@ -299,16 +299,16 @@ public class AutoSaveServiceTests
 
     #endregion
 
-    #region CollectObjectsToSave Tests - UpdateNodeItemOperation
+    #region CollectObjectsToSave Tests - UpdateNodeMemberOperation
 
     [Test]
-    public void CollectObjectsToSave_WithNodeItemOperation_CoreObjectNodeItem_ShouldAddNodeItem()
+    public void CollectObjectsToSave_WithNodeMemberOperation_CoreObjectNodeMember_ShouldAddNodeMember()
     {
         // Arrange
-        var nodeItem = new TestNodeItem();
-        nodeItem.SetUri(new Uri("file:///nodeitem.json"));
+        var nodeMember = new TestNodeMember();
+        nodeMember.SetUri(new Uri("file:///nodeMember.json"));
 
-        var operation = new UpdateNodeItemOperation(nodeItem, "Property", "new", "old")
+        var operation = new UpdateNodeMemberOperation(nodeMember, "Property", "new", "old")
         {
             SequenceNumber = 1
         };
@@ -319,16 +319,16 @@ public class AutoSaveServiceTests
         AutoSaveService.CollectObjectsToSave(operation, objectsToSave);
 
         // Assert
-        Assert.That(objectsToSave, Contains.Item(nodeItem));
+        Assert.That(objectsToSave, Contains.Item(nodeMember));
     }
 
     [Test]
-    public void CollectObjectsToSave_WithNodeItemOperation_NonCoreObjectNodeItem_ShouldNotAddToSet()
+    public void CollectObjectsToSave_WithNodeMemberOperation_NonCoreObjectNodeMember_ShouldNotAddToSet()
     {
         // Arrange
-        var nodeItem = new DefaultNodeItem<int>();
+        var nodeMember = new DefaultNodeMember<int>();
 
-        var operation = new UpdateNodeItemOperation(nodeItem, "Property", 10, 5)
+        var operation = new UpdateNodeMemberOperation(nodeMember, "Property", 10, 5)
         {
             SequenceNumber = 1
         };
@@ -787,7 +787,7 @@ public class AutoSaveServiceTests
     }
 
     [SuppressResourceClassGeneration]
-    private partial class TestNodeItem : NodeItem<string>
+    private partial class TestNodeMember : NodeMember<string>
     {
         public void SetUri(Uri uri)
         {

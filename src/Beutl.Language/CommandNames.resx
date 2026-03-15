@@ -53,7 +53,6 @@
   <data name="UngroupElements" xml:space="preserve">
     <value>Ungroup Elements</value>
   </data>
-  <!-- Timeline Operations -->
   <data name="ChangeSceneDuration" xml:space="preserve">
     <value>Change Scene Duration</value>
   </data>
@@ -69,7 +68,6 @@
   <data name="ChangeLayerColor" xml:space="preserve">
     <value>Change Layer Color</value>
   </data>
-  <!-- KeyFrame/Animation Operations -->
   <data name="InsertKeyFrame" xml:space="preserve">
     <value>Insert Key Frame</value>
   </data>
@@ -97,7 +95,6 @@
   <data name="DeleteAnimation" xml:space="preserve">
     <value>Delete Animation</value>
   </data>
-  <!-- Node Tree Operations -->
   <data name="AddNode" xml:space="preserve">
     <value>Add Node</value>
   </data>
@@ -110,28 +107,27 @@
   <data name="RenameNode" xml:space="preserve">
     <value>Rename Node</value>
   </data>
-  <data name="ConnectSocket" xml:space="preserve">
-    <value>Connect Socket</value>
+  <data name="ConnectPort" xml:space="preserve">
+    <value>Connect Port</value>
   </data>
-  <data name="DisconnectSocket" xml:space="preserve">
-    <value>Disconnect Socket</value>
+  <data name="DisconnectPort" xml:space="preserve">
+    <value>Disconnect Port</value>
   </data>
   <data name="MoveConnection" xml:space="preserve">
     <value>Move Connection</value>
   </data>
-  <data name="AddSocket" xml:space="preserve">
-    <value>Add Socket</value>
+  <data name="AddPort" xml:space="preserve">
+    <value>Add Port</value>
   </data>
-  <data name="RemoveSocket" xml:space="preserve">
-    <value>Remove Socket</value>
+  <data name="RemovePort" xml:space="preserve">
+    <value>Remove Port</value>
   </data>
-  <data name="RenameSocket" xml:space="preserve">
-    <value>Rename Socket</value>
+  <data name="RenamePort" xml:space="preserve">
+    <value>Rename Port</value>
   </data>
   <data name="ChangeUseNode" xml:space="preserve">
     <value>Change Use Node</value>
   </data>
-  <!-- Source Operator Operations -->
   <data name="AddObject" xml:space="preserve">
     <value>Add Object</value>
   </data>
@@ -147,19 +143,15 @@
   <data name="MoveObject" xml:space="preserve">
     <value>Move Object</value>
   </data>
-  <!-- Scene Settings Operations -->
   <data name="ChangeSceneSettings" xml:space="preserve">
     <value>Change Scene Settings</value>
   </data>
-  <!-- Path Editor Operations -->
   <data name="EditPathPoint" xml:space="preserve">
     <value>Edit Path Point</value>
   </data>
-  <!-- Transform Operations -->
   <data name="TransformElement" xml:space="preserve">
     <value>Transform Element</value>
   </data>
-  <!-- Property Editor Operations -->
   <data name="EditProperty" xml:space="preserve">
     <value>Edit Property</value>
   </data>

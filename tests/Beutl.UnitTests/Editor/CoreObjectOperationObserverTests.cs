@@ -9,7 +9,7 @@ using Beutl.Editor.Operations;
 using Beutl.Engine;
 using Beutl.Extensibility;
 using Beutl.Logging;
-using Beutl.NodeTree;
+using Beutl.NodeGraph;
 using Microsoft.Extensions.Logging;
 
 namespace Beutl.UnitTests.Editor;
@@ -861,21 +861,21 @@ public class CoreObjectOperationObserverTests
 
     #endregion
 
-    #region NodeItem Tests
+    #region NodeMember Tests
 
     [Test]
-    public void Constructor_WithNodeItem_ShouldInitializeNodeItemPublisher()
+    public void Constructor_WithNodeMember_ShouldInitializeNodeMemberPublisher()
     {
         // Arrange
-        var nodeItem = new DefaultNodeItem<float>();
+        var nodeMember = new DefaultNodeMember<float>();
         var adapter = new NodePropertyAdapter<float>("TestProperty", 0f, null);
-        nodeItem.SetProperty(adapter);
+        nodeMember.SetProperty(adapter);
 
         var receivedOperations = new List<ChangeOperation>();
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
         // Act
-        using var operationObserver = new CoreObjectOperationObserver(testObserver, nodeItem, _sequenceGenerator);
+        using var operationObserver = new CoreObjectOperationObserver(testObserver, nodeMember, _sequenceGenerator);
         adapter.SetValue(50f);
 
         // Assert
@@ -883,17 +883,17 @@ public class CoreObjectOperationObserverTests
     }
 
     [Test]
-    public void Dispose_WithNodeItem_ShouldDisposeNodeItemPublisher()
+    public void Dispose_WithNodeMember_ShouldDisposeNodeMemberPublisher()
     {
         // Arrange
-        var nodeItem = new DefaultNodeItem<float>();
+        var nodeMember = new DefaultNodeMember<float>();
         var adapter = new NodePropertyAdapter<float>("TestProperty", 0f, null);
-        nodeItem.SetProperty(adapter);
+        nodeMember.SetProperty(adapter);
 
         var receivedOperations = new List<ChangeOperation>();
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
-        var operationObserver = new CoreObjectOperationObserver(testObserver, nodeItem, _sequenceGenerator);
+        var operationObserver = new CoreObjectOperationObserver(testObserver, nodeMember, _sequenceGenerator);
 
         // Act
         operationObserver.Dispose();
@@ -904,17 +904,17 @@ public class CoreObjectOperationObserverTests
     }
 
     [Test]
-    public void OnPropertyChanged_WithNodeItem_ShouldPublishPropertyValueChanges()
+    public void OnPropertyChanged_WithNodeMember_ShouldPublishPropertyValueChanges()
     {
         // Arrange
-        var nodeItem = new DefaultNodeItem<float>();
+        var nodeMember = new DefaultNodeMember<float>();
         var adapter = new NodePropertyAdapter<float>("TestProperty", 0f, null);
-        nodeItem.SetProperty(adapter);
+        nodeMember.SetProperty(adapter);
 
         var receivedOperations = new List<ChangeOperation>();
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
-        using var operationObserver = new CoreObjectOperationObserver(testObserver, nodeItem, _sequenceGenerator);
+        using var operationObserver = new CoreObjectOperationObserver(testObserver, nodeMember, _sequenceGenerator);
 
         // Act
         adapter.SetValue(25f);
@@ -925,17 +925,17 @@ public class CoreObjectOperationObserverTests
     }
 
     [Test]
-    public void OnPropertyChanged_WithNodeItemAndPublishingSuppressed_ShouldNotPublish()
+    public void OnPropertyChanged_WithNodeMemberAndPublishingSuppressed_ShouldNotPublish()
     {
         // Arrange
-        var nodeItem = new DefaultNodeItem<float>();
+        var nodeMember = new DefaultNodeMember<float>();
         var adapter = new NodePropertyAdapter<float>("TestProperty", 0f, null);
-        nodeItem.SetProperty(adapter);
+        nodeMember.SetProperty(adapter);
 
         var receivedOperations = new List<ChangeOperation>();
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
-        using var operationObserver = new CoreObjectOperationObserver(testObserver, nodeItem, _sequenceGenerator);
+        using var operationObserver = new CoreObjectOperationObserver(testObserver, nodeMember, _sequenceGenerator);
 
         // Act
         using (PublishingSuppression.Enter())
@@ -948,17 +948,17 @@ public class CoreObjectOperationObserverTests
     }
 
     [Test]
-    public void OnPropertyChanged_WithNodeItemAfterSuppressionEnds_ShouldPublish()
+    public void OnPropertyChanged_WithNodeMemberAfterSuppressionEnds_ShouldPublish()
     {
         // Arrange
-        var nodeItem = new DefaultNodeItem<float>();
+        var nodeMember = new DefaultNodeMember<float>();
         var adapter = new NodePropertyAdapter<float>("TestProperty", 0f, null);
-        nodeItem.SetProperty(adapter);
+        nodeMember.SetProperty(adapter);
 
         var receivedOperations = new List<ChangeOperation>();
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
-        using var operationObserver = new CoreObjectOperationObserver(testObserver, nodeItem, _sequenceGenerator);
+        using var operationObserver = new CoreObjectOperationObserver(testObserver, nodeMember, _sequenceGenerator);
 
         // Act
         using (PublishingSuppression.Enter())
@@ -972,18 +972,18 @@ public class CoreObjectOperationObserverTests
     }
 
     [Test]
-    public void Constructor_WithNodeItemAndAnimation_ShouldTrackAnimationChanges()
+    public void Constructor_WithNodeMemberAndAnimation_ShouldTrackAnimationChanges()
     {
         // Arrange
         var animation = new KeyFrameAnimation<float>();
-        var nodeItem = new DefaultNodeItem<float>();
+        var nodeMember = new DefaultNodeMember<float>();
         var adapter = new NodePropertyAdapter<float>("TestProperty", 0f, animation);
-        nodeItem.SetProperty(adapter);
+        nodeMember.SetProperty(adapter);
 
         var receivedOperations = new List<ChangeOperation>();
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
-        using var operationObserver = new CoreObjectOperationObserver(testObserver, nodeItem, _sequenceGenerator);
+        using var operationObserver = new CoreObjectOperationObserver(testObserver, nodeMember, _sequenceGenerator);
 
         // Act - Change the animation
         var newAnimation = new KeyFrameAnimation<float>();
@@ -994,17 +994,17 @@ public class CoreObjectOperationObserverTests
     }
 
     [Test]
-    public void OnPropertyChanged_WithNodeItemAnimationChange_ShouldPublishAnimationChange()
+    public void OnPropertyChanged_WithNodeMemberAnimationChange_ShouldPublishAnimationChange()
     {
         // Arrange
-        var nodeItem = new DefaultNodeItem<float>();
+        var nodeMember = new DefaultNodeMember<float>();
         var adapter = new NodePropertyAdapter<float>("TestProperty", 0f, null);
-        nodeItem.SetProperty(adapter);
+        nodeMember.SetProperty(adapter);
 
         var receivedOperations = new List<ChangeOperation>();
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
-        using var operationObserver = new CoreObjectOperationObserver(testObserver, nodeItem, _sequenceGenerator);
+        using var operationObserver = new CoreObjectOperationObserver(testObserver, nodeMember, _sequenceGenerator);
 
         // Act
         adapter.Animation = new KeyFrameAnimation<float>();
@@ -1014,12 +1014,12 @@ public class CoreObjectOperationObserverTests
     }
 
     [Test]
-    public void Constructor_WithNodeItemAndPropertyPathsToTrack_ShouldOnlyTrackSpecified()
+    public void Constructor_WithNodeMemberAndPropertyPathsToTrack_ShouldOnlyTrackSpecified()
     {
         // Arrange
-        var nodeItem = new DefaultNodeItem<float>();
+        var nodeMember = new DefaultNodeMember<float>();
         var adapter = new NodePropertyAdapter<float>("TestProperty", 0f, null);
-        nodeItem.SetProperty(adapter);
+        nodeMember.SetProperty(adapter);
 
         var receivedOperations = new List<ChangeOperation>();
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
@@ -1027,7 +1027,7 @@ public class CoreObjectOperationObserverTests
 
         // Act
         using var operationObserver = new CoreObjectOperationObserver(
-            testObserver, nodeItem, _sequenceGenerator, "", propertyPathsToTrack);
+            testObserver, nodeMember, _sequenceGenerator, "", propertyPathsToTrack);
 
         adapter.SetValue(50f);
 
@@ -1036,12 +1036,12 @@ public class CoreObjectOperationObserverTests
     }
 
     [Test]
-    public void Constructor_WithNodeItemAndPropertyPathsToTrackExcludingProperty_ShouldNotTrack()
+    public void Constructor_WithNodeMemberAndPropertyPathsToTrackExcludingProperty_ShouldNotTrack()
     {
         // Arrange
-        var nodeItem = new DefaultNodeItem<float>();
+        var nodeMember = new DefaultNodeMember<float>();
         var adapter = new NodePropertyAdapter<float>("TestProperty", 0f, null);
-        nodeItem.SetProperty(adapter);
+        nodeMember.SetProperty(adapter);
 
         var receivedOperations = new List<ChangeOperation>();
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
@@ -1050,7 +1050,7 @@ public class CoreObjectOperationObserverTests
 
         // Act
         using var operationObserver = new CoreObjectOperationObserver(
-            testObserver, nodeItem, _sequenceGenerator, "", propertyPathsToTrack);
+            testObserver, nodeMember, _sequenceGenerator, "", propertyPathsToTrack);
 
         adapter.SetValue(50f);
 

@@ -15,7 +15,7 @@
       <ProjectReference Include="..\Beutl.Engine\Beutl.Engine.csproj" />
       <ProjectReference Include="..\Beutl.Extensibility\Beutl.Extensibility.csproj" />
       <ProjectReference Include="..\Beutl.Language\Beutl.Language.csproj" />
-      
+      <ProjectReference Include="..\Beutl.NodeGraph\Beutl.NodeGraph.csproj" />
       <ProjectReference Include="..\Beutl.ProjectSystem\Beutl.ProjectSystem.csproj" />
     </ItemGroup>
 

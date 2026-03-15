@@ -188,7 +188,7 @@ public class SelectLibraryItemDialogViewModel
             Regex[] regexes = RegexHelper.CreateRegexes(SearchText.Value);
 
             var newItems = items
-                .Select(v => (ViewModel: LibraryItemViewModel.CreateFromOperatorRegistryItem((LibraryItem)v.UserData), IsPinned: v.IsPinned))
+                .Select(v => (ViewModel: LibraryItemViewModel.CreateFromLibraryItem((LibraryItem)v.UserData), IsPinned: v.IsPinned))
                 .Select(v => (score: v.ViewModel.Match(regexes), item: v.ViewModel, IsPinned: v.IsPinned))
                 .Where(v => v.score > 0)
                 .OrderByDescending(t => t.IsPinned)

@@ -39,7 +39,7 @@ public static class ResourceClassEmitter
         EmitFields(sb, innerIndent, info);
         EmitProperties(sb, innerIndent, info);
         EmitGetOriginal(sb, innerIndent, currentTypeDisplay);
-        EmitBindSocketValues(sb, innerIndent, info);
+        EmitBindNodePortValues(sb, innerIndent, info);
         EmitUpdateMethod(sb, innerIndent, currentTypeDisplay, renderContextType, engineObjectType, info);
         EmitDisposeMethod(sb, innerIndent, info);
 
@@ -73,11 +73,11 @@ public static class ResourceClassEmitter
             sb.AppendLine();
         }
 
-        foreach (SocketPropertyInfo socket in info.SocketProperties)
+        foreach (NodePortPropertyInfo port in info.NodePortProperties)
         {
-            string fieldName = EmitHelpers.ToFieldName(socket.Name) + "_ItemValue";
-            string valueTypeDisplay = socket.ValueType.ToDisplayString(EmitHelpers.TypeDisplayFormat);
-            sb.Append(innerIndent).AppendLine($"private global::Beutl.NodeTree.Rendering.ItemValue<{valueTypeDisplay}>? {fieldName};");
+            string fieldName = EmitHelpers.ToFieldName(port.Name) + "_ItemValue";
+            string valueTypeDisplay = port.ValueType.ToDisplayString(EmitHelpers.TypeDisplayFormat);
+            sb.Append(innerIndent).AppendLine($"private global::Beutl.NodeGraph.Composition.ItemValue<{valueTypeDisplay}>? {fieldName};");
             sb.AppendLine();
         }
     }
@@ -120,11 +120,11 @@ public static class ResourceClassEmitter
             sb.AppendLine();
         }
 
-        foreach (SocketPropertyInfo socket in info.SocketProperties)
+        foreach (NodePortPropertyInfo port in info.NodePortProperties)
         {
-            string fieldName = EmitHelpers.ToFieldName(socket.Name) + "_ItemValue";
-            string valueTypeDisplay = socket.ValueType.ToDisplayString(EmitHelpers.TypeDisplayFormat);
-            sb.Append(innerIndent).AppendLine($"public {valueTypeDisplay} {socket.Name}");
+            string fieldName = EmitHelpers.ToFieldName(port.Name) + "_ItemValue";
+            string valueTypeDisplay = port.ValueType.ToDisplayString(EmitHelpers.TypeDisplayFormat);
+            sb.Append(innerIndent).AppendLine($"public {valueTypeDisplay} {port.Name}");
             sb.Append(innerIndent).AppendLine("{");
             sb.Append(innerIndent).AppendLine($"    get => {fieldName}?.Value ?? default!;");
             sb.Append(innerIndent).AppendLine($"    set {{ if ({fieldName} != null) {fieldName}.Value = value; }}");
@@ -141,24 +141,24 @@ public static class ResourceClassEmitter
         sb.Append(innerIndent).AppendLine("}");
     }
 
-    private static void EmitBindSocketValues(StringBuilder sb, string innerIndent, ClassInfo info)
+    private static void EmitBindNodePortValues(StringBuilder sb, string innerIndent, ClassInfo info)
     {
-        if (info.SocketProperties.Length > 0)
+        if (info.NodePortProperties.Length > 0)
         {
             sb.AppendLine();
-            sb.Append(innerIndent).AppendLine("public override void BindSocketValues()");
+            sb.Append(innerIndent).AppendLine("public override void BindNodePortValues()");
             sb.Append(innerIndent).AppendLine("{");
-            sb.Append(innerIndent).AppendLine("    base.BindSocketValues();");
+            sb.Append(innerIndent).AppendLine("    base.BindNodePortValues();");
             sb.Append(innerIndent).AppendLine("    var node = GetOriginal();");
 
-            for (int i = 0; i < info.SocketProperties.Length; i++)
+            for (int i = 0; i < info.NodePortProperties.Length; i++)
             {
-                SocketPropertyInfo socket = info.SocketProperties[i];
-                string fieldName = EmitHelpers.ToFieldName(socket.Name) + "_ItemValue";
-                string valueTypeDisplay = socket.ValueType.ToDisplayString(EmitHelpers.TypeDisplayFormat);
+                NodePortPropertyInfo port = info.NodePortProperties[i];
+                string fieldName = EmitHelpers.ToFieldName(port.Name) + "_ItemValue";
+                string valueTypeDisplay = port.ValueType.ToDisplayString(EmitHelpers.TypeDisplayFormat);
                 string idxVar = $"__idx{i}";
-                sb.Append(innerIndent).AppendLine($"    if (ItemIndexMap.TryGetValue(node.{socket.Name}, out int {idxVar}))");
-                sb.Append(innerIndent).AppendLine($"        {fieldName} = (global::Beutl.NodeTree.Rendering.ItemValue<{valueTypeDisplay}>)ItemValues[{idxVar}];");
+                sb.Append(innerIndent).AppendLine($"    if (ItemIndexMap.TryGetValue(node.{port.Name}, out int {idxVar}))");
+                sb.Append(innerIndent).AppendLine($"        {fieldName} = (global::Beutl.NodeGraph.Composition.ItemValue<{valueTypeDisplay}>)ItemValues[{idxVar}];");
             }
 
             sb.Append(innerIndent).AppendLine("}");

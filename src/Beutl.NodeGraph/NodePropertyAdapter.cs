@@ -1,0 +1,190 @@
+﻿using System.Reactive.Linq;
+using System.Text.Json.Nodes;
+using Beutl.Animation;
+using Beutl.Engine.Expressions;
+using Beutl.Extensibility;
+using Beutl.Reactive;
+using Beutl.Serialization;
+using Reactive.Bindings;
+
+namespace Beutl.NodeGraph;
+
+public sealed class NodePropertyAdapter<T> : IAnimatablePropertyAdapter<T>
+{
+    private readonly ReactivePropertySlim<T?> _rxProperty = new();
+    private IAnimation<T>? _animation;
+
+    public NodePropertyAdapter(string name, T? value, IAnimation<T>? animation)
+    {
+        Name = name;
+        Animation = animation;
+        ObserveAnimation = new AnimationObservable(this);
+        _rxProperty.Value = value;
+    }
+
+    public NodePropertyAdapter(string name)
+    {
+        Name = name;
+        ObserveAnimation = new AnimationObservable(this);
+    }
+
+    private sealed class AnimationObservable(NodePropertyAdapter<T> adapter) : LightweightObservableBase<IAnimation<T>?>
+    {
+        private IAnimation<T>? _prevAnimation = adapter.Animation;
+
+        protected override void Subscribed(IObserver<IAnimation<T>?> observer, bool first)
+        {
+            base.Subscribed(observer, first);
+            observer.OnNext(adapter.Animation);
+        }
+
+        protected override void Deinitialize()
+        {
+            adapter.Edited -= Setter_Edited;
+        }
+
+        protected override void Initialize()
+        {
+            adapter.Edited += Setter_Edited;
+        }
+
+        private void Setter_Edited(object? sender, EventArgs e)
+        {
+            if (_prevAnimation != adapter.Animation)
+            {
+                PublishNext(adapter.Animation);
+                _prevAnimation = adapter.Animation;
+            }
+        }
+    }
+
+    public IAnimation<T>? Animation
+    {
+        get => _animation;
+        set
+        {
+            if (_animation != value)
+            {
+                if (_animation != null)
+                {
+                    _animation.Edited -= OnAnimationEdited;
+                }
+
+                _animation = value;
+
+                if (value != null)
+                {
+                    value.Edited += OnAnimationEdited;
+                }
+
+                Edited?.Invoke(this, EventArgs.Empty);
+            }
+        }
+    }
+
+    public IObservable<IAnimation<T>?> ObserveAnimation { get; }
+
+    // NodeGraphでは式をサポートしない
+    public IExpression<T>? Expression
+    {
+        get => null;
+        set
+        {
+            if (value != null)
+                throw new NotSupportedException("Expressions are not supported in NodeGraph.");
+        }
+    }
+
+    public bool HasExpression => false;
+
+    public IObservable<IExpression<T>?> ObserveExpression { get; } = Observable.ReturnThenNever<IExpression<T>?>(null);
+
+    public Type ImplementedType => typeof(NodePropertyAdapter<T>);
+
+    public Type PropertyType => typeof(T);
+
+    public string Name { get; }
+
+    public string DisplayName
+    {
+        get => field ?? Name;
+        set => field = value;
+    }
+
+    public string? Description { get; set; }
+
+    public bool IsReadOnly => false;
+
+    public event EventHandler? Edited;
+
+    private void OnAnimationEdited(object? sender, EventArgs e)
+    {
+        Edited?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void OnValueEdited(object? sender, EventArgs e)
+    {
+        Edited?.Invoke(this, EventArgs.Empty);
+    }
+
+    public IObservable<T?> GetObservable()
+    {
+        return _rxProperty;
+    }
+
+    public T? GetValue()
+    {
+        return _rxProperty.Value;
+    }
+
+    public void SetValue(T? value)
+    {
+        if (!EqualityComparer<T>.Default.Equals(_rxProperty.Value, value))
+        {
+            if (_rxProperty.Value is INotifyEdited oldValue)
+            {
+                oldValue.Edited -= OnValueEdited;
+            }
+
+            _rxProperty.Value = value;
+
+            Edited?.Invoke(this, EventArgs.Empty);
+            if (value is INotifyEdited newValue)
+            {
+                newValue.Edited += OnValueEdited;
+            }
+        }
+    }
+
+    public object? GetDefaultValue()
+    {
+        return null;
+    }
+
+    public void Serialize(ICoreSerializationContext context)
+    {
+        context.SetValue("Property", Name);
+        context.SetValue("Target", TypeFormat.ToString(ImplementedType));
+
+        context.SetValue("Setter", PropertyEntrySerializer.ToJson(_rxProperty.Value, Animation, PropertyType));
+    }
+
+    public void Deserialize(ICoreSerializationContext context)
+    {
+        if (context.GetValue<JsonNode>("Setter") is not { } setterNode)
+            return;
+
+        (Optional<object?> value, IAnimation? animation) =
+            PropertyEntrySerializer.ToTuple(setterNode, PropertyType);
+
+        if (animation != null)
+        {
+            Animation = animation as IAnimation<T>;
+        }
+
+        if (value is { HasValue: true, Value: T typedValue })
+        {
+            SetValue(typedValue);
+        }
+    }
+}

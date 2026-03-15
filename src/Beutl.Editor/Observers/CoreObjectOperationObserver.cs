@@ -5,7 +5,7 @@ using Beutl.Animation;
 using Beutl.Animation.Easings;
 using Beutl.Editor.Operations;
 using Beutl.Engine;
-using Beutl.NodeTree;
+using Beutl.NodeGraph;
 using Beutl.Serialization;
 
 namespace Beutl.Editor.Observers;
@@ -17,7 +17,7 @@ public sealed class CoreObjectOperationObserver : IOperationObserver
     private readonly Dictionary<int, IOperationObserver> _corePropertyPublishers = new();
     private readonly Dictionary<string, IOperationObserver> _enginePropertyPublishers = new();
     private SplineEasingOperationObserver? _splineEasingPublisher;
-    private NodeItemOperationObserver? _nodeItemPublisher;
+    private NodeMemberOperationObserver? _nodeMemberPublisher;
     private readonly Subject<ChangeOperation> _operations = new();
     private readonly IDisposable? _subscription;
     private readonly OperationSequenceGenerator _sequenceNumberGenerator;
@@ -76,7 +76,7 @@ public sealed class CoreObjectOperationObserver : IOperationObserver
         }
 
         _splineEasingPublisher?.Dispose();
-        _nodeItemPublisher?.Dispose();
+        _nodeMemberPublisher?.Dispose();
 
         _subscription?.Dispose();
         _operations.OnCompleted();
@@ -123,7 +123,7 @@ public sealed class CoreObjectOperationObserver : IOperationObserver
         }
 
         RecreateSplineEasingPublisher();
-        InitializeNodeItemPublisher();
+        InitializeNodeMemberPublisher();
     }
 
     private void RecreateSplineEasingPublisher()
@@ -144,14 +144,14 @@ public sealed class CoreObjectOperationObserver : IOperationObserver
         }
     }
 
-    private void InitializeNodeItemPublisher()
+    private void InitializeNodeMemberPublisher()
     {
-        // IEnginePropertyBackedInputSocketの場合はEnginePropertyOperationObserverで監視するため、NodeItemOperationObserverは作成しない
-        if (_object is INodeItem nodeItem and not IEnginePropertyBackedInputSocket)
+        // IEnginePropertyBackedInputPortの場合はEnginePropertyOperationObserverで監視するため、NodeMemberOperationObserverは作成しない
+        if (_object is INodeMember nodeMember and not IEnginePropertyBackedInputPort)
         {
-            _nodeItemPublisher = new NodeItemOperationObserver(
+            _nodeMemberPublisher = new NodeMemberOperationObserver(
                 _operations,
-                nodeItem,
+                nodeMember,
                 _sequenceNumberGenerator,
                 _propertyPath,
                 _propertyPathsToTrack);

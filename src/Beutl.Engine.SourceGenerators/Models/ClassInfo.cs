@@ -11,7 +11,7 @@ public readonly record struct ClassInfo(
     ImmutableArray<ValuePropertyInfo> ValueProperties,
     ImmutableArray<ObjectPropertyInfo> ObjectProperties,
     ImmutableArray<ListPropertyInfo> ListProperties,
-    ImmutableArray<SocketPropertyInfo> SocketProperties,
+    ImmutableArray<NodePortPropertyInfo> NodePortProperties,
     ImmutableArray<object> OrderedProperties,
     bool IsNodeSubclass);
 
@@ -21,11 +21,11 @@ public readonly record struct ObjectPropertyInfo(string Name, INamedTypeSymbol V
 
 public readonly record struct ListPropertyInfo(string Name, INamedTypeSymbol ElementType, ImmutableArray<AttributeData> Attributes);
 
-public enum SocketKind
+public enum NodePortKind
 {
     Input,
     Output,
     Item
 }
 
-public readonly record struct SocketPropertyInfo(string Name, ITypeSymbol ValueType, SocketKind Kind);
+public readonly record struct NodePortPropertyInfo(string Name, ITypeSymbol ValueType, NodePortKind Kind);

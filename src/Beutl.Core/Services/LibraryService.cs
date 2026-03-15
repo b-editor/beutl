@@ -172,7 +172,7 @@ public sealed class GroupLibraryItem(string displayName, string? description = n
 public static class KnownLibraryItemFormats
 {
     public const string EngineObject = "Beutl.Engine.EngineObject";
-    public const string Node = "Beutl.NodeTree.Node";
+    public const string GraphNode = "Beutl.NodeGraph.GraphNode";
     public const string Drawable = "Beutl.Graphics.Drawable";
     public const string Sound = "Beutl.Audio.Sound";
     public const string Transform = "Beutl.Graphics.Transformation.Transform";

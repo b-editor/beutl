@@ -3,7 +3,7 @@ using Avalonia.Threading;
 using Beutl.Animation;
 using Beutl.Editor.Services;
 using Beutl.Engine;
-using Beutl.NodeTree;
+using Beutl.NodeGraph;
 using Beutl.ProjectSystem;
 using Microsoft.Extensions.DependencyInjection;
 using Reactive.Bindings;
@@ -104,11 +104,11 @@ public sealed class GraphEditorTabViewModel : IToolContext
                 anm);
             tmp.Add(item);
         }
-        // IAutomaticallyGeneratedSocketがついているNodeItemのプロパティからアニメーションを探す
-        searcher = new ObjectSearcher(Element.Value, v => v is IAutomaticallyGeneratedSocket);
-        foreach (INodeItem socket in searcher.SearchAll().OfType<INodeItem>())
+        // IAutomaticallyGeneratedPortがついているNodeMemberのプロパティからアニメーションを探す
+        searcher = new ObjectSearcher(Element.Value, v => v is IDynamicPort);
+        foreach (INodeMember member in searcher.SearchAll().OfType<INodeMember>())
         {
-            if (socket.Property is not IAnimatablePropertyAdapter { Animation: KeyFrameAnimation anm, DisplayName: { } displayName })
+            if (member.Property is not IAnimatablePropertyAdapter { Animation: KeyFrameAnimation anm, DisplayName: { } displayName })
                 continue;
 
             var item = new GraphEditorItemViewModel(displayName, anm);

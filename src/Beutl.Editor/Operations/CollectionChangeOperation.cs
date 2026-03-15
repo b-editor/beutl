@@ -1,6 +1,6 @@
 ﻿using Beutl.Editor.Infrastructure;
 using Beutl.Engine;
-using Beutl.NodeTree;
+using Beutl.NodeGraph;
 
 namespace Beutl.Editor.Operations;
 
@@ -48,9 +48,9 @@ public abstract class CollectionChangeOperation<T> : ChangeOperation, IPropertyP
             return;
         }
 
-        if (Object is INodeItem nodeItem && name == "Property")
+        if (Object is INodeMember nodeMember && name == "Property")
         {
-            ApplyTo(VerifyType(nodeItem, nodeItem.Property?.GetValue()));
+            ApplyTo(VerifyType(nodeMember, nodeMember.Property?.GetValue()));
             return;
         }
 
@@ -77,9 +77,9 @@ public abstract class CollectionChangeOperation<T> : ChangeOperation, IPropertyP
             return;
         }
 
-        if (Object is INodeItem nodeItem && name == "Property")
+        if (Object is INodeMember nodeMember && name == "Property")
         {
-            RevertTo(VerifyType(nodeItem, nodeItem.Property?.GetValue()));
+            RevertTo(VerifyType(nodeMember, nodeMember.Property?.GetValue()));
             return;
         }
 
