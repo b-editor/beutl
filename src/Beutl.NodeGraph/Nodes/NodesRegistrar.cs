@@ -13,6 +13,8 @@ public static class NodesRegistrar
         GraphNodeRegistry.RegisterNode<OutputNode>("Layer output", Colors.Crimson);
         GraphNodeRegistry.RegisterNode<GeometryShapeNode>(GraphicsStrings.GeometryShape, Colors.ForestGreen);
         GraphNodeRegistry.RegisterNode<TextNode>(GraphicsStrings.TextBlock, Colors.ForestGreen);
+        GraphNodeRegistry.RegisterNode<ImageSourceNode>(GraphicsStrings.SourceImage, Colors.ForestGreen);
+        GraphNodeRegistry.RegisterNode<VideoSourceNode>(GraphicsStrings.SourceVideo, Colors.ForestGreen);
         GraphNodeRegistry.RegisterNode<TransformNode>(GraphicsStrings.Transform, Colors.MediumPurple);
 
         GraphNodeRegistry.RegisterNodes("Geometry", Colors.ForestGreen)
