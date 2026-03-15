@@ -28,7 +28,7 @@ public class LoggerAdapter(Microsoft.Extensions.Logging.ILogger logger) : Logger
                 _logger.LogTrace(message.ToString());
                 break;
             case LogLevel.Minimal:
-                _logger.LogTrace(message.ToString());
+                _logger.LogDebug(message.ToString());
                 break;
             default:
                 _logger.LogInformation(message.ToString());
