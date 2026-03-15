@@ -35,6 +35,12 @@ public partial class DisplacementMapEffect : FilterEffect
     [Display(Name = nameof(GraphicsStrings.DisplacementMapEffect_SpreadMethod), ResourceType = typeof(GraphicsStrings))]
     public IProperty<GradientSpreadMethod> SpreadMethod { get; } = Property.CreateAnimatable(GradientSpreadMethod.Pad);
 
+    [Display(Name = nameof(GraphicsStrings.DisplacementMapEffect_Channel), ResourceType = typeof(GraphicsStrings))]
+    public IProperty<DisplacementMapChannel> Channel { get; } = Property.Create(DisplacementMapChannel.Alpha);
+
+    [Display(Name = nameof(GraphicsStrings.DisplacementMapEffect_Signed), ResourceType = typeof(GraphicsStrings))]
+    public IProperty<bool> Signed { get; } = Property.Create(false);
+
     [Display(Name = nameof(GraphicsStrings.DisplacementMapEffect_ShowDisplacementMap), ResourceType = typeof(GraphicsStrings))]
     public IProperty<bool> ShowDisplacementMap { get; } = Property.CreateAnimatable(false);
 
@@ -75,7 +81,7 @@ public partial class DisplacementMapEffect : FilterEffect
         }
         else if (r.Transform is { } transform)
         {
-            transform.GetOriginal().ApplyTo(displacementMap, transform, r.SpreadMethod, context);
+            transform.GetOriginal().ApplyTo(displacementMap, transform, r.SpreadMethod, r.Channel, r.Signed, context);
         }
     }
 }

@@ -12,7 +12,8 @@ namespace Beutl.Graphics.Effects;
 public abstract partial class DisplacementMapTransform : EngineObject
 {
     internal abstract void ApplyTo(
-        Brush.Resource displacementMap, Resource resource, GradientSpreadMethod spreadMethod, FilterEffectContext context);
+        Brush.Resource displacementMap, Resource resource, GradientSpreadMethod spreadMethod,
+        DisplacementMapChannel channel, bool signed, FilterEffectContext context);
 }
 
 [Display(Name = nameof(GraphicsStrings.TranslateTransform), ResourceType = typeof(GraphicsStrings))]
@@ -31,10 +32,26 @@ public partial class DisplacementMapTranslateTransform : DisplacementMapTransfor
 
             uniform float2 uTranslation;
             uniform float2 uPivot;
+            uniform int uChannel;
+            uniform int uSigned;
+
+            float getDisplacement(half4 dispColor) {
+                float d;
+                if (uChannel == 0) d = dispColor.a;
+                else {
+                    if (uChannel == 1) d = dot(dispColor.rgb, half3(0.2126, 0.7152, 0.0722));
+                    else if (uChannel == 2) d = dispColor.r;
+                    else if (uChannel == 3) d = dispColor.g;
+                    else d = dispColor.b;
+                    d = d * dispColor.a;
+                }
+                if (uSigned != 0) d = d * 2.0 - 1.0;
+                return d;
+            }
 
             half4 main(float2 coord) {
                 half4 dispColor = uDisplacementMap.eval(coord);
-                float2 offset = uTranslation * dispColor.a;
+                float2 offset = uTranslation * getDisplacement(dispColor);
 
                 float2 uv = coord + offset;
                 return uBaseTexture.eval(uv);
@@ -60,15 +77,15 @@ public partial class DisplacementMapTranslateTransform : DisplacementMapTransfor
 
     internal override void ApplyTo(
         Brush.Resource displacementMap, DisplacementMapTransform.Resource resource,
-        GradientSpreadMethod spreadMethod, FilterEffectContext context)
+        GradientSpreadMethod spreadMethod, DisplacementMapChannel channel, bool signed, FilterEffectContext context)
     {
         if (s_shader is null) throw new InvalidOperationException("Failed to compile SKSL.");
         var r = (Resource)resource;
 
-        context.CustomEffect((displacementMap, r, spreadMethod, X, Y),
+        context.CustomEffect((displacementMap, r, spreadMethod, channel, signed, r.X, r.Y),
             (d, c) =>
             {
-                var (map, r, sm, x, y) = d;
+                var (map, r, sm, ch, isSigned, x, y) = d;
                 for (int i = 0; i < c.Targets.Count; i++)
                 {
                     using EffectTarget effectTarget = c.Targets[i];
@@ -87,7 +104,9 @@ public partial class DisplacementMapTranslateTransform : DisplacementMapTransfor
                     builder.Children["uBaseTexture"] = baseShader;
                     builder.Children["uDisplacementMap"] = displacementMapShader;
 
-                    builder.Uniforms["uTranslation"] = new SKPoint(r.X, r.Y);
+                    builder.Uniforms["uTranslation"] = new SKPoint(x, y);
+                    builder.Uniforms["uChannel"] = (int)ch;
+                    builder.Uniforms["uSigned"] = isSigned ? 1 : 0;
 
                     // 新しいターゲットに適用
                     c.Targets[i] = s_shader.ApplyToNewTarget(c, builder, effectTarget.Bounds);
@@ -111,11 +130,26 @@ public partial class DisplacementMapScaleTransform : DisplacementMapTransform
 
             uniform float2 uScale;
             uniform float2 uPivot;
+            uniform int uChannel;
+            uniform int uSigned;
+
+            float getDisplacement(half4 dispColor) {
+                float d;
+                if (uChannel == 0) d = dispColor.a;
+                else {
+                    if (uChannel == 1) d = dot(dispColor.rgb, half3(0.2126, 0.7152, 0.0722));
+                    else if (uChannel == 2) d = dispColor.r;
+                    else if (uChannel == 3) d = dispColor.g;
+                    else d = dispColor.b;
+                    d = d * dispColor.a;
+                }
+                if (uSigned != 0) d = d * 2.0 - 1.0;
+                return d;
+            }
 
             half4 main(float2 coord) {
                 half4 dispColor = uDisplacementMap.eval(coord);
-                float2 amount = float2(dispColor.a, dispColor.a);
-                float2 s = mix(float2(1.0, 1.0), uScale, dispColor.a);
+                float2 s = max(mix(float2(1.0, 1.0), uScale, getDisplacement(dispColor)), float2(0.001, 0.001));
 
                 float2 uv = (coord - uPivot) / s + uPivot;
                 return uBaseTexture.eval(uv);
@@ -150,17 +184,17 @@ public partial class DisplacementMapScaleTransform : DisplacementMapTransform
 
     internal override void ApplyTo(
         Brush.Resource displacementMap, DisplacementMapTransform.Resource resource,
-        GradientSpreadMethod spreadMethod, FilterEffectContext context)
+        GradientSpreadMethod spreadMethod, DisplacementMapChannel channel, bool signed, FilterEffectContext context)
     {
         if (s_shader is null) throw new InvalidOperationException("Failed to compile SKSL.");
         var r = (Resource)resource;
 
         context.CustomEffect(
-            (displacementMap, spreadMethod, x: r.Scale * r.ScaleX / 10000, y: r.Scale * r.ScaleY / 10000,
+            (displacementMap, spreadMethod, channel, signed, x: r.Scale * r.ScaleX / 10000, y: r.Scale * r.ScaleY / 10000,
                 center: new Point(r.CenterX, r.CenterY)),
             (d, c) =>
             {
-                var (map, sm, scaleX, scaleY, center) = d;
+                var (map, sm, ch, isSigned, scaleX, scaleY, center) = d;
                 for (int i = 0; i < c.Targets.Count; i++)
                 {
                     using var effectTarget = c.Targets[i];
@@ -183,6 +217,8 @@ public partial class DisplacementMapScaleTransform : DisplacementMapTransform
                     builder.Uniforms["uPivot"] = new SKPoint(
                         effectTarget.Bounds.Width / 2 + center.X,
                         effectTarget.Bounds.Height / 2 + center.Y);
+                    builder.Uniforms["uChannel"] = (int)ch;
+                    builder.Uniforms["uSigned"] = isSigned ? 1 : 0;
 
                     // 新しいターゲットに適用
                     c.Targets[i] = s_shader.ApplyToNewTarget(c, builder, effectTarget.Bounds);
@@ -206,10 +242,27 @@ public partial class DisplacementMapRotationTransform : DisplacementMapTransform
 
             uniform float uAngle;
             uniform float2 uPivot;
+            uniform int uChannel;
+            uniform int uSigned;
+
+            float getDisplacement(half4 dispColor) {
+                float d;
+                if (uChannel == 0) d = dispColor.a;
+                else {
+                    if (uChannel == 1) d = dot(dispColor.rgb, half3(0.2126, 0.7152, 0.0722));
+                    else if (uChannel == 2) d = dispColor.r;
+                    else if (uChannel == 3) d = dispColor.g;
+                    else d = dispColor.b;
+                    d = d * dispColor.a;
+                }
+                if (uSigned != 0) d = d * 2.0 - 1.0;
+                return d;
+            }
 
             half4 main(float2 coord) {
                 half4 dispColor = uDisplacementMap.eval(coord);
-                float2 offset = float2(cos(uAngle * dispColor.a), sin(uAngle * dispColor.a));
+                float disp = getDisplacement(dispColor);
+                float2 offset = float2(cos(uAngle * disp), sin(uAngle * disp));
 
                 float2 uv = coord - uPivot;
                 float2 rotated = float2(uv.x * offset.x - uv.y * offset.y, uv.x * offset.y + uv.y * offset.x);
@@ -240,16 +293,16 @@ public partial class DisplacementMapRotationTransform : DisplacementMapTransform
 
     internal override void ApplyTo(
         Brush.Resource displacementMap, DisplacementMapTransform.Resource resource,
-        GradientSpreadMethod spreadMethod, FilterEffectContext context)
+        GradientSpreadMethod spreadMethod, DisplacementMapChannel channel, bool signed, FilterEffectContext context)
     {
         if (s_shader is null) throw new InvalidOperationException("Failed to compile SKSL.");
         var r = (Resource)resource;
 
         context.CustomEffect(
-            (displacementMap, spreadMethod, r.Rotation, new Point(r.CenterX, r.CenterY)),
+            (displacementMap, spreadMethod, channel, signed, r.Rotation, new Point(r.CenterX, r.CenterY)),
             (d, c) =>
             {
-                var (map, sm, rotation, center) = d;
+                var (map, sm, ch, isSigned, rotation, center) = d;
                 for (int i = 0; i < c.Targets.Count; i++)
                 {
                     using var effectTarget = c.Targets[i];
@@ -272,6 +325,8 @@ public partial class DisplacementMapRotationTransform : DisplacementMapTransform
                     builder.Uniforms["uPivot"] = new SKPoint(
                         effectTarget.Bounds.Width / 2 + center.X,
                         effectTarget.Bounds.Height / 2 + center.Y);
+                    builder.Uniforms["uChannel"] = (int)ch;
+                    builder.Uniforms["uSigned"] = isSigned ? 1 : 0;
 
                     // 新しいターゲットに適用
                     c.Targets[i] = s_shader.ApplyToNewTarget(c, builder, effectTarget.Bounds);

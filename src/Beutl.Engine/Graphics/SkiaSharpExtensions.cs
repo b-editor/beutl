@@ -101,6 +101,8 @@ internal static class SkiaSharpExtensions
         {
             GradientSpreadMethod.Reflect => SKShaderTileMode.Mirror,
             GradientSpreadMethod.Repeat => SKShaderTileMode.Repeat,
+            GradientSpreadMethod.Pad => SKShaderTileMode.Clamp,
+            GradientSpreadMethod.Decal => SKShaderTileMode.Decal,
             _ => SKShaderTileMode.Clamp,
         };
     }
