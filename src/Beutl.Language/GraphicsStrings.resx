@@ -372,6 +372,9 @@
   <data name="DisplacementMapEffect_ShowDisplacementMap" xml:space="preserve">
     <value>Show Displacement Map</value>
   </data>
+  <data name="DisplacementMapEffect_Channel" xml:space="preserve">
+    <value>Channel</value>
+  </data>
   <data name="DisplacementMapEffect_SpreadMethod" xml:space="preserve">
     <value>Spread Method</value>
   </data>
