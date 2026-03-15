@@ -1,4 +1,4 @@
-using Beutl.Graphics.Rendering;
+﻿using Beutl.Graphics.Rendering;
 using Beutl.Media;
 using Beutl.Media.Source;
 using Beutl.NodeGraph.Composition;

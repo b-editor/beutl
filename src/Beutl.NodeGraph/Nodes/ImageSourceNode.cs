@@ -1,4 +1,4 @@
-using Beutl.Graphics.Rendering;
+﻿using Beutl.Graphics.Rendering;
 using Beutl.Media;
 using Beutl.Media.Source;
 using Beutl.NodeGraph.Composition;
@@ -13,7 +13,7 @@ public sealed partial class ImageSourceNode : GraphNode
         Source = AddInput<ImageSource?>("Source");
     }
 
-    public OutputPort<ImageSourceRenderNode> Output { get; }
+    public OutputPort<ImageSourceRenderNode?> Output { get; }
 
     public InputPort<ImageSource?> Source { get; }
 
@@ -38,7 +38,7 @@ public sealed partial class ImageSourceNode : GraphNode
                 _sourceResource?.Dispose();
                 _sourceResource = null;
                 _lastSource = null;
-                Output = null!;
+                Output = null;
                 return;
             }
 
