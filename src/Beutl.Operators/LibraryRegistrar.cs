@@ -10,7 +10,7 @@ using Beutl.Graphics3D.Models;
 using Beutl.Graphics3D.Primitives;
 using Beutl.Language;
 using Beutl.Media;
-using Beutl.NodeTree;
+using Beutl.NodeGraph;
 using Beutl.ProjectSystem;
 using Beutl.Services;
 
@@ -102,8 +102,8 @@ public static class LibraryRegistrar
             );
 
         LibraryService.Current
-            .AddMultiple(GraphicsStrings.NodeTreeDrawable, m => m
-                .BindDrawable<NodeTreeDrawable>()
+            .AddMultiple(GraphicsStrings.NodeGraphDrawable, m => m
+                .BindDrawable<NodeGraphDrawable>()
             );
 
         LibraryService.Current

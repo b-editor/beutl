@@ -819,8 +819,6 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
             {
                 element.Name = TypeDisplayHelpers.GetLocalizedName(desc.InitialObject);
 
-                //Todo: レイヤーのアクセントカラー
-                //sLayer.AccentColor = item.InitialOperator.AccentColor;
                 element.AccentColor =
                     ColorGenerator.GenerateColor(desc.InitialObject.FullName ?? desc.InitialObject.Name);
                 var engineObject = (EngineObject)Activator.CreateInstance(desc.InitialObject)!;

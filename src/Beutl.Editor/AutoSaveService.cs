@@ -77,9 +77,9 @@ public sealed class AutoSaveService : IDisposable
         {
             obj = splineOp.Parent;
         }
-        else if (operation is UpdateNodeItemOperation nodeOp)
+        else if (operation is UpdateNodeMemberOperation nodeOp)
         {
-            obj = nodeOp.NodeItem as CoreObject;
+            obj = nodeOp.NodeMember as CoreObject;
         }
 
         if (obj != null)

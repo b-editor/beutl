@@ -1338,8 +1338,8 @@
   <data name="Width" xml:space="preserve">
     <value>Width</value>
   </data>
-  <data name="NodeTreeDrawable" xml:space="preserve">
-    <value>Node Tree</value>
+  <data name="NodeGraphDrawable" xml:space="preserve">
+    <value>Node Graph (Video)</value>
   </data>
   <data name="SceneDrawable" xml:space="preserve">
     <value>Scene Reference (Video)</value>

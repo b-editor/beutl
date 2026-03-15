@@ -9,7 +9,6 @@ using Beutl.Graphics3D;
 using Beutl.Graphics3D.Lighting;
 using Beutl.Graphics3D.Models;
 using Beutl.Graphics3D.Primitives;
-using Beutl.NodeTree;
 using Beutl.Serialization;
 
 namespace Beutl.ProjectSystem;
@@ -27,7 +26,6 @@ internal static class ElementMigration
         new KeyValuePair<string, Type>("[Beutl.Operators].Source:SourceBackdropOperator", typeof(SourceBackdrop)),
         new KeyValuePair<string, Type>("[Beutl.Operators].Source:SourceSoundOperator", typeof(SourceSound)),
         new KeyValuePair<string, Type>("[Beutl.Operators].Source:ParticleEmitterOperator", typeof(ParticleEmitter)),
-        new KeyValuePair<string, Type>("[Beutl.Operators].Source:NodeTreeOperator", typeof(NodeTreeDrawable)),
         new KeyValuePair<string, Type>("[Beutl.ProjectSystem]Beutl.Operation:DecorateOperator", typeof(DrawableDecorator)),
         new KeyValuePair<string, Type>("[Beutl.ProjectSystem]Beutl.Operation:GroupOperator", typeof(DrawableGroup)),
         new KeyValuePair<string, Type>("[Beutl.ProjectSystem]Beutl.Operation:SoundGroupOperator", typeof(SoundGroup)),

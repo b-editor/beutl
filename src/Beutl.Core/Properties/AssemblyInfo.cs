@@ -10,3 +10,4 @@
 [assembly: InternalsVisibleTo("Beutl.PackageTools")]
 [assembly: InternalsVisibleTo("Beutl.PackageTools.UI")]
 [assembly: InternalsVisibleTo("Beutl.Api")]
+[assembly: InternalsVisibleTo("Beutl.NodeGraph")]

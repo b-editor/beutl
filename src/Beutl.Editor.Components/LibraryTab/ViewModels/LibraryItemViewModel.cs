@@ -6,7 +6,7 @@ using System.Text.RegularExpressions;
 using Avalonia.Input;
 
 using Beutl.Editor.Components.Helpers;
-using Beutl.NodeTree;
+using Beutl.NodeGraph;
 using Beutl.Services;
 
 namespace Beutl.Editor.Components.LibraryTab.ViewModels;
@@ -25,14 +25,14 @@ public class LibraryItemViewModel
 
     public List<LibraryItemViewModel> Children { get; } = [];
 
-    public static LibraryItemViewModel CreateFromNodeRegistryItem(NodeRegistry.BaseRegistryItem registryItem,
+    public static LibraryItemViewModel CreateFromGraphNodeRegistryItem(GraphNodeRegistry.BaseRegistryItem registryItem,
         string? parentFullName = null)
     {
         string? description = null;
         object? data = null;
         string? typeName = null;
 
-        if (registryItem is NodeRegistry.RegistryItem draggable)
+        if (registryItem is GraphNodeRegistry.RegistryItem draggable)
         {
             DisplayAttribute? att = draggable.Type.GetCustomAttribute<DisplayAttribute>();
             description = att?.GetDescription();
@@ -45,21 +45,21 @@ public class LibraryItemViewModel
             DisplayName = registryItem.DisplayName,
             Description = description,
             Data = data,
-            Type = Strings.NodeTree,
+            Type = Strings.NodeGraph,
             FullDisplayName = parentFullName != null
                 ? $"{parentFullName} / {registryItem.DisplayName}"
                 : registryItem.DisplayName
         };
 
-        if (registryItem is NodeRegistry.GroupableRegistryItem group)
+        if (registryItem is GraphNodeRegistry.GroupableRegistryItem group)
         {
-            obj.Children.AddRange(group.Items.Select(x => CreateFromNodeRegistryItem(x, obj.FullDisplayName)));
+            obj.Children.AddRange(group.Items.Select(x => CreateFromGraphNodeRegistryItem(x, obj.FullDisplayName)));
         }
 
         return obj;
     }
 
-    public static LibraryItemViewModel CreateFromOperatorRegistryItem(LibraryItem registryItem,
+    public static LibraryItemViewModel CreateFromLibraryItem(LibraryItem registryItem,
         string? parentFullName = null)
     {
         var obj = new LibraryItemViewModel()
@@ -75,7 +75,7 @@ public class LibraryItemViewModel
 
         if (registryItem is GroupLibraryItem group)
         {
-            obj.Children.AddRange(group.Items.Select(x => CreateFromOperatorRegistryItem(x, obj.FullDisplayName)));
+            obj.Children.AddRange(group.Items.Select(x => CreateFromLibraryItem(x, obj.FullDisplayName)));
         }
 
         return obj;
@@ -96,9 +96,9 @@ public class LibraryItemViewModel
                 }
             }
         }
-        else if (Data is NodeRegistry.RegistryItem regitem)
+        else if (Data is GraphNodeRegistry.RegistryItem regitem)
         {
-            yield return (BeutlDataFormats.Node, regitem.Type);
+            yield return (BeutlDataFormats.GraphNode, regitem.Type);
         }
     }
 
@@ -113,7 +113,7 @@ public class LibraryItemViewModel
             KnownLibraryItemFormats.Drawable => BeutlDataFormats.Drawable,
             KnownLibraryItemFormats.Brush => BeutlDataFormats.Brush,
             KnownLibraryItemFormats.FilterEffect => BeutlDataFormats.FilterEffect,
-            KnownLibraryItemFormats.Node => BeutlDataFormats.Node,
+            KnownLibraryItemFormats.GraphNode => BeutlDataFormats.GraphNode,
             KnownLibraryItemFormats.AudioEffect => BeutlDataFormats.AudioEffect,
             KnownLibraryItemFormats.EngineObject => BeutlDataFormats.EngineObject,
             _ => DataFormat.CreateStringApplicationFormat(format)
@@ -122,7 +122,7 @@ public class LibraryItemViewModel
 
     public bool CanDragDrop()
     {
-        return Data is SingleTypeLibraryItem or MultipleTypeLibraryItem or NodeRegistry.RegistryItem;
+        return Data is SingleTypeLibraryItem or MultipleTypeLibraryItem or GraphNodeRegistry.RegistryItem;
     }
 
     public int Match(Regex[] regexes)
@@ -167,7 +167,7 @@ public class LibraryItemViewModel
                 }
             }
         }
-        else if (Data is NodeRegistry.RegistryItem regitem)
+        else if (Data is GraphNodeRegistry.RegistryItem regitem)
         {
             if (RegexHelper.IsMatch(regexes, regitem.Type.Name))
             {
@@ -188,12 +188,12 @@ public class LibraryItemViewModel
                 KnownLibraryItemFormats.Transform => GraphicsStrings.Transform,
                 KnownLibraryItemFormats.Sound => "Sound",
                 KnownLibraryItemFormats.Geometry => "Geometry",
-                KnownLibraryItemFormats.Drawable => "Drawable",
-                KnownLibraryItemFormats.Brush => "Brush",
+                KnownLibraryItemFormats.Drawable => GraphicsStrings.Drawable,
+                KnownLibraryItemFormats.Brush => GraphicsStrings.Brush,
                 KnownLibraryItemFormats.Easing => Strings.Easing,
-                KnownLibraryItemFormats.FilterEffect => "FilterEffect",
-                KnownLibraryItemFormats.Node => "Node",
-                KnownLibraryItemFormats.AudioEffect => "Node",
+                KnownLibraryItemFormats.FilterEffect => GraphicsStrings.FilterEffect,
+                KnownLibraryItemFormats.GraphNode => Strings.NodeGraph,
+                KnownLibraryItemFormats.AudioEffect => AudioStrings.AudioEffect,
                 KnownLibraryItemFormats.EngineObject => Strings.Object,
                 _ => string.Empty,
             };

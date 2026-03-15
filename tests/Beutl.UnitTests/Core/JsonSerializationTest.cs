@@ -2,9 +2,8 @@
 using Beutl.Graphics;
 using Beutl.Graphics.Shapes;
 using Beutl.Logging;
-using Beutl.NodeTree;
-using Beutl.NodeTree.Nodes;
-using Beutl.NodeTree.Nodes.Geometry;
+using Beutl.NodeGraph;
+using Beutl.NodeGraph.Nodes;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
 using Microsoft.Extensions.Logging;
@@ -66,18 +65,18 @@ public class JsonSerializationTest
         var elm2 = new Element { ZIndex = 2 };
         CoreSerializer.StoreToUri(elm2, UriHelper.CreateFromPath(Path.Combine(basePath, $"1.layer")));
         scene.AddChild(elm2);
-        var nodeTreeDrawable = new NodeTreeDrawable();
-        elm2.Objects.Add(nodeTreeDrawable);
-        var nodeTreeModel = nodeTreeDrawable.Model.CurrentValue!;
+        var nodeGraphDrawable = new NodeGraphDrawable();
+        elm2.Objects.Add(nodeGraphDrawable);
+        var graphModel = nodeGraphDrawable.Model.CurrentValue!;
         var rectNode = new RectGeometryNode();
         var shapeNode = new GeometryShapeNode();
         var outNode = new OutputNode();
-        nodeTreeModel.Nodes.Add(rectNode);
-        nodeTreeModel.Nodes.Add(shapeNode);
-        nodeTreeModel.Nodes.Add(outNode);
+        graphModel.Nodes.Add(rectNode);
+        graphModel.Nodes.Add(shapeNode);
+        graphModel.Nodes.Add(outNode);
 
-        nodeTreeModel.Connect((IInputSocket)shapeNode.Items[1], rectNode.OutputSocket);
-        nodeTreeModel.Connect((IInputSocket)outNode.Items[0], (IOutputSocket)shapeNode.Items[0]);
+        graphModel.Connect((IInputPort)shapeNode.Items[1], rectNode.OutputPort);
+        graphModel.Connect((IInputPort)outNode.Items[0], (IOutputPort)shapeNode.Items[0]);
     }
 
     // SaveReferencedObjectsのテスト

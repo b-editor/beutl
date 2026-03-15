@@ -10,7 +10,7 @@ using Beutl.Api.Services;
 using Beutl.Configuration;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Graphics.Backend;
-using Beutl.NodeTree.Nodes;
+using Beutl.NodeGraph.Nodes;
 using Beutl.Operators;
 using Beutl.Pages;
 using Beutl.Services;

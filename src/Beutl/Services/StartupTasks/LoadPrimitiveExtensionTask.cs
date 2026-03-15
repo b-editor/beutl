@@ -7,7 +7,7 @@ using Beutl.Editor.Components.ElementPropertyTab;
 using Beutl.Editor.Components.FileBrowserTab;
 using Beutl.Editor.Components.GraphEditorTab;
 using Beutl.Editor.Components.LibraryTab;
-using Beutl.Editor.Components.NodeTreeTab;
+using Beutl.Editor.Components.NodeGraphTab;
 using Beutl.Editor.Components.ObjectPropertyTab;
 using Beutl.Editor.Components.PathEditorTab;
 using Beutl.Editor.Components.SceneSettingsTab;
@@ -30,7 +30,7 @@ public sealed class LoadPrimitiveExtensionTask : StartupTask
         ObjectPropertyTabExtension.Instance,
         ElementPropertyTabExtension.Instance,
         PropertyEditorExtension.Instance,
-        NodeTreeTabExtension.Instance,
+        NodeGraphTabExtension.Instance,
         GraphEditorTabExtension.Instance,
         SceneSettingsTabExtension.Instance,
         WaveReaderExtension.Instance,

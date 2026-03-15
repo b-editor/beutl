@@ -8,3 +8,4 @@
 [assembly: InternalsVisibleTo("Beutl.UnitTests")]
 [assembly: InternalsVisibleTo("Beutl.Benchmarks")]
 [assembly: InternalsVisibleTo("Beutl.Api")]
+[assembly: InternalsVisibleTo("Beutl.NodeGraph")]
