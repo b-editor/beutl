@@ -188,10 +188,12 @@ class Build : NukeBuild
                 "Beutl.Core",
                 "Beutl.Extensibility",
                 "Beutl.Engine",
+                "Beutl.Engine.SourceGenerators",
                 "Beutl.Language",
                 "Beutl.ProjectSystem",
                 "Beutl.Threading",
                 "Beutl.Utilities",
+                "Beutl.NodeGraph",
             ];
 
             string tfm = GetTFM();

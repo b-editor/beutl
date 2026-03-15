@@ -74,20 +74,21 @@ internal static class CoreLibraries
                         {
                             case "Beutl":
                             case "Beutl.Api":
-                            case "Beutl.Api.Generated":
                             case "Beutl.Configuration":
                             case "Beutl.Controls":
                             case "Beutl.Core":
                             case "Beutl.Embedding.FFmpeg":
                             case "Beutl.Embedding.MediaFoundation" when OperatingSystem.IsWindows():
+                            case "Beutl.Embedding.AVFoundation" when OperatingSystem.IsMacOS():
                             case "Beutl.Engine":
                             case "Beutl.Extensibility":
                             case "Beutl.Language":
+                            case "Beutl.NodeGraph":
                             case "Beutl.ProjectSystem":
                             case "Beutl.Threading":
                             case "Beutl.Utilities":
                             case "Beutl.WaitingDialog":
-                            case "Beutl.PackageTools":
+                            case "Beutl.PackageTools.UI":
                             case "Beutl.ExceptionHandler":
                                 version = BeutlApplication.Version;
                                 break;
