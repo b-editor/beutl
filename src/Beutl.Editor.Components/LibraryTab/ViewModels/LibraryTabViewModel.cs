@@ -28,7 +28,6 @@ public sealed class LibraryTabViewModel : IDisposable, IToolContext
         IList<GraphNodeRegistry.BaseRegistryItem> nodes = GraphNodeRegistry.GetRegistered();
         Nodes = new List<LibraryItemViewModel>(nodes.Count);
         Nodes.AddRange(nodes.Select(x => LibraryItemViewModel.CreateFromGraphNodeRegistryItem(x)));
-        Nodes = new List<LibraryItemViewModel>();
 
         AllItems = new(LibraryService.Current._totalCount + GraphNodeRegistry.s_totalCount);
         AddAllItems(LibraryItems);
