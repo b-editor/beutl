@@ -103,7 +103,7 @@ internal static class SkiaSharpExtensions
             GradientSpreadMethod.Repeat => SKShaderTileMode.Repeat,
             GradientSpreadMethod.Pad => SKShaderTileMode.Clamp,
             GradientSpreadMethod.Decal => SKShaderTileMode.Decal,
-            _ => throw new ArgumentOutOfRangeException(nameof(m), m, null)
+            _ => SKShaderTileMode.Clamp,
         };
     }
 
