@@ -149,6 +149,11 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
+        InstallButtonText = Package.FormattedPrice.CombineLatest(Package.Owned)
+            .Select(t => (t.Second ? null : t.First) ?? ExtensionsStrings.Install)
+            .ToReadOnlyReactivePropertySlim(ExtensionsStrings.Install)
+            .DisposeWith(_disposables);
+
         Install = new AsyncReactiveCommand(IsBusy.Not())
             .WithSubscribe(async () =>
             {
@@ -156,6 +161,13 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
 
                 try
                 {
+                    if (Package.FormattedPrice.Value != null && !Package.Owned.Value)
+                    {
+                        string url = $"https://beutl.beditor.net/store/{Package.Name}";
+                        Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
+                        return;
+                    }
+
                     StatusText.Value = ExtensionsStrings.Installing;
                     using (await _app.Lock.LockAsync())
                     {
@@ -351,6 +363,8 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
     public ReadOnlyReactivePropertySlim<bool> SelectingLatestVersion { get; }
 
     public ReadOnlyReactivePropertySlim<bool> CanInstallOrUpdate { get; }
+
+    public ReadOnlyReactivePropertySlim<string> InstallButtonText { get; }
 
     public AsyncReactiveCommand Install { get; }
 

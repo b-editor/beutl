@@ -127,4 +127,13 @@ To force installation, use the CLI tool.</value>
   <data name="Uninstalling" xml:space="preserve">
     <value>Uninstalling...</value>
   </data>
+  <data name="Free" xml:space="preserve">
+    <value>Free</value>
+  </data>
+  <data name="RemoveFromLibrary_Title" xml:space="preserve">
+    <value>Remove from Library</value>
+  </data>
+  <data name="RemoveFromLibrary_PaidConfirmation" xml:space="preserve">
+    <value>This is a paid package ({0}). If you remove it from your library, you will need to purchase it again to re-acquire. Are you sure?</value>
+  </data>
 </root>

@@ -32,6 +32,8 @@ public class Package
         Price = _response.Select(x => x.Price).ToReadOnlyReactivePropertySlim();
         Paid = _response.Select(x => x.Paid).ToReadOnlyReactivePropertySlim();
         Owned = _response.Select(x => x.Owned).ToReadOnlyReactivePropertySlim();
+        FormattedPrice = _response.Select(x => FormatPrice(x.Price, x.Currency))
+            .ToReadOnlyReactivePropertySlim<string?>();
     }
 
     public IReadOnlyReactiveProperty<PackageResponse> Response => _response;
@@ -66,7 +68,22 @@ public class Package
 
     public IReadOnlyReactiveProperty<bool> Owned { get; }
 
+    public IReadOnlyReactiveProperty<string?> FormattedPrice { get; }
+
     public MyAsyncLock Lock => _clients.Lock;
+
+    internal static string? FormatPrice(int? price, string? currency)
+    {
+        if (price is null or 0)
+            return null;
+
+        return currency?.ToUpperInvariant() switch
+        {
+            "JPY" => $"\u00a5{price:N0}",
+            "USD" => $"${price / 100.0:F2}",
+            _ => $"{price} {currency}"
+        };
+    }
 
     public async Task RefreshAsync()
     {

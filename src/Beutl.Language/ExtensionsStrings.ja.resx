@@ -122,4 +122,13 @@ URLが不審な場合、開かないことをお勧めします。</value>
   <data name="Uninstalling" xml:space="preserve">
     <value>アンインストール中...</value>
   </data>
+  <data name="Free" xml:space="preserve">
+    <value>無料</value>
+  </data>
+  <data name="RemoveFromLibrary_Title" xml:space="preserve">
+    <value>ライブラリから削除</value>
+  </data>
+  <data name="RemoveFromLibrary_PaidConfirmation" xml:space="preserve">
+    <value>これは有料パッケージ({0})です。ライブラリから削除すると、再取得するには再度購入が必要です。よろしいですか？</value>
+  </data>
 </root>
