@@ -82,7 +82,7 @@ public partial class DisplacementMapTranslateTransform : DisplacementMapTransfor
         if (s_shader is null) throw new InvalidOperationException("Failed to compile SKSL.");
         var r = (Resource)resource;
 
-        context.CustomEffect((displacementMap, r, spreadMethod, channel, signed, X, Y),
+        context.CustomEffect((displacementMap, r, spreadMethod, channel, signed, r.X, r.Y),
             (d, c) =>
             {
                 var (map, r, sm, ch, isSigned, x, y) = d;
@@ -104,7 +104,7 @@ public partial class DisplacementMapTranslateTransform : DisplacementMapTransfor
                     builder.Children["uBaseTexture"] = baseShader;
                     builder.Children["uDisplacementMap"] = displacementMapShader;
 
-                    builder.Uniforms["uTranslation"] = new SKPoint(r.X, r.Y);
+                    builder.Uniforms["uTranslation"] = new SKPoint(x, y);
                     builder.Uniforms["uChannel"] = (int)ch;
                     builder.Uniforms["uSigned"] = isSigned ? 1 : 0;
 
