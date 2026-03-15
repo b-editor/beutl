@@ -33,7 +33,7 @@ internal sealed class DirectoryWatcherService : IDisposable
             _watcher = new FileSystemWatcher(path)
             {
                 NotifyFilter = NotifyFilters.FileName | NotifyFilters.DirectoryName | NotifyFilters.LastWrite,
-                IncludeSubdirectories = false,
+                IncludeSubdirectories = true,
                 EnableRaisingEvents = true
             };
 
@@ -48,8 +48,20 @@ internal sealed class DirectoryWatcherService : IDisposable
         }
     }
 
+    // プロジェクト、シーン、要素のファイルは頻繁に変更されるため除外
+    private bool ShouldExcludePath(string path)
+    {
+        return path.EndsWith(".bep", StringComparison.OrdinalIgnoreCase) ||
+               path.EndsWith(".scene", StringComparison.OrdinalIgnoreCase) ||
+               path.EndsWith(".belm", StringComparison.OrdinalIgnoreCase) ||
+               path.Contains(".beutl");
+    }
+
     private void OnFileSystemEvent(object sender, FileSystemEventArgs e)
     {
+        if (ShouldExcludePath(e.FullPath))
+            return;
+
         _debounceCts?.Cancel();
         _debounceCts?.Dispose();
         _debounceCts = new CancellationTokenSource();
