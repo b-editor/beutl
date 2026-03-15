@@ -1,4 +1,4 @@
-using Microsoft.Extensions.Logging;
+﻿using Microsoft.Extensions.Logging;
 using NuGet.Common;
 using LogLevel = NuGet.Common.LogLevel;
 
