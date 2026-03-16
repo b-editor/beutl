@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <TargetFrameworks>netstandard2.0</TargetFrameworks>
+    <PackageId>Beutl.Extensibility.Sdk</PackageId>
+    <PackageType>MSBuildSdk</PackageType>
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+    <SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+  </PropertyGroup>
+
+  <Target Name="_GenerateVersionProps" BeforeTargets="GenerateNuspec;Pack">
+    <PropertyGroup>
+      <_VersionPropsContent>
+<![CDATA[<Project>
+  <PropertyGroup>
+    <BeutlExtensibilitySdkVersion>$(Version)</BeutlExtensibilitySdkVersion>
+  </PropertyGroup>
+</Project>]]>
+      </_VersionPropsContent>
+    </PropertyGroup>
+    <WriteLinesToFile
+      File="$(IntermediateOutputPath)Sdk/Version.props"
+      Lines="$(_VersionPropsContent)"
+      Overwrite="true" />
+  </Target>
+
+  <ItemGroup>
+    <None Include="$(IntermediateOutputPath)Sdk/Version.props" Pack="true" PackagePath="Sdk/" />
+  </ItemGroup>
+  
+  <ItemGroup>
+    <None Include="Sdk\Sdk.props" Pack="true" PackagePath="Sdk" />
+    <None Include="Sdk\Sdk.targets" Pack="true" PackagePath="Sdk" />
+  </ItemGroup>
+</Project>
