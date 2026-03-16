@@ -6,8 +6,7 @@ using System.Text;
 using Beutl.Api.Objects;
 using Beutl.Logging;
 using Beutl.Reactive;
-
-using NuGet.Common;
+using Microsoft.Extensions.Logging;
 using NuGet.Configuration;
 using NuGet.Frameworks;
 using NuGet.Packaging;
@@ -16,6 +15,7 @@ using NuGet.Packaging.Signing;
 using NuGet.Protocol.Core.Types;
 using NuGet.Resolver;
 using NuGet.Versioning;
+using ILogger = NuGet.Common.ILogger;
 
 namespace Beutl.Api.Services;
 
@@ -422,18 +422,18 @@ public partial class PackageInstaller : IBeutlApiResource
         IProgress<double>? progress,
         CancellationToken cancellationToken)
     {
-        var request = new HttpRequestMessage(HttpMethod.Get, url);
+        using var request = new HttpRequestMessage(HttpMethod.Get, url);
         if (_apiApplication.AuthenticatedUser.Value is { } user)
         {
             try
             {
                 await user.RefreshAsync();
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", user.Token);
             }
-            catch (Exception)
+            catch (Exception ex)
             {
+                _logger.LogWarning(ex, "Failed to refresh authenticated user. Proceeding without authentication.");
             }
-
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", user.Token);
         }
 
         using (HttpResponseMessage response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false))

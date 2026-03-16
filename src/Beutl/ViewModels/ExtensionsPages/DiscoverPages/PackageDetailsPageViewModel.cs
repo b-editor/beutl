@@ -161,7 +161,8 @@ public sealed class PackageDetailsPageViewModel : BasePageViewModel, ISupportRef
 
                 try
                 {
-                    if (Package.FormattedPrice.Value != null && !Package.Owned.Value)
+                    // 価格が設定されていて所有していない場合はストアページを開く
+                    if (Package.Price.Value != null && Package.Price.Value > 0 && !Package.Owned.Value)
                     {
                         string url = $"https://beutl.beditor.net/store/{Package.Name}";
                         Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });

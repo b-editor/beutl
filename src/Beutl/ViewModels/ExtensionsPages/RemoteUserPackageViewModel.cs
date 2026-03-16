@@ -241,6 +241,7 @@ public sealed class RemoteUserPackageViewModel : BaseViewModel, IUserPackageView
                 {
                     IsBusy.Value = true;
 
+                    // 所有しているが支払っていない場合（入手後に価格が設定された）は確認ダイアログを表示する
                     if (!Package.Paid.Value && Package.FormattedPrice.Value != null)
                     {
                         string priceText = Package.FormattedPrice.Value;
