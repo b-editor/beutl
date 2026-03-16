@@ -1,0 +1,77 @@
+<Project>
+  <PropertyGroup>
+    <_PreventCopyInternalPackages>false</_PreventCopyInternalPackages>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(DebugApplication)' == 'true' or '$(DebugApplicationTransitive)' == 'true'">
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
+    <_PreventCopyInternalPackages>true</_PreventCopyInternalPackages>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(DebugApplicationTransitive)' == 'true'">
+    <CopyLocalLockFileAssemblies>false</CopyLocalLockFileAssemblies>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(DebugApplication)' == 'true'">
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(DebugApplication)' == 'true' and '$(BeutlSideloadPath)' == ''">
+    <_BeutlHome Condition="'$(BEUTL_HOME)' != ''">$(BEUTL_HOME)</_BeutlHome>
+    <_BeutlHome Condition="'$(_BeutlHome)' == ''">$([System.Environment]::GetFolderPath(SpecialFolder.UserProfile))$([System.IO.Path]::DirectorySeparatorChar).beutl</_BeutlHome>
+    <BeutlSideloadPath>$(_BeutlHome)$([System.IO.Path]::DirectorySeparatorChar)sideloads$([System.IO.Path]::DirectorySeparatorChar)$(AssemblyName)</BeutlSideloadPath>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(DebugApplication)' == 'true'">
+    <OutputPath>$(BeutlSideloadPath)</OutputPath>
+  </PropertyGroup>
+
+  <Import Project="Sdk.targets" Sdk="Microsoft.NET.Sdk" />
+
+  <!-- Auto-reference opt-out properties -->
+  <PropertyGroup>
+    <BeutlAutoReferenceAll Condition="'$(BeutlAutoReferenceAll)' == ''">true</BeutlAutoReferenceAll>
+    <BeutlAutoReferenceExtensibility Condition="'$(BeutlAutoReferenceExtensibility)' == ''">$(BeutlAutoReferenceAll)</BeutlAutoReferenceExtensibility>
+    <BeutlAutoReferenceProjectSystem Condition="'$(BeutlAutoReferenceProjectSystem)' == ''">$(BeutlAutoReferenceAll)</BeutlAutoReferenceProjectSystem>
+    <BeutlAutoReferenceNodeGraph Condition="'$(BeutlAutoReferenceNodeGraph)' == ''">$(BeutlAutoReferenceAll)</BeutlAutoReferenceNodeGraph>
+    <BeutlAutoReferenceSourceGenerators Condition="'$(BeutlAutoReferenceSourceGenerators)' == ''">$(BeutlAutoReferenceAll)</BeutlAutoReferenceSourceGenerators>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(_PreventCopyInternalPackages)' == 'true'">
+    <PackageReference Include="Beutl.Extensibility" Version="$(BeutlPackagesVersion)" ExcludeAssets="runtime;native" Condition="'$(BeutlAutoReferenceExtensibility)' == 'true'" />
+    <PackageReference Include="Beutl.ProjectSystem" Version="$(BeutlPackagesVersion)" ExcludeAssets="runtime;native" Condition="'$(BeutlAutoReferenceProjectSystem)' == 'true'" />
+    <PackageReference Include="Beutl.NodeGraph" Version="$(BeutlPackagesVersion)" ExcludeAssets="runtime;native" Condition="'$(BeutlAutoReferenceNodeGraph)' == 'true'" />
+    <PackageReference
+      Include="Beutl.Engine.SourceGenerators"
+      OutputItemType="Analyzer"
+      ReferenceOutputAssembly="false"
+      Version="$(BeutlPackagesVersion)"
+      PrivateAssets="all"
+      Condition="'$(BeutlAutoReferenceSourceGenerators)' == 'true'" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(_PreventCopyInternalPackages)' != 'true'">
+    <PackageReference Include="Beutl.Extensibility" Version="$(BeutlPackagesVersion)" Condition="'$(BeutlAutoReferenceExtensibility)' == 'true'" />
+    <PackageReference Include="Beutl.ProjectSystem" Version="$(BeutlPackagesVersion)" Condition="'$(BeutlAutoReferenceProjectSystem)' == 'true'" />
+    <PackageReference Include="Beutl.NodeGraph" Version="$(BeutlPackagesVersion)" Condition="'$(BeutlAutoReferenceNodeGraph)' == 'true'" />
+    <PackageReference
+      Include="Beutl.Engine.SourceGenerators"
+      OutputItemType="Analyzer"
+      ReferenceOutputAssembly="false"
+      Version="$(BeutlPackagesVersion)"
+      Condition="'$(BeutlAutoReferenceSourceGenerators)' == 'true'" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetsForTfmSpecificBuildOutput>$(TargetsForTfmSpecificBuildOutput);CopyProjectReferencesToPackage</TargetsForTfmSpecificBuildOutput>
+  </PropertyGroup>
+
+  <Target Name="CopyProjectReferencesToPackage" DependsOnTargets="ResolveReferences">
+      <ItemGroup>
+          <BuildOutputInPackage
+              Include="@(ReferenceCopyLocalPaths)"
+              Condition="'%(ReferenceCopyLocalPaths.ReferenceSourceTarget)' == 'ProjectReference'" />
+      </ItemGroup>
+  </Target>
+
+</Project>

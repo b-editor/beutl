@@ -182,36 +182,43 @@ class Build : NukeBuild
         .DependsOn(Restore)
         .Executes(() =>
         {
-            string[] projects =
+            string tfm = GetTFM();
+            (string Name, string TFM)[] projects =
             [
-                "Beutl.Configuration",
-                "Beutl.Core",
-                "Beutl.Extensibility",
-                "Beutl.Engine",
-                "Beutl.Engine.SourceGenerators",
-                "Beutl.Language",
-                "Beutl.ProjectSystem",
-                "Beutl.Threading",
-                "Beutl.Utilities",
-                "Beutl.NodeGraph",
+                ("Beutl.Configuration", tfm),
+                ("Beutl.Core", tfm),
+                ("Beutl.Extensibility", tfm),
+                ("Beutl.Engine", tfm),
+                ("Beutl.Engine.SourceGenerators", "netstandard2.0"),
+                ("Beutl.Language", tfm),
+                ("Beutl.ProjectSystem", tfm),
+                ("Beutl.Threading", tfm),
+                ("Beutl.Utilities", tfm),
+                ("Beutl.NodeGraph", tfm),
             ];
 
-            string tfm = GetTFM();
-            foreach (string proj in projects)
+            foreach (var (name, projectTfm) in projects)
             {
                 DotNetBuild(s => s
                     .EnableNoRestore()
-                    .SetFramework(tfm)
+                    .SetFramework(projectTfm)
                     .SetConfiguration(Configuration)
                     .SetVersions(Version, AssemblyVersion, InformationalVersion)
-                    .SetProjectFile(SourceDirectory / proj / $"{proj}.csproj"));
+                    .SetProjectFile(SourceDirectory / name / $"{name}.csproj"));
 
                 DotNetPack(s => s
                     .EnableNoRestore()
                     .SetConfiguration(Configuration)
                     .SetVersions(Version, AssemblyVersion, InformationalVersion)
                     .SetOutputDirectory(ArtifactsDirectory)
-                    .SetProject(SourceDirectory / proj / $"{proj}.csproj"));
+                    .SetProject(SourceDirectory / name / $"{name}.csproj"));
             }
+
+            DotNetPack(s => s
+                .EnableNoRestore()
+                .SetConfiguration(Configuration)
+                .SetVersions(Version, AssemblyVersion, InformationalVersion)
+                .SetOutputDirectory(ArtifactsDirectory)
+                .SetProject(RootDirectory / "sdk" / "Beutl.Extensibility.Sdk" / "Beutl.Extensibility.Sdk.csproj"));
         });
 }
