@@ -364,7 +364,9 @@ public static class PropertyEditorService
 
         public bool TryCreateControlForNode(IPropertyEditorContext context, [NotNullWhen(true)] out Control? control)
         {
-            return TryCreateControlCore(context, out control);
+            var result = TryCreateControlCore(context, out control);
+            control?.Margin -= new Avalonia.Thickness(control is PropertyEditor ? 4 : 8, 0);
+            return result;
         }
 
         public bool TryCreateControlForListItem(IPropertyEditorContext context, [NotNullWhen(true)] out IListItemEditor? control)
@@ -511,11 +513,6 @@ public static class PropertyEditorService
             }
             finally
             {
-                if (control != null)
-                {
-                    control.Margin -= new Avalonia.Thickness(control is PropertyEditor ? 4 : 8, 0);
-                }
-
                 if (control is IPropertyEditorContextVisitor visitor)
                 {
                     context.Accept(visitor);
