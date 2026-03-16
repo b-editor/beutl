@@ -7,7 +7,7 @@ namespace Beutl.Graphics.Effects;
 
 [Display(Name = nameof(GraphicsStrings.DelayAnimationEffect), ResourceType = typeof(GraphicsStrings))]
 [SuppressResourceClassGeneration]
-public class DelayAnimationEffect : FilterEffect
+public partial class DelayAnimationEffect : FilterEffect
 {
     public DelayAnimationEffect()
     {

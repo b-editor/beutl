@@ -25,8 +25,9 @@ public static class ClassInfoExtractor
         Compilation compilation = context.SemanticModel.Compilation;
         INamedTypeSymbol? engineObjectSymbol = compilation.GetTypeByMetadataName("Beutl.Engine.EngineObject");
         INamedTypeSymbol? iPropertySymbol = compilation.GetTypeByMetadataName("Beutl.Engine.IProperty`1");
+        INamedTypeSymbol? iListPropertySymbol = compilation.GetTypeByMetadataName("Beutl.Engine.IListProperty`1");
         INamedTypeSymbol? suppressAttribute = compilation.GetTypeByMetadataName("Beutl.Engine.SuppressResourceClassGenerationAttribute");
-        if (engineObjectSymbol is null || iPropertySymbol is null || suppressAttribute is null)
+        if (engineObjectSymbol is null || iPropertySymbol is null || iListPropertySymbol is null || suppressAttribute is null)
         {
             return null;
         }
@@ -47,11 +48,7 @@ public static class ClassInfoExtractor
             return null;
         }
 
-        if (TypeAnalysisHelpers.HasSuppressResourceClassGenerationAttribute(symbol, suppressAttribute))
-        {
-            return null;
-        }
-
+        bool suppressedResourceClassGeneration = TypeAnalysisHelpers.HasSuppressResourceClassGenerationAttribute(symbol, suppressAttribute);
         bool isPartial = classDeclaration.Modifiers.Any(m => m.IsKind(SyntaxKind.PartialKeyword));
 
         var valueProperties = ImmutableArray.CreateBuilder<ValuePropertyInfo>();
@@ -81,10 +78,7 @@ public static class ClassInfoExtractor
                 continue;
             }
 
-            if (propertySymbol.GetAttributes().Any(attr => SymbolEqualityComparer.Default.Equals(attr.AttributeClass, suppressAttribute)))
-            {
-                continue;
-            }
+            var excludeResource = propertySymbol.GetAttributes().Any(attr => SymbolEqualityComparer.Default.Equals(attr.AttributeClass, suppressAttribute));
 
             if (namedType.IsGenericType && SymbolEqualityComparer.Default.Equals(namedType.ConstructedFrom, iPropertySymbol))
             {
@@ -92,13 +86,13 @@ public static class ClassInfoExtractor
                 ImmutableArray<AttributeData> propAttrs = propertySymbol.GetAttributes();
                 if (TypeAnalysisHelpers.IsEngineObjectType(valueType, engineObjectSymbol) && valueType is INamedTypeSymbol engineObjectType)
                 {
-                    var propInfo = new ObjectPropertyInfo(propertySymbol.Name, engineObjectType, propAttrs);
+                    var propInfo = new ObjectPropertyInfo(propertySymbol.Name, engineObjectType, propAttrs, excludeResource);
                     objectProperties.Add(propInfo);
                     orderedProperties.Add(propInfo);
                 }
                 else
                 {
-                    var propInfo = new ValuePropertyInfo(propertySymbol.Name, valueType, propAttrs);
+                    var propInfo = new ValuePropertyInfo(propertySymbol.Name, valueType, propAttrs, excludeResource);
                     valueProperties.Add(propInfo);
                     orderedProperties.Add(propInfo);
                 }
@@ -106,10 +100,13 @@ public static class ClassInfoExtractor
                 continue;
             }
 
-            if (TypeAnalysisHelpers.TryGetListElementType(namedType, engineObjectSymbol, out INamedTypeSymbol? elementType))
+            if (namedType.IsGenericType && SymbolEqualityComparer.Default.Equals(namedType.ConstructedFrom, iListPropertySymbol))
             {
+                ITypeSymbol elementType = namedType.TypeArguments[0];
+                if (!TypeAnalysisHelpers.IsEngineObjectType(elementType, engineObjectSymbol)) continue;
+
                 ImmutableArray<AttributeData> listAttrs = propertySymbol.GetAttributes();
-                var propInfo = new ListPropertyInfo(propertySymbol.Name, elementType!, listAttrs);
+                var propInfo = new ListPropertyInfo(propertySymbol.Name, elementType, listAttrs, excludeResource);
                 listProperties.Add(propInfo);
                 orderedProperties.Add(propInfo);
             }
@@ -174,6 +171,7 @@ public static class ClassInfoExtractor
             listProperties.ToImmutable(),
             portProperties.ToImmutable(),
             orderedProperties.ToImmutable(),
-            isNodeSubclass);
+            isNodeSubclass,
+            suppressedResourceClassGeneration);
     }
 }

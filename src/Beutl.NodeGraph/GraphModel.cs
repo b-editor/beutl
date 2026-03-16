@@ -4,7 +4,7 @@ using Beutl.Engine;
 namespace Beutl.NodeGraph;
 
 [SuppressResourceClassGeneration]
-public class GraphModel : EngineObject
+public partial class GraphModel : EngineObject
 {
     public static readonly CoreProperty<HierarchicalList<GraphNode>> NodesProperty;
     public static readonly CoreProperty<HierarchicalList<Connection>> AllConnectionsProperty;

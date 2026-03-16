@@ -11,7 +11,7 @@ namespace Beutl.NodeGraph;
 
 [Display(Name = nameof(GraphicsStrings.NodeGraphDrawable), ResourceType = typeof(GraphicsStrings))]
 [SuppressResourceClassGeneration]
-public sealed class NodeGraphDrawable : Drawable
+public sealed partial class NodeGraphDrawable : Drawable
 {
     public NodeGraphDrawable()
     {

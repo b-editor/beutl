@@ -127,7 +127,7 @@ public static class EmitHelpers
         return "_" + char.ToLowerInvariant(propertyName[0]) + propertyName.Substring(1);
     }
 
-    public static string GetResourceTypeName(INamedTypeSymbol symbol)
+    public static string GetResourceTypeName(ITypeSymbol symbol)
     {
         var name = symbol.ToDisplayString(TypeDisplayFormat);
         if (name.EndsWith("?"))

@@ -32,67 +32,6 @@ public static class TypeAnalysisHelpers
         return false;
     }
 
-    public static bool IsListLike(INamedTypeSymbol type)
-    {
-        if (type.Name.EndsWith("List", StringComparison.Ordinal))
-        {
-            return true;
-        }
-
-        foreach (INamedTypeSymbol interfaceType in type.AllInterfaces)
-        {
-            if (interfaceType.Name.EndsWith("List", StringComparison.Ordinal))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    public static bool TryGetListElementType(INamedTypeSymbol type, INamedTypeSymbol engineObjectSymbol, out INamedTypeSymbol? elementType)
-    {
-        elementType = null;
-
-        // Check if the type directly has a generic argument
-        if (IsListLike(type) && type.TypeArguments.Length == 1 && type.TypeArguments[0] is INamedTypeSymbol directElementType)
-        {
-            if (IsEngineObjectType(directElementType, engineObjectSymbol))
-            {
-                elementType = directElementType;
-                return true;
-            }
-        }
-
-        // Search in base classes
-        for (INamedTypeSymbol? current = type.BaseType; current is not null; current = current.BaseType)
-        {
-            if (IsListLike(current) && current.TypeArguments.Length == 1 && current.TypeArguments[0] is INamedTypeSymbol baseElementType)
-            {
-                if (IsEngineObjectType(baseElementType, engineObjectSymbol))
-                {
-                    elementType = baseElementType;
-                    return true;
-                }
-            }
-        }
-
-        // Search in interfaces
-        foreach (INamedTypeSymbol interfaceType in type.AllInterfaces)
-        {
-            if (IsListLike(interfaceType) && interfaceType.TypeArguments.Length == 1 && interfaceType.TypeArguments[0] is INamedTypeSymbol interfaceElementType)
-            {
-                if (IsEngineObjectType(interfaceElementType, engineObjectSymbol))
-                {
-                    elementType = interfaceElementType;
-                    return true;
-                }
-            }
-        }
-
-        return false;
-    }
-
     public static bool HasSuppressResourceClassGenerationAttribute(INamedTypeSymbol symbol, INamedTypeSymbol suppressAttribute)
     {
         // Check current class

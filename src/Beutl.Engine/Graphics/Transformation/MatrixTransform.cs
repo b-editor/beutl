@@ -6,7 +6,7 @@ using Beutl.Language;
 namespace Beutl.Graphics.Transformation;
 
 [Display(Name = nameof(GraphicsStrings.MatrixTransform), ResourceType = typeof(GraphicsStrings))]
-public sealed class MatrixTransform : Transform
+public sealed partial class MatrixTransform : Transform
 {
     public MatrixTransform()
     {

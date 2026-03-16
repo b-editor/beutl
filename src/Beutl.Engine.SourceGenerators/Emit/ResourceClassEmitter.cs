@@ -10,6 +10,8 @@ public static class ResourceClassEmitter
 {
     public static void Emit(StringBuilder sb, string indent, string currentTypeDisplay, ClassInfo info)
     {
+        if (info.SuppressedResourceGeneration) return;
+
         string renderContextType = "global::Beutl.Composition.CompositionContext";
         string engineObjectType = "global::Beutl.Engine.EngineObject";
 
@@ -50,6 +52,8 @@ public static class ResourceClassEmitter
     {
         foreach (ValuePropertyInfo property in info.ValueProperties)
         {
+            if (property.ExcludeFromResource) continue;
+
             string fieldName = EmitHelpers.ToFieldName(property.Name);
             string valueTypeDisplay = property.ValueType.ToDisplayString(EmitHelpers.TypeDisplayFormat);
             sb.Append(innerIndent).AppendLine($"private {valueTypeDisplay} {fieldName} = default!;");
@@ -58,6 +62,8 @@ public static class ResourceClassEmitter
 
         foreach (ObjectPropertyInfo property in info.ObjectProperties)
         {
+            if (property.ExcludeFromResource) continue;
+
             string fieldName = EmitHelpers.ToFieldName(property.Name);
             string resourceType = EmitHelpers.GetResourceTypeName(property.ValueType);
             sb.Append(innerIndent).AppendLine($"private {resourceType} {fieldName} = default!;");
@@ -66,6 +72,8 @@ public static class ResourceClassEmitter
 
         foreach (ListPropertyInfo property in info.ListProperties)
         {
+            if (property.ExcludeFromResource) continue;
+
             string fieldName = EmitHelpers.ToFieldName(property.Name);
             string resourceType = EmitHelpers.GetResourceTypeName(property.ElementType);
             sb.Append(innerIndent)
@@ -86,6 +94,8 @@ public static class ResourceClassEmitter
     {
         foreach (ValuePropertyInfo property in info.ValueProperties)
         {
+            if (property.ExcludeFromResource) continue;
+
             string fieldName = EmitHelpers.ToFieldName(property.Name);
             string valueTypeDisplay = property.ValueType.ToDisplayString(EmitHelpers.TypeDisplayFormat);
             sb.Append(innerIndent).AppendLine($"public {valueTypeDisplay} {property.Name}");
@@ -98,6 +108,8 @@ public static class ResourceClassEmitter
 
         foreach (ObjectPropertyInfo property in info.ObjectProperties)
         {
+            if (property.ExcludeFromResource) continue;
+
             string fieldName = EmitHelpers.ToFieldName(property.Name);
             string resourceType = EmitHelpers.GetResourceTypeName(property.ValueType);
             sb.Append(innerIndent).AppendLine($"public {resourceType} {property.Name}");
@@ -110,6 +122,8 @@ public static class ResourceClassEmitter
 
         foreach (ListPropertyInfo property in info.ListProperties)
         {
+            if (property.ExcludeFromResource) continue;
+
             string fieldName = EmitHelpers.ToFieldName(property.Name);
             string resourceType = EmitHelpers.GetResourceTypeName(property.ElementType);
             sb.Append(innerIndent).AppendLine($"public global::System.Collections.Generic.List<{resourceType}> {property.Name}");
@@ -189,6 +203,8 @@ public static class ResourceClassEmitter
             {
                 foreach (ValuePropertyInfo property in info.ValueProperties)
                 {
+                    if (property.ExcludeFromResource) continue;
+
                     string fieldName = EmitHelpers.ToFieldName(property.Name);
                     sb.Append(innerIndent).AppendLine($"    CompareAndUpdate(context, (({currentTypeDisplay})obj).{property.Name}, ref {fieldName}, ref updateOnly);");
                 }
@@ -206,6 +222,8 @@ public static class ResourceClassEmitter
                 int listIndex = 0;
                 foreach (ListPropertyInfo property in info.ListProperties)
                 {
+                    if (property.ExcludeFromResource) continue;
+
                     if (listIndex > 0)
                     {
                         sb.AppendLine();
@@ -229,6 +247,8 @@ public static class ResourceClassEmitter
                 int objectIndex = 0;
                 foreach (ObjectPropertyInfo property in info.ObjectProperties)
                 {
+                    if (property.ExcludeFromResource) continue;
+
                     if (objectIndex > 0)
                     {
                         sb.AppendLine();
@@ -257,12 +277,16 @@ public static class ResourceClassEmitter
         sb.Append(innerIndent).AppendLine("    {");
         foreach (ObjectPropertyInfo property in info.ObjectProperties)
         {
+            if (property.ExcludeFromResource) continue;
+
             string fieldName = EmitHelpers.ToFieldName(property.Name);
             sb.Append(innerIndent).AppendLine($"        {fieldName}?.Dispose();");
         }
 
         foreach (ListPropertyInfo property in info.ListProperties)
         {
+            if (property.ExcludeFromResource) continue;
+
             string fieldName = EmitHelpers.ToFieldName(property.Name);
             sb.Append(innerIndent).AppendLine($"        if ({fieldName} != null)");
             sb.Append(innerIndent).AppendLine("        {");

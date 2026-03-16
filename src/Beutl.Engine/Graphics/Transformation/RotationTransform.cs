@@ -7,7 +7,7 @@ using Beutl.Utilities;
 namespace Beutl.Graphics.Transformation;
 
 [Display(Name = nameof(GraphicsStrings.Rotation), ResourceType = typeof(GraphicsStrings))]
-public sealed class RotationTransform : Transform
+public sealed partial class RotationTransform : Transform
 {
     public RotationTransform()
     {

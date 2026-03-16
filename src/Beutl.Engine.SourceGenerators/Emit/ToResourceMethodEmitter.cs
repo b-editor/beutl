@@ -8,6 +8,8 @@ public static class ToResourceMethodEmitter
 {
     public static void Emit(StringBuilder sb, string indent, string currentTypeDisplay, ClassInfo info)
     {
+        if (info.SuppressedResourceGeneration) return;
+
         string renderContextType = "global::Beutl.Composition.CompositionContext";
 
         if (info.Symbol.IsAbstract)

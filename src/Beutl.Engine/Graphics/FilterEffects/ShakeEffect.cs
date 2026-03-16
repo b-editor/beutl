@@ -8,7 +8,7 @@ namespace Beutl.Graphics.Effects;
 
 [Display(Name = nameof(GraphicsStrings.ShakeEffect), ResourceType = typeof(GraphicsStrings))]
 [SuppressResourceClassGeneration]
-public class ShakeEffect : FilterEffect
+public partial class ShakeEffect : FilterEffect
 {
     private readonly PerlinNoise _random = new();
     private float _offset;

@@ -5,9 +5,8 @@ using Beutl.Language;
 
 namespace Beutl.Graphics.Transformation;
 
-[SuppressResourceClassGeneration]
 [Display(Name = nameof(GraphicsStrings.Presenter), ResourceType = typeof(GraphicsStrings))]
-public sealed class TransformPresenter : Transform, IPresenter<Transform>
+public sealed partial class TransformPresenter : Transform, IPresenter<Transform>
 {
     public TransformPresenter()
     {

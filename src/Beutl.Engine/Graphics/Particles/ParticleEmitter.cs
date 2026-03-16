@@ -9,7 +9,7 @@ namespace Beutl.Graphics.Particles;
 
 [Display(Name = nameof(GraphicsStrings.ParticleEmitter), ResourceType = typeof(GraphicsStrings))]
 [SuppressResourceClassGeneration]
-public class ParticleEmitter : Drawable
+public partial class ParticleEmitter : Drawable
 {
     public ParticleEmitter()
     {

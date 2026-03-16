@@ -6,7 +6,7 @@ using Beutl.Language;
 namespace Beutl.Graphics.Transformation;
 
 [Display(Name = nameof(GraphicsStrings.TranslateTransform), ResourceType = typeof(GraphicsStrings))]
-public sealed class TranslateTransform : Transform
+public sealed partial class TranslateTransform : Transform
 {
     public TranslateTransform()
     {

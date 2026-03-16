@@ -44,6 +44,8 @@ public sealed class EngineObjectResourceGenerator : IIncrementalGenerator
                 continue;
             }
 
+            if (!info.ShouldGenerate()) continue;
+
             if (!info.IsPartial)
             {
                 context.ReportDiagnostic(Diagnostic.Create(

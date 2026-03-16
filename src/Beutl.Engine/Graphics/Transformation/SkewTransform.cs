@@ -7,7 +7,7 @@ using Beutl.Utilities;
 namespace Beutl.Graphics.Transformation;
 
 [Display(Name = nameof(GraphicsStrings.SkewTransform), ResourceType = typeof(GraphicsStrings))]
-public sealed class SkewTransform : Transform
+public sealed partial class SkewTransform : Transform
 {
     public SkewTransform(float skewX, float skewY) : this()
     {
