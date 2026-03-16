@@ -18,7 +18,7 @@ public sealed class Project : Hierarchical
     public static readonly CoreProperty<string> MinAppVersionProperty;
     private readonly HierarchicalList<ProjectItem> _items;
 
-    public const string DefaultMinAppVersion = "1.0.0-preview.9";
+    public const string DefaultMinAppVersion = "2.0.0-preview.1";
 
     static Project()
     {
