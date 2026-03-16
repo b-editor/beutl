@@ -262,6 +262,33 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel, IFallbackObjectV
         }
     }
 
+    public void SetDrawableTarget(Drawable? target)
+    {
+        if (Value.Value is not DrawableBrush drawableBrush)
+        {
+            drawableBrush = new DrawableBrush();
+            PropertyAdapter.SetValue(drawableBrush);
+        }
+
+        if (drawableBrush.Drawable.CurrentValue is not DrawablePresenter presenter)
+        {
+            presenter = new DrawablePresenter();
+            drawableBrush.Drawable.CurrentValue = presenter;
+        }
+
+        if (target != null)
+        {
+            presenter.Target.Expression = Expression.CreateReference<Drawable>(target.Id);
+        }
+        else
+        {
+            presenter.Target.Expression = null;
+            presenter.Target.CurrentValue = null;
+        }
+
+        Commit();
+    }
+
     public IReadOnlyList<TargetObjectInfo> GetAvailableTargets()
     {
         var scene = this.GetService<EditViewModel>()?.Scene;
@@ -272,6 +299,20 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel, IFallbackObjectV
 
         return searcher.SearchAll()
             .Cast<Brush>()
+            .Select(b => new TargetObjectInfo(CoreObjectHelper.GetDisplayName(b), b, CoreObjectHelper.GetOwnerElement(b)))
+            .ToList();
+    }
+
+    public IReadOnlyList<TargetObjectInfo> GetAvailableDrawableTargets()
+    {
+        var scene = this.GetService<EditViewModel>()?.Scene;
+        if (scene == null) return [];
+
+        var searcher = new ObjectSearcher(scene, obj =>
+            obj is Drawable && obj is not IPresenter<Drawable>);
+
+        return searcher.SearchAll()
+            .Cast<Drawable>()
             .Select(b => new TargetObjectInfo(CoreObjectHelper.GetDisplayName(b), b, CoreObjectHelper.GetOwnerElement(b)))
             .ToList();
     }

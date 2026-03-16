@@ -151,10 +151,9 @@ public sealed partial class BrushEditor : UserControl
             _flyoutOpen = true;
             var selectVm = new SelectDrawableTypeViewModel();
 
-            if (DataContext is BrushEditorViewModel { IsDisposed: false } vm
-                && PresenterTypeAttribute.GetPresenterType(typeof(Brush)) != null)
+            if (DataContext is BrushEditorViewModel { IsDisposed: false } vm)
             {
-                var targets = vm.GetAvailableTargets();
+                var targets = vm.GetAvailableDrawableTargets();
                 selectVm.InitializeReferences(targets);
             }
 
@@ -244,13 +243,8 @@ public sealed partial class BrushEditor : UserControl
             case Type type:
                 viewModel.ChangeDrawableType(type);
                 break;
-            case Brush target:
-                Type? presenterType = PresenterTypeAttribute.GetPresenterType(typeof(Brush));
-                if (presenterType?.GetConstructor([])?.Invoke(null) is Brush presenterInstance)
-                {
-                    viewModel.SetValue(viewModel.Value.Value, presenterInstance);
-                    viewModel.SetTarget(target);
-                }
+            case Drawable target:
+                viewModel.SetDrawableTarget(target);
                 break;
         }
     }
