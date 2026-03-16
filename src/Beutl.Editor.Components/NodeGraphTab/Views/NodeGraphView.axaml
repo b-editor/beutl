@@ -30,6 +30,7 @@
                             Focusable="True"
                             PanButton="Left"
                             Stretch="None"
+                            EnableDoubleClickZoom="False"
                             ZoomSpeed="1.2">
                 <paz:ZoomBorder.ContextMenu>
                     <ContextMenu>
