@@ -855,6 +855,12 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="Portal" xml:space="preserve">
     <value>Portal</value>
   </data>
+  <data name="Portal_Count" xml:space="preserve">
+    <value>Count</value>
+  </data>
+  <data name="Portal_Clear" xml:space="preserve">
+    <value>Clear</value>
+  </data>
   <data name="ExportProject" xml:space="preserve">
     <value>Export Project...</value>
   </data>

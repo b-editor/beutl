@@ -13,8 +13,10 @@ public sealed partial class PortalObject : EngineObject
         ScanProperties<PortalObject>();
     }
 
+    [Display(Name = nameof(Strings.Portal_Count), ResourceType = typeof(Strings))]
     public IProperty<int> Count { get; } = Property.Create<int>();
 
+    [Display(Name = nameof(Strings.Portal_Clear), ResourceType = typeof(Strings))]
     public IProperty<bool> Clear { get; } = Property.Create<bool>();
 
     public partial class Resource
