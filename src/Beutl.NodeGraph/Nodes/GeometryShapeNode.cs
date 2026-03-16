@@ -8,15 +8,15 @@ public sealed partial class GeometryShapeNode : GraphNode
 {
     public GeometryShapeNode()
     {
-        Output = AddOutput<GeometryRenderNode>("Output");
-        Geometry = AddInput<Media.Geometry?>("Geometry");
+        Output = AddOutput<GeometryRenderNode?>("Output");
+        Geometry = AddInput<Geometry?>("Geometry");
         Fill = AddInput<Brush?>("Fill");
         Pen = AddInput<Pen?>("Pen");
     }
 
-    public OutputPort<GeometryRenderNode> Output { get; }
+    public OutputPort<GeometryRenderNode?> Output { get; }
 
-    public InputPort<Media.Geometry?> Geometry { get; }
+    public InputPort<Geometry?> Geometry { get; }
 
     public InputPort<Brush?> Fill { get; }
 
@@ -41,7 +41,7 @@ public sealed partial class GeometryShapeNode : GraphNode
                     _cachedOutput = null;
                 }
 
-                Output = null!;
+                Output = null;
                 return;
             }
 

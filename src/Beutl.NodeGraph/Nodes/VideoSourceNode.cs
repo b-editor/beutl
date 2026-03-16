@@ -9,12 +9,12 @@ public sealed partial class VideoSourceNode : GraphNode
 {
     public VideoSourceNode()
     {
-        Output = AddOutput<VideoSourceRenderNode>("Output");
+        Output = AddOutput<VideoSourceRenderNode?>("Output");
         Source = AddInput<VideoSource?>("Source");
         Time = AddInput<TimeSpan>("Time");
     }
 
-    public OutputPort<VideoSourceRenderNode> Output { get; }
+    public OutputPort<VideoSourceRenderNode?> Output { get; }
 
     public InputPort<VideoSource?> Source { get; }
 
@@ -41,7 +41,7 @@ public sealed partial class VideoSourceNode : GraphNode
                 _sourceResource?.Dispose();
                 _sourceResource = null;
                 _lastSource = null;
-                Output = null!;
+                Output = null;
                 return;
             }
 

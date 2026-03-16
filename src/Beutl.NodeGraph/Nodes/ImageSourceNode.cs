@@ -9,7 +9,7 @@ public sealed partial class ImageSourceNode : GraphNode
 {
     public ImageSourceNode()
     {
-        Output = AddOutput<ImageSourceRenderNode>("Output");
+        Output = AddOutput<ImageSourceRenderNode?>("Output");
         Source = AddInput<ImageSource?>("Source");
     }
 
