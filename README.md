@@ -38,7 +38,10 @@ Refer to the [documentation](https://docs.beutl.beditor.net/get-started/install)
 
 ## License
 
-- [GNU GENERAL PUBLIC LICENSE](https://github.com/b-editor/beutl/blob/main/LICENSE)
+This project is dual-licensed:
+
+- **MIT License** ([LICENSE.MIT](https://github.com/b-editor/beutl/blob/main/LICENSE.MIT)) — When not linked with GPL-licensed FFmpeg.
+- **GNU General Public License v3** ([LICENSE](https://github.com/b-editor/beutl/blob/main/LICENSE)) — When linked with GPL-licensed FFmpeg, the combined work is distributed under the GPL.
 
 ## Patrons
 
