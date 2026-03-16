@@ -1,8 +1,10 @@
-﻿using Beutl.Api;
+﻿using Avalonia.Controls;
+using Beutl.Api;
 using Beutl.Api.Objects;
 using Beutl.Api.Services;
 using Beutl.Logging;
 using Beutl.Services;
+using FluentAvalonia.UI.Controls;
 using Microsoft.Extensions.Logging;
 using NuGet.Packaging.Core;
 using NuGet.Versioning;
@@ -238,6 +240,27 @@ public sealed class RemoteUserPackageViewModel : BaseViewModel, IUserPackageView
                 try
                 {
                     IsBusy.Value = true;
+
+                    // 所有しているが支払っていない場合（入手後に価格が設定された）は確認ダイアログを表示する
+                    if (!Package.Paid.Value && Package.FormattedPrice.Value != null)
+                    {
+                        string priceText = Package.FormattedPrice.Value;
+                        var dialog = new ContentDialog
+                        {
+                            Title = ExtensionsStrings.RemoveFromLibrary_Title,
+                            Content = new TextBlock
+                            {
+                                Text = string.Format(ExtensionsStrings.RemoveFromLibrary_PaidConfirmation, priceText),
+                                TextWrapping = Avalonia.Media.TextWrapping.Wrap
+                            },
+                            PrimaryButtonText = ExtensionsStrings.RemoveFromLibrary,
+                            CloseButtonText = Strings.Cancel
+                        };
+
+                        if (await dialog.ShowAsync() is not ContentDialogResult.Primary)
+                            return;
+                    }
+
                     using (await _app.Lock.LockAsync())
                     {
                         activity?.AddEvent(new("Entered_AsyncLock"));

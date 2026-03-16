@@ -99,6 +99,13 @@
                                                     <TextBlock Grid.Column="1"
                                                                Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                                                                Text="{Binding Owner.Name}" />
+
+                                                    <TextBlock Grid.Row="1"
+                                                               Grid.Column="1"
+                                                               HorizontalAlignment="Right"
+                                                               VerticalAlignment="Center"
+                                                               FontWeight="SemiBold"
+                                                               Text="{Binding FormattedPrice.Value, TargetNullValue={x:Static lang:ExtensionsStrings.Free}}" />
                                                 </Grid>
                                             </Grid>
                                         </Button>

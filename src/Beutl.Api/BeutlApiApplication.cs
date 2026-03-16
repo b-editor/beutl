@@ -24,8 +24,13 @@ namespace Beutl.Api;
 
 public class BeutlApiApplication
 {
-    // private const string BaseUrl = "http://localhost:3000";
+#if false
+    private const string BaseUrl = "http://localhost:3001";
+    public const string UserFileName = "user.local.json";
+#else
     private const string BaseUrl = "https://beutl.beditor.net";
+    public const string UserFileName = "user.json";
+#endif
     private readonly HttpClient _httpClient;
     private readonly ReactivePropertySlim<AuthenticatedUser?> _authenticatedUser = new();
     private readonly Dictionary<Type, Lazy<object>> _services = [];
@@ -142,7 +147,7 @@ public class BeutlApiApplication
         Register(() => new AcceptedLicenseManager());
         Register(() => new PackageChangesQueue());
         Register(() => new LibraryService(this));
-        Register(() => new PackageInstaller(new HttpClient(), GetResource<InstalledPackageRepository>()));
+        Register(() => new PackageInstaller(new HttpClient(), GetResource<InstalledPackageRepository>(), this));
         Register(() => new PackageManager(
             GetResource<InstalledPackageRepository>(), GetResource<ExtensionProvider>(),
             GetResource<ContextCommandManager>(), this));
@@ -159,7 +164,7 @@ public class BeutlApiApplication
         _authenticatedUser.Value = null;
         if (deleteFile)
         {
-            string fileName = Path.Combine(Helper.AppRoot, "user.json");
+            string fileName = Path.Combine(Helper.AppRoot, UserFileName);
             if (File.Exists(fileName))
             {
                 File.Delete(fileName);
@@ -275,7 +280,7 @@ public class BeutlApiApplication
     {
         if (_authenticatedUser.Value is { } user)
         {
-            string fileName = Path.Combine(Helper.AppRoot, "user.json");
+            string fileName = Path.Combine(Helper.AppRoot, UserFileName);
             using (FileStream stream = File.Create(fileName))
             {
                 var obj = new JsonObject
@@ -315,7 +320,7 @@ public class BeutlApiApplication
 
     public async ValueTask<AuthenticatedUser?> ReadUserAsync()
     {
-        string fileName = Path.Combine(Helper.AppRoot, "user.json");
+        string fileName = Path.Combine(Helper.AppRoot, UserFileName);
         if (File.Exists(fileName))
         {
             JsonNode? node = JsonNode.Parse(await File.ReadAllTextAsync(fileName));

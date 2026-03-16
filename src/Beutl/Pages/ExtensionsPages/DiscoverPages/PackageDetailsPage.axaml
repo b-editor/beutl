@@ -71,7 +71,7 @@
                                 HorizontalAlignment="Stretch"
                                 Classes="accent"
                                 Command="{Binding Install}"
-                                Content="{x:Static lang:ExtensionsStrings.Install}"
+                                Content="{Binding InstallButtonText.Value}"
                                 IsVisible="{Binding IsInstallButtonVisible.Value}" />
 
                         <Button Padding="48,5,48,6"

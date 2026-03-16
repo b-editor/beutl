@@ -80,7 +80,7 @@
                                             <Grid Grid.Row="2"
                                                   Margin="0,2"
                                                   VerticalAlignment="Stretch"
-                                                  RowDefinitions="*,Auto">
+                                                  RowDefinitions="*,Auto,Auto">
                                                 <StackPanel Spacing="4">
                                                     <TextBlock Text="{Binding Name}" />
 
@@ -94,6 +94,11 @@
                                                            VerticalAlignment="Bottom"
                                                            Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                                                            Text="{Binding Owner.Name}" />
+
+                                                <TextBlock Grid.Row="2"
+                                                           VerticalAlignment="Bottom"
+                                                           FontWeight="SemiBold"
+                                                           Text="{Binding FormattedPrice.Value, TargetNullValue={x:Static lang:ExtensionsStrings.Free}}" />
                                             </Grid>
                                         </Grid>
                                     </Button>

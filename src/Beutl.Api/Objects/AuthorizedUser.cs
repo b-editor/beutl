@@ -33,7 +33,7 @@ public class AuthenticatedUser(
     {
         using Activity? activity = clients.ActivitySource.StartActivity("AuthenticatedUser.Refresh", ActivityKind.Client);
 
-        string fileName = Path.Combine(Helper.AppRoot, "user.json");
+        string fileName = Path.Combine(Helper.AppRoot, BeutlApiApplication.UserFileName);
         if (File.Exists(fileName))
         {
             DateTime lastWriteTime = File.GetLastWriteTimeUtc(fileName);

@@ -1,12 +1,12 @@
-﻿using System.Reactive.Subjects;
+﻿using System.Net.Http.Headers;
+using System.Reactive.Subjects;
 using System.Security.Cryptography;
 using System.Text;
 
 using Beutl.Api.Objects;
 using Beutl.Logging;
 using Beutl.Reactive;
-
-using NuGet.Common;
+using Microsoft.Extensions.Logging;
 using NuGet.Configuration;
 using NuGet.Frameworks;
 using NuGet.Packaging;
@@ -15,6 +15,7 @@ using NuGet.Packaging.Signing;
 using NuGet.Protocol.Core.Types;
 using NuGet.Resolver;
 using NuGet.Versioning;
+using ILogger = NuGet.Common.ILogger;
 
 namespace Beutl.Api.Services;
 
@@ -23,6 +24,7 @@ public partial class PackageInstaller : IBeutlApiResource
     private readonly Microsoft.Extensions.Logging.ILogger _logger = Log.CreateLogger<PackageInstaller>();
     private readonly HttpClient _httpClient;
     private readonly InstalledPackageRepository _installedPackageRepository;
+    private readonly BeutlApiApplication _apiApplication;
 
     private readonly ISettings _settings;
     private readonly PackageSourceProvider _packageSourceProvider;
@@ -51,10 +53,11 @@ public partial class PackageInstaller : IBeutlApiResource
         Uninstalling,
     }
 
-    public PackageInstaller(HttpClient httpClient, InstalledPackageRepository installedPackageRepository)
+    public PackageInstaller(HttpClient httpClient, InstalledPackageRepository installedPackageRepository, BeutlApiApplication apiApplication)
     {
         _httpClient = httpClient;
         _installedPackageRepository = installedPackageRepository;
+        _apiApplication = apiApplication;
 
         const string ConfigFileName = "nuget.config";
         string configPath = Path.Combine(Helper.AppRoot, ConfigFileName);
@@ -419,7 +422,21 @@ public partial class PackageInstaller : IBeutlApiResource
         IProgress<double>? progress,
         CancellationToken cancellationToken)
     {
-        using (HttpResponseMessage response = await _httpClient.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false))
+        using var request = new HttpRequestMessage(HttpMethod.Get, url);
+        if (_apiApplication.AuthenticatedUser.Value is { } user)
+        {
+            try
+            {
+                await user.RefreshAsync();
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", user.Token);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to refresh authenticated user. Proceeding without authentication.");
+            }
+        }
+
+        using (HttpResponseMessage response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false))
         {
             long? contentLength = response.Content.Headers.ContentLength;
 
