@@ -93,6 +93,9 @@ public static class ItemValueHelper
             case ItemValue<UInt128> uint128NodePort:
                 uint128NodePort.AcceptNumber();
                 break;
+            case ItemValue<TimeSpan> timeSpanNodePort:
+                timeSpanNodePort.AcceptNumber();
+                break;
         }
     }
 
@@ -455,6 +458,22 @@ public static class ItemValueHelper
                 && PixelRect.TryParse(str.Value, out PixelRect parsed))
             {
                 value = parsed;
+                return true;
+            }
+
+            return false;
+        });
+    }
+
+    public static void AcceptNumber(this ItemValue<TimeSpan> itemValue)
+    {
+        itemValue.RegisterReceiver((source, out value) =>
+        {
+            value = default;
+
+            if (ToNumber(source, out double numValue))
+            {
+                value = TimeSpan.FromSeconds(numValue);
                 return true;
             }
 
