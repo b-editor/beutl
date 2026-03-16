@@ -42,12 +42,6 @@ internal static class CoreLibraries
             library.Add(new(lib.Name, lib.Version));
         }
 
-#if DEBUG
-        library.Add(new("Beutl.Sdk", "1.0.0-preview.5"));
-#else
-        library.Add(new("Beutl.Sdk", BeutlApplication.Version));
-#endif
-
         return library;
     }
 
