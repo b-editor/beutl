@@ -6,21 +6,28 @@ using Beutl.Language;
 namespace Beutl.ProjectSystem;
 
 [Display(Name = nameof(Strings.Portal), ResourceType = typeof(Strings))]
-public sealed partial class TakeAfterPortal : EngineObject
+public sealed partial class PortalObject : EngineObject
 {
-    public TakeAfterPortal()
+    public PortalObject()
     {
-        ScanProperties<TakeAfterPortal>();
+        ScanProperties<PortalObject>();
     }
 
     public IProperty<int> Count { get; } = Property.Create<int>();
 
+    public IProperty<bool> Clear { get; } = Property.Create<bool>();
+
     public partial class Resource
     {
-        partial void PostUpdate(TakeAfterPortal obj, CompositionContext context)
+        partial void PostUpdate(PortalObject obj, CompositionContext context)
         {
             if (context is ISceneCompositionContext ctx)
             {
+                if (Clear)
+                {
+                    context.Flow?.Clear();
+                }
+
                 int start = obj.ZIndex + 1;
                 int end = obj.ZIndex + Count;
 

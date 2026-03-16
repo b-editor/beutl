@@ -104,7 +104,7 @@ public class Element : Hierarchical, INotifyEdited
     {
         if (obj is IFlowOperator)
         {
-            Objects.Add(new TakeAfterPortal());
+            Objects.Add(new PortalObject());
         }
         Objects.Add(obj);
     }
@@ -113,7 +113,7 @@ public class Element : Hierarchical, INotifyEdited
     {
         if (obj is IFlowOperator)
         {
-            Objects.Insert(index, new TakeAfterPortal());
+            Objects.Insert(index, new PortalObject());
             Objects.Insert(index + 1, obj);
         }
         else

@@ -106,7 +106,7 @@ public static class LibraryRegistrar
 
         LibraryService.Current
             .AddMultiple(Strings.Portal, m => m
-                .BindEngineObject<TakeAfterPortal>()
+                .BindEngineObject<PortalObject>()
             );
 
         LibraryService.Current

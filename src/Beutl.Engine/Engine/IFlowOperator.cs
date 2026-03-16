@@ -1,4 +1,4 @@
 ﻿namespace Beutl.Engine;
 
-// このインターフェースをつけたオブジェクトが追加されたらTakeAfterPortalも自動で追加される
+// このインターフェースをつけたオブジェクトが追加されたらPortalObjectも自動で追加される
 public interface IFlowOperator { }

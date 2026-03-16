@@ -70,7 +70,7 @@ internal static class ElementMigration
             && typeValue.TryGetValue(out operatorType)
             && operatorType.Contains("TakeAfterOperator"))
         {
-            var portal = new TakeAfterPortal();
+            var portal = new PortalObject();
             if (operatorObj["Count"] is JsonValue countValue
                 && countValue.TryGetValue(out int count))
             {

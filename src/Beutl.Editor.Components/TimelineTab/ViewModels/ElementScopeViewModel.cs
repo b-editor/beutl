@@ -10,7 +10,7 @@ namespace Beutl.Editor.Components.TimelineTab.ViewModels;
 public sealed class ElementScopeViewModel : IDisposable
 {
     private readonly CompositeDisposable _disposables = [];
-    private TakeAfterPortal? _model;
+    private PortalObject? _model;
 
     public ElementScopeViewModel(Element element, ElementViewModel parent)
     {
@@ -20,8 +20,8 @@ public sealed class ElementScopeViewModel : IDisposable
         element.Objects.Detached += OnChildrenDetached;
         foreach (EngineObject item in element.Objects)
         {
-            if (item is TakeAfterPortal takeAfter)
-                takeAfter.Count.ValueChanged += OnTakeAfterCountChanged;
+            if (item is PortalObject portal)
+                portal.Count.ValueChanged += OnPortalCountChanged;
         }
         Update();
 
@@ -74,42 +74,42 @@ public sealed class ElementScopeViewModel : IDisposable
 
     private void OnChildrenDetached(EngineObject obj)
     {
-        if (obj is TakeAfterPortal takeAfter)
+        if (obj is PortalObject portal)
         {
-            if (ReferenceEquals(_model, takeAfter))
+            if (ReferenceEquals(_model, portal))
             {
                 Update();
             }
 
-            takeAfter.Count.ValueChanged -= OnTakeAfterCountChanged;
+            portal.Count.ValueChanged -= OnPortalCountChanged;
         }
     }
 
     private void OnChildrenAttached(EngineObject obj)
     {
-        if (obj is TakeAfterPortal takeAfter)
+        if (obj is PortalObject portal)
         {
-            if (_model == null || _model.Count.CurrentValue < takeAfter.Count.CurrentValue)
+            if (_model == null || _model.Count.CurrentValue < portal.Count.CurrentValue)
             {
-                _model = takeAfter;
-                Count.Value = takeAfter.Count.CurrentValue;
+                _model = portal;
+                Count.Value = portal.Count.CurrentValue;
             }
 
-            takeAfter.Count.ValueChanged += OnTakeAfterCountChanged;
+            portal.Count.ValueChanged += OnPortalCountChanged;
         }
     }
 
-    private void OnTakeAfterCountChanged(object? sender, PropertyValueChangedEventArgs<int> e)
+    private void OnPortalCountChanged(object? sender, PropertyValueChangedEventArgs<int> e)
     {
-        if (e.Property.GetOwnerObject() is TakeAfterPortal takeAfter)
+        if (e.Property.GetOwnerObject() is PortalObject portal)
         {
-            int newCount = takeAfter.Count.CurrentValue;
+            int newCount = portal.Count.CurrentValue;
             if (Count.Value < newCount)
             {
-                _model = takeAfter;
+                _model = portal;
                 Count.Value = newCount;
             }
-            else if (ReferenceEquals(_model, takeAfter))
+            else if (ReferenceEquals(_model, portal))
             {
                 Update();
             }
@@ -119,14 +119,14 @@ public sealed class ElementScopeViewModel : IDisposable
     private void Update()
     {
         int maxCount = int.MinValue;
-        TakeAfterPortal? model = null;
+        PortalObject? model = null;
         foreach (EngineObject item in Model.Objects)
         {
-            if (item is TakeAfterPortal takeAfterPortal
-                && maxCount < takeAfterPortal.Count.CurrentValue)
+            if (item is PortalObject portal
+                && maxCount < portal.Count.CurrentValue)
             {
-                model = takeAfterPortal;
-                maxCount = takeAfterPortal.Count.CurrentValue;
+                model = portal;
+                maxCount = portal.Count.CurrentValue;
             }
         }
 
@@ -145,9 +145,9 @@ public sealed class ElementScopeViewModel : IDisposable
     {
         foreach (EngineObject item in Model.Objects)
         {
-            if (item is TakeAfterPortal takeAfterPortal)
+            if (item is PortalObject portal)
             {
-                takeAfterPortal.Count.ValueChanged -= OnTakeAfterCountChanged;
+                portal.Count.ValueChanged -= OnPortalCountChanged;
             }
         }
 
