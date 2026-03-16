@@ -511,6 +511,11 @@ public static class PropertyEditorService
             }
             finally
             {
+                if (control != null)
+                {
+                    control.Margin -= new Avalonia.Thickness(control is PropertyEditor ? 4 : 8, 0);
+                }
+
                 if (control is IPropertyEditorContextVisitor visitor)
                 {
                     context.Accept(visitor);
