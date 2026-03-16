@@ -26,9 +26,14 @@
                 <ui:MenuFlyoutItem Command="{Binding Reset}"
                                    IsEnabled="{Binding CanReset}"
                                    Text="{x:Static lang:Strings.Reset}" />
-                <ui:MenuFlyoutItem Click="EditAnimation_Click" Text="{x:Static lang:Strings.EditAnimation}" />
-                <ui:MenuFlyoutItem Click="EditInlineAnimation_Click" Text="{x:Static lang:Strings.EditAnimationInInlineView}" />
-                <ui:MenuFlyoutItem Click="RemoveAnimation_Click"
+                <ui:MenuFlyoutItem x:Name="editAnimationItem"
+                                   Click="EditAnimation_Click"
+                                   Text="{x:Static lang:Strings.EditAnimation}" />
+                <ui:MenuFlyoutItem x:Name="editInlineAnimationItem"
+                                   Click="EditInlineAnimation_Click"
+                                   Text="{x:Static lang:Strings.EditAnimationInInlineView}" />
+                <ui:MenuFlyoutItem x:Name="removeAnimationItem"
+                                   Click="RemoveAnimation_Click"
                                    IsEnabled="{Binding HasAnimation.Value}"
                                    Text="{x:Static lang:Strings.RemoveAnimation}" />
                 <ui:ToggleMenuFlyoutItem x:Name="toggleLivePreview"

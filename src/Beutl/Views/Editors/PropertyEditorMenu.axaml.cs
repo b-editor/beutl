@@ -37,6 +37,12 @@ public sealed partial class PropertyEditorMenu : UserControl
         toggleLivePreview.IsVisible = DataContext is IConfigureLivePreview;
         uniformEditorToggle.IsVisible = DataContext is IConfigureUniformEditor;
 
+        // アニメーションの編集メニューはIAnimatablePropertyAdapterをサポートするプロパティでのみ表示
+        bool supportsAnimation = DataContext is BaseEditorViewModel { PropertyAdapter: IAnimatablePropertyAdapter };
+        editAnimationItem.IsVisible = supportsAnimation;
+        editInlineAnimationItem.IsVisible = supportsAnimation;
+        removeAnimationItem.IsVisible = supportsAnimation;
+
         // 式の編集メニューはIExpressionPropertyAdapterをサポートするプロパティでのみ表示
         bool supportsExpression = DataContext is BaseEditorViewModel { PropertyAdapter: IExpressionPropertyAdapter };
         expressionSeparator.IsVisible = supportsExpression;
