@@ -603,7 +603,8 @@ public sealed class LightingPass : GraphicsNode3D
             color = color / (color + vec3(1.0));
 
             // Gamma correction
-            color = pow(color, vec3(1.0 / 2.2));
+            // ここでガンマ補正を行うと2重補正になってしまう
+            // color = pow(color, vec3(1.0 / 2.2));
 
             outColor = vec4(color, 1.0);
         }
