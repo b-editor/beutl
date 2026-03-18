@@ -39,7 +39,19 @@ public sealed class AutoSaveService : IDisposable
         {
             try
             {
-                if (obj is IHierarchical hierarchical && hierarchical.HierarchicalRoot == null) continue;
+                if (obj is IHierarchical hierarchical && hierarchical.HierarchicalRoot == null)
+                {
+                    if (obj.Uri!.Scheme == "file")
+                    {
+                        var path = obj.Uri.LocalPath;
+                        if (File.Exists(path))
+                        {
+                            File.Delete(path);
+                        }
+                    }
+
+                    continue;
+                }
 
                 _logger.LogTrace(
                     "Auto-saving object ({TypeName}, {ObjectId}).",
