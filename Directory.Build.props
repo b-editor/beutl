@@ -10,8 +10,8 @@
     <NoWarn>$(NoWarn);NU1507</NoWarn>
     <NBGV_ThisAssemblyIncludesPackageVersion>true</NBGV_ThisAssemblyIncludesPackageVersion>
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
-    <AssemblyVersion>1.99.99.0</AssemblyVersion>
-    <Version>1.99.99</Version>
+    <AssemblyVersion>2.99.99.0</AssemblyVersion>
+    <Version>2.99.99</Version>
   </PropertyGroup>
 
   <PropertyGroup>
