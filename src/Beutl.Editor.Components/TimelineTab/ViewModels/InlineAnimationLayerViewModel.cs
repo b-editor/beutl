@@ -157,14 +157,11 @@ public abstract class InlineAnimationLayerViewModel : IDisposable
                     ((CoreObject)t.NewValue).GetObservable(KeyFrameAnimation.UseGlobalClockProperty)
                         .Subscribe(v => _useGlobalClock.Value = v)
                         .DisposeWith(_innerDisposables);
+                }
 
-                    // アニメーションの DetachedFromHierarchy を購読
-                    if (t.NewValue is IHierarchical hierarchical)
-                    {
-                        hierarchical.DetachedFromHierarchy += OnAnimationDetached;
-                        Disposable.Create(hierarchical, h => h.DetachedFromHierarchy -= OnAnimationDetached)
-                            .DisposeWith(_innerDisposables);
-                    }
+                if (t.OldValue != null && t.NewValue == null)
+                {
+                    Timeline.DetachInline(this);
                 }
             })
             .DisposeWith(_disposables);
@@ -436,11 +433,6 @@ public abstract class InlineAnimationLayerViewModel : IDisposable
     private void OnAnimationEdited(object? sender, EventArgs e)
     {
         UpdateWidth();
-    }
-
-    private void OnAnimationDetached(object? sender, HierarchyAttachmentEventArgs e)
-    {
-        Dispatcher.UIThread.Post(() => Timeline.DetachInline(this));
     }
 
     public PrepareAnimationContext PrepareAnimation()
