@@ -2,7 +2,6 @@
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using Beutl.Audio.Composing;
-using Beutl.Audio.Platforms.OpenAL;
 using Beutl.Audio.Platforms.XAudio2;
 using Beutl.Composition;
 using Beutl.Configuration;
@@ -22,9 +21,10 @@ using Beutl.Models;
 using Beutl.ProjectSystem;
 using Beutl.Services;
 using Microsoft.Extensions.Logging;
-using OpenTK.Audio.OpenAL;
 using Reactive.Bindings;
+using Silk.NET.OpenAL;
 using Vortice.Multimedia;
+using AudioContext = Beutl.Audio.Platforms.OpenAL.AudioContext;
 
 namespace Beutl.ViewModels;
 
@@ -537,16 +537,6 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
 
     private async Task PlayWithOpenAL(AudioContext audioContext, Scene scene)
     {
-        static void CheckError()
-        {
-            ALError error = AL.GetError();
-
-            if (error is not ALError.NoError)
-            {
-                throw new Exception(AL.GetErrorString(error));
-            }
-        }
-
         var cts = new CancellationTokenSource();
         IDisposable revoker = IsPlaying.Where(v => !v)
             .Take(1)
@@ -558,12 +548,10 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
 
             var composer = EditViewModel.Composer.Value;
             TimeSpan cur = EditViewModel.CurrentTime.Value;
-            int[] buffers = AL.GenBuffers(2);
-            CheckError();
-            int source = AL.GenSource();
-            CheckError();
+            uint[] buffers = audioContext.GenBuffers(2);
+            uint source = audioContext.GenSource();
 
-            foreach (int buffer in buffers)
+            foreach (uint buffer in buffers)
             {
                 using Pcm<Stereo32BitFloat>? pcmf = FillAudioData(cur, composer);
                 cur += s_second;
@@ -571,48 +559,39 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                 {
                     using Pcm<Stereo16BitInteger> pcm = pcmf.Convert<Stereo16BitInteger>();
 
-                    AL.BufferData<Stereo16BitInteger>(buffer, ALFormat.Stereo16, pcm.DataSpan, pcm.SampleRate);
-                    CheckError();
+                    audioContext.BufferData(buffer, BufferFormat.Stereo16, pcm.DataSpan, pcm.SampleRate);
                 }
 
-                AL.SourceQueueBuffer(source, buffer);
-                CheckError();
+                audioContext.SourceQueueBuffer(source, buffer);
             }
 
-            AL.SourcePlay(source);
-            CheckError();
+            audioContext.SourcePlay(source);
 
             try
             {
                 while (IsPlaying.Value)
                 {
                     audioContext.MakeCurrent();
-                    AL.GetSource(source, ALGetSourcei.BuffersProcessed, out int processed);
-                    CheckError();
+                    audioContext.GetSource(source, GetSourceInteger.BuffersProcessed, out int processed);
                     while (processed > 0)
                     {
                         using Pcm<Stereo32BitFloat>? pcmf = FillAudioData(cur, composer);
                         cur += s_second;
-                        int buffer = AL.SourceUnqueueBuffer(source);
-                        CheckError();
+                        uint buffer = audioContext.SourceUnqueueBuffer(source);
                         if (pcmf != null)
                         {
                             using Pcm<Stereo16BitInteger> pcm = pcmf.Convert<Stereo16BitInteger>();
 
-                            AL.BufferData<Stereo16BitInteger>(buffer, ALFormat.Stereo16, pcm.DataSpan, pcm.SampleRate);
-                            CheckError();
+                            audioContext.BufferData(buffer, BufferFormat.Stereo16, pcm.DataSpan, pcm.SampleRate);
                         }
 
-                        AL.SourceQueueBuffer(source, buffer);
-                        CheckError();
+                        audioContext.SourceQueueBuffer(source, buffer);
                         processed--;
                     }
 
-                    if (AL.GetSourceState(source) != ALSourceState.Playing)
+                    if (audioContext.GetSourceState(source) != SourceState.Playing)
                     {
-                        CheckError();
-                        AL.SourcePlay(source);
-                        CheckError();
+                        audioContext.SourcePlay(source);
                     }
 
                     await Task.Delay(100, cts.Token).ConfigureAwait(false);
@@ -620,7 +599,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                         break;
                 }
 
-                while (AL.GetSourceState(source) == ALSourceState.Playing && IsPlaying.Value)
+                while (audioContext.GetSourceState(source) == SourceState.Playing && IsPlaying.Value)
                 {
                     await Task.Delay(100, cts.Token).ConfigureAwait(false);
                 }
@@ -629,16 +608,11 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
             {
             }
 
-            CheckError();
-            AL.SourceStop(source);
-            CheckError();
+            audioContext.SourceStop(source);
             // https://hamken100.blogspot.com/2014/04/aldeletebuffersalinvalidoperation.html
-            AL.Source(source, ALSourcei.Buffer, 0);
-            CheckError();
-            AL.DeleteBuffers(buffers);
-            CheckError();
-            AL.DeleteSource(source);
-            CheckError();
+            audioContext.Source(source, SourceInteger.Buffer, 0);
+            audioContext.DeleteBuffers(buffers);
+            audioContext.DeleteSource(source);
         }
         finally
         {

@@ -12,6 +12,8 @@
     <PackageVersion Include="Avalonia.Diagnostics" Version="11.3.12" />
     <PackageVersion Include="ReactiveUI.Avalonia" Version="11.4.12" />
     <PackageVersion Include="Silk.NET.MoltenVK.Native" Version="2.23.0" />
+    <PackageVersion Include="Silk.NET.OpenAL" Version="2.23.0" />
+    <PackageVersion Include="Silk.NET.OpenAL.Soft.Native" Version="1.23.1" />
     <PackageVersion Include="Silk.NET.Vulkan" Version="2.23.0" />
     <PackageVersion Include="Silk.NET.Vulkan.Extensions.EXT" Version="2.23.0" />
     <PackageVersion Include="Silk.NET.Vulkan.Extensions.KHR" Version="2.23.0" />

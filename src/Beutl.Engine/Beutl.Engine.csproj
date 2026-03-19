@@ -34,8 +34,9 @@
     <PackageReference Include="OpenCvSharp4.runtime.osx.10.15-x64" />
     <PackageReference Include="OpenCvSharp4.runtime.osx_arm64" />
     <PackageReference Include="OpenCvSharp4.runtime.win" />
-    <PackageReference Include="OpenTK.OpenAL" />
     <PackageReference Include="Silk.NET.MoltenVK.Native" />
+    <PackageReference Include="Silk.NET.OpenAL" />
+    <PackageReference Include="Silk.NET.OpenAL.Soft.Native" />
     <PackageReference Include="Silk.NET.Vulkan" />
     <PackageReference Include="Silk.NET.Vulkan.Extensions.EXT" />
     <PackageReference Include="Silk.NET.Vulkan.Extensions.KHR" />

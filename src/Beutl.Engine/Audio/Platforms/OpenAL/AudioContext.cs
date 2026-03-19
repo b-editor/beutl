@@ -1,30 +1,28 @@
-﻿using OpenTK.Audio.OpenAL;
+﻿using Silk.NET.OpenAL;
 
 namespace Beutl.Audio.Platforms.OpenAL;
 
 public sealed unsafe class AudioContext : IDisposable
 {
-    private readonly ALDevice _device;
-    private readonly ALContext _context;
+    private readonly AL _al;
+    private readonly ALContext _alc;
+    private readonly Device* _device;
+    private readonly Context* _context;
 
     public AudioContext()
     {
-        _device = ALC.OpenDevice(null);
-        _context = ALC.CreateContext(_device, (int[])null!);
-
-        AlcError alcError = ALC.GetError(_device);
-
-        if (alcError is not AlcError.NoError)
-        {
-            throw new Exception(alcError.ToString("g"));
-        }
+        _al = AL.GetApi();
+        _alc = ALContext.GetApi();
+        _device = _alc.OpenDevice(null);
+        _context = _alc.CreateContext(_device, null);
+        VerifyContextError();
 
         MakeCurrent();
     }
 
     public bool IsDisposed { get; private set; }
 
-    public bool IsCurrent => ALC.GetCurrentContext() == _context;
+    public bool IsCurrent => _alc.GetCurrentContext() == _context;
 
     public float Gain
     {
@@ -32,9 +30,9 @@ public sealed unsafe class AudioContext : IDisposable
         {
             ThrowIfDisposed();
             MakeCurrent();
-            AL.GetListener(ALListenerf.Gain, out float v);
+            _al.GetListenerProperty(ListenerFloat.Gain, out float v);
 
-            CheckError();
+            VerifyError();
 
             return v;
         }
@@ -42,27 +40,36 @@ public sealed unsafe class AudioContext : IDisposable
         {
             ThrowIfDisposed();
             MakeCurrent();
-            AL.Listener(ALListenerf.Gain, value);
+            _al.SetListenerProperty(ListenerFloat.Gain, value);
 
-            CheckError();
+            VerifyError();
         }
     }
 
-    internal void CheckError()
+    public void VerifyAudioError()
     {
-        ALError error = AL.GetError();
+        var error = _al.GetError();
 
-        if (error is not ALError.NoError)
+        if (error is not AudioError.NoError)
         {
-            throw new Exception(AL.GetErrorString(error));
+            throw new Exception(error.ToString());
         }
+    }
 
-        AlcError alcError = ALC.GetError(_device);
+    public void VerifyContextError()
+    {
+        var alcError = _alc.GetError(_device);
 
-        if (alcError is not AlcError.NoError)
+        if (alcError is not ContextError.NoError)
         {
             throw new Exception(alcError.ToString("g"));
         }
+    }
+
+    public void VerifyError()
+    {
+        VerifyAudioError();
+        VerifyContextError();
     }
 
     private void ThrowIfDisposed()
@@ -76,9 +83,9 @@ public sealed unsafe class AudioContext : IDisposable
 
         if (!IsCurrent)
         {
-            ALC.MakeContextCurrent(_context);
+            _alc.MakeContextCurrent(_context);
 
-            CheckError();
+            VerifyError();
         }
     }
 
@@ -86,100 +93,124 @@ public sealed unsafe class AudioContext : IDisposable
     {
         if (IsDisposed) return;
 
-        ALC.MakeContextCurrent(ALContext.Null);
-        ALC.DestroyContext(_context);
-        ALC.CloseDevice(_device);
+        _alc.MakeContextCurrent(null);
+        _alc.DestroyContext(_context);
+        _alc.CloseDevice(_device);
         GC.SuppressFinalize(this);
 
         IsDisposed = true;
     }
 
-    public static int GenBuffer()
+    public uint GenBuffer()
     {
-        int buf = AL.GenBuffer();
-        ALError error = AL.GetError();
-        if (error is not ALError.NoError)
-        {
-            throw new Exception(AL.GetErrorString(error));
-        }
+        uint buf = _al.GenBuffer();
+        VerifyAudioError();
 
         return buf;
     }
 
-    public static int GenSource()
+    public uint[] GenBuffers(int count)
     {
-        int src = AL.GenSource();
-        ALError error = AL.GetError();
-        if (error is not ALError.NoError)
-        {
-            throw new Exception(AL.GetErrorString(error));
-        }
+        uint[] buf = _al.GenBuffers(count);
+        VerifyAudioError();
+
+        return buf;
+    }
+
+    public uint GenSource()
+    {
+        uint src = _al.GenSource();
+        VerifyAudioError();
 
         return src;
     }
 
-    public static void DeleteBuffer(int handle)
+    public void DeleteBuffers(Span<uint> handle)
     {
-        AL.DeleteBuffer(handle);
-    }
-
-    public static void DeleteSource(int handle)
-    {
-        AL.DeleteSource(handle);
-        ALError error = AL.GetError();
-        if (error is not ALError.NoError)
+        fixed (uint* ptr = handle)
         {
-            throw new Exception(AL.GetErrorString(error));
+            _al.DeleteBuffers(handle.Length, ptr);
         }
     }
 
-    public static void BufferData<TBuffer>(int bid, ALFormat format, Span<TBuffer> buffer, int freq) where TBuffer : unmanaged
+    public void DeleteBuffer(uint handle)
     {
-        AL.BufferData<TBuffer>(bid, format, buffer, freq);
-        ALError error = AL.GetError();
-        if (error is not ALError.NoError)
-        {
-            throw new Exception(AL.GetErrorString(error));
-        }
+        _al.DeleteBuffer(handle);
     }
 
-    public static void GetBuffer(int bid, ALGetBufferi param, out int value)
+    public void DeleteSource(uint handle)
     {
-        AL.GetBuffer(bid, param, out value);
-        ALError error = AL.GetError();
-        if (error is not ALError.NoError)
-        {
-            throw new Exception(AL.GetErrorString(error));
-        }
+        _al.DeleteSource(handle);
+        VerifyAudioError();
     }
 
-    public static void SourcePlay(int handle)
+    public void BufferData<TBuffer>(uint bid, BufferFormat format, Span<TBuffer> buffer, int freq)
+        where TBuffer : unmanaged
     {
-        AL.SourcePlay(handle);
-        ALError error = AL.GetError();
-        if (error is not ALError.NoError)
+        var size = sizeof(TBuffer) * buffer.Length;
+        fixed (void* ptr = buffer)
         {
-            throw new Exception(AL.GetErrorString(error));
+            _al.BufferData(bid, format, ptr, size, freq);
         }
+
+        VerifyAudioError();
     }
 
-    public static void SourceStop(int handle)
+    public SourceState GetSourceState(uint source)
     {
-        AL.SourceStop(handle);
-        ALError error = AL.GetError();
-        if (error is not ALError.NoError)
-        {
-            throw new Exception(AL.GetErrorString(error));
-        }
+        _al.GetSourceProperty(source, GetSourceInteger.SourceState, out int value);
+        VerifyAudioError();
+        return (SourceState)value;
     }
 
-    public static void SourcePause(int handle)
+    public void GetSource(uint source, GetSourceInteger param, out int value)
     {
-        AL.SourcePause(handle);
-        ALError error = AL.GetError();
-        if (error is not ALError.NoError)
-        {
-            throw new Exception(AL.GetErrorString(error));
-        }
+        _al.GetSourceProperty(source, param, out value);
+        VerifyAudioError();
+    }
+
+    public void GetBuffer(uint bid, GetBufferInteger param, out int value)
+    {
+        _al.GetBufferProperty(bid, param, out value);
+        VerifyAudioError();
+    }
+
+    public void SourcePlay(uint handle)
+    {
+        _al.SourcePlay(handle);
+        VerifyAudioError();
+    }
+
+    public void SourceStop(uint handle)
+    {
+        _al.SourceStop(handle);
+        VerifyAudioError();
+    }
+
+    public void SourcePause(uint handle)
+    {
+        _al.SourcePause(handle);
+        VerifyAudioError();
+    }
+
+    public void SourceQueueBuffer(uint source, uint bid)
+    {
+        _al.SourceQueueBuffers(source, 1, &bid);
+        VerifyAudioError();
+    }
+
+    public uint SourceUnqueueBuffer(uint source)
+    {
+        uint bid = 0;
+        _al.SourceUnqueueBuffers(source, 1, &bid);
+        VerifyAudioError();
+
+        return bid;
+    }
+
+    public void Source(uint source, SourceInteger param, uint value)
+    {
+        _al.SetSourceProperty(source, param, value);
+        VerifyAudioError();
     }
 }
