@@ -156,6 +156,6 @@ public sealed class PathEditorTabViewModel : IDisposable, IPathEditorContext, IT
 
     public object? GetService(Type serviceType)
     {
-        return null;
+        return EditorContext.GetService(serviceType);
     }
 }
