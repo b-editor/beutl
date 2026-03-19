@@ -195,6 +195,7 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
 
         // スクロール時の可視範囲変更をスロットルして追加生成
         _visibleRangeSubject
+            .Where(_ => !IsThumbnailsDisabled.Value)
             .Throttle(TimeSpan.FromMilliseconds(50))
             .ObserveOnUIDispatcher()
             .Subscribe(range => _ = UpdateVisibleThumbnailsAsync(range.Start, range.End))
@@ -343,12 +344,6 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
 
     public void Dispose()
     {
-        CancelThumbnailsLoading();
-
-        _scrollThumbnailsCts?.Cancel();
-        _scrollThumbnailsCts?.Dispose();
-        _scrollThumbnailsCts = null;
-
         // ThumbnailsInvalidatedイベントの購読を解除
         if (_currentThumbnailsProvider != null && _thumbnailsInvalidatedHandler != null)
         {
@@ -356,6 +351,14 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
         }
         _thumbnailsInvalidatedSubject.Dispose();
         _visibleRangeSubject.Dispose();
+
+        CancelThumbnailsLoading();
+
+        _scrollThumbnailsCts?.Cancel();
+        _scrollThumbnailsCts?.Dispose();
+        _scrollThumbnailsCts = null;
+        if (_lastThumbnailsCacheKey != null)
+            _thumbnailCacheService.Invalidate(_lastThumbnailsCacheKey);
 
         // ThumbnailsDisabledElementsイベントの購読を解除
         Timeline.ThumbnailsDisabledElements.Attached -= OnThumbnailsDisabledElementsAttached;
