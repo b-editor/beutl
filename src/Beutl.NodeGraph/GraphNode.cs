@@ -198,9 +198,9 @@ public abstract partial class GraphNode : EngineObject
         return AddMonitor<string?>(name, NodeMonitorContentKind.Text, display);
     }
 
-    protected NodeMonitor<Ref<IBitmap>?> AddImageMonitor(string name, DisplayAttribute? display = null)
+    protected NodeMonitor<Ref<Bitmap>?> AddImageMonitor(string name, DisplayAttribute? display = null)
     {
-        return AddMonitor<Ref<IBitmap>?>(name, NodeMonitorContentKind.Image, display);
+        return AddMonitor<Ref<Bitmap>?>(name, NodeMonitorContentKind.Image, display);
     }
 
     protected InputPort<T> CreateInput<T>(string name, DisplayAttribute? display = null)

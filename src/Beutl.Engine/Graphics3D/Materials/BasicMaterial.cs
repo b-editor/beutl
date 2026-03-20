@@ -150,11 +150,7 @@ public sealed partial class BasicMaterial : Material3D
                 Model = worldMatrix,
                 View = context.ViewMatrix,
                 Projection = context.ProjectionMatrix,
-                Albedo = new Vector4(
-                    DiffuseColor.R / 255f,
-                    DiffuseColor.G / 255f,
-                    DiffuseColor.B / 255f,
-                    DiffuseColor.A / 255f),
+                Albedo = DiffuseColor.ToLinearPremultiplied(),
                 Roughness = roughness,
                 HasTexture = hasTexture
             };

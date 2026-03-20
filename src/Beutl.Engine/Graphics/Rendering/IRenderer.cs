@@ -1,7 +1,6 @@
 ﻿using Beutl.Composition;
 using Beutl.Graphics.Rendering.Cache;
 using Beutl.Media;
-using Beutl.Media.Pixel;
 
 namespace Beutl.Graphics.Rendering;
 
@@ -19,7 +18,7 @@ public interface IRenderer : IDisposable
 
     void Render(CompositionFrame frame);
 
-    Bitmap<Bgra8888> Snapshot();
+    Bitmap Snapshot();
 
     Drawable? HitTest(CompositionFrame frame, Point point);
 

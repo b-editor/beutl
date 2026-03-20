@@ -230,15 +230,8 @@ public sealed partial class PBRMaterial : Material3D
                 Model = worldMatrix,
                 View = context.ViewMatrix,
                 Projection = context.ProjectionMatrix,
-                Albedo = new Vector4(
-                    Albedo.R / 255f,
-                    Albedo.G / 255f,
-                    Albedo.B / 255f,
-                    Albedo.A / 255f),
-                Emissive = new Vector3(
-                    Emissive.R / 255f * EmissiveIntensity,
-                    Emissive.G / 255f * EmissiveIntensity,
-                    Emissive.B / 255f * EmissiveIntensity),
+                Albedo = Albedo.ToLinearPremultiplied(),
+                Emissive = Emissive.ToLinearPremultiplied().AsVector3() * EmissiveIntensity,
                 Metallic = Metallic,
                 Roughness = Roughness,
                 AmbientOcclusion = AmbientOcclusion,

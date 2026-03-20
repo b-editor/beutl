@@ -12,7 +12,7 @@ public sealed class ThumbnailStripControl : Control
     public static readonly StyledProperty<int> ThumbnailCountProperty =
         AvaloniaProperty.Register<ThumbnailStripControl, int>(nameof(ThumbnailCount));
 
-    private readonly Dictionary<int, Bitmap?> _thumbnails = new();
+    private readonly Dictionary<int, WriteableBitmap?> _thumbnails = new();
     private readonly Lock _lock = new();
     private ScrollViewer? _scrollViewer;
     private int _lastNotifiedStart = -1;
@@ -31,7 +31,7 @@ public sealed class ThumbnailStripControl : Control
         set => SetValue(ThumbnailCountProperty, value);
     }
 
-    public void SetThumbnail(int index, Bitmap? thumbnail)
+    public void SetThumbnail(int index, WriteableBitmap? thumbnail)
     {
         lock (_lock)
         {

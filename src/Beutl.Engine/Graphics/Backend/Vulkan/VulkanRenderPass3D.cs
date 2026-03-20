@@ -168,11 +168,8 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D
         {
             if (i < clearColors.Length)
             {
-                clearValues[i].Color = new ClearColorValue(
-                    clearColors[i].R / 255f,
-                    clearColors[i].G / 255f,
-                    clearColors[i].B / 255f,
-                    clearColors[i].A / 255f);
+                var color = clearColors[i].ToLinearPremultiplied();
+                clearValues[i].Color = new ClearColorValue(color.X, color.Y, color.Z, color.W);
             }
             else
             {

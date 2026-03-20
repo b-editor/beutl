@@ -1,7 +1,6 @@
 ﻿using System.Text.Json.Serialization;
 using Beutl.Composition;
 using Beutl.Engine;
-using Beutl.Media.Pixel;
 using Beutl.Serialization;
 
 namespace Beutl.Media.Source;
@@ -10,7 +9,7 @@ namespace Beutl.Media.Source;
 [SuppressResourceClassGeneration]
 public sealed class ImageSource : MediaSource
 {
-    private WeakReference<Counter<IBitmap>>? _bitmapRef;
+    private WeakReference<Counter<Bitmap>>? _bitmapRef;
 
     public ImageSource()
     {
@@ -31,12 +30,12 @@ public sealed class ImageSource : MediaSource
 
     public new sealed class Resource : MediaSource.Resource
     {
-        private Counter<IBitmap>? _counter;
+        private Counter<Bitmap>? _counter;
         private Uri? _loadedUri;
 
         public PixelSize FrameSize { get; private set; }
 
-        public IBitmap? Bitmap => _counter?.Value;
+        public Bitmap? Bitmap => _counter?.Value;
 
         public override void Update(EngineObject obj, CompositionContext context, ref bool updateOnly)
         {
@@ -59,8 +58,8 @@ public sealed class ImageSource : MediaSource
                     try
                     {
                         using var stream = UriHelper.ResolveStream(imageSource.Uri);
-                        var bitmap = Bitmap<Bgra8888>.FromStream(stream);
-                        _counter = new Counter<IBitmap>(bitmap, null);
+                        var bitmap = Media.Bitmap.FromStream(stream);
+                        _counter = new Counter<Bitmap>(bitmap, null);
                         Volatile.Write(ref imageSource._bitmapRef, new(_counter));
                     }
                     catch

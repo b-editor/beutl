@@ -6,7 +6,7 @@ using Beutl.Media.Source;
 namespace Beutl.Media;
 
 /// <summary>
-/// Paints an area with an <see cref="IBitmap"/>.
+/// Paints an area with an <see cref="ImageSource"/>.
 /// </summary>
 public partial class ImageBrush : TileBrush
 {

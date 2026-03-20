@@ -69,7 +69,7 @@ public sealed partial class SourceSound : IThumbnailsProvider
         return Convert.ToHexString(hash);
     }
 
-    public async IAsyncEnumerable<(int Index, int Count, IBitmap Thumbnail)> GetThumbnailStripAsync(
+    public async IAsyncEnumerable<(int Index, int Count, Bitmap Thumbnail)> GetThumbnailStripAsync(
         int maxWidth,
         int maxHeight,
         IThumbnailCacheService? cacheService,

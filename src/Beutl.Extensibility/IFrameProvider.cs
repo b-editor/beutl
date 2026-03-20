@@ -1,5 +1,4 @@
-﻿using Beutl.Media;
-using Beutl.Media.Pixel;
+using Beutl.Media;
 
 namespace Beutl.Extensibility;
 
@@ -9,5 +8,5 @@ public interface IFrameProvider
 
     public Rational FrameRate { get; }
 
-    public ValueTask<Bitmap<Bgra8888>> RenderFrame(long frame);
+    public ValueTask<Bitmap> RenderFrame(long frame);
 }

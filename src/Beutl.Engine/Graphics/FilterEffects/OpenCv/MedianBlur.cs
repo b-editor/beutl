@@ -2,7 +2,6 @@
 using Beutl.Engine;
 using Beutl.Language;
 using Beutl.Media;
-using Beutl.Media.Pixel;
 using OpenCvSharp;
 
 namespace Beutl.Graphics.Effects.OpenCv;
@@ -53,7 +52,7 @@ public partial class MedianBlur : FilterEffect
             if (kSize % 2 == 0)
                 kSize++;
 
-            Bitmap<Bgra8888>? dst = null;
+            Bitmap? dst = null;
 
             try
             {

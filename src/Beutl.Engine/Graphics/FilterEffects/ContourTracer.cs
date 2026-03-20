@@ -49,7 +49,7 @@ public static class ContourTracer
     /// Returns a list of contours, each contour being an array of (X, Y) points
     /// with collinear points removed (ApproxSimple).
     /// </summary>
-    public static Contours FindContours(Bitmap<Bgra8888> bitmap)
+    public static Contours FindContours(Bitmap bitmap)
     {
         FindContoursWithHierarchy(bitmap, out var contours, out var parentIndices);
         parentIndices.Dispose();
@@ -62,16 +62,17 @@ public static class ContourTracer
     /// Hole contours reference their enclosing outer contour as parent.
     /// </summary>
     public static void FindContoursWithHierarchy(
-        Bitmap<Bgra8888> bitmap,
+        Bitmap bitmap,
         out Contours contours,
         out PooledList<int> parentIndices)
     {
-        FindContoursCore(bitmap, out var contoursList, out parentIndices);
+        using var alphaBitmap = bitmap.Convert(BitmapColorType.Alpha8);
+        FindContoursCore(alphaBitmap, out var contoursList, out parentIndices);
         contours = new Contours(contoursList);
     }
 
     private static void FindContoursCore(
-        Bitmap<Bgra8888> bitmap,
+        Bitmap bitmap,
         out PooledList<PooledList<PixelPoint>> contours,
         out PooledList<int> parentIndices)
     {
@@ -84,11 +85,11 @@ public static class ContourTracer
         fgSpan.Fill(false);
         for (int y = 0; y < height; y++)
         {
-            Span<Bgra8888> row = bitmap[y];
+            Span<byte> row = bitmap.GetRow<byte>(y);
             int offset = y * width;
             for (int x = 0; x < width; x++)
             {
-                fgSpan[offset + x] = row[x].A > 0;
+                fgSpan[offset + x] = row[x] > 0;
             }
         }
 

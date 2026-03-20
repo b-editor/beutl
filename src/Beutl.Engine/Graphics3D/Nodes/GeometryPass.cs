@@ -118,7 +118,7 @@ public sealed class GeometryPass : GraphicsNode3D
             camera.GetViewMatrix(),
             camera.GetProjectionMatrix(aspectRatio),
             camera.Position,
-            new Vector3(ambientColor.R / 255f, ambientColor.G / 255f, ambientColor.B / 255f) * ambientIntensity,
+            ambientColor.ToLinearPremultiplied().AsVector3() * ambientIntensity,
             lightDataList,
             compositionContext);
 

@@ -1,6 +1,5 @@
 ﻿using Beutl.Collections.Pooled;
 using Beutl.Media;
-using Beutl.Media.Pixel;
 
 namespace Beutl.Graphics.Rendering;
 
@@ -44,9 +43,9 @@ public class RenderNodeProcessor(RenderNode root, bool useRenderCache)
         return list;
     }
 
-    public List<Bitmap<Bgra8888>> Rasterize()
+    public List<Bitmap> Rasterize()
     {
-        var list = new List<Bitmap<Bgra8888>>();
+        var list = new List<Bitmap>();
         var ops = PullToRoot();
         foreach (var op in ops)
         {
@@ -69,7 +68,7 @@ public class RenderNodeProcessor(RenderNode root, bool useRenderCache)
         return list;
     }
 
-    public Bitmap<Bgra8888> RasterizeAndConcat()
+    public Bitmap RasterizeAndConcat()
     {
         var ops = PullToRoot();
         var bounds = ops.Aggregate(Rect.Empty, (a, n) => a.Union(n.Bounds));

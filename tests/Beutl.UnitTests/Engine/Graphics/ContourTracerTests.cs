@@ -8,19 +8,19 @@ namespace Beutl.UnitTests.Engine.Graphics;
 [TestFixture]
 public class ContourTracerTests
 {
-    private static Bitmap<Bgra8888> CreateBitmap(int width, int height, Action<Bitmap<Bgra8888>> draw)
+    private static Bitmap CreateBitmap(int width, int height, Action<Bitmap> draw)
     {
-        var bitmap = new Bitmap<Bgra8888>(width, height);
+        var bitmap = new Bitmap(width, height);
         draw(bitmap);
         return bitmap;
     }
 
-    private static void FillRect(Bitmap<Bgra8888> bitmap, int x, int y, int w, int h, byte alpha = 255)
+    private static void FillRect(Bitmap bitmap, int x, int y, int w, int h, byte alpha = 255)
     {
         var pixel = new Bgra8888(255, 255, 255, alpha);
         for (int row = y; row < y + h && row < bitmap.Height; row++)
         {
-            Span<Bgra8888> span = bitmap[row];
+            Span<Bgra8888> span = bitmap.GetRow<Bgra8888>(row);
             for (int col = x; col < x + w && col < bitmap.Width; col++)
             {
                 span[col] = pixel;
@@ -31,7 +31,7 @@ public class ContourTracerTests
     [Test]
     public void FindContours_EmptyImage_ReturnsNoContours()
     {
-        using var bitmap = new Bitmap<Bgra8888>(10, 10);
+        using var bitmap = new Bitmap(10, 10);
 
         using var contours = ContourTracer.FindContours(bitmap);
 
@@ -41,7 +41,7 @@ public class ContourTracerTests
     [Test]
     public void FindContours_FullyFilledImage_ReturnsOneContour()
     {
-        using var bitmap = CreateBitmap(10, 10, b => b.Fill(new Bgra8888(255, 255, 255, 255)));
+        using var bitmap = CreateBitmap(10, 10, b => b.GetPixelSpan<Bgra8888>().Fill(new Bgra8888(255, 255, 255, 255)));
 
         using var contours = ContourTracer.FindContours(bitmap);
 
@@ -54,7 +54,7 @@ public class ContourTracerTests
     {
         using var bitmap = CreateBitmap(5, 5, b =>
         {
-            b[2, 2] = new Bgra8888(255, 255, 255, 255);
+            b.GetRow<Bgra8888>(2)[2] = new Bgra8888(255, 255, 255, 255);
         });
 
         using var contours = ContourTracer.FindContours(bitmap);
@@ -95,12 +95,12 @@ public class ContourTracerTests
         // 10x10 bitmap, fill outer 10x10, clear inner 4x4 (creating a hole)
         using var bitmap = CreateBitmap(10, 10, b =>
         {
-            b.Fill(new Bgra8888(255, 255, 255, 255));
+            b.GetPixelSpan<Bgra8888>().Fill(new Bgra8888(255, 255, 255, 255));
             // Clear inner region (3,3)-(6,6)
             var empty = new Bgra8888(0, 0, 0, 0);
             for (int row = 3; row <= 6; row++)
             {
-                Span<Bgra8888> span = b[row];
+                Span<Bgra8888> span = b.GetRow<Bgra8888>(row);
                 for (int col = 3; col <= 6; col++)
                 {
                     span[col] = empty;
@@ -207,7 +207,7 @@ public class ContourTracerTests
         // Pixel at (0,0) - edge case for boundary handling
         using var bitmap = CreateBitmap(5, 5, b =>
         {
-            b[0, 0] = new Bgra8888(255, 255, 255, 255);
+            b.GetRow<Bgra8888>(0)[0] = new Bgra8888(255, 255, 255, 255);
         });
 
         using var contours = ContourTracer.FindContours(bitmap);
@@ -262,7 +262,7 @@ public class ContourTracerTests
     {
         using var bitmap = CreateBitmap(1, 1, b =>
         {
-            b[0, 0] = new Bgra8888(255, 255, 255, 255);
+            b.GetRow<Bgra8888>(0)[0] = new Bgra8888(255, 255, 255, 255);
         });
 
         using var contours = ContourTracer.FindContours(bitmap);
@@ -275,7 +275,7 @@ public class ContourTracerTests
     [Test]
     public void FindContours_1x1Image_Empty()
     {
-        using var bitmap = new Bitmap<Bgra8888>(1, 1);
+        using var bitmap = new Bitmap(1, 1);
 
         using var contours = ContourTracer.FindContours(bitmap);
 
@@ -288,9 +288,9 @@ public class ContourTracerTests
         // Diagonal line of single pixels - each should be a single contour
         using var bitmap = CreateBitmap(5, 5, b =>
         {
-            b[0, 0] = new Bgra8888(255, 255, 255, 255);
-            b[1, 1] = new Bgra8888(255, 255, 255, 255);
-            b[2, 2] = new Bgra8888(255, 255, 255, 255);
+            b.GetRow<Bgra8888>(0)[0] = new Bgra8888(255, 255, 255, 255);
+            b.GetRow<Bgra8888>(1)[1] = new Bgra8888(255, 255, 255, 255);
+            b.GetRow<Bgra8888>(2)[2] = new Bgra8888(255, 255, 255, 255);
         });
 
         using var contours = ContourTracer.FindContours(bitmap);
@@ -309,7 +309,7 @@ public class ContourTracerTests
             var empty = new Bgra8888(0, 0, 0, 0);
             for (int row = 4; row <= 7; row++)
             {
-                Span<Bgra8888> span = b[row];
+                Span<Bgra8888> span = b.GetRow<Bgra8888>(row);
                 for (int col = 4; col <= 7; col++)
                     span[col] = empty;
             }
@@ -388,14 +388,14 @@ public class ContourTracerTests
             var empty = new Bgra8888(0, 0, 0, 0);
             for (int row = 2; row <= 5; row++)
             {
-                Span<Bgra8888> span = b[row];
+                Span<Bgra8888> span = b.GetRow<Bgra8888>(row);
                 for (int col = 2; col <= 5; col++) span[col] = empty;
             }
 
             FillRect(b, 10, 1, 6, 6);
             for (int row = 2; row <= 5; row++)
             {
-                Span<Bgra8888> span = b[row];
+                Span<Bgra8888> span = b.GetRow<Bgra8888>(row);
                 for (int col = 11; col <= 14; col++) span[col] = empty;
             }
         });
@@ -451,7 +451,7 @@ public class ContourTracerTests
             var empty = new Bgra8888(0, 0, 0, 0);
             for (int row = 4; row <= 15; row++)
             {
-                Span<Bgra8888> span = b[row];
+                Span<Bgra8888> span = b.GetRow<Bgra8888>(row);
                 for (int col = 4; col <= 15; col++)
                     span[col] = empty;
             }

@@ -263,7 +263,7 @@ internal unsafe class VulkanTexture2D : ITexture2D
         // On macOS, use raster surface (Metal interop handles rendering separately)
         if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
         {
-            var info = new SKImageInfo(_width, _height, _format.ToSkiaColorType(), SKAlphaType.Premul);
+            var info = new SKImageInfo(_width, _height, _format.ToSkiaColorType(), SKAlphaType.Premul, SKColorSpace.CreateSrgbLinear());
             return SKSurface.Create(info);
         }
 
@@ -287,7 +287,7 @@ internal unsafe class VulkanTexture2D : ITexture2D
 
         var grContext = _context.SkiaContext;
         var surface = SKSurface.Create(grContext, backendRenderTarget, GRSurfaceOrigin.TopLeft,
-            _format.ToSkiaColorType());
+            _format.ToSkiaColorType(), SKColorSpace.CreateSrgbLinear());
 
         if (surface == null)
         {

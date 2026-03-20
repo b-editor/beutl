@@ -235,7 +235,7 @@ public sealed class FFmpegReader : MediaReader
         }
     }
 
-    public override unsafe bool ReadVideo(int frame, [NotNullWhen(true)] out IBitmap? image)
+    public override unsafe bool ReadVideo(int frame, [NotNullWhen(true)] out Bitmap? image)
     {
         var videoFrame = ActiveVideoFrame;
         if (_videoStream == null || _videoDecoder == null || videoFrame == null)
@@ -279,7 +279,7 @@ public sealed class FFmpegReader : MediaReader
         using var dstFrame = _pixelConverter.ConvertFrame(videoFrame, (int)_settings.Scaling);
 
         // ビットマップにコピー
-        var bmp = new Bitmap<Bgra8888>(width, height);
+        var bmp = new Bitmap(width, height, BitmapColorType.Bgra8888, BitmapAlphaType.Unpremul, BitmapColorSpace.Srgb);
         int byteCount = width * height * 4;
         Buffer.MemoryCopy(dstFrame.Data[0], (void*)bmp.Data, byteCount, byteCount);
 

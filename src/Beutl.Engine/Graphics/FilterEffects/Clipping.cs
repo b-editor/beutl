@@ -2,7 +2,6 @@
 using Beutl.Engine;
 using Beutl.Language;
 using Beutl.Media;
-using Beutl.Media.Pixel;
 using SkiaSharp;
 
 namespace Beutl.Graphics.Effects;
@@ -57,23 +56,19 @@ public sealed partial class Clipping : FilterEffect
     {
         surface.Flush(true, true);
         using var image = surface.Snapshot();
-        using var bitmap = new Bitmap<Grayscale8>(image.Width, image.Height);
-        image.ReadPixels(
-            new SKImageInfo(bitmap.Width, bitmap.Height, SKColorType.Alpha8),
-            bitmap.Data,
-            bitmap.Width,
-            0, 0);
+        using var bitmap = image.ToBitmap(BitmapColorType.Alpha8);
 
         int x0 = bitmap.Width;
         int y0 = bitmap.Height;
         int x1 = 0;
         int y1 = 0;
 
+        Span<byte> pixels = bitmap.GetPixelSpan();
         for (int y = 0; y < bitmap.Height; y++)
         {
             for (int x = 0; x < bitmap.Width; x++)
             {
-                if (bitmap[x, y].Value != 0)
+                if (pixels[y * bitmap.Width + x] != 0)
                 {
                     if (x0 > x) x0 = x;
                     if (y0 > y) y0 = y;

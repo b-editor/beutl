@@ -1,7 +1,6 @@
 ﻿using Beutl.Graphics.Backend;
 using Beutl.Graphics.Backend.Vulkan;
 using Beutl.Media;
-using Beutl.Media.Pixel;
 using Beutl.Threading;
 using SkiaSharp;
 
@@ -46,7 +45,7 @@ public class RenderTarget : IDisposable
             ITexture2D? sharedTexture = null;
             if (Dispatcher.Current == null)
             {
-                surface = SKSurface.Create(new SKImageInfo(width, height, SKColorType.Bgra8888, SKAlphaType.Unpremul));
+                surface = SKSurface.Create(new SKImageInfo(width, height, SKColorType.RgbaF16, SKAlphaType.Premul, SKColorSpace.CreateSrgbLinear()));
             }
             else
             {
@@ -55,13 +54,13 @@ public class RenderTarget : IDisposable
 
                 if (context != null)
                 {
-                    sharedTexture = context.CreateTexture2D(width, height, TextureFormat.BGRA8Unorm);
+                    sharedTexture = context.CreateTexture2D(width, height, TextureFormat.RGBA16Float);
                     surface = sharedTexture.CreateSkiaSurface();
                 }
                 else
                 {
-                    surface = SKSurface.Create(new SKImageInfo(width, height, SKColorType.Bgra8888,
-                        SKAlphaType.Unpremul));
+                    surface = SKSurface.Create(new SKImageInfo(width, height, SKColorType.RgbaF16,
+                        SKAlphaType.Premul, SKColorSpace.CreateSrgbLinear()));
                 }
             }
 
@@ -88,14 +87,14 @@ public class RenderTarget : IDisposable
         return canvas._renderTarget.ShallowCopy();
     }
 
-    public unsafe Bitmap<Bgra8888> Snapshot()
+    public Bitmap Snapshot()
     {
         VerifyAccess();
         PrepareForSampling();
-        var result = new Bitmap<Bgra8888>(Width, Height);
+        var result = new Bitmap(Width, Height, BitmapColorType.RgbaF16, BitmapAlphaType.Premul, BitmapColorSpace.LinearSrgb);
 
-        _surface.Value!.ReadPixels(new SKImageInfo(Width, Height, SKColorType.Bgra8888), result.Data,
-            result.Width * sizeof(Bgra8888), 0, 0);
+        var readInfo = result.SKBitmap.Info;
+        _surface.Value!.ReadPixels(readInfo, result.Data, Width * readInfo.BytesPerPixel, 0, 0);
 
         return result;
     }

@@ -1,4 +1,11 @@
 ﻿using Avalonia;
+using Avalonia.Media.Imaging;
+using Avalonia.Platform;
+using Beutl.Media;
+using PixelSize = Avalonia.PixelSize;
+using PixelPoint = Avalonia.PixelPoint;
+using PixelRect = Avalonia.PixelRect;
+using Point = Avalonia.Point;
 
 namespace Beutl.Controls;
 
@@ -103,5 +110,62 @@ public static class AvaloniaTypeConverter
             pt.Unit == Graphics.RelativeUnit.Relative
                 ? RelativeUnit.Relative
                 : RelativeUnit.Absolute);
+    }
+
+    public static PixelFormat? ToAvaPixelFormat(this BitmapColorType colorType)
+    {
+        return colorType switch
+        {
+            BitmapColorType.Bgra8888 => PixelFormats.Bgra8888,
+            BitmapColorType.Rgba8888 => PixelFormats.Rgba8888,
+            BitmapColorType.Rgb565 => PixelFormats.Rgb565,
+            BitmapColorType.Gray8 => PixelFormats.Gray8,
+            _ => null
+        };
+    }
+
+    public static AlphaFormat? ToAvaAlphaFormat(this BitmapAlphaType alphaType)
+    {
+        return alphaType switch
+        {
+            BitmapAlphaType.Premul => AlphaFormat.Premul,
+            BitmapAlphaType.Unpremul => AlphaFormat.Unpremul,
+            _ => null
+        };
+    }
+
+    public static unsafe WriteableBitmap ToAvaWriteableBitmap(this Media.Bitmap bitmap, WriteableBitmap previous = null)
+    {
+        var pixelFormat = bitmap.ColorType.ToAvaPixelFormat();
+        var alphaFormat = bitmap.AlphaType.ToAvaAlphaFormat();
+        if (pixelFormat == null || alphaFormat == null)
+        {
+            using var converted = bitmap.Convert(BitmapColorType.Bgra8888, BitmapAlphaType.Premul, BitmapColorSpace.Srgb);
+            return converted.ToAvaWriteableBitmap(previous);
+        }
+
+        if (previous != null &&
+            previous.PixelSize.Width == bitmap.Width &&
+            previous.PixelSize.Height == bitmap.Height &&
+            previous.Format == pixelFormat &&
+            previous.AlphaFormat == alphaFormat)
+        {
+            using var locked = previous.Lock();
+            Buffer.MemoryCopy((void*)bitmap.Data, (void*)locked.Address, bitmap.ByteCount, bitmap.ByteCount);
+            return previous;
+        }
+        else
+        {
+            var pixelSize = new PixelSize(bitmap.Width, bitmap.Height);
+            var writeableBitmap = new WriteableBitmap(pixelSize, new Vector(96, 96), pixelFormat, alphaFormat);
+
+            using (var locked = writeableBitmap.Lock())
+            {
+                Buffer.MemoryCopy((void*)bitmap.Data, (void*)locked.Address, bitmap.ByteCount, bitmap.ByteCount);
+            }
+
+            previous?.Dispose();
+            return writeableBitmap;
+        }
     }
 }

@@ -1,9 +1,7 @@
 ﻿using System.ComponentModel.DataAnnotations;
-using Beutl.Animation;
 using Beutl.Engine;
 using Beutl.Language;
 using Beutl.Media;
-using Beutl.Media.Pixel;
 using Beutl.Utilities;
 using SkiaSharp;
 
@@ -55,7 +53,7 @@ public partial class FlatShadow : FilterEffect
     private static void Apply((float Angle, float Length, Brush.Resource? Brush, bool ShadowOnly) data,
         CustomFilterEffectContext context)
     {
-        static SKPath CreatePath(Bitmap<Bgra8888> src)
+        static SKPath CreatePath(Bitmap src)
         {
             using var contours = ContourTracer.FindContours(src);
 

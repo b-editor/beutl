@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 using System.Numerics;
 using Beutl.Engine;
 using Beutl.Language;
@@ -31,7 +31,7 @@ public sealed partial class LutEffect : FilterEffect
                 return a - b * (a / b);
             }
 
-            float3 trilinear_interpolate(float4 color)
+            float3 trilinear_interpolate(float3 color)
             {
                 int3 pos; // 0~33
                 float3 delta; //
@@ -93,24 +93,40 @@ public sealed partial class LutEffect : FilterEffect
                 return out_color;
             }
 
-            float4 mix_strength(float3 color, float4 original) {
-                float4 newColor;
+            // リニアsRGB → sRGBガンマ変換
+            float3 linearToSrgb(float3 c) {
+                float3 lo = c * 12.92;
+                float3 hi = 1.055 * pow(c, float3(1.0/2.4)) - 0.055;
+                return mix(lo, hi, step(float3(0.0031308), c));
+            }
 
-                newColor.r = color.r * strength + (original.r * (1.0 - strength));
-                newColor.g = color.g * strength + (original.g * (1.0 - strength));
-                newColor.b = color.b * strength + (original.b * (1.0 - strength));
-                newColor.a = original.a;
-
-                return newColor;
+            // sRGBガンマ → リニアsRGB変換
+            float3 srgbToLinear(float3 c) {
+                float3 lo = c / 12.92;
+                float3 hi = pow((c + 0.055) / 1.055, float3(2.4));
+                return mix(lo, hi, step(float3(0.04045), c));
             }
 
             half4 main(float2 fragCoord) {
-                // 入力画像から色を取得
                 float4 c = float4(src.eval(fragCoord));
 
-                float3 newColor = trilinear_interpolate(c);
+                // プリマルチプライドアルファを解除
+                float alpha = c.a;
+                if (alpha <= 0.0001) return half4(0.0);
+                float3 rgb = c.rgb / alpha;
 
-                return half4(mix_strength(newColor, c));
+                // リニア→sRGBに変換してからLUT適用（LUTはsRGB前提）
+                float3 srgbColor = linearToSrgb(rgb);
+                float3 lutResult = trilinear_interpolate(srgbColor);
+
+                // LUT結果をsRGB→リニアに戻す
+                lutResult = srgbToLinear(lutResult);
+
+                // strengthで混合（リニア空間で）
+                float3 result = mix(rgb, lutResult, strength);
+
+                // プリマルチプライドアルファに戻す
+                return half4(half3(result * alpha), half(alpha));
             }
             """;
 
@@ -142,13 +158,45 @@ public sealed partial class LutEffect : FilterEffect
 
             if (cube.Dimention == CubeFileDimension.OneDimension)
             {
+                // 1D LUTパスはSKColorFilter.CreateTable（バイトテーブル）を使用。
+
                 context.LookupTable(
                     cube,
                     strength,
-                    static (CubeFile cube, (byte[] A, byte[] R, byte[] G, byte[] B) data) =>
+                    static (cube, data) =>
                     {
                         LookupTable.Linear(data.A);
-                        cube.ToLUT(1, data.R, data.G, data.B);
+
+                        // sRGB空間のLUTテーブルを一時配列に取得
+                        byte[] srgbR = new byte[256];
+                        byte[] srgbG = new byte[256];
+                        byte[] srgbB = new byte[256];
+                        cube.ToLUT(1, srgbR, srgbG, srgbB);
+
+                        // リニアバイト入力 → sRGBガンマ変換 → LUT適用 → リニア変換
+                        for (int i = 0; i < 256; i++)
+                        {
+                            float linear = i / 255f;
+                            // リニア → sRGBガンマ
+                            float srgb = linear <= 0.0031308f
+                                ? linear * 12.92f
+                                : 1.055f * MathF.Pow(linear, 1f / 2.4f) - 0.055f;
+                            int srgbIdx = Math.Clamp((int)(srgb * 255f + 0.5f), 0, 255);
+
+                            // sRGB空間でLUTルックアップし、結果をリニアに変換
+                            data.R[i] = SrgbByteToLinearByte(srgbR[srgbIdx]);
+                            data.G[i] = SrgbByteToLinearByte(srgbG[srgbIdx]);
+                            data.B[i] = SrgbByteToLinearByte(srgbB[srgbIdx]);
+                        }
+
+                        static byte SrgbByteToLinearByte(byte srgbByte)
+                        {
+                            float s = srgbByte / 255f;
+                            float linear = s <= 0.04045f
+                                ? s / 12.92f
+                                : MathF.Pow((s + 0.055f) / 1.055f, 2.4f);
+                            return (byte)Math.Clamp((int)(linear * 255f + 0.5f), 0, 255);
+                        }
                     });
             }
             else

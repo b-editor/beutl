@@ -298,7 +298,7 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
 
     public ReactivePropertySlim<int> WaveformChunkCount { get; } = new();
 
-    public event Action<int, Bitmap?>? ThumbnailReady;
+    public event Action<int, WriteableBitmap?>? ThumbnailReady;
 
     public event Action? ThumbnailsClear;
 
@@ -940,7 +940,7 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
                         if (!ct.IsCancellationRequested)
                         {
                             VideoThumbnailCount.Value = count;
-                            ThumbnailReady?.Invoke(index, ConvertToAvaloniaBitmap(thumbnail));
+                            ThumbnailReady?.Invoke(index, !thumbnail.IsDisposed ? thumbnail.ToAvaWriteableBitmap(null) : null);
                         }
                     }
                 });
@@ -993,7 +993,7 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
                     if (!ct.IsCancellationRequested)
                     {
                         VideoThumbnailCount.Value = count;
-                        ThumbnailReady?.Invoke(index, ConvertToAvaloniaBitmap(thumbnail));
+                        ThumbnailReady?.Invoke(index, !thumbnail.IsDisposed ? thumbnail.ToAvaWriteableBitmap(null) : null);
                     }
                 }
             });
@@ -1031,22 +1031,5 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
                 }
             });
         }
-    }
-
-    private static Bitmap? ConvertToAvaloniaBitmap(IBitmap source)
-    {
-        if (source.IsDisposed)
-            return null;
-
-        var width = source.Width;
-        var height = source.Height;
-
-        return new Bitmap(
-            Avalonia.Platform.PixelFormat.Bgra8888,
-            Avalonia.Platform.AlphaFormat.Premul,
-            source.Data,
-            new Avalonia.PixelSize(width, height),
-            new Vector(96, 96),
-            width * 4);
     }
 }

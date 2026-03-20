@@ -1,4 +1,4 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using Beutl.Media;
 using Beutl.Media.Pixel;
 using MonoMac.CoreGraphics;
@@ -11,7 +11,7 @@ namespace Beutl.Extensions.AVFoundation;
 
 public class AVFSampleUtilities
 {
-    public static unsafe CVPixelBuffer? ConvertToCVPixelBuffer(Bitmap<Bgra8888> bitmap)
+    public static unsafe CVPixelBuffer? ConvertToCVPixelBuffer(Bitmap bitmap)
     {
         int width = bitmap.Width;
         int height = bitmap.Height;
@@ -34,7 +34,7 @@ public class AVFSampleUtilities
         return pixelBuffer;
     }
 
-    public static unsafe Bitmap<Bgra8888>? ConvertToBgra(CMSampleBuffer buffer)
+    public static unsafe Bitmap? ConvertToBgra(CMSampleBuffer buffer)
     {
         using var imageBuffer = buffer.GetImageBuffer();
         if (imageBuffer is not CVPixelBuffer pixelBuffer) return null;
@@ -44,7 +44,7 @@ public class AVFSampleUtilities
 
         int width = pixelBuffer.Width;
         int height = pixelBuffer.Height;
-        var bitmap = new Bitmap<Bgra8888>(width, height);
+        var bitmap = new Bitmap(width, height);
         if (pixelBuffer.ColorSpace.Model == CGColorSpaceModel.RGB && pixelBuffer.BytesPerRow == width * 4)
         {
             Buffer.MemoryCopy(
@@ -53,10 +53,10 @@ public class AVFSampleUtilities
             pixelBuffer.Unlock(CVOptionFlags.None);
             Parallel.For(0, width * height, i =>
             {
-                // argb
-                // bgra
-                var o = bitmap.DataSpan[i];
-                bitmap.DataSpan[i] = new Bgra8888(o.G, o.R, o.A, o.B);
+                // argb -> bgra swizzle
+                var pixels = bitmap.GetPixelSpan<Bgra8888>();
+                var o = pixels[i];
+                pixels[i] = new Bgra8888(o.G, o.R, o.A, o.B);
             });
             return bitmap;
         }

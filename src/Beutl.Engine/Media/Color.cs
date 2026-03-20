@@ -1,6 +1,7 @@
-﻿using System.ComponentModel;
+using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
+using System.Numerics;
 using System.Text.Json.Serialization;
 
 using Beutl.Converters;
@@ -350,6 +351,31 @@ public readonly struct Color(byte a, byte r, byte g, byte b)
         float y = (1.0F - bb - k) / (1.0F - k);
 
         return new Cmyk(c, m, y, k, aa);
+    }
+
+    public Vector4 ToLinear()
+    {
+        float a = A / 255f;
+        float r = SrgbToLinear(R / 255f);
+        float g = SrgbToLinear(G / 255f);
+        float b = SrgbToLinear(B / 255f);
+
+        return new Vector4(r, g, b, a);
+    }
+
+    public Vector4 ToLinearPremultiplied()
+    {
+        float a = A / 255f;
+        float r = SrgbToLinear(R / 255f) * a;
+        float g = SrgbToLinear(G / 255f) * a;
+        float b = SrgbToLinear(B / 255f) * a;
+
+        return new Vector4(r, g, b, a);
+    }
+
+    private static float SrgbToLinear(float srgb)
+    {
+        return srgb <= 0.04045f ? srgb / 12.92f : MathF.Pow((srgb + 0.055f) / 1.055f, 2.4f);
     }
 
     /// <summary>

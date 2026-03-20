@@ -5,7 +5,6 @@ using Beutl.Graphics.Shapes;
 using Beutl.Graphics.Transformation;
 using Beutl.Logging;
 using Beutl.Media;
-using Beutl.Media.Pixel;
 using Microsoft.Extensions.Logging;
 using NUnit.Framework.Legacy;
 
@@ -37,7 +36,7 @@ public class ShapeTests
         canvas.Clear(Colors.Black);
         canvas.DrawDrawable(resource);
 
-        using Bitmap<Bgra8888> bmp = renderTarget.Snapshot();
+        using Bitmap bmp = renderTarget.Snapshot();
 
         ClassicAssert.IsTrue(bmp.Save(Path.Combine(ArtifactProvider.GetArtifactDirectory(), $"0.png"), EncodedImageFormat.Png));
     }
@@ -68,7 +67,7 @@ public class ShapeTests
 
         canvas.DrawDrawable(resource);
 
-        using Bitmap<Bgra8888> bmp = renderTarget.Snapshot();
+        using Bitmap bmp = renderTarget.Snapshot();
 
         ClassicAssert.IsTrue(bmp.Save(Path.Combine(ArtifactProvider.GetArtifactDirectory(), $"0.png"), EncodedImageFormat.Png));
     }
@@ -91,7 +90,7 @@ public class ShapeTests
         canvas.Clear(Colors.Black);
         canvas.DrawDrawable(resource);
 
-        using Bitmap<Bgra8888> bmp = renderTarget.Snapshot();
+        using Bitmap bmp = renderTarget.Snapshot();
 
         ClassicAssert.IsTrue(bmp.Save(Path.Combine(ArtifactProvider.GetArtifactDirectory(), $"0.png"), EncodedImageFormat.Png));
     }
@@ -115,7 +114,7 @@ public class ShapeTests
         canvas.Clear(Colors.Black);
         canvas.DrawDrawable(resource);
 
-        using Bitmap<Bgra8888> bmp = renderTarget.Snapshot();
+        using Bitmap bmp = renderTarget.Snapshot();
 
         ClassicAssert.IsTrue(bmp.Save(Path.Combine(ArtifactProvider.GetArtifactDirectory(), $"0.png"), EncodedImageFormat.Png));
     }
@@ -148,7 +147,7 @@ public class ShapeTests
         canvas.Clear(Colors.Black);
         canvas.DrawDrawable(resource);
 
-        using Bitmap<Bgra8888> bmp = renderTarget.Snapshot();
+        using Bitmap bmp = renderTarget.Snapshot();
 
         ClassicAssert.IsTrue(bmp.Save(Path.Combine(ArtifactProvider.GetArtifactDirectory(), $"{alignment}.png"), EncodedImageFormat.Png));
     }
@@ -190,7 +189,7 @@ public class ShapeTests
         canvas.Clear(Colors.Black);
         canvas.DrawDrawable(resource);
 
-        using Bitmap<Bgra8888> bmp = renderTarget.Snapshot();
+        using Bitmap bmp = renderTarget.Snapshot();
 
         ClassicAssert.IsTrue(bmp.Save(Path.Combine(ArtifactProvider.GetArtifactDirectory(), $"0.png"), EncodedImageFormat.Png));
     }
@@ -247,7 +246,7 @@ public class ShapeTests
         canvas.Clear(Colors.Black);
         canvas.DrawDrawable(resource);
 
-        using Bitmap<Bgra8888> bmp = renderTarget.Snapshot();
+        using Bitmap bmp = renderTarget.Snapshot();
 
         ClassicAssert.IsTrue(bmp.Save(Path.Combine(ArtifactProvider.GetArtifactDirectory(), $"{alignment}_{fillType}.png"), EncodedImageFormat.Png));
     }

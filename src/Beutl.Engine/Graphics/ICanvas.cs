@@ -1,8 +1,5 @@
-﻿using Beutl.Animation;
-using Beutl.Graphics.Effects;
-using Beutl.Graphics.Rendering;
+﻿using Beutl.Graphics.Rendering;
 using Beutl.Media;
-using Beutl.Media.Pixel;
 using Beutl.Media.Source;
 using Beutl.Media.TextFormatting;
 
@@ -71,7 +68,7 @@ public interface IBackdrop
     void Draw(ImmediateCanvas canvas);
 }
 
-internal sealed class TmpBackdrop(Bitmap<Bgra8888> bitmap) : IBackdrop
+internal sealed class TmpBackdrop(Bitmap bitmap) : IBackdrop
 {
     public void Draw(ImmediateCanvas canvas)
     {

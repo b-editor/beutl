@@ -3,7 +3,6 @@ using Beutl.Graphics;
 using Beutl.Media.Decoding.APNG;
 using Beutl.Media.Decoding.APNG.Chunks;
 using Beutl.Media.Music;
-using Beutl.Media.Pixel;
 using SkiaSharp;
 
 namespace Beutl.Media.Decoding;
@@ -12,7 +11,7 @@ public class AnimatedPngReader : MediaReader
 {
     private APNG.APNG _apng;
     private readonly int _frameCount;
-    private Bitmap<Bgra8888>? _defaultImage;
+    private Bitmap? _defaultImage;
     private FrameCache? _lastFrame;
 
     public AnimatedPngReader(string file)
@@ -40,7 +39,7 @@ public class AnimatedPngReader : MediaReader
         _frameCount = _apng.Frames.Length;
         if (_apng.IsSimplePNG)
         {
-            _defaultImage = Bitmap<Bgra8888>.FromStream(_apng.DefaultImage.GetStream());
+            _defaultImage = Bitmap.FromStream(_apng.DefaultImage.GetStream());
         }
     }
 
@@ -52,7 +51,7 @@ public class AnimatedPngReader : MediaReader
 
     public override bool HasAudio => false;
 
-    public override bool ReadVideo(int frame, [NotNullWhen(true)] out IBitmap? image)
+    public override bool ReadVideo(int frame, [NotNullWhen(true)] out Bitmap? image)
     {
         image = null;
 
@@ -97,7 +96,7 @@ public class AnimatedPngReader : MediaReader
 
         if (_lastFrame?.Index == detectedFrame)
         {
-            image = _lastFrame.Bitmap.ToBitmap();
+            image = new Bitmap(_lastFrame.Bitmap.Copy());
             return true;
         }
 
@@ -113,7 +112,7 @@ public class AnimatedPngReader : MediaReader
             _lastFrame = null;
         }
 
-        image = bitmap.ToBitmap();
+        image = new Bitmap(bitmap.Copy());
         return true;
     }
 

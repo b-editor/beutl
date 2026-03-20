@@ -51,7 +51,7 @@ public sealed class VideoSourceRenderNode(
                 bounds: Bounds,
                 render: canvas =>
                 {
-                    if (Source.Value.Resource.Read(Frame, out IBitmap? bitmap))
+                    if (Source.Value.Resource.Read(Frame, out Bitmap? bitmap))
                     {
                         using (bitmap)
                         {

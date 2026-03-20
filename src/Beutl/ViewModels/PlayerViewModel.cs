@@ -1,10 +1,10 @@
 ﻿using System.Reactive.Subjects;
 using Avalonia.Media.Imaging;
-using Avalonia.Platform;
 using Beutl.Audio.Composing;
 using Beutl.Audio.Platforms.XAudio2;
 using Beutl.Composition;
 using Beutl.Configuration;
+using Beutl.Controls;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.PathEditorTab.ViewModels;
 using Beutl.Graphics;
@@ -15,7 +15,6 @@ using Beutl.Logging;
 using Beutl.Media;
 using Beutl.Media.Music;
 using Beutl.Media.Music.Samples;
-using Beutl.Media.Pixel;
 using Beutl.Media.Source;
 using Beutl.Models;
 using Beutl.ProjectSystem;
@@ -209,7 +208,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
 
     public Project? Project => Scene?.FindHierarchicalParent<Project>();
 
-    public ReactivePropertySlim<Avalonia.Media.IImage> PreviewImage { get; } = new();
+    public ReactivePropertySlim<WriteableBitmap> PreviewImage { get; } = new();
 
     IReadOnlyReactiveProperty<Avalonia.Media.IImage?> IPreviewPlayer.PreviewImage => PreviewImage;
 
@@ -629,30 +628,9 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
         await _playbackTask;
     }
 
-    private unsafe void UpdateImage(Bitmap<Bgra8888> source)
+    private unsafe void UpdateImage(Media.Bitmap source)
     {
-        WriteableBitmap bitmap;
-
-        if (PreviewImage.Value is WriteableBitmap bitmap1 &&
-            bitmap1.PixelSize.Width == source.Width &&
-            bitmap1.PixelSize.Height == source.Height)
-        {
-            bitmap = bitmap1;
-        }
-        else
-        {
-            bitmap = new WriteableBitmap(
-                new(source.Width, source.Height),
-                new(96, 96),
-                PixelFormat.Bgra8888, AlphaFormat.Premul);
-        }
-
-        PreviewImage.Value = bitmap;
-        using (ILockedFramebuffer buf = bitmap.Lock())
-        {
-            int size = source.ByteCount;
-            Buffer.MemoryCopy((void*)source.Data, (void*)buf.Address, size, size);
-        }
+        PreviewImage.Value = source.ToAvaWriteableBitmap(PreviewImage.Value);
 
         PreviewInvalidated?.Invoke(this, EventArgs.Empty);
     }
@@ -713,7 +691,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                     TimeSpan time = EditViewModel.CurrentTime.Value;
                     int frame = (int)Math.Round(time.ToFrameNumber(rate), MidpointRounding.AwayFromZero);
                     time = TimeSpanExtensions.ToTimeSpan(frame, rate);
-                    Bitmap<Bgra8888>? bitmap = null;
+                    Beutl.Media.Bitmap? bitmap = null;
 
                     if (cacheManager.TryGet(frame, out var cache))
                     {
@@ -742,7 +720,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                         var compositionFrame = renderer.Compositor.EvaluateGraphics(time);
                         renderer.Render(compositionFrame);
 
-                        using (var forCache = Ref<Bitmap<Bgra8888>>.Create(renderer.Snapshot()))
+                        using (var forCache = Ref<Beutl.Media.Bitmap>.Create(renderer.Snapshot()))
                         {
                             cacheManager.Add(frame, forCache);
                             cacheManager.UpdateBlocks();
@@ -831,7 +809,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
 
     public TaskCompletionSource<Rect>? TcsForCrop { get; private set; }
 
-    public async Task<Bitmap<Bgra8888>> DrawSelectedDrawable(Drawable drawable)
+    public async Task<Beutl.Media.Bitmap> DrawSelectedDrawable(Drawable drawable)
     {
         await Pause();
 
@@ -853,7 +831,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
         });
     }
 
-    public async Task<Bitmap<Bgra8888>> DrawFrame()
+    public async Task<Beutl.Media.Bitmap> DrawFrame()
     {
         await Pause();
 

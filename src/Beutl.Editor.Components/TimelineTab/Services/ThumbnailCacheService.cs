@@ -17,7 +17,7 @@ public sealed class ThumbnailCacheService : IThumbnailCacheService
 
     public static ThumbnailCacheService Instance => s_instance.Value;
 
-    public bool TryGet(string cacheKey, TimeSpan time, TimeSpan threshold, out IBitmap? bitmap)
+    public bool TryGet(string cacheKey, TimeSpan time, TimeSpan threshold, out Bitmap? bitmap)
     {
         bitmap = null;
 
@@ -48,14 +48,14 @@ public sealed class ThumbnailCacheService : IThumbnailCacheService
         return true;
     }
 
-    public void Save(string cacheKey, TimeSpan time, IBitmap bitmap)
+    public void Save(string cacheKey, TimeSpan time, Bitmap bitmap)
     {
         try
         {
             var clone = bitmap.Clone();
 
             var index = GetOrCreateIndex(cacheKey);
-            IBitmap? old = null;
+            Bitmap? old = null;
             lock (index.Lock)
             {
                 if (index.Entries.TryGetValue(time.Ticks, out var existing))
@@ -179,7 +179,7 @@ public sealed class ThumbnailCacheService : IThumbnailCacheService
         return bestDiff <= thresholdTicks ? best : null;
     }
 
-    private static IBitmap? FindNearest(SortedList<long, IBitmap> entries, long targetTicks, long thresholdTicks)
+    private static Bitmap? FindNearest(SortedList<long, Bitmap> entries, long targetTicks, long thresholdTicks)
     {
         if (entries.Count == 0)
             return null;
@@ -199,7 +199,7 @@ public sealed class ThumbnailCacheService : IThumbnailCacheService
 
         // lo は targetTicks 以上の最小インデックス
         long bestDiff = long.MaxValue;
-        IBitmap? best = null;
+        Bitmap? best = null;
 
         // lo-1 (直前の要素) と lo (直後の要素) を比較
         for (int i = Math.Max(0, lo - 1); i <= Math.Min(keys.Count - 1, lo); i++)
@@ -287,7 +287,7 @@ public sealed class ThumbnailCacheService : IThumbnailCacheService
 
     private sealed class CacheIndex
     {
-        public readonly SortedList<long, IBitmap> Entries = new();
+        public readonly SortedList<long, Bitmap> Entries = new();
         public readonly object Lock = new();
         public DateTime LastAccessTime = DateTime.UtcNow;
     }

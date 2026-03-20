@@ -50,7 +50,7 @@ public sealed class AVFReader : MediaReader
         return false;
     }
 
-    public override bool ReadVideo(int frame, [NotNullWhen(true)] out IBitmap? image)
+    public override bool ReadVideo(int frame, [NotNullWhen(true)] out Bitmap? image)
     {
         if (_videoReader != null)
         {

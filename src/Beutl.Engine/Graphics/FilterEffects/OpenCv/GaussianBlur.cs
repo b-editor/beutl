@@ -2,7 +2,6 @@
 using Beutl.Engine;
 using Beutl.Language;
 using Beutl.Media;
-using Beutl.Media.Pixel;
 using OpenCvSharp;
 
 namespace Beutl.Graphics.Effects.OpenCv;
@@ -67,7 +66,7 @@ public partial class GaussianBlur : FilterEffect
             if (kHeight % 2 == 0)
                 kHeight++;
 
-            Bitmap<Bgra8888>? dst = null;
+            Bitmap? dst = null;
 
             try
             {

@@ -19,7 +19,6 @@ using Beutl.Graphics3D.Gizmo;
 using Beutl.Helpers;
 using Beutl.Logging;
 using Beutl.Media;
-using Beutl.Media.Pixel;
 using Beutl.ProjectSystem;
 using Beutl.Services;
 using Beutl.ViewModels;
@@ -411,22 +410,22 @@ public partial class PlayerView
             }
         }
 
-        private static Bitmap<Bgra8888> CropFrame(Bitmap<Bgra8888> frame, Rect rect)
+        private static Bitmap CropFrame(Bitmap frame, Rect rect)
         {
             var pxRect = PixelRect.FromRect(rect);
             var bounds = new PixelRect(0, 0, frame.Width, frame.Height);
             if (bounds.Contains(pxRect))
             {
-                return frame[pxRect];
+                return frame.ExtractSubset(pxRect);
             }
             else
             {
                 PixelRect intersect = bounds.Intersect(pxRect);
-                using Bitmap<Bgra8888> intersectBitmap = frame[intersect];
-                var result = new Bitmap<Bgra8888>(pxRect.Width, pxRect.Height);
+                using Bitmap intersectBitmap = frame.ExtractSubset(intersect);
+                var result = new Bitmap(pxRect.Width, pxRect.Height);
 
                 PixelPoint leftTop = intersect.Position - pxRect.Position;
-                result[new PixelRect(leftTop.X, leftTop.Y, intersect.Width, intersect.Height)] = intersectBitmap;
+                result.CopyFrom(intersectBitmap, new PixelRect(leftTop.X, leftTop.Y, intersect.Width, intersect.Height));
 
                 return result;
             }
@@ -437,12 +436,12 @@ public partial class PlayerView
             try
             {
                 Scene scene = ViewModel.Scene!;
-                Task<Bitmap<Bgra8888>> renderTask = ViewModel.DrawFrame();
+                Task<Bitmap> renderTask = ViewModel.DrawFrame();
 
                 FilePickerSaveOptions options = SharedFilePickerOptions.SaveImage();
 
-                using Bitmap<Bgra8888> frame = await renderTask;
-                using Bitmap<Bgra8888> croped = CropFrame(frame, rect);
+                using Bitmap frame = await renderTask;
+                using Bitmap croped = CropFrame(frame, rect);
 
                 WindowsClipboard.CopyImage(croped);
             }
@@ -486,15 +485,15 @@ public partial class PlayerView
                             try
                             {
                                 Scene scene = ViewModel.Scene!;
-                                Task<Bitmap<Bgra8888>> renderTask = ViewModel.DrawFrame();
+                                Task<Bitmap> renderTask = ViewModel.DrawFrame();
 
                                 string addtional = Path.GetFileNameWithoutExtension(scene.Uri!.LocalPath);
                                 IStorageFile? file = await SaveImageFilePicker(addtional, storage);
 
                                 if (file != null)
                                 {
-                                    using Bitmap<Bgra8888> frame = await renderTask;
-                                    using Bitmap<Bgra8888> croped = CropFrame(frame, rect);
+                                    using Bitmap frame = await renderTask;
+                                    using Bitmap croped = CropFrame(frame, rect);
 
                                     await SaveImage(file, croped);
                                 }

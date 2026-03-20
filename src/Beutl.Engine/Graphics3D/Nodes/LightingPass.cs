@@ -228,10 +228,7 @@ public sealed class LightingPass : GraphicsNode3D
         var ubo = new LightingPassUBO
         {
             CameraPosition = camera.Position,
-            AmbientColor = new Vector3(
-                ambientColor.R / 255f * ambientIntensity,
-                ambientColor.G / 255f * ambientIntensity,
-                ambientColor.B / 255f * ambientIntensity)
+            AmbientColor = ambientColor.ToLinearPremultiplied().AsVector3() * ambientIntensity
         };
         _cameraUniformBuffer!.Upload(new ReadOnlySpan<LightingPassUBO>(ref ubo));
 
@@ -598,13 +595,6 @@ public sealed class LightingPass : GraphicsNode3D
 
             // Final color
             vec3 color = ambient + Lo + emission;
-
-            // Tone mapping (Reinhard)
-            color = color / (color + vec3(1.0));
-
-            // Gamma correction
-            // ここでガンマ補正を行うと2重補正になってしまう
-            // color = pow(color, vec3(1.0 / 2.2));
 
             outColor = vec4(color, 1.0);
         }
