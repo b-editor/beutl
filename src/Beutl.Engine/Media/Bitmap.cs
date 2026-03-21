@@ -170,6 +170,14 @@ public sealed class Bitmap : ICloneable, IDisposable
         format = format == EncodedImageFormat.Default ? Image.ToImageFormat(file) : format;
 
         using var stream = new FileStream(file, FileMode.Create);
+
+        // 画像フォーマットはsRGBガンマ前提のため、リニア色空間の場合はsRGBに変換
+        if (!_colorSpace.IsSrgb)
+        {
+            using var srgb = Convert(BitmapColorType.Bgra8888, colorSpace: BitmapColorSpace.Srgb);
+            return srgb._skBitmap.Encode(stream, (SKEncodedImageFormat)format, quality);
+        }
+
         return _skBitmap.Encode(stream, (SKEncodedImageFormat)format, quality);
     }
 
@@ -178,6 +186,13 @@ public sealed class Bitmap : ICloneable, IDisposable
         ArgumentNullException.ThrowIfNull(stream);
         ThrowIfDisposed();
         format = format == EncodedImageFormat.Default ? EncodedImageFormat.Png : format;
+
+        // 画像フォーマットはsRGBガンマ前提のため、リニア色空間の場合はsRGBに変換
+        if (!_colorSpace.IsSrgb)
+        {
+            using var srgb = Convert(BitmapColorType.Bgra8888, colorSpace: BitmapColorSpace.Srgb);
+            return srgb._skBitmap.Encode(stream, (SKEncodedImageFormat)format, quality);
+        }
 
         return _skBitmap.Encode(stream, (SKEncodedImageFormat)format, quality);
     }

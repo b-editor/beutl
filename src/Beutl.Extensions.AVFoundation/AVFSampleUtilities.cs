@@ -13,8 +13,11 @@ public class AVFSampleUtilities
 {
     public static unsafe CVPixelBuffer? ConvertToCVPixelBuffer(Bitmap bitmap)
     {
-        int width = bitmap.Width;
-        int height = bitmap.Height;
+        // RgbaF16/LinearSrgb → Bgra8888/Srgb に変換（CVPixelBufferはBGRA/sRGB前提）
+        using var converted = bitmap.Convert(BitmapColorType.Bgra8888, BitmapAlphaType.Premul, BitmapColorSpace.Srgb);
+
+        int width = converted.Width;
+        int height = converted.Height;
         var pixelBuffer = new CVPixelBuffer(width, height, CVPixelFormatType.CV32BGRA, new CVPixelBufferAttributes
         {
             PixelFormatType = CVPixelFormatType.CV32BGRA,
@@ -26,8 +29,8 @@ public class AVFSampleUtilities
         if (r != CVReturn.Success) return null;
 
         Buffer.MemoryCopy(
-            (void*)bitmap.Data, (void*)pixelBuffer.GetBaseAddress(0),
-            bitmap.ByteCount, bitmap.ByteCount);
+            (void*)converted.Data, (void*)pixelBuffer.GetBaseAddress(0),
+            converted.ByteCount, converted.ByteCount);
 
         pixelBuffer.Unlock(CVOptionFlags.None);
 
