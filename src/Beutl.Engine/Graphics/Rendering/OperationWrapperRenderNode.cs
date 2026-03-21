@@ -1,4 +1,4 @@
-namespace Beutl.Graphics.Rendering;
+﻿namespace Beutl.Graphics.Rendering;
 
 public class OperationWrapperRenderNode : RenderNode
 {
