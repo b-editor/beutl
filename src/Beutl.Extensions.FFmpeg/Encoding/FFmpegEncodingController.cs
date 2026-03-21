@@ -1,4 +1,4 @@
-using Beutl.Extensibility;
+﻿using Beutl.Extensibility;
 using Beutl.Logging;
 using Beutl.Media;
 using FFmpeg.AutoGen.Abstractions;

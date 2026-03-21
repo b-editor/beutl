@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using Beutl.Media;
 using Beutl.Media.Pixel;
 using MonoMac.CoreGraphics;

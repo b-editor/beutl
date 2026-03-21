@@ -1,4 +1,4 @@
-using System.ComponentModel;
+﻿using System.ComponentModel;
 using System.Reactive;
 using Beutl.Collections.Pooled;
 using Beutl.Media;

@@ -2,9 +2,9 @@
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using Beutl.Media;
-using PixelSize = Avalonia.PixelSize;
 using PixelPoint = Avalonia.PixelPoint;
 using PixelRect = Avalonia.PixelRect;
+using PixelSize = Avalonia.PixelSize;
 using Point = Avalonia.Point;
 
 namespace Beutl.Controls;

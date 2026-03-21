@@ -1,4 +1,4 @@
-namespace Beutl.Media;
+﻿namespace Beutl.Media;
 
 public readonly struct BitmapInfo(
     int width, int height, int byteCount, int bytesPerPixel,
