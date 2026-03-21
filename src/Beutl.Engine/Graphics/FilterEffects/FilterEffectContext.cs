@@ -1,4 +1,4 @@
-﻿using System.ComponentModel;
+using System.ComponentModel;
 using System.Reactive;
 using Beutl.Collections.Pooled;
 using Beutl.Media;
@@ -403,9 +403,33 @@ public sealed class FilterEffectContext : IDisposable
 
     public void Lighting(Color multiply, Color add)
     {
+        // CreateLightingはsRGBガンマ値でマトリックスを作成するため、
+        // リニア色空間では不正確。リニアに変換したカラーマトリックスを使用する。
         AppendSKColorFilter(
             (multiply, add),
-            (data, _) => SKColorFilter.CreateLighting(data.multiply.ToSKColor(), data.add.ToSKColor()));
+            (data, _) =>
+            {
+                var mulLinear = data.multiply.ToLinear();
+                var addLinear = data.add.ToLinear();
+
+                float[] array = s_colorMatPool.Get();
+                try
+                {
+                    array.AsSpan().Clear();
+                    array[0] = mulLinear.X;
+                    array[6] = mulLinear.Y;
+                    array[12] = mulLinear.Z;
+                    array[18] = 1;
+                    array[4] = addLinear.X;
+                    array[9] = addLinear.Y;
+                    array[14] = addLinear.Z;
+                    return SKColorFilter.CreateColorMatrix(array);
+                }
+                finally
+                {
+                    s_colorMatPool.Return(array);
+                }
+            });
     }
 
     public void LumaColor()
