@@ -134,6 +134,27 @@ public static class AvaloniaTypeConverter
         };
     }
 
+    private static unsafe void CopyBitmapToFramebuffer(Media.Bitmap bitmap, ILockedFramebuffer locked)
+    {
+        int srcRowBytes = bitmap.RowBytes;
+        int dstRowBytes = locked.RowBytes;
+        int copyBytes = bitmap.Width * bitmap.BytesPerPixel;
+
+        if (srcRowBytes == dstRowBytes)
+        {
+            Buffer.MemoryCopy((void*)bitmap.Data, (void*)locked.Address, bitmap.ByteCount, bitmap.ByteCount);
+        }
+        else
+        {
+            byte* src = (byte*)bitmap.Data;
+            byte* dst = (byte*)locked.Address;
+            for (int y = 0; y < bitmap.Height; y++)
+            {
+                Buffer.MemoryCopy(src + (long)y * srcRowBytes, dst + (long)y * dstRowBytes, copyBytes, copyBytes);
+            }
+        }
+    }
+
     public static unsafe WriteableBitmap ToAvaWriteableBitmap(this Media.Bitmap bitmap, WriteableBitmap previous = null)
     {
         var pixelFormat = bitmap.ColorType.ToAvaPixelFormat();
@@ -151,7 +172,7 @@ public static class AvaloniaTypeConverter
             previous.AlphaFormat == alphaFormat)
         {
             using var locked = previous.Lock();
-            Buffer.MemoryCopy((void*)bitmap.Data, (void*)locked.Address, bitmap.ByteCount, bitmap.ByteCount);
+            CopyBitmapToFramebuffer(bitmap, locked);
             return previous;
         }
         else
@@ -161,7 +182,7 @@ public static class AvaloniaTypeConverter
 
             using (var locked = writeableBitmap.Lock())
             {
-                Buffer.MemoryCopy((void*)bitmap.Data, (void*)locked.Address, bitmap.ByteCount, bitmap.ByteCount);
+                CopyBitmapToFramebuffer(bitmap, locked);
             }
 
             previous?.Dispose();

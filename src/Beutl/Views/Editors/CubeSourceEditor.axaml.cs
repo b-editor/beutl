@@ -1,10 +1,8 @@
 ﻿using Avalonia.Controls;
 using Avalonia.Platform.Storage;
 using Beutl.Controls.PropertyEditors;
-using Beutl.Graphics3D.Models;
 using Beutl.Media.Source;
 using Beutl.ViewModels.Editors;
-using Silk.NET.Assimp;
 
 namespace Beutl.Views.Editors;
 

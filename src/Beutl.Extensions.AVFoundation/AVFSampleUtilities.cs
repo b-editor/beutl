@@ -54,17 +54,17 @@ public class AVFSampleUtilities
                 (void*)pixelBuffer.GetBaseAddress(0), (void*)bitmap.Data,
                 bitmap.ByteCount, bitmap.ByteCount);
             pixelBuffer.Unlock(CVOptionFlags.None);
+            Bgra8888* pixels = (Bgra8888*)bitmap.Data;
             Parallel.For(0, width * height, i =>
             {
                 // argb -> bgra swizzle
-                var pixels = bitmap.GetPixelSpan<Bgra8888>();
                 var o = pixels[i];
                 pixels[i] = new Bgra8888(o.G, o.R, o.A, o.B);
             });
             return bitmap;
         }
 
-        int bytesPerRow = width * height * 4;
+        int bytesPerRow = width * 4;
         using (CGColorSpace colorSpace = CGColorSpace.CreateDeviceRGB())
         using (var cgContext = new CGBitmapContext(
                    bitmap.Data, width, height,

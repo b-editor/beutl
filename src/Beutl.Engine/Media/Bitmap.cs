@@ -206,7 +206,8 @@ public sealed class Bitmap : ICloneable, IDisposable
         var destInfo = new SKImageInfo(Width, Height, colorType.ToSKColorType(), destAlpha.ToSKAlphaType(), destColorSpace.SKColorSpace);
         var destBitmap = new SKBitmap(destInfo);
         using var canvas = new SKCanvas(destBitmap);
-        canvas.DrawBitmap(_skBitmap, SKPoint.Empty);
+        using var paint = new SKPaint { BlendMode = SKBlendMode.Src };
+        canvas.DrawBitmap(_skBitmap, SKPoint.Empty, paint);
 
         return new Bitmap(destBitmap);
     }
@@ -232,13 +233,14 @@ public sealed class Bitmap : ICloneable, IDisposable
         if (mode is FlipMode.Y or FlipMode.XY)
         {
             byte* basePtr = (byte*)Data;
+            int bpp = BytesPerPixel;
             Parallel.For(0, Height, y =>
             {
                 var row = new Span<byte>(basePtr + (long)y * RowBytes, rowBytes);
-                int bpp = BytesPerPixel;
+                Span<byte> tmp = stackalloc byte[bpp];
                 for (int left = 0, right = Width - 1; left < right; left++, right--)
                 {
-                    var tmp = row.Slice(left * bpp, bpp).ToArray();
+                    row.Slice(left * bpp, bpp).CopyTo(tmp);
                     row.Slice(right * bpp, bpp).CopyTo(row.Slice(left * bpp, bpp));
                     tmp.CopyTo(row.Slice(right * bpp, bpp));
                 }
@@ -325,7 +327,9 @@ public sealed class Bitmap : ICloneable, IDisposable
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private void ThrowOutOfRange(PixelRect roi)
     {
+        if (roi.X < 0 || roi.Y < 0 || roi.Width < 0 || roi.Height < 0)
+            throw new ArgumentOutOfRangeException(nameof(roi));
         if (roi.Bottom > Height) throw new ArgumentOutOfRangeException(nameof(roi));
-        else if (roi.Right > Width) throw new ArgumentOutOfRangeException(nameof(roi));
+        if (roi.Right > Width) throw new ArgumentOutOfRangeException(nameof(roi));
     }
 }
