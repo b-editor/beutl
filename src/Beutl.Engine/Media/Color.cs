@@ -353,6 +353,9 @@ public readonly struct Color(byte a, byte r, byte g, byte b)
         return new Cmyk(c, m, y, k, aa);
     }
 
+    /// <summary>
+    /// Converts this 32Bit color to linear color space.
+    /// </summary>
     public Vector4 ToLinear()
     {
         float a = A / 255f;
@@ -363,6 +366,9 @@ public readonly struct Color(byte a, byte r, byte g, byte b)
         return new Vector4(r, g, b, a);
     }
 
+    /// <summary>
+    /// Converts this 32Bit color to linear color space with premultiplied alpha.
+    /// </summary>
     public Vector4 ToLinearPremultiplied()
     {
         float a = A / 255f;
@@ -373,9 +379,28 @@ public readonly struct Color(byte a, byte r, byte g, byte b)
         return new Vector4(r, g, b, a);
     }
 
-    private static float SrgbToLinear(float srgb)
+    internal static float SrgbToLinear(float srgb)
     {
         return srgb <= 0.04045f ? srgb / 12.92f : MathF.Pow((srgb + 0.055f) / 1.055f, 2.4f);
+    }
+
+    /// <summary>
+    /// Creates a <see cref="Color"/> from a linear color.
+    /// </summary>
+    /// <param name="linear">The linear color.</param>
+    public static Color FromLinear(Vector4 linear)
+    {
+        byte r = (byte)Math.Clamp(LinearToSrgb(linear.X) * 255f, 0, 255);
+        byte g = (byte)Math.Clamp(LinearToSrgb(linear.Y) * 255f, 0, 255);
+        byte b = (byte)Math.Clamp(LinearToSrgb(linear.Z) * 255f, 0, 255);
+        byte a = (byte)Math.Clamp(linear.W * 255f, 0, 255);
+
+        return FromArgb(a, r, g, b);
+    }
+
+    internal static float LinearToSrgb(float linear)
+    {
+        return linear <= 0.0031308f ? linear * 12.92f : 1.055f * MathF.Pow(linear, 1 / 2.4f) - 0.055f;
     }
 
     /// <summary>
