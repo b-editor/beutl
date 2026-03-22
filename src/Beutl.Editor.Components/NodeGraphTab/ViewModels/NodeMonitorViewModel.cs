@@ -1,10 +1,4 @@
-﻿using Avalonia;
-using Avalonia.Media.Imaging;
-using Avalonia.Platform;
-using Beutl.Controls;
-using Beutl.Editor.Services;
-using Beutl.Media;
-using Beutl.Media.Pixel;
+﻿using Beutl.Editor.Services;
 using Beutl.Media.Source;
 using Beutl.NodeGraph;
 using Microsoft.Extensions.DependencyInjection;
@@ -47,7 +41,7 @@ public class NodeMonitorViewModel : NodeMemberViewModel
 
     public ReactivePropertySlim<string?> DisplayText { get; } = new();
 
-    public WriteableBitmap? DisplayBitmap { get; private set; }
+    public Ref<Media.Bitmap>? DisplayBitmap { get; private set; }
 
     public event EventHandler? ImageInvalidated;
 
@@ -64,10 +58,11 @@ public class NodeMonitorViewModel : NodeMemberViewModel
         }
     }
 
-    private unsafe void UpdateImage(Ref<Media.Bitmap>? source)
+    private void UpdateImage(Ref<Media.Bitmap>? source)
     {
         if (source == null)
         {
+            DisplayBitmap?.Dispose();
             DisplayBitmap = null;
             ImageInvalidated?.Invoke(this, EventArgs.Empty);
             return;
@@ -75,9 +70,9 @@ public class NodeMonitorViewModel : NodeMemberViewModel
 
         try
         {
-            using var cloned = source.Clone();
-
-            DisplayBitmap = cloned.Value.ToAvaWriteableBitmap(DisplayBitmap);
+            var old = DisplayBitmap;
+            DisplayBitmap = source.Clone();
+            old?.Dispose();
 
             ImageInvalidated?.Invoke(this, EventArgs.Empty);
         }
