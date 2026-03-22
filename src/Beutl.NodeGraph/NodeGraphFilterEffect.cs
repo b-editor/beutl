@@ -23,6 +23,9 @@ public sealed partial class NodeGraphFilterEffect : FilterEffect
 
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {
+        throw new NotSupportedException(
+            $"{nameof(NodeGraphFilterEffect)} does not support {nameof(ApplyTo)}. " +
+            "Use the resource/render-node pipeline (via ToResource and CreateRenderNode) instead.");
     }
 
     public override Resource ToResource(CompositionContext context)
