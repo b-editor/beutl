@@ -1,17 +1,45 @@
-﻿namespace Beutl.Graphics.Rendering;
+using Beutl.Media.Source;
+
+namespace Beutl.Graphics.Rendering;
 
 public class OperationWrapperRenderNode : RenderNode
 {
-    private RenderNodeOperation[] _operations = [];
+    private Ref<RenderNodeOperation>[] _operations = [];
 
     public void SetOperations(RenderNodeOperation[] operations)
     {
-        _operations = operations;
+        foreach (var r in _operations)
+            r.Dispose();
+
+        var refs = new Ref<RenderNodeOperation>[operations.Length];
+        for (int i = 0; i < operations.Length; i++)
+            refs[i] = Ref<RenderNodeOperation>.Create(operations[i]);
+
+        _operations = refs;
         HasChanges = true;
     }
 
     public override RenderNodeOperation[] Process(RenderNodeContext context)
     {
-        return _operations;
+        var result = new RenderNodeOperation[_operations.Length];
+        for (int i = 0; i < _operations.Length; i++)
+            result[i] = new RefCountedProxy(_operations[i].Clone());
+
+        return result;
+    }
+
+    private sealed class RefCountedProxy(Ref<RenderNodeOperation> inner) : RenderNodeOperation
+    {
+        public override Rect Bounds => inner.Value.Bounds;
+
+        public override void Render(ImmediateCanvas canvas) => inner.Value.Render(canvas);
+
+        public override bool HitTest(Point point) => inner.Value.HitTest(point);
+
+        protected override void OnDispose(bool disposing)
+        {
+            if (disposing)
+                inner.Dispose();
+        }
     }
 }

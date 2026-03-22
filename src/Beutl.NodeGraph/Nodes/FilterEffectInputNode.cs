@@ -20,5 +20,13 @@ public partial class FilterEffectInputNode : GraphNode
         {
             Output = Wrapper;
         }
+
+        partial void PostDispose(bool disposing)
+        {
+            if (disposing)
+            {
+                Wrapper.Dispose();
+            }
+        }
     }
 }
