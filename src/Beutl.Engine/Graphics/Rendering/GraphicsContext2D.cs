@@ -67,6 +67,8 @@ public sealed class GraphicsContext2D(
         if (_drawOperationindex < _container.Children.Count)
         {
             var node = _container.Children[_drawOperationindex];
+            // is-asだと、Next<FilterEffectRenderNode>()のような呼び出しで継承されていないノードが欲しいのにNodeGraphFilterEffectRenderNodeが返ってきてしまうので、
+            // GetType() == typeof(T)で厳密に型を比較する。
             if (node.GetType() == typeof(T))
             {
                 return (T)node;
