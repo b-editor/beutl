@@ -2,6 +2,15 @@
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
+using Beutl.Media;
+using Beutl.Media.Pixel;
+using Brushes = Avalonia.Media.Brushes;
+using BtlBitmap = Beutl.Media.Bitmap;
+using Color = Avalonia.Media.Color;
+using Pen = Avalonia.Media.Pen;
+using PixelSize = Avalonia.PixelSize;
+using SolidColorBrush = Avalonia.Media.SolidColorBrush;
+using Vector = Avalonia.Vector;
 
 namespace Beutl.Editor.Components.ColorScopesTab.Views.Scopes;
 
@@ -40,10 +49,7 @@ public class VectorscopeControl : ScopeControlBase
     protected override string[]? HorizontalAxisLabels => null;
 
     protected override unsafe WriteableBitmap? RenderScope(
-        byte[] sourceData,
-        int sourceWidth,
-        int sourceHeight,
-        int sourceStride,
+        BtlBitmap sourceBitmap,
         int targetWidth,
         int targetHeight,
         WriteableBitmap? existingBitmap)
@@ -66,29 +72,55 @@ public class VectorscopeControl : ScopeControlBase
         dest.Fill(PackColor(0, 0, 0, 0));
         int stridePixels = fb.RowBytes / sizeof(uint);
 
+        int sourceWidth = sourceBitmap.Width;
+        int sourceHeight = sourceBitmap.Height;
         int step = Math.Max(1, Math.Max(sourceWidth, sourceHeight) / size);
 
-        for (int y = 0; y < sourceHeight; y += step)
+        BtlBitmap rgbaGamma;
+        bool requireDispose = false;
+        // TODO: Linear/Gammaを切り替えられるようにする
+        if (sourceBitmap.ColorType == BitmapColorType.RgbaF16 && sourceBitmap.ColorSpace == BitmapColorSpace.Srgb)
         {
-            int row = y * sourceStride;
-            for (int x = 0; x < sourceWidth; x += step)
+            rgbaGamma = sourceBitmap;
+        }
+        else
+        {
+            rgbaGamma = sourceBitmap.Convert(BitmapColorType.RgbaF16, colorSpace: BitmapColorSpace.Srgb);
+            requireDispose = true;
+        }
+
+        try
+        {
+            for (int y = 0; y < sourceHeight; y += step)
             {
-                int idx = row + x * 4;
-                byte b = sourceData[idx];
-                byte g = sourceData[idx + 1];
-                byte r = sourceData[idx + 2];
+                var row = rgbaGamma.GetRow<RgbaF16>(y);
+                for (int x = 0; x < sourceWidth; x += step)
+                {
+                    RgbaF16 pixel = row[x];
+                    var r = (float)pixel.R;
+                    var g = (float)pixel.G;
+                    var b = (float)pixel.B;
 
-                // Convert RGB to CbCr (YCbCr color space)
-                int cb = (int)(-0.168736f * r - 0.331264f * g + 0.5f * b + 128);
-                int cr = (int)(0.5f * r - 0.418688f * g - 0.081312f * b + 128);
+                    // Convert RGB to CbCr (YCbCr color space)
+                    float cb = -0.11457f * r - 0.38543f * g + 0.5f * b;
+                    float cr = 0.5f * r - 0.45415f * g - 0.04585f * b;
 
-                cb = Math.Clamp(cb, 0, 255);
-                cr = Math.Clamp(cr, 0, 255);
+                    byte cb8 = (byte)Math.Clamp(MathF.Round(cb * 255f + 128f), 0, 255);
+                    byte cr8 = (byte)Math.Clamp(MathF.Round(cr * 255f + 128f), 0, 255);
 
-                int vx = cb * (size - 1) / 255;
-                int vy = (255 - cr) * (size - 1) / 255;
+                    int vx = cb8 * (size - 1) / 255;
+                    int vy = (255 - cr8) * (size - 1) / 255;
 
-                PlotPoint(dest, stridePixels, vx, vy, PackColor(r, g, b, 180));
+                    var c = Media.Color.FromRgb((byte)(r * 255), (byte)(g * 255), (byte)(b * 255));
+                    PlotPoint(dest, stridePixels, vx, vy, PackColor(c.R, c.G, c.B, 180));
+                }
+            }
+        }
+        finally
+        {
+            if (requireDispose)
+            {
+                rgbaGamma.Dispose();
             }
         }
 

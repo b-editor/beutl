@@ -2,6 +2,10 @@
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using Beutl.Editor.Components.ColorScopesTab.ViewModels;
+using Beutl.Media;
+using Beutl.Media.Pixel;
+using BtlBitmap = Beutl.Media.Bitmap;
+using PixelSize = Avalonia.PixelSize;
 
 namespace Beutl.Editor.Components.ColorScopesTab.Views.Scopes;
 
@@ -38,10 +42,7 @@ public class HistogramControl : ScopeControlBase
     protected override string[]? HorizontalAxisLabels => s_horizontalLabels;
 
     protected override unsafe WriteableBitmap RenderScope(
-        byte[] sourceData,
-        int sourceWidth,
-        int sourceHeight,
-        int sourceStride,
+        BtlBitmap sourceBitmap,
         int targetWidth,
         int targetHeight,
         WriteableBitmap? existingBitmap)
@@ -51,21 +52,44 @@ public class HistogramControl : ScopeControlBase
         var gHist = new int[256];
         var bHist = new int[256];
 
+        int sourceWidth = sourceBitmap.Width;
+        int sourceHeight = sourceBitmap.Height;
         int xStep = Math.Max(1, sourceWidth / 256);
         int yStep = Math.Max(1, sourceHeight / 256);
 
-        for (int y = 0; y < sourceHeight; y += yStep)
+        BtlBitmap rgbaGamma;
+        bool requireDispose = false;
+        // TODO: Linear/Gammaを切り替えられるようにする
+        // TODO: 解像度を高くする
+        if (sourceBitmap.ColorType == BitmapColorType.Bgra8888 && sourceBitmap.ColorSpace == BitmapColorSpace.Srgb)
         {
-            int row = y * sourceStride;
-            for (int x = 0; x < sourceWidth; x += xStep)
-            {
-                int idx = row + x * 4;
-                bHist[sourceData[idx]]++;
-                gHist[sourceData[idx + 1]]++;
-                rHist[sourceData[idx + 2]]++;
-            }
+            rgbaGamma = sourceBitmap;
+        }
+        else
+        {
+            rgbaGamma = sourceBitmap.Convert(BitmapColorType.Bgra8888, colorSpace: BitmapColorSpace.Srgb);
+            requireDispose = true;
         }
 
+        try
+        {
+            for (int y = 0; y < sourceHeight; y += yStep)
+            {
+                var row = rgbaGamma.GetRow<Bgra8888>(y);
+                for (int x = 0; x < sourceWidth; x += xStep)
+                {
+                    Bgra8888 pixel = row[x];
+                    rHist[pixel.R]++;
+                    gHist[pixel.G]++;
+                    bHist[pixel.B]++;
+                }
+            }
+        }
+        finally
+        {
+            if (requireDispose)
+                rgbaGamma.Dispose();
+        }
         var mode = Mode;
 
         // Reuse existing bitmap if size matches

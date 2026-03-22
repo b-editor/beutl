@@ -1,18 +1,17 @@
-﻿using System.Buffers;
-using System.Runtime.InteropServices;
-using Avalonia;
+﻿using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
-using Avalonia.Platform;
 using Avalonia.Threading;
+using Beutl.Media.Source;
+using BtlBitmap = Beutl.Media.Bitmap;
 
 namespace Beutl.Editor.Components.ColorScopesTab.Views.Scopes;
 
 public abstract class ScopeControlBase : Control
 {
-    public static readonly StyledProperty<WriteableBitmap?> SourceBitmapProperty =
-        AvaloniaProperty.Register<ScopeControlBase, WriteableBitmap?>(nameof(SourceBitmap));
+    public static readonly StyledProperty<Ref<BtlBitmap>?> SourceBitmapProperty =
+        AvaloniaProperty.Register<ScopeControlBase, Ref<BtlBitmap>?>(nameof(SourceBitmap));
 
     public static readonly StyledProperty<IBrush?> AxisBrushProperty =
         AvaloniaProperty.Register<ScopeControlBase, IBrush?>(nameof(AxisBrush));
@@ -28,7 +27,6 @@ public abstract class ScopeControlBase : Control
 
     protected static readonly Typeface DefaultTypeface = new(FontFamily.Default, FontStyle.Normal, FontWeight.Normal);
 
-    private static readonly ArrayPool<byte> s_bytePool = ArrayPool<byte>.Shared;
     private readonly Pen _axisPen = new(Brushes.Gray, 1.5);
     private readonly SemaphoreSlim _renderLock = new(1, 1);
     private CancellationTokenSource? _renderCts;
@@ -39,24 +37,22 @@ public abstract class ScopeControlBase : Control
 
     public void Refresh()
     {
-        OnSourceBitmapChanged();
+        StartBackgroundRender();
     }
 
     static ScopeControlBase()
     {
         AffectsRender<ScopeControlBase>(
-            SourceBitmapProperty,
             AxisBrushProperty,
             LabelBrushProperty,
             BackgroundBrushProperty,
             AxisMarginProperty);
 
-        SourceBitmapProperty.Changed.AddClassHandler<ScopeControlBase>((s, e) => s.OnSourceBitmapChanged());
         AxisBrushProperty.Changed.AddClassHandler<ScopeControlBase>((s, e) =>
             s._axisPen.Brush = (e.NewValue as IBrush) ?? Brushes.Gray);
     }
 
-    public WriteableBitmap? SourceBitmap
+    public Ref<BtlBitmap>? SourceBitmap
     {
         get => GetValue(SourceBitmapProperty);
         set => SetValue(SourceBitmapProperty, value);
@@ -91,27 +87,17 @@ public abstract class ScopeControlBase : Control
     protected abstract string[]? HorizontalAxisLabels { get; }
 
     protected abstract WriteableBitmap? RenderScope(
-        byte[] sourceData,
-        int sourceWidth,
-        int sourceHeight,
-        int sourceStride,
+        BtlBitmap sourceBitmap,
         int targetWidth,
         int targetHeight,
         WriteableBitmap? existingBitmap);
 
-    private void OnSourceBitmapChanged()
-    {
-        StartBackgroundRender();
-    }
-
     private async void StartBackgroundRender()
     {
-        var bitmap = SourceBitmap;
-        if (bitmap == null)
+        var bitmapRef = SourceBitmap?.TryClone();
+        if (bitmapRef == null)
         {
-            _frontBuffer?.Dispose();
             _frontBuffer = null;
-            _backBuffer?.Dispose();
             _backBuffer = null;
             InvalidateVisual();
             return;
@@ -120,18 +106,7 @@ public abstract class ScopeControlBase : Control
         _renderCts?.Cancel();
         _renderCts?.Dispose();
         _renderCts = new CancellationTokenSource();
-        CancellationToken ct = _renderCts.Token;
-
-        byte[] sourceData;
-        int sourceWidth, sourceHeight, sourceStride;
-        unsafe
-        {
-            using ILockedFramebuffer frame = bitmap.Lock();
-            (sourceWidth, sourceHeight, sourceStride) = (frame.Size.Width, frame.Size.Height, frame.RowBytes);
-            int dataLength = sourceStride * sourceHeight;
-            sourceData = s_bytePool.Rent(dataLength);
-            new ReadOnlySpan<byte>((void*)frame.Address, dataLength).CopyTo(sourceData);
-        }
+        var ct = _renderCts.Token;
 
         var backBuffer = _backBuffer;
 
@@ -154,10 +129,7 @@ public abstract class ScopeControlBase : Control
                     if (ct.IsCancellationRequested) return;
 
                     var result = RenderScope(
-                        sourceData,
-                        sourceWidth,
-                        sourceHeight,
-                        sourceStride,
+                        bitmapRef.Value,
                         targetWidth,
                         targetHeight,
                         backBuffer);
@@ -196,7 +168,7 @@ public abstract class ScopeControlBase : Control
         }
         finally
         {
-            s_bytePool.Return(sourceData);
+            bitmapRef.Dispose();
             if (lockTaken)
                 _renderLock.Release();
         }
