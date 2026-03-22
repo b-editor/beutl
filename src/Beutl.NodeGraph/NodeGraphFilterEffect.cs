@@ -39,9 +39,11 @@ public sealed partial class NodeGraphFilterEffect : FilterEffect
 
     public new sealed class Resource : FilterEffect.Resource
     {
-        internal readonly GraphSnapshot _snapshot = new();
-        internal GraphModel? _model;
-        internal TimeSpan? _lastTime;
+        public GraphSnapshot Snapshot { get; } = new();
+
+        public GraphModel? Model { get; private set; }
+
+        public TimeSpan? LastTime { get; private set; }
 
         public override FilterEffectRenderNode CreateRenderNode()
         {
@@ -62,39 +64,39 @@ public sealed partial class NodeGraphFilterEffect : FilterEffect
 
             if (obj is NodeGraphFilterEffect filterEffect)
             {
-                if (_model != filterEffect.Model.CurrentValue)
+                if (Model != filterEffect.Model.CurrentValue)
                 {
-                    _model?.TopologyChanged -= OnModelTopologyChanged;
-                    _model = filterEffect.Model.CurrentValue;
-                    _model?.TopologyChanged += OnModelTopologyChanged;
-                    _snapshot.MarkDirty();
+                    Model?.TopologyChanged -= OnModelTopologyChanged;
+                    Model = filterEffect.Model.CurrentValue;
+                    Model?.TopologyChanged += OnModelTopologyChanged;
+                    Snapshot.MarkDirty();
                 }
 
-                if (_model != null)
+                if (Model != null)
                 {
-                    _lastTime = context.Time;
-                    _snapshot.Build(_model, context);
+                    LastTime = context.Time;
+                    Snapshot.Build(Model, context);
                     Version++;
                     updateOnly = true;
                 }
             }
             else
             {
-                _model?.TopologyChanged -= OnModelTopologyChanged;
-                _snapshot.MarkDirty();
+                Model?.TopologyChanged -= OnModelTopologyChanged;
+                Snapshot.MarkDirty();
             }
         }
 
         private void OnModelTopologyChanged(object? sender, EventArgs e)
         {
-            _snapshot.MarkDirty();
+            Snapshot.MarkDirty();
         }
 
         protected override void Dispose(bool disposing)
         {
-            _model?.TopologyChanged -= OnModelTopologyChanged;
-            _model = null;
-            if (disposing) _snapshot.Dispose();
+            Model?.TopologyChanged -= OnModelTopologyChanged;
+            Model = null;
+            if (disposing) Snapshot.Dispose();
             base.Dispose(disposing);
         }
     }
