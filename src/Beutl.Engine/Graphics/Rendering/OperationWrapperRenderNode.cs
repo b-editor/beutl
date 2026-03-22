@@ -28,6 +28,17 @@ public class OperationWrapperRenderNode : RenderNode
         return result;
     }
 
+    protected override void OnDispose(bool disposing)
+    {
+        base.OnDispose(disposing);
+        if (disposing)
+        {
+            foreach (var r in _operations)
+                r.Dispose();
+            _operations = [];
+        }
+    }
+
     private sealed class RefCountedProxy(Ref<RenderNodeOperation> inner) : RenderNodeOperation
     {
         public override Rect Bounds => inner.Value.Bounds;
