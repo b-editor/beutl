@@ -1,3 +1,5 @@
+#nullable enable
+
 using Avalonia;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
@@ -12,8 +14,8 @@ namespace Beutl.Controls;
 
 public class BitmapView : Avalonia.Controls.Control
 {
-    public static readonly StyledProperty<Ref<BtlBitmap>> SourceProperty =
-        AvaloniaProperty.Register<BitmapView, Ref<BtlBitmap>>(nameof(Source));
+    public static readonly StyledProperty<Ref<BtlBitmap>?> SourceProperty =
+        AvaloniaProperty.Register<BitmapView, Ref<BtlBitmap>?>(nameof(Source));
 
     public static readonly StyledProperty<Stretch> StretchProperty =
         AvaloniaProperty.Register<BitmapView, Stretch>(nameof(Stretch), Stretch.Uniform);
@@ -23,7 +25,7 @@ public class BitmapView : Avalonia.Controls.Control
             nameof(InterpolationMode), BitmapInterpolationMode.HighQuality);
 
     private Size? _lastSourceSize;
-    private Ref<BtlBitmap> _clonedSource;
+    private Ref<BtlBitmap>? _clonedSource;
 
     static BitmapView()
     {
@@ -31,7 +33,7 @@ public class BitmapView : Avalonia.Controls.Control
         AffectsMeasure<BitmapView>(StretchProperty);
     }
 
-    public Ref<BtlBitmap> Source
+    public Ref<BtlBitmap>? Source
     {
         get => GetValue(SourceProperty);
         set => SetValue(SourceProperty, value);
@@ -100,7 +102,7 @@ public class BitmapView : Avalonia.Controls.Control
 
     public override void Render(DrawingContext context)
     {
-        Ref<BtlBitmap> cloneForDrawOp = _clonedSource?.TryClone();
+        Ref<BtlBitmap>? cloneForDrawOp = _clonedSource?.TryClone();
         if (cloneForDrawOp == null) return;
 
         try
@@ -129,10 +131,9 @@ public class BitmapView : Avalonia.Controls.Control
                 skDestRect,
                 InterpolationMode));
         }
-        catch(Exception e)
+        catch
         {
-            Console.WriteLine(e);
-            cloneForDrawOp?.Dispose();
+            cloneForDrawOp.Dispose();
         }
     }
 
@@ -151,7 +152,7 @@ public class BitmapView : Avalonia.Controls.Control
             bitmap.Dispose();
         }
 
-        public bool Equals(ICustomDrawOperation other)
+        public bool Equals(ICustomDrawOperation? other)
         {
             return ReferenceEquals(this, other);
         }
