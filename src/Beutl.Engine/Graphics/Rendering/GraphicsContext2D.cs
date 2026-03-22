@@ -64,7 +64,16 @@ public sealed class GraphicsContext2D(
 
     private T? Next<T>() where T : RenderNode
     {
-        return _drawOperationindex < _container.Children.Count ? _container.Children[_drawOperationindex] as T : null;
+        if (_drawOperationindex < _container.Children.Count)
+        {
+            var node = _container.Children[_drawOperationindex];
+            if (node.GetType() == typeof(T))
+            {
+                return (T)node;
+            }
+        }
+
+        return null;
     }
 
     private RenderNode? Next()
@@ -303,7 +312,8 @@ public sealed class GraphicsContext2D(
         ++_drawOperationindex;
     }
 
-    public void DrawNode<TNode, TParams>(in TParams parameters, Func<TParams, TNode> createNode, Func<TNode, TParams, bool> updateNode)
+    public void DrawNode<TNode, TParams>(in TParams parameters, Func<TParams, TNode> createNode,
+        Func<TNode, TParams, bool> updateNode)
         where TNode : RenderNode
     {
         ArgumentNullException.ThrowIfNull(createNode);
@@ -512,34 +522,16 @@ public sealed class GraphicsContext2D(
         switch (effect)
         {
             case FilterEffectGroup.Resource group:
+                for (int i = group.Children.Count - 1; i >= 0; i--)
                 {
-                    for (int i = group.Children.Count - 1; i >= 0; i--)
-                    {
-                        FilterEffect.Resource item = group.Children[i];
-                        PushFilterEffect(item);
-                    }
-
-                    break;
+                    FilterEffect.Resource item = group.Children[i];
+                    PushFilterEffect(item);
                 }
+
+                return new(this, _nodes.Count);
             default:
-                {
-                    FilterEffectRenderNode? next = Next<FilterEffectRenderNode>();
-
-                    if (next == null)
-                    {
-                        AddAndPush(effect.CreateRenderNode());
-                    }
-                    else
-                    {
-                        _hasChanges = next.Update(effect);
-                        Push(next);
-                    }
-
-                    break;
-                }
+                return effect.Push(this);
         }
-
-        return new(this, _nodes.Count);
     }
 
     public PushedState PushOpacityMask(Brush.Resource mask, Rect bounds, bool invert = false)
@@ -600,7 +592,8 @@ public sealed class GraphicsContext2D(
         return new(this, _nodes.Count);
     }
 
-    public PushedState PushNode<TNode, TParams>(in TParams parameters, Func<TParams, TNode> createNode, Func<TNode, TParams, bool> updateNode)
+    public PushedState PushNode<TNode, TParams>(in TParams parameters, Func<TParams, TNode> createNode,
+        Func<TNode, TParams, bool> updateNode)
         where TNode : ContainerRenderNode
     {
         ArgumentNullException.ThrowIfNull(createNode);

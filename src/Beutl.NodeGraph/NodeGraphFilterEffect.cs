@@ -1,6 +1,7 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using Beutl.Composition;
 using Beutl.Engine;
+using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Language;
@@ -45,6 +46,14 @@ public sealed partial class NodeGraphFilterEffect : FilterEffect
         public override FilterEffectRenderNode CreateRenderNode()
         {
             return new NodeGraphFilterEffectRenderNode(this);
+        }
+
+        public override PushedState Push(GraphicsContext2D context)
+        {
+            return context.PushNode(
+                this,
+                resource => new NodeGraphFilterEffectRenderNode(resource),
+                (node, resource) => node.Update(resource));
         }
 
         public override void Update(EngineObject obj, CompositionContext context, ref bool updateOnly)
