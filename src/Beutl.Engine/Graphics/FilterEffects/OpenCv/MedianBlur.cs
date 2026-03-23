@@ -68,6 +68,14 @@ public partial class MedianBlur : FilterEffect
                     }
                 }
 
+                // OpenCVはBgra8888 (CV_8UC4) を前提とするため、必要に応じて変換
+                if (dst.ColorType != BitmapColorType.Bgra8888)
+                {
+                    var converted = dst.Convert(BitmapColorType.Bgra8888);
+                    dst.Dispose();
+                    dst = converted;
+                }
+
                 using var mat = dst.ToMat();
                 Cv2.MedianBlur(mat, mat, kSize);
 

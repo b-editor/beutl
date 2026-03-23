@@ -52,11 +52,13 @@ public static partial class Image
 
     public static Mat ToMat(this Bitmap self)
     {
-        return Mat.FromPixelData(self.Height, self.Width, MatType.CV_8UC4, self.Data);
-    }
+        if (self.ColorType != BitmapColorType.Bgra8888)
+        {
+            throw new InvalidOperationException(
+                $"AsMat requires Bgra8888 pixel format, but the bitmap is {self.ColorType}. " +
+                $"Use ToMat() which converts automatically, or convert the bitmap first with Bitmap.Convert().");
+        }
 
-    public static Mat AsMat(this Bitmap self)
-    {
         return Mat.FromPixelData(self.Height, self.Width, MatType.CV_8UC4, self.Data);
     }
 
