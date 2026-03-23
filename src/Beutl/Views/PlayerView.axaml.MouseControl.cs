@@ -422,7 +422,9 @@ public partial class PlayerView
             {
                 PixelRect intersect = bounds.Intersect(pxRect);
                 using Bitmap intersectBitmap = frame.ExtractSubset(intersect);
-                var result = new Bitmap(pxRect.Width, pxRect.Height);
+                var result = new Bitmap(
+                    pxRect.Width, pxRect.Height,
+                    intersectBitmap.ColorType, intersectBitmap.AlphaType, intersectBitmap.ColorSpace);
 
                 PixelPoint leftTop = intersect.Position - pxRect.Position;
                 result.CopyFrom(intersectBitmap, new PixelRect(leftTop.X, leftTop.Y, intersect.Width, intersect.Height));

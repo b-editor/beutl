@@ -1,4 +1,4 @@
-﻿using System.Runtime.CompilerServices;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
 using Beutl.Graphics;
@@ -125,6 +125,8 @@ public sealed class Bitmap : ICloneable, IDisposable
     {
         ThrowIfDisposed();
         source.ThrowIfDisposed();
+        if (source.BytesPerPixel != BytesPerPixel)
+            throw new ArgumentException($"Pixel format mismatch: source has {source.BytesPerPixel} bytes per pixel, destination has {BytesPerPixel}.", nameof(source));
         ThrowOutOfRange(destRoi);
 
         int bytesPerRow = Math.Min(source.Width, destRoi.Width) * BytesPerPixel;
