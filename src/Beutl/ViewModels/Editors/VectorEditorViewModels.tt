@@ -64,6 +64,13 @@ namespace Beutl.ViewModels.Editors
             base.Accept(visitor);
             if (visitor is Vector2Editor<<#= t.Element #>> editor && !Disposables.IsDisposed)
             {
+                var stepAttr = PropertyAdapter.GetAttributes().OfType<NumberStepAttribute>().FirstOrDefault();
+                if (stepAttr != null)
+                {
+                    editor.LargeChange = <#= t.Element #>.CreateTruncating(stepAttr.LargeChange);
+                    editor.SmallChange = <#= t.Element #>.CreateTruncating(stepAttr.SmallChange);
+                }
+
 <# if (t.IsSize) { #>
                 editor.FirstHeader = Strings.Width;
                 editor.SecondHeader = Strings.Height;
@@ -143,6 +150,13 @@ namespace Beutl.ViewModels.Editors
             base.Accept(visitor);
             if (visitor is Vector3Editor<<#= t.Element #>> editor && !Disposables.IsDisposed)
             {
+                var stepAttr = PropertyAdapter.GetAttributes().OfType<NumberStepAttribute>().FirstOrDefault();
+                if (stepAttr != null)
+                {
+                    editor.LargeChange = <#= t.Element #>.CreateTruncating(stepAttr.LargeChange);
+                    editor.SmallChange = <#= t.Element #>.CreateTruncating(stepAttr.SmallChange);
+                }
+
                 editor.FirstHeader = "X";
                 editor.SecondHeader = "Y";
                 editor.ThirdHeader = "Z";
@@ -229,6 +243,13 @@ namespace Beutl.ViewModels.Editors
             base.Accept(visitor);
             if (visitor is Vector4Editor<<#= t.Element #>> editor && !Disposables.IsDisposed)
             {
+                var stepAttr = PropertyAdapter.GetAttributes().OfType<NumberStepAttribute>().FirstOrDefault();
+                if (stepAttr != null)
+                {
+                    editor.LargeChange = <#= t.Element #>.CreateTruncating(stepAttr.LargeChange);
+                    editor.SmallChange = <#= t.Element #>.CreateTruncating(stepAttr.SmallChange);
+                }
+
                 editor.FirstHeader = "X";
                 editor.SecondHeader = "Y";
 <# if (t.IsRect) { #>

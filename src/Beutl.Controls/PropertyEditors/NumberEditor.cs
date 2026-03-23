@@ -22,6 +22,17 @@ public class NumberEditor<TValue> : StringEditor
             o => o.Value,
             (o, v) => o.Value = v,
             defaultBindingMode: BindingMode.TwoWay);
+
+    public static readonly StyledProperty<TValue> LargeChangeProperty =
+        AvaloniaProperty.Register<NumberEditor<TValue>, TValue>(
+            nameof(LargeChange),
+            defaultValue: TValue.CreateTruncating(10));
+
+    public static readonly StyledProperty<TValue> SmallChangeProperty =
+        AvaloniaProperty.Register<NumberEditor<TValue>, TValue>(
+            nameof(SmallChange),
+            defaultValue: TValue.One);
+
     private TValue _value;
     private TValue _oldValue;
     private readonly CompositeDisposable _disposables = [];
@@ -44,6 +55,18 @@ public class NumberEditor<TValue> : StringEditor
                 Text = value.ToString();
             }
         }
+    }
+
+    public TValue LargeChange
+    {
+        get => GetValue(LargeChangeProperty);
+        set => SetValue(LargeChangeProperty, value);
+    }
+
+    public TValue SmallChange
+    {
+        get => GetValue(SmallChangeProperty);
+        set => SetValue(SmallChangeProperty, value);
     }
 
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
@@ -175,10 +198,10 @@ public class NumberEditor<TValue> : StringEditor
             && InnerTextBox.IsKeyboardFocusWithin
             && TValue.TryParse(InnerTextBox.Text, CultureInfo.CurrentUICulture, out TValue value))
         {
-            TValue delta = TValue.CreateTruncating(10);
+            TValue delta = LargeChange;
             if (e.KeyModifiers.HasFlag(KeyModifiers.Shift))
             {
-                delta = TValue.One;
+                delta = SmallChange;
             }
 
             value = e.Delta.Y switch

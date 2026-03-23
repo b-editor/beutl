@@ -31,6 +31,12 @@ public class Vector3Editor<TElement> : Vector3Editor
             o => o.ThirdValue,
             (o, v) => o.ThirdValue = v);
 
+    public static readonly StyledProperty<TElement> LargeChangeProperty =
+        Vector4Editor<TElement>.LargeChangeProperty.AddOwner<Vector3Editor<TElement>>();
+
+    public static readonly StyledProperty<TElement> SmallChangeProperty =
+        Vector4Editor<TElement>.SmallChangeProperty.AddOwner<Vector3Editor<TElement>>();
+
     private readonly CompositeDisposable _disposables = [];
     private TElement _firstValue;
     private TElement _oldFirstValue;
@@ -84,6 +90,18 @@ public class Vector3Editor<TElement> : Vector3Editor
                 ThirdText = value.ToString();
             }
         }
+    }
+
+    public TElement LargeChange
+    {
+        get => GetValue(LargeChangeProperty);
+        set => SetValue(LargeChangeProperty, value);
+    }
+
+    public TElement SmallChange
+    {
+        get => GetValue(SmallChangeProperty);
+        set => SetValue(SmallChangeProperty, value);
     }
 
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
@@ -331,10 +349,10 @@ public class Vector3Editor<TElement> : Vector3Editor
             && textBox.IsKeyboardFocusWithin
             && TElement.TryParse(textBox.Text, CultureInfo.CurrentUICulture, out TElement value))
         {
-            TElement delta = TElement.CreateTruncating(10);
+            TElement delta = LargeChange;
             if (e.KeyModifiers.HasFlag(KeyModifiers.Shift))
             {
-                delta = TElement.One;
+                delta = SmallChange;
             }
 
             value = e.Delta.Y switch

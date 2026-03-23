@@ -26,6 +26,12 @@ public class Vector2Editor<TElement> : Vector2Editor
             o => o.SecondValue,
             (o, v) => o.SecondValue = v);
 
+    public static readonly StyledProperty<TElement> LargeChangeProperty =
+        Vector4Editor<TElement>.LargeChangeProperty.AddOwner<Vector2Editor<TElement>>();
+
+    public static readonly StyledProperty<TElement> SmallChangeProperty =
+        Vector4Editor<TElement>.SmallChangeProperty.AddOwner<Vector2Editor<TElement>>();
+
     private readonly CompositeDisposable _disposables = [];
     private TElement _firstValue;
     private TElement _oldFirstValue;
@@ -63,6 +69,18 @@ public class Vector2Editor<TElement> : Vector2Editor
                 SecondText = value.ToString();
             }
         }
+    }
+
+    public TElement LargeChange
+    {
+        get => GetValue(LargeChangeProperty);
+        set => SetValue(LargeChangeProperty, value);
+    }
+
+    public TElement SmallChange
+    {
+        get => GetValue(SmallChangeProperty);
+        set => SetValue(SmallChangeProperty, value);
     }
 
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
@@ -288,10 +306,10 @@ public class Vector2Editor<TElement> : Vector2Editor
             && textBox.IsKeyboardFocusWithin
             && TElement.TryParse(textBox.Text, CultureInfo.CurrentUICulture, out TElement value))
         {
-            TElement delta = TElement.CreateTruncating(10);
+            TElement delta = LargeChange;
             if (e.KeyModifiers.HasFlag(KeyModifiers.Shift))
             {
-                delta = TElement.One;
+                delta = SmallChange;
             }
 
             value = e.Delta.Y switch

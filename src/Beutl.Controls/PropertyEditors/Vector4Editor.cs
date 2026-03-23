@@ -45,6 +45,16 @@ public class Vector4Editor<TElement> : Vector4Editor
             o => o.FourthValue,
             (o, v) => o.FourthValue = v,
             defaultBindingMode: BindingMode.TwoWay);
+
+    public static readonly StyledProperty<TElement> LargeChangeProperty =
+        AvaloniaProperty.Register<Vector4Editor<TElement>, TElement>(
+            nameof(LargeChange),
+            defaultValue: TElement.CreateTruncating(10));
+
+    public static readonly StyledProperty<TElement> SmallChangeProperty =
+        AvaloniaProperty.Register<Vector4Editor<TElement>, TElement>(
+            nameof(SmallChange),
+            defaultValue: TElement.One);
 #pragma warning restore AVP1002 // AvaloniaProperty objects should not be owned by a generic type
 
     private readonly CompositeDisposable _disposables = [];
@@ -114,6 +124,18 @@ public class Vector4Editor<TElement> : Vector4Editor
                 FourthText = value.ToString();
             }
         }
+    }
+
+    public TElement LargeChange
+    {
+        get => GetValue(LargeChangeProperty);
+        set => SetValue(LargeChangeProperty, value);
+    }
+
+    public TElement SmallChange
+    {
+        get => GetValue(SmallChangeProperty);
+        set => SetValue(SmallChangeProperty, value);
     }
 
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
@@ -340,10 +362,10 @@ public class Vector4Editor<TElement> : Vector4Editor
             && textBox.IsKeyboardFocusWithin
             && TElement.TryParse(textBox.Text, CultureInfo.CurrentUICulture, out TElement value))
         {
-            TElement delta = TElement.CreateTruncating(10);
+            TElement delta = LargeChange;
             if (e.KeyModifiers.HasFlag(KeyModifiers.Shift))
             {
-                delta = TElement.One;
+                delta = SmallChange;
             }
 
             value = e.Delta.Y switch
