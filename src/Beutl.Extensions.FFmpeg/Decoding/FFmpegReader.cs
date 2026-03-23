@@ -277,7 +277,7 @@ public sealed class FFmpegReader : MediaReader
         using var dstFrame = _pixelConverter.ConvertFrame(videoFrame, (int)_settings.Scaling);
 
         // フレームの色空間を取得
-        var colorSpace = GetFrameColorSpace(dstFrame);
+        var colorSpace = !_settings.ForceSrgbGamma ? GetFrameColorSpace(dstFrame) : BitmapColorSpace.Srgb;
 
         // ビットマップにコピー
         var bmp = new Bitmap(width, height, BitmapColorType.Bgra8888, BitmapAlphaType.Unpremul, colorSpace);
@@ -625,6 +625,11 @@ public sealed class FFmpegReader : MediaReader
         else
         {
             _logger.LogWarning("Failed to determine video color space.");
+        }
+
+        if (_settings.ForceSrgbGamma && _colorspace != BitmapColorSpace.Srgb)
+        {
+            _logger.LogWarning("ForceSrgbGamma is enabled, but the detected color space is not sRGB. Forcing sRGB gamma may lead to incorrect colors.");
         }
     }
 
