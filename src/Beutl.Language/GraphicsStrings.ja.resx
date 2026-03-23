@@ -1345,6 +1345,9 @@
   <data name="NodeGraphDrawable" xml:space="preserve">
     <value>ノードグラフ（動画）</value>
   </data>
+  <data name="NodeGraphFilterEffect" xml:space="preserve">
+    <value>ノードグラフ（エフェクト）</value>
+  </data>
   <data name="SceneDrawable" xml:space="preserve">
     <value>シーン参照（動画）</value>
   </data>

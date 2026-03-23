@@ -18,5 +18,13 @@ public abstract partial class FilterEffect : EngineObject
         {
             return new FilterEffectRenderNode(this);
         }
+
+        public virtual PushedState Push(GraphicsContext2D context)
+        {
+            return context.PushNode(
+                this,
+                resource => new FilterEffectRenderNode(resource),
+                (node, resource) => node.Update(resource));
+        }
     }
 }

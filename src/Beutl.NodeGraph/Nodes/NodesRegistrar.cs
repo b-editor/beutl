@@ -11,6 +11,7 @@ public static class NodesRegistrar
     {
         GraphNodeRegistry.RegisterNode<LayerInputNode>("Layer input", Colors.Crimson);
         GraphNodeRegistry.RegisterNode<OutputNode>("Layer output", Colors.Crimson);
+        GraphNodeRegistry.RegisterNode<FilterEffectInputNode>("Effect Input", Colors.Crimson);
         GraphNodeRegistry.RegisterNode<GeometryShapeNode>(GraphicsStrings.GeometryShape, Colors.ForestGreen);
         GraphNodeRegistry.RegisterNode<TextNode>(GraphicsStrings.TextBlock, Colors.ForestGreen);
         GraphNodeRegistry.RegisterNode<ImageSourceNode>(GraphicsStrings.SourceImage, Colors.ForestGreen);

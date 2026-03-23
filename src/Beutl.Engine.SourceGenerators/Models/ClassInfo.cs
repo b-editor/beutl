@@ -19,7 +19,7 @@ public readonly record struct ClassInfo(
     // 生成するものがあるかどうか
     public bool ShouldGenerate()
     {
-        return !SuppressedResourceGeneration 
+        return !SuppressedResourceGeneration
             || ValueProperties.Any(p => p.Attributes.Length > 0 || !p.ExcludeFromResource)
             || ObjectProperties.Any(p => p.Attributes.Length > 0 || !p.ExcludeFromResource)
             || ListProperties.Any(p => p.Attributes.Length > 0 || !p.ExcludeFromResource)

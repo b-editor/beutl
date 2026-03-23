@@ -185,6 +185,7 @@ public static class LibraryRegistrar
                 .AddFilterEffect<LayerEffect>(GraphicsStrings.LayerEffect)
                 .AddFilterEffect<DelayAnimationEffect>(GraphicsStrings.DelayAnimationEffect)
                 .AddFilterEffect<PixelSortEffect>(GraphicsStrings.PixelSortEffect)
+                .AddFilterEffect<NodeGraphFilterEffect>(GraphicsStrings.NodeGraphFilterEffect)
                 .AddGroup(GraphicsStrings.Script, gg => gg
                     .AddFilterEffect<CSharpScriptEffect>(GraphicsStrings.CSharpScriptEffect)
                     .AddFilterEffect<SKSLScriptEffect>(GraphicsStrings.SKSLScriptEffect)

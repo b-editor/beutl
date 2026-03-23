@@ -1347,6 +1347,9 @@
   <data name="NodeGraphDrawable" xml:space="preserve">
     <value>Node Graph (Video)</value>
   </data>
+  <data name="NodeGraphFilterEffect" xml:space="preserve">
+    <value>Node Graph (Effect)</value>
+  </data>
   <data name="SceneDrawable" xml:space="preserve">
     <value>Scene Reference (Video)</value>
   </data>
