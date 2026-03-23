@@ -23,8 +23,10 @@ public sealed class BitmapColorSpace : IEquatable<BitmapColorSpace>
 
     internal SKColorSpace SKColorSpace => _skColorSpace;
 
-    public static BitmapColorSpace CreateIcc(byte[] iccData)
+    public static BitmapColorSpace? CreateIcc(ReadOnlySpan<byte> iccData)
     {
+        var icc = SKColorSpaceIccProfile.Create(iccData);
+        if (icc == null) return null;
         var skCs = SKColorSpace.CreateIcc(iccData);
         return new BitmapColorSpace(skCs);
     }
@@ -37,7 +39,8 @@ public sealed class BitmapColorSpace : IEquatable<BitmapColorSpace>
 
     public BitmapColorSpaceTransferFn GetNumericalTransferFunction()
     {
-        var fn = _skColorSpace.GetNumericalTransferFunction();
+        // HLGの時に強制的にEmptyが返るため、GetNumericalTransferFunction(): SKColorSpaceTransferFnは使わない
+        _skColorSpace.GetNumericalTransferFunction(out var fn);
         return BitmapColorSpaceTransferFn.FromSK(fn);
     }
 
@@ -93,5 +96,10 @@ public sealed class BitmapColorSpace : IEquatable<BitmapColorSpace>
     public static bool operator !=(BitmapColorSpace? left, BitmapColorSpace? right)
     {
         return !(left == right);
+    }
+
+    public override string ToString()
+    {
+        return $"TransferFn: {GetNumericalTransferFunction()}, ToXyzD50: {ToColorSpaceXyz()}";
     }
 }

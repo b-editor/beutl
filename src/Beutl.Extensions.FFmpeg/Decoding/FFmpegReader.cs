@@ -1,12 +1,10 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using Beutl.Logging;
 using Beutl.Media;
 using Beutl.Media.Decoding;
 using Beutl.Media.Music;
 using Beutl.Media.Music.Samples;
-using Beutl.Media.Pixel;
-
 using FFmpeg.AutoGen.Abstractions;
 using FFmpegSharp;
 using Microsoft.Extensions.Logging;
@@ -28,10 +26,7 @@ public sealed class FFmpegReader : MediaReader
     {
         order = AVChannelOrder.AV_CHANNEL_ORDER_NATIVE,
         nb_channels = 2,
-        u = new AVChannelLayout_u
-        {
-            mask = ffmpeg.AV_CH_LAYOUT_STEREO
-        }
+        u = new AVChannelLayout_u { mask = ffmpeg.AV_CH_LAYOUT_STEREO }
     };
 
     private readonly FFmpegDecodingSettings _settings;
@@ -56,6 +51,7 @@ public sealed class FFmpegReader : MediaReader
     private double _videoAvgFrameRateDouble;
     private MediaFrame? _swVideoFrame;
     private bool _isHWDecoding;
+    private BitmapColorSpace? _colorspace;
 
     public FFmpegReader(string file, MediaOptions options, FFmpegDecodingSettings settings)
     {
@@ -78,6 +74,7 @@ public sealed class FFmpegReader : MediaReader
                     _videoStream = stream;
                     _hasVideo = true;
                 }
+
                 if (loadAudio && !_hasAudio && codecType == AVMediaType.AVMEDIA_TYPE_AUDIO)
                 {
                     _audioStream = stream;
@@ -104,6 +101,7 @@ public sealed class FFmpegReader : MediaReader
             if (HasVideo)
             {
                 GrabVideo();
+                GetPacketColorSpace();
 
                 var codec = _videoDecoder!.GetCodec();
                 VideoInfo = new VideoStreamInfo(
@@ -278,8 +276,11 @@ public sealed class FFmpegReader : MediaReader
         // 変換
         using var dstFrame = _pixelConverter.ConvertFrame(videoFrame, (int)_settings.Scaling);
 
+        // フレームの色空間を取得
+        var colorSpace = GetFrameColorSpace(dstFrame);
+
         // ビットマップにコピー
-        var bmp = new Bitmap(width, height, BitmapColorType.Bgra8888, BitmapAlphaType.Unpremul, BitmapColorSpace.Srgb);
+        var bmp = new Bitmap(width, height, BitmapColorType.Bgra8888, BitmapAlphaType.Unpremul, colorSpace);
         int byteCount = width * height * 4;
         Buffer.MemoryCopy(dstFrame.Data[0], (void*)bmp.Data, byteCount, byteCount);
 
@@ -324,7 +325,8 @@ public sealed class FFmpegReader : MediaReader
 
     private bool GrabAudio()
     {
-        if (_demuxer == null || _audioDecoder == null || _packet == null || _audioStream == null || _currentAudioFrame == null)
+        if (_demuxer == null || _audioDecoder == null || _packet == null || _audioStream == null ||
+            _currentAudioFrame == null)
             return false;
 
         _currentAudioFrame.Unref();
@@ -359,7 +361,8 @@ public sealed class FFmpegReader : MediaReader
         if (_audioSeek)
         {
             _audioNowTimestamp = (long)((_currentAudioFrame.Pts * ffmpeg.av_q2d(_audioStream.TimeBase)
-                                         - (_demuxer.StartTime * ffmpeg.av_q2d(s_time_base))) * _audioDecoder.SampleRate);
+                                         - (_demuxer.StartTime * ffmpeg.av_q2d(s_time_base))) *
+                                        _audioDecoder.SampleRate);
             _audioSeek = false;
             _audioNowTimestamp -= _audioNowTimestamp % _currentAudioFrame.NbSamples;
         }
@@ -418,7 +421,8 @@ public sealed class FFmpegReader : MediaReader
 
         void SeekOnly(long targetFrame)
         {
-            long timestamp = (long)Math.Round(targetFrame * 1000000.0 / _videoAvgFrameRateDouble + _demuxer.StartTime, MidpointRounding.AwayFromZero);
+            long timestamp = (long)Math.Round(targetFrame * 1000000.0 / _videoAvgFrameRateDouble + _demuxer.StartTime,
+                MidpointRounding.AwayFromZero);
             _demuxer.Seek(timestamp, -1);
             ffmpeg.avcodec_flush_buffers(_videoDecoder);
             GrabVideo();
@@ -435,7 +439,9 @@ public sealed class FFmpegReader : MediaReader
             f -= 30;
         }
 
-        while (_videoNowFrame < frame && GrabVideo()) { }
+        while (_videoNowFrame < frame && GrabVideo())
+        {
+        }
     }
 
     private long GetNowFrame()
@@ -480,7 +486,8 @@ public sealed class FFmpegReader : MediaReader
                         }
                         catch
                         {
-                            _logger.LogWarning("Failed to initialize HW device context, falling back to software decoding");
+                            _logger.LogWarning(
+                                "Failed to initialize HW device context, falling back to software decoding");
                             _isHWDecoding = false;
                         }
                     }
@@ -569,5 +576,111 @@ public sealed class FFmpegReader : MediaReader
 
         // フレーム初期化
         _currentAudioFrame = new MediaFrame();
+    }
+
+    private unsafe void GetPacketColorSpace()
+    {
+        if (_videoStream == null) return;
+        AVPacketSideData* psd = ffmpeg.av_packet_side_data_get(
+            _videoStream.Codecpar->coded_side_data,
+            _videoStream.Codecpar->nb_coded_side_data,
+            AVPacketSideDataType.AV_PKT_DATA_ICC_PROFILE);
+        if (psd != null)
+        {
+            _colorspace = BitmapColorSpace.CreateIcc(new ReadOnlySpan<byte>(psd->data, (int)psd->size));
+        }
+
+        if (_colorspace == null)
+        {
+            var transferFn = GetTransferFunction(_videoStream.Codecpar->color_trc);
+            var gamut = GetBitmapColorSpaceXyz(_videoStream.Codecpar->color_primaries);
+
+            if (transferFn == BitmapColorSpaceTransferFn.Srgb && gamut == BitmapColorSpaceXyz.Srgb)
+            {
+                _colorspace = BitmapColorSpace.Srgb;
+            }
+            else if (transferFn == BitmapColorSpaceTransferFn.Linear && gamut == BitmapColorSpaceXyz.Srgb)
+            {
+                _colorspace = BitmapColorSpace.LinearSrgb;
+            }
+            else
+            {
+                _colorspace = BitmapColorSpace.CreateRgb(transferFn, gamut);
+            }
+        }
+
+        if (_colorspace == null)
+        {
+            var videoFrame = ActiveVideoFrame;
+            if (videoFrame != null)
+            {
+                _colorspace = GetFrameColorSpace(videoFrame);
+            }
+        }
+
+        if (_colorspace != null)
+        {
+            _logger.LogInformation("Video color space: {ColorSpace}", _colorspace);
+        }
+        else
+        {
+            _logger.LogWarning("Failed to determine video color space.");
+        }
+    }
+
+    private static BitmapColorSpaceTransferFn GetTransferFunction(AVColorTransferCharacteristic trc)
+    {
+        return trc switch
+        {
+            AVColorTransferCharacteristic.AVCOL_TRC_LINEAR => BitmapColorSpaceTransferFn.Linear,
+            AVColorTransferCharacteristic.AVCOL_TRC_GAMMA22 => BitmapColorSpaceTransferFn.TwoDotTwo,
+            AVColorTransferCharacteristic.AVCOL_TRC_BT2020_10 or
+                AVColorTransferCharacteristic.AVCOL_TRC_BT2020_12 => BitmapColorSpaceTransferFn.Rec2020,
+            AVColorTransferCharacteristic.AVCOL_TRC_SMPTE2084 => BitmapColorSpaceTransferFn.Pq,
+            AVColorTransferCharacteristic.AVCOL_TRC_ARIB_STD_B67 => BitmapColorSpaceTransferFn.Hlg,
+            AVColorTransferCharacteristic.AVCOL_TRC_BT709 or
+                AVColorTransferCharacteristic.AVCOL_TRC_SMPTE170M or
+                AVColorTransferCharacteristic.AVCOL_TRC_IEC61966_2_4 or
+                AVColorTransferCharacteristic.AVCOL_TRC_BT1361_ECG => BitmapColorSpaceTransferFn.Bt709,
+            AVColorTransferCharacteristic.AVCOL_TRC_GAMMA28 => BitmapColorSpaceTransferFn.Gamma28,
+            AVColorTransferCharacteristic.AVCOL_TRC_SMPTE240M => BitmapColorSpaceTransferFn.Smpte240M,
+            AVColorTransferCharacteristic.AVCOL_TRC_SMPTE428 => BitmapColorSpaceTransferFn.Smpte428,
+            _ => BitmapColorSpaceTransferFn.Srgb
+        };
+    }
+
+    private static BitmapColorSpaceXyz GetBitmapColorSpaceXyz(AVColorPrimaries primaries)
+    {
+        return primaries switch
+        {
+            AVColorPrimaries.AVCOL_PRI_BT709 => BitmapColorSpaceXyz.Bt709,
+            AVColorPrimaries.AVCOL_PRI_BT470M => BitmapColorSpaceXyz.Bt470M,
+            AVColorPrimaries.AVCOL_PRI_BT470BG => BitmapColorSpaceXyz.Bt470BG,
+            AVColorPrimaries.AVCOL_PRI_SMPTE170M => BitmapColorSpaceXyz.Smpte170M,
+            AVColorPrimaries.AVCOL_PRI_SMPTE240M => BitmapColorSpaceXyz.Smpte240M,
+            AVColorPrimaries.AVCOL_PRI_FILM => BitmapColorSpaceXyz.Film,
+            AVColorPrimaries.AVCOL_PRI_BT2020 => BitmapColorSpaceXyz.Rec2020,
+            AVColorPrimaries.AVCOL_PRI_SMPTE428 => BitmapColorSpaceXyz.Xyz,
+            AVColorPrimaries.AVCOL_PRI_SMPTE431 => BitmapColorSpaceXyz.Smpte431,
+            AVColorPrimaries.AVCOL_PRI_SMPTE432 => BitmapColorSpaceXyz.Dcip3,
+            AVColorPrimaries.AVCOL_PRI_EBU3213 => BitmapColorSpaceXyz.Ebu3213,
+            _ => BitmapColorSpaceXyz.Srgb
+        };
+    }
+
+    private BitmapColorSpace GetFrameColorSpace(MediaFrame frame)
+    {
+        if (_colorspace != null) return _colorspace;
+
+        var transferFn = GetTransferFunction(frame.ColorTrc);
+        var gamut = GetBitmapColorSpaceXyz(frame.ColorPrimaries);
+
+        if (transferFn == BitmapColorSpaceTransferFn.Srgb && gamut == BitmapColorSpaceXyz.Srgb)
+            return BitmapColorSpace.Srgb;
+
+        if (transferFn == BitmapColorSpaceTransferFn.Linear && gamut == BitmapColorSpaceXyz.Srgb)
+            return BitmapColorSpace.LinearSrgb;
+
+        return BitmapColorSpace.CreateRgb(transferFn, gamut);
     }
 }
