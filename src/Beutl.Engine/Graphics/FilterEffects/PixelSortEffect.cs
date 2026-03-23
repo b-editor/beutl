@@ -299,8 +299,8 @@ public sealed partial class PixelSortEffect : FilterEffect
             int width = originalTexture.Width;
             int height = originalTexture.Height;
 
-            using ITexture2D prepTexture = gfx.CreateTexture2D(width, height, TextureFormat.BGRA8Unorm);
-            using ITexture2D rankTexture = gfx.CreateTexture2D(width, height, TextureFormat.BGRA8Unorm);
+            using ITexture2D prepTexture = gfx.CreateTexture2D(width, height, TextureFormat.RGBA16Float);
+            using ITexture2D rankTexture = gfx.CreateTexture2D(width, height, TextureFormat.RGBA16Float);
             using ITexture2D depth = gfx.CreateTexture2D(width, height, TextureFormat.Depth32Float);
 
             // Pass 1: Prepare - encode sort key into alpha

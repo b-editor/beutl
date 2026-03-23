@@ -85,7 +85,7 @@ internal sealed class GLSLFilterPipeline : IDisposable
 
             // Create render pass for BGRA8 format (matching RenderTarget format)
             IRenderPass3D renderPass = context.CreateRenderPass3D(
-                [TextureFormat.BGRA8Unorm],
+                [TextureFormat.RGBA16Float],
                 TextureFormat.Depth32Float,
                 AttachmentLoadOp.DontCare,
                 AttachmentLoadOp.DontCare);

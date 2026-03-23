@@ -200,8 +200,8 @@ public sealed class GLSLShader : IDisposable
             int height = sourceTexture.Height;
 
             // Create ping-pong textures
-            using ITexture2D pingTexture = graphicsContext.CreateTexture2D(width, height, TextureFormat.BGRA8Unorm);
-            using ITexture2D pongTexture = graphicsContext.CreateTexture2D(width, height, TextureFormat.BGRA8Unorm);
+            using ITexture2D pingTexture = graphicsContext.CreateTexture2D(width, height, TextureFormat.RGBA16Float);
+            using ITexture2D pongTexture = graphicsContext.CreateTexture2D(width, height, TextureFormat.RGBA16Float);
             using ITexture2D depthTexture = graphicsContext.CreateTexture2D(width, height, TextureFormat.Depth32Float);
 
             // Run first shader pass (pass 0) from source into ping buffer as the initial state
