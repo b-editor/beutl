@@ -1,4 +1,5 @@
-﻿using System.Numerics;
+﻿using System.ComponentModel.DataAnnotations;
+using System.Numerics;
 
 using Avalonia;
 using Avalonia.Interactivity;
@@ -21,6 +22,11 @@ public sealed class NumberEditorViewModel<T>(IPropertyAdapter<T> property) : Val
             {
                 editor.LargeChange = T.CreateTruncating(stepAttr.LargeChange);
                 editor.SmallChange = T.CreateTruncating(stepAttr.SmallChange);
+            }
+            var formatAttr = attrs.OfType<DisplayFormatAttribute>().FirstOrDefault();
+            if (formatAttr != null)
+            {
+                editor.NumberFormat = formatAttr.DataFormatString;
             }
 
             editor.Bind(NumberEditor<T>.ValueProperty, Value.ToBinding())

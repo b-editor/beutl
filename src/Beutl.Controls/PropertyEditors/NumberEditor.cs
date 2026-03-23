@@ -33,6 +33,11 @@ public class NumberEditor<TValue> : StringEditor
             nameof(SmallChange),
             defaultValue: TValue.One);
 
+    public static readonly StyledProperty<string> NumberFormatProperty =
+        AvaloniaProperty.Register<NumberEditor<TValue>, string>(
+            nameof(NumberFormat),
+            defaultValue: null);
+
     private TValue _value;
     private TValue _oldValue;
     private readonly CompositeDisposable _disposables = [];
@@ -52,7 +57,7 @@ public class NumberEditor<TValue> : StringEditor
         {
             if (SetAndRaise(ValueProperty, ref _value, value))
             {
-                Text = value.ToString();
+                Text = value.ToString(NumberFormat ?? "G", CultureInfo.CurrentUICulture);
             }
         }
     }
@@ -67,6 +72,12 @@ public class NumberEditor<TValue> : StringEditor
     {
         get => GetValue(SmallChangeProperty);
         set => SetValue(SmallChangeProperty, value);
+    }
+
+    public string NumberFormat
+    {
+        get => GetValue(NumberFormatProperty);
+        set => SetValue(NumberFormatProperty, value);
     }
 
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)

@@ -54,7 +54,7 @@ public class Vector2Editor<TElement> : Vector2Editor
         {
             if (SetAndRaise(FirstValueProperty, ref _firstValue, value))
             {
-                FirstText = value.ToString();
+                FirstText = value.ToString(NumberFormat ?? "G", CultureInfo.CurrentUICulture);
             }
         }
     }
@@ -66,7 +66,7 @@ public class Vector2Editor<TElement> : Vector2Editor
         {
             if (SetAndRaise(SecondValueProperty, ref _secondValue, value))
             {
-                SecondText = value.ToString();
+                SecondText = value.ToString(NumberFormat ?? "G", CultureInfo.CurrentUICulture);
             }
         }
     }
@@ -123,8 +123,8 @@ public class Vector2Editor<TElement> : Vector2Editor
         }
 
         base.OnApplyTemplate(e);
-        FirstText = _firstValue.ToString();
-        SecondText = _secondValue.ToString();
+        FirstText = _firstValue.ToString(NumberFormat ?? "G", CultureInfo.CurrentUICulture);
+        SecondText = _secondValue.ToString(NumberFormat ?? "G", CultureInfo.CurrentUICulture);
 
         SubscribeEvents(InnerFirstTextBox);
         SubscribeEvents(InnerSecondTextBox);
@@ -372,6 +372,9 @@ public class Vector2Editor : PropertyEditor
     public static readonly StyledProperty<bool> IsUniformProperty =
         Vector4Editor.IsUniformProperty.AddOwner<Vector2Editor>();
 
+    public static readonly StyledProperty<string> NumberFormatProperty =
+        Vector4Editor.NumberFormatProperty.AddOwner<Vector2Editor>();
+
     private const string FocusAnyTextBox = ":focus-any-textbox";
     private const string FocusFirstTextBox = ":focus-1st-textbox";
     private const string FocusSecondTextBox = ":focus-2nd-textbox";
@@ -410,6 +413,12 @@ public class Vector2Editor : PropertyEditor
     {
         get => GetValue(IsUniformProperty);
         set => SetValue(IsUniformProperty, value);
+    }
+
+    public string NumberFormat
+    {
+        get => GetValue(NumberFormatProperty);
+        set => SetValue(NumberFormatProperty, value);
     }
 
     protected TextBox InnerFirstTextBox { get; private set; }

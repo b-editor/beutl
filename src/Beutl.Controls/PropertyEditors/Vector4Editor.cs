@@ -85,7 +85,7 @@ public class Vector4Editor<TElement> : Vector4Editor
         {
             if (SetAndRaise(FirstValueProperty, ref _firstValue, value))
             {
-                FirstText = value.ToString();
+                FirstText = value.ToString(NumberFormat ?? "G", CultureInfo.CurrentUICulture);
             }
         }
     }
@@ -97,7 +97,7 @@ public class Vector4Editor<TElement> : Vector4Editor
         {
             if (SetAndRaise(SecondValueProperty, ref _secondValue, value))
             {
-                SecondText = value.ToString();
+                SecondText = value.ToString(NumberFormat ?? "G", CultureInfo.CurrentUICulture);
             }
         }
     }
@@ -109,7 +109,7 @@ public class Vector4Editor<TElement> : Vector4Editor
         {
             if (SetAndRaise(ThirdValueProperty, ref _thirdValue, value))
             {
-                ThirdText = value.ToString();
+                ThirdText = value.ToString(NumberFormat ?? "G", CultureInfo.CurrentUICulture);
             }
         }
     }
@@ -121,7 +121,7 @@ public class Vector4Editor<TElement> : Vector4Editor
         {
             if (SetAndRaise(FourthValueProperty, ref _fourthValue, value))
             {
-                FourthText = value.ToString();
+                FourthText = value.ToString(NumberFormat ?? "G", CultureInfo.CurrentUICulture);
             }
         }
     }
@@ -165,10 +165,10 @@ public class Vector4Editor<TElement> : Vector4Editor
 
         _disposables.Clear();
         base.OnApplyTemplate(e);
-        FirstText = _firstValue.ToString();
-        SecondText = _secondValue.ToString();
-        ThirdText = _thirdValue.ToString();
-        FourthText = _fourthValue.ToString();
+        FirstText = _firstValue.ToString(NumberFormat ?? "G", CultureInfo.CurrentUICulture);
+        SecondText = _secondValue.ToString(NumberFormat ?? "G", CultureInfo.CurrentUICulture);
+        ThirdText = _thirdValue.ToString(NumberFormat ?? "G", CultureInfo.CurrentUICulture);
+        FourthText = _fourthValue.ToString(NumberFormat ?? "G", CultureInfo.CurrentUICulture);
 
         SubscribeEvents(InnerFirstTextBox);
         SubscribeEvents(InnerSecondTextBox);
@@ -460,6 +460,11 @@ public class Vector4Editor : PropertyEditor
     public static readonly StyledProperty<bool> IsUniformProperty =
         AvaloniaProperty.Register<Vector4Editor, bool>(nameof(IsUniform));
 
+    public static readonly StyledProperty<string> NumberFormatProperty =
+        AvaloniaProperty.Register<Vector4Editor, string>(
+            nameof(NumberFormat),
+            defaultValue: null);
+
     private const string FocusAnyTextBox = ":focus-any-textbox";
     private const string FocusFirstTextBox = ":focus-1st-textbox";
     private const string FocusSecondTextBox = ":focus-2nd-textbox";
@@ -526,6 +531,12 @@ public class Vector4Editor : PropertyEditor
     {
         get => GetValue(IsUniformProperty);
         set => SetValue(IsUniformProperty, value);
+    }
+
+    public string NumberFormat
+    {
+        get => GetValue(NumberFormatProperty);
+        set => SetValue(NumberFormatProperty, value);
     }
 
     protected TextBox InnerFirstTextBox { get; private set; }
