@@ -139,7 +139,7 @@ public sealed partial class ColorGrading : FilterEffect
 
                 color += offset;
 
-                color = clamp(color, 0.0, 1.0);
+                color = max(color, 0.0);
                 return half4(color * alpha, alpha);
             }
 
