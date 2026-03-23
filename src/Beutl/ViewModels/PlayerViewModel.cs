@@ -644,7 +644,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
             var frameSize = new Size(renderer.FrameSize.Width, renderer.FrameSize.Height);
             var frameScale = canvasSize.Width / frameSize.Width;
             float strokeScale = Stretch.Uniform.CalculateScaling(MaxFrameSize, frameSize).X;
-            if (strokeScale == 0)
+            if (strokeScale < 1)
                 strokeScale = 1;
 
             // フレームキャッシュを使う場合はBoundsを再計算する必要がある
