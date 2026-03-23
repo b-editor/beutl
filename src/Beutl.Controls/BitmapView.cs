@@ -145,6 +145,10 @@ public class BitmapView : Avalonia.Controls.Control
         BitmapInterpolationMode interpolationMode)
         : ICustomDrawOperation
     {
+        private static readonly SKPaint s_linearPaint = new() { ColorFilter = SKColorFilter.CreateLinearToSrgbGamma() };
+
+        private static readonly SKPaint s_gammaPaint = new();
+
         public Rect Bounds { get; } = bounds;
 
         public void Dispose()
@@ -182,8 +186,12 @@ public class BitmapView : Avalonia.Controls.Control
                 _ => new SKSamplingOptions(SKFilterMode.Linear, SKMipmapMode.Linear)
             };
 
-            using var paint = new SKPaint();
-            canvas.DrawImage(image, sourceRect, destRect, sampling, paint);
+            canvas.DrawImage(
+                image,
+                sourceRect,
+                destRect,
+                sampling,
+                image.ColorSpace.GammaIsLinear ? s_linearPaint : s_gammaPaint);
         }
     }
 }
