@@ -1,4 +1,4 @@
-using SkiaSharp;
+﻿using SkiaSharp;
 
 namespace Beutl.Media;
 
@@ -49,7 +49,13 @@ public readonly struct BitmapColorSpaceTransferFn : IEquatable<BitmapColorSpaceT
     /// </summary>
     public static BitmapColorSpaceTransferFn Gamma28 { get; } = new()
     {
-        G = 2.8f, A = 1f, B = 0f, C = 0f, D = 0f, E = 0f, F = 0f
+        G = 2.8f,
+        A = 1f,
+        B = 0f,
+        C = 0f,
+        D = 0f,
+        E = 0f,
+        F = 0f
     };
 
     /// <summary>

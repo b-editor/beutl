@@ -187,14 +187,14 @@ public readonly struct BitmapColorSpaceXyz : IEquatable<BitmapColorSpaceXyz>
         const double d50X = 0.96422, d50Y = 1.0, d50Z = 0.82521;
 
         // Bradford行列
-        const double b00 =  0.8951, b01 =  0.2664, b02 = -0.1614;
-        const double b10 = -0.7502, b11 =  1.7135, b12 =  0.0367;
-        const double b20 =  0.0389, b21 = -0.0685, b22 =  1.0296;
+        const double b00 = 0.8951, b01 = 0.2664, b02 = -0.1614;
+        const double b10 = -0.7502, b11 = 1.7135, b12 = 0.0367;
+        const double b20 = 0.0389, b21 = -0.0685, b22 = 1.0296;
 
         // Bradford逆行列
-        const double bi00 =  0.9869929, bi01 = -0.1470543, bi02 =  0.1599627;
-        const double bi10 =  0.4323053, bi11 =  0.5183603, bi12 =  0.0492912;
-        const double bi20 = -0.0085287, bi21 =  0.0400428, bi22 =  0.9684867;
+        const double bi00 = 0.9869929, bi01 = -0.1470543, bi02 = 0.1599627;
+        const double bi10 = 0.4323053, bi11 = 0.5183603, bi12 = 0.0492912;
+        const double bi20 = -0.0085287, bi21 = 0.0400428, bi22 = 0.9684867;
 
         // コーン応答空間でのソースホワイト
         double coneS0 = b00 * Xw + b01 * Yw + b02 * Zw;
