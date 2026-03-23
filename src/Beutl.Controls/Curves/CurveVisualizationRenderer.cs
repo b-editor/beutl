@@ -2,9 +2,14 @@
 
 using Avalonia;
 using Avalonia.Media;
-using Avalonia.Media.Imaging;
 using Avalonia.Media.Immutable;
-using Avalonia.Platform;
+using Beutl.Media;
+using Beutl.Media.Pixel;
+using Beutl.Media.Source;
+using Color = Avalonia.Media.Color;
+using Colors = Avalonia.Media.Colors;
+using GradientStop = Avalonia.Media.GradientStop;
+using LinearGradientBrush = Avalonia.Media.LinearGradientBrush;
 
 namespace Beutl.Controls.Curves;
 
@@ -134,7 +139,7 @@ public sealed class CurveVisualizationRenderer
 
     public event EventHandler? Updated;
 
-    public void UpdateHistogram(WriteableBitmap? sourceBitmap, HistogramCategory categories = HistogramCategory.All)
+    public void UpdateHistogram(Ref<Bitmap>? sourceBitmapRef, HistogramCategory categories = HistogramCategory.All)
     {
         if (categories == HistogramCategory.None)
             return;
@@ -172,25 +177,38 @@ public sealed class CurveVisualizationRenderer
             _satHistMax = 0;
         }
 
-        if (sourceBitmap is not { } bitmap)
+        var cloned = sourceBitmapRef?.TryClone();
+        if (cloned is not { Value: var bitmap })
             return;
 
-        using ILockedFramebuffer frame = bitmap.Lock();
-        unsafe
+        Bitmap rgbaGamma;
+        bool requireDispose = false;
+        // TODO: Linear/Gammaを切り替えられるようにする
+        // TODO: 解像度を高くする
+        if (bitmap.ColorType == BitmapColorType.Bgra8888 && bitmap.ColorSpace == BitmapColorSpace.Srgb)
         {
-            var span = new ReadOnlySpan<byte>((void*)frame.Address, frame.RowBytes * frame.Size.Height);
-            int stepX = Math.Max(1, frame.Size.Width / 256);
-            int stepY = Math.Max(1, frame.Size.Height / 256);
+            rgbaGamma = bitmap;
+        }
+        else
+        {
+            rgbaGamma = bitmap.Convert(BitmapColorType.Bgra8888, colorSpace: BitmapColorSpace.Srgb);
+            requireDispose = true;
+        }
 
-            for (int y = 0; y < frame.Size.Height; y += stepY)
+        try
+        {
+            int stepX = Math.Max(1, bitmap.Width / 256);
+            int stepY = Math.Max(1, bitmap.Height / 256);
+
+            for (int y = 0; y < bitmap.Height; y += stepY)
             {
-                int row = y * frame.RowBytes;
-                for (int x = 0; x < frame.Size.Width; x += stepX)
+                var row = rgbaGamma.GetRow<Bgra8888>(y);
+                for (int x = 0; x < bitmap.Width; x += stepX)
                 {
-                    int idx = row + (x * 4);
-                    byte b = span[idx];
-                    byte g = span[idx + 1];
-                    byte r = span[idx + 2];
+                    var pixel = row[x];
+                    byte b = pixel.B;
+                    byte g = pixel.G;
+                    byte r = pixel.R;
 
                     if (needRgb)
                     {
@@ -223,27 +241,32 @@ public sealed class CurveVisualizationRenderer
                     }
                 }
             }
+        }
+        finally
+        {
+            if (requireDispose) rgbaGamma.Dispose();
+            cloned.Dispose();
+        }
 
-            if (needRgb)
-            {
-                _histMax = Math.Max(1,
-                    Math.Max(_combinedHist.Max(), Math.Max(_rHist.Max(), Math.Max(_gHist.Max(), _bHist.Max()))));
-            }
+        if (needRgb)
+        {
+            _histMax = Math.Max(1,
+                Math.Max(_combinedHist.Max(), Math.Max(_rHist.Max(), Math.Max(_gHist.Max(), _bHist.Max()))));
+        }
 
-            if (needHue)
-            {
-                _hueHistMax = Math.Max(1, _hueHist.Max());
-            }
+        if (needHue)
+        {
+            _hueHistMax = Math.Max(1, _hueHist.Max());
+        }
 
-            if (needLuma)
-            {
-                _lumaHistMax = Math.Max(1, _lumaHist.Max());
-            }
+        if (needLuma)
+        {
+            _lumaHistMax = Math.Max(1, _lumaHist.Max());
+        }
 
-            if (needSat)
-            {
-                _satHistMax = Math.Max(1, _satHist.Max());
-            }
+        if (needSat)
+        {
+            _satHistMax = Math.Max(1, _satHist.Max());
         }
 
         Updated?.Invoke(this, EventArgs.Empty);

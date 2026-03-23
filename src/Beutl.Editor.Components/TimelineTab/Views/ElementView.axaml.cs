@@ -118,7 +118,7 @@ public sealed partial class ElementView : UserControl
         obj.WaveformClear += OnWaveformClear;
     }
 
-    private void OnThumbnailReady(int index, Bitmap? thumbnail)
+    private void OnThumbnailReady(int index, WriteableBitmap? thumbnail)
     {
         thumbnailStrip.SetThumbnail(index, thumbnail);
     }

@@ -3,6 +3,7 @@
 using Beutl.Graphics;
 using Beutl.Media;
 using Beutl.Media.Pixel;
+using Bitmap = Beutl.Media.Bitmap;
 
 #if WINDOWS
 using FormsDataObject = System.Windows.Forms.DataObject;
@@ -15,7 +16,7 @@ namespace Beutl.Helpers;
 
 public static class WindowsClipboard
 {
-    public static void CopyImage(Bitmap<Bgra8888> image)
+    public static void CopyImage(Bitmap image)
     {
 #if WINDOWS
         var data = new FormsDataObject();
@@ -34,15 +35,15 @@ public static class WindowsClipboard
 #endif
     }
 
-    public static byte[] ConvertToDib(Bitmap<Bgra8888> image)
+    public static byte[] ConvertToDib(Bitmap image)
     {
         byte[] bm32bData;
         int width = image.Width;
         int height = image.Height;
         // Ensure image is 32bppARGB by painting it on a new 32bppARGB image.
-        using Bitmap<Bgra8888> bm32b = image.Clone();
+        using Bitmap bm32b = image.Convert(BitmapColorType.Bgra8888, BitmapAlphaType.Unpremul);
         bm32b.Flip(FlipMode.XY);
-        bm32bData = MemoryMarshal.AsBytes(bm32b.DataSpan).ToArray();
+        bm32bData = MemoryMarshal.AsBytes(bm32b.GetPixelSpan<Bgra8888>()).ToArray();
 
         // BITMAPINFOHEADER struct for DIB.
         const int hdrSize = 0x28;

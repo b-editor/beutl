@@ -1,13 +1,14 @@
 ﻿using System.Reactive;
+using Beutl.Media;
+using Beutl.Media.Source;
 
-using Avalonia.Media;
 using Reactive.Bindings;
 
 namespace Beutl.Editor.Services;
 
 public interface IPreviewPlayer
 {
-    IReadOnlyReactiveProperty<IImage?> PreviewImage { get; }
+    IReadOnlyReactiveProperty<Ref<Bitmap>?> PreviewImage { get; }
 
     IObservable<Unit> AfterRendered { get; }
 

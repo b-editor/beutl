@@ -4,7 +4,6 @@ using Beutl.Configuration;
 using Beutl.Graphics.Rendering;
 using Beutl.Logging;
 using Beutl.Media;
-using Beutl.Media.Pixel;
 using Beutl.ProjectSystem;
 using Microsoft.Extensions.Logging;
 
@@ -17,7 +16,7 @@ public sealed class FrameProviderImpl : IFrameProvider, IDisposable
     private readonly Rational _rate;
     private readonly SceneRenderer _renderer;
     private readonly Subject<TimeSpan> _progress;
-    private readonly Channel<(long Frame, Bitmap<Bgra8888> Bitmap)> _channel;
+    private readonly Channel<(long Frame, Bitmap Bitmap)> _channel;
     private readonly CancellationTokenSource _cts = new();
     private readonly Task _producerTask;
     private bool _disposed;
@@ -30,7 +29,7 @@ public sealed class FrameProviderImpl : IFrameProvider, IDisposable
         _progress = progress;
 
         int bufferSize = Preferences.Default.Get("Output.FrameBufferSize", 100);
-        _channel = Channel.CreateBounded<(long Frame, Bitmap<Bgra8888> Bitmap)>(
+        _channel = Channel.CreateBounded<(long Frame, Bitmap Bitmap)>(
             new BoundedChannelOptions(bufferSize)
             {
                 FullMode = BoundedChannelFullMode.Wait,
@@ -45,14 +44,14 @@ public sealed class FrameProviderImpl : IFrameProvider, IDisposable
 
     public Rational FrameRate => _rate;
 
-    private Bitmap<Bgra8888> RenderCore(TimeSpan time)
+    private Bitmap RenderCore(TimeSpan time)
     {
         var frame = _renderer.Compositor.EvaluateGraphics(time + _scene.Start);
         _renderer.Render(frame);
         return _renderer.Snapshot();
     }
 
-    private async ValueTask<Bitmap<Bgra8888>> RenderFrameCore(long frame, CancellationToken cancellationToken)
+    private async ValueTask<Bitmap> RenderFrameCore(long frame, CancellationToken cancellationToken)
     {
         // rate.Numerator, rate.Denominatorを使ってできるだけ正確に
         // (frame / (rate.Numerator / rate.Denominator)) * TimeSpan.TicksPerSecond
@@ -93,7 +92,7 @@ public sealed class FrameProviderImpl : IFrameProvider, IDisposable
         _channel.Writer.TryComplete();
     }
 
-    public async ValueTask<Bitmap<Bgra8888>> RenderFrame(long frame)
+    public async ValueTask<Bitmap> RenderFrame(long frame)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 

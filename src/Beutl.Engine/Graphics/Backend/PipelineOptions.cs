@@ -107,7 +107,7 @@ public struct PipelineOptions
         CullMode = CullMode.Back,
         FrontFace = FrontFace.CounterClockwise,
         BlendEnabled = true,
-        SrcColorBlendFactor = BlendFactor.SrcAlpha,
+        SrcColorBlendFactor = BlendFactor.One,
         DstColorBlendFactor = BlendFactor.OneMinusSrcAlpha,
         SrcAlphaBlendFactor = BlendFactor.One,
         DstAlphaBlendFactor = BlendFactor.OneMinusSrcAlpha,

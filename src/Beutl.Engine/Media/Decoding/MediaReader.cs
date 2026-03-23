@@ -37,7 +37,7 @@ public abstract class MediaReader : IDisposable
         return DecoderRegistry.OpenMediaFile(file, options) ?? throw new Exception();
     }
 
-    public abstract bool ReadVideo(int frame, [NotNullWhen(true)] out IBitmap? image);
+    public abstract bool ReadVideo(int frame, [NotNullWhen(true)] out Bitmap? image);
 
     public abstract bool ReadAudio(int start, int length, [NotNullWhen(true)] out IPcm? sound);
 

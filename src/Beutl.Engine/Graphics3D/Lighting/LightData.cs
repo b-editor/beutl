@@ -107,7 +107,7 @@ public struct LightData
         {
             PositionOrDirection = direction,
             Type = (int)LightType.Directional,
-            Color = new Vector3(light.Color.R / 255f, light.Color.G / 255f, light.Color.B / 255f),
+            Color = light.Color.ToLinearPremultiplied().AsVector3(),
             Intensity = light.Intensity,
             Direction = Vector3.Zero,
             Range = float.MaxValue,
@@ -129,7 +129,7 @@ public struct LightData
         {
             PositionOrDirection = light.Position,
             Type = (int)LightType.Point,
-            Color = new Vector3(light.Color.R / 255f, light.Color.G / 255f, light.Color.B / 255f),
+            Color = light.Color.ToLinearPremultiplied().AsVector3(),
             Intensity = light.Intensity,
             Direction = Vector3.Zero,
             Range = light.Range,
@@ -155,7 +155,7 @@ public struct LightData
         {
             PositionOrDirection = light.Position,
             Type = (int)LightType.Spot,
-            Color = new Vector3(light.Color.R / 255f, light.Color.G / 255f, light.Color.B / 255f),
+            Color = light.Color.ToLinearPremultiplied().AsVector3(),
             Intensity = light.Intensity,
             Direction = direction,
             Range = light.Range,

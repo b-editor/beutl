@@ -3,7 +3,6 @@ using System.Diagnostics.CodeAnalysis;
 
 using Beutl.Configuration;
 using Beutl.Media;
-using Beutl.Media.Pixel;
 using Beutl.Media.Source;
 
 using Reactive.Bindings;
@@ -40,7 +39,7 @@ public sealed partial class FrameCacheManager : IDisposable
 
     public PixelSize FrameSize { get; }
 
-    public void Add(int frame, Ref<Bitmap<Bgra8888>> bitmap)
+    public void Add(int frame, Ref<Bitmap> bitmap)
     {
         if (!IsEnabled) return;
 
@@ -65,7 +64,7 @@ public sealed partial class FrameCacheManager : IDisposable
         }
     }
 
-    public bool TryGet(int frame, [MaybeNullWhen(false)] out Ref<Bitmap<Bgra8888>> bitmap)
+    public bool TryGet(int frame, [MaybeNullWhen(false)] out Ref<Bitmap> bitmap)
     {
         if (!IsEnabled)
         {

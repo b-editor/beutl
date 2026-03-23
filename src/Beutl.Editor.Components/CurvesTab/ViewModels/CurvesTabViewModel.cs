@@ -1,14 +1,13 @@
 ﻿using System.Text.Json.Nodes;
-using Avalonia.Media.Imaging;
 using Beutl.Controls.Curves;
 using Beutl.Editor.Services;
 using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
+using Beutl.Media;
+using Beutl.Media.Source;
 using Beutl.ProjectSystem;
-
 using Microsoft.Extensions.DependencyInjection;
-
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
 
@@ -28,7 +27,7 @@ public sealed class CurvesTabViewModel : IToolContext
         _player = editorContext.GetService<IPreviewPlayer>()!;
         _scene = editorContext.GetService<Scene>()!;
 
-        SourceBitmap.Value = _player.PreviewImage.Value as WriteableBitmap;
+        SourceBitmap.Value = _player.PreviewImage.Value;
 
         Effect.Subscribe(SetEditors)
             .DisposeWith(_disposables);
@@ -39,13 +38,7 @@ public sealed class CurvesTabViewModel : IToolContext
             {
                 if (!IsSelected.Value) return;
 
-                var bitmap = _player.PreviewImage.Value as WriteableBitmap;
-                if (ReferenceEquals(SourceBitmap.Value, bitmap))
-                {
-                    SourceBitmap.Value = null;
-                }
-
-                SourceBitmap.Value = bitmap;
+                SourceBitmap.Value = _player.PreviewImage.Value;
                 UpdateHistogramForCurrentGroup();
             })
             .DisposeWith(_disposables);
@@ -188,7 +181,7 @@ public sealed class CurvesTabViewModel : IToolContext
 
     public IReadOnlyList<CustomCurveChannelItem> CustomCurveChannels { get; }
 
-    public ReactivePropertySlim<WriteableBitmap?> SourceBitmap { get; } = new();
+    public ReactivePropertySlim<Ref<Bitmap>?> SourceBitmap { get; } = new();
 
     public CurveVisualizationRenderer Renderer { get; } = new();
 

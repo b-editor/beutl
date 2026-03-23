@@ -50,12 +50,26 @@ public partial class ChromaKey : FilterEffect
                 return half3(h, s, v);
             }
 
+            // リニアsRGB -> sRGBガンマ変換
+            half3 linearToSrgb(half3 c) {
+                half3 lo = c * 12.92;
+                half3 hi = 1.055 * pow(c, half3(1.0/2.4)) - 0.055;
+                return mix(lo, hi, step(half3(0.0031308), c));
+            }
+
             half4 main(float2 fragCoord) {
-                // 入力画像から色を取得
                 half4 c = src.eval(fragCoord);
 
-                // 入力色と基準色をHSVに変換
-                half3 hsv = rgb2hsv(c.rgb);
+                // プリマルチプライドアルファを解除
+                half alpha = c.a;
+                if (alpha <= 0.0001) return half4(0.0);
+                half3 rgb = c.rgb / alpha;
+
+                // リニアsRGB → sRGBガンマに変換してからHSV比較
+                // （color uniformはsRGBガンマ空間のため、同じ空間で比較する）
+                half3 srgbColor = linearToSrgb(rgb);
+
+                half3 hsv = rgb2hsv(srgbColor);
                 half3 keyHSV = rgb2hsv(color.rgb);
 
                 // 色相の差を計算（周期性を考慮）
@@ -68,10 +82,10 @@ public partial class ChromaKey : FilterEffect
                 half maskHue = smoothstep(hueRange, hueRange + boundary, hueDiff);
                 half maskSat = smoothstep(saturationRange, saturationRange + boundary, satDiff);
 
-                // 色相と彩度の両条件を満たすかを判定（両方のマスク値が低いほど基準色に近いと判断）
+                // 色相と彩度の両条件を満たすかを判定
                 half mask = max(maskHue, maskSat);
 
-                // 出力色のアルファ値にマスクを乗算して、クロマキー部分を透過させる
+                // 元のプリマルチプライド値にマスクを乗算して透過させる
                 return c * mask;
             }
             """;
@@ -119,17 +133,14 @@ public partial class ChromaKey : FilterEffect
             using var image = renderTarget.Value.Snapshot();
             using var baseShader = image.ToShader();
 
-            // SKRuntimeShaderBuilderを作成して、child shaderとuniformを設定
             var builder = s_shader.CreateBuilder();
 
-            // child shaderとしてテクスチャ用のシェーダーを設定
             builder.Children["src"] = baseShader;
-            builder.Uniforms["color"] = new SKColor(data.color.R, data.color.G, data.color.B, data.color.A);
+            builder.Uniforms["color"] = data.color.ToSKColor();
             builder.Uniforms["hueRange"] = data.hueRange / 360f;
             builder.Uniforms["saturationRange"] = data.satRange / 100f;
             builder.Uniforms["boundary"] = data.boundary / 100f;
 
-            // 新しいターゲットに適用
             c.Targets[i] = s_shader.ApplyToNewTarget(c, builder, effectTarget.Bounds);
         }
     }

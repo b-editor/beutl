@@ -113,7 +113,7 @@ public class AVFVideoStreamReader : IDisposable
         _reader.StartReading();
     }
 
-    public bool ReadVideo(int frame, [NotNullWhen(true)] out IBitmap? image)
+    public bool ReadVideo(int frame, [NotNullWhen(true)] out Bitmap? image)
     {
         CMSampleBuffer? sample = _sampleCache.SearchSample(frame);
         if (sample != null)

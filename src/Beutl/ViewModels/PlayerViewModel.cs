@@ -1,6 +1,4 @@
 ﻿using System.Reactive.Subjects;
-using Avalonia.Media.Imaging;
-using Avalonia.Platform;
 using Beutl.Audio.Composing;
 using Beutl.Audio.Platforms.XAudio2;
 using Beutl.Composition;
@@ -15,7 +13,6 @@ using Beutl.Logging;
 using Beutl.Media;
 using Beutl.Media.Music;
 using Beutl.Media.Music.Samples;
-using Beutl.Media.Pixel;
 using Beutl.Media.Source;
 using Beutl.Models;
 using Beutl.ProjectSystem;
@@ -23,6 +20,7 @@ using Beutl.Services;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 using Silk.NET.OpenAL;
+using SkiaSharp;
 using Vortice.Multimedia;
 using AudioContext = Beutl.Audio.Platforms.OpenAL.AudioContext;
 
@@ -209,9 +207,9 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
 
     public Project? Project => Scene?.FindHierarchicalParent<Project>();
 
-    public ReactivePropertySlim<Avalonia.Media.IImage> PreviewImage { get; } = new();
+    public ReactivePropertySlim<Ref<Bitmap>?> PreviewImage { get; } = new();
 
-    IReadOnlyReactiveProperty<Avalonia.Media.IImage?> IPreviewPlayer.PreviewImage => PreviewImage;
+    IReadOnlyReactiveProperty<Ref<Bitmap>?> IPreviewPlayer.PreviewImage => PreviewImage;
 
     IObservable<Unit> IPreviewPlayer.AfterRendered => AfterRendered;
 
@@ -351,7 +349,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                     {
                         using (frame.Bitmap)
                         {
-                            UpdateImage(frame.Bitmap.Value);
+                            UpdateImage(frame.Bitmap.Clone());
 
                             if (Scene != null)
                             {
@@ -629,43 +627,25 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
         await _playbackTask;
     }
 
-    private unsafe void UpdateImage(Bitmap<Bgra8888> source)
+    private void UpdateImage(Ref<Bitmap> source)
     {
-        WriteableBitmap bitmap;
-
-        if (PreviewImage.Value is WriteableBitmap bitmap1 &&
-            bitmap1.PixelSize.Width == source.Width &&
-            bitmap1.PixelSize.Height == source.Height)
-        {
-            bitmap = bitmap1;
-        }
-        else
-        {
-            bitmap = new WriteableBitmap(
-                new(source.Width, source.Height),
-                new(96, 96),
-                PixelFormat.Bgra8888, AlphaFormat.Premul);
-        }
-
-        PreviewImage.Value = bitmap;
-        using (ILockedFramebuffer buf = bitmap.Lock())
-        {
-            int size = source.ByteCount;
-            Buffer.MemoryCopy((void*)source.Data, (void*)buf.Address, size, size);
-        }
+        var oldBitmap = PreviewImage.Value;
+        PreviewImage.Value = source;
+        oldBitmap?.Dispose();
 
         PreviewInvalidated?.Invoke(this, EventArgs.Empty);
     }
 
-    private void DrawBoundaries(Renderer renderer, ImmediateCanvas canvas, bool recalculate = false)
+    private void DrawBoundaries(Renderer renderer, SKCanvas canvas, Size canvasSize, bool recalculate = false)
     {
         int? selected = EditViewModel.SelectedLayerNumber.Value;
         if (selected.HasValue)
         {
             var frameSize = new Size(renderer.FrameSize.Width, renderer.FrameSize.Height);
-            float scale = (float)Stretch.Uniform.CalculateScaling(MaxFrameSize, frameSize, StretchDirection.Both).X;
-            if (scale == 0)
-                scale = 1;
+            var frameScale = canvasSize.Width / frameSize.Width;
+            float strokeScale = Stretch.Uniform.CalculateScaling(MaxFrameSize, frameSize).X;
+            if (strokeScale < 1)
+                strokeScale = 1;
 
             // フレームキャッシュを使う場合はBoundsを再計算する必要がある
             Rect[] boundary = recalculate
@@ -673,7 +653,12 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                 : renderer.GetBoundaries(selected.Value);
             if (boundary.Length > 0)
             {
-                var pen = new Pen.Resource() { Brush = Brushes.Resource.White, Thickness = scale, MiterLimit = 10 };
+                using var paint = new SKPaint
+                {
+                    Color = SKColors.White,
+                    Style = SKPaintStyle.Stroke,
+                    StrokeWidth = strokeScale
+                };
                 bool exactBounds = GlobalConfiguration.Instance.ViewConfig.ShowExactBoundaries;
 
                 foreach (Rect item in boundary)
@@ -681,10 +666,11 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                     Rect rect = item;
                     if (!exactBounds)
                     {
-                        rect = item.Inflate(4 / scale);
+                        rect = item.Inflate(4 / strokeScale);
                     }
 
-                    canvas.DrawRectangle(rect, null, pen);
+                    rect *= frameScale;
+                    canvas.DrawRect(rect.ToSKRect(), paint);
                 }
             }
         }
@@ -712,8 +698,8 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                     int rate = GetFrameRate();
                     TimeSpan time = EditViewModel.CurrentTime.Value;
                     int frame = (int)Math.Round(time.ToFrameNumber(rate), MidpointRounding.AwayFromZero);
-                    time = TimeSpanExtensions.ToTimeSpan(frame, rate);
-                    Bitmap<Bgra8888>? bitmap = null;
+                    time = frame.ToTimeSpan(rate);
+                    Ref<Bitmap>? bitmapRef;
 
                     if (cacheManager.TryGet(frame, out var cache))
                     {
@@ -722,45 +708,35 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                             var compositionFrame = renderer.Compositor.EvaluateGraphics(time);
 
                             renderer.UpdateFrame(compositionFrame);
-                            ImmediateCanvas canvas = Renderer.GetInternalCanvas(renderer);
-                            canvas.Clear();
+                            var bitmap = cache.Value.Clone();
+                            bitmapRef = Ref<Bitmap>.Create(bitmap);
 
-                            using (canvas.PushTransform(
-                                       Matrix.CreateScale(canvas.Size.Width / (float)cache.Value.Width,
-                                           canvas.Size.Height / (float)cache.Value.Height)))
+                            using (var canvas = new SKCanvas(bitmap.SKBitmap))
                             {
-                                canvas.DrawBitmap(cache.Value, Brushes.Resource.White, null);
+                                DrawBoundaries(renderer, canvas, new(bitmap.Width, bitmap.Height), true);
                             }
-
-                            DrawBoundaries(renderer, canvas, true);
-
-                            bitmap = renderer.Snapshot();
                         }
                     }
                     else
                     {
                         var compositionFrame = renderer.Compositor.EvaluateGraphics(time);
                         renderer.Render(compositionFrame);
+                        var bitmap = renderer.Snapshot();
+                        bitmapRef = Ref<Bitmap>.Create(bitmap);
 
-                        using (var forCache = Ref<Bitmap<Bgra8888>>.Create(renderer.Snapshot()))
+                        if (cacheManager.IsEnabled)
                         {
-                            cacheManager.Add(frame, forCache);
+                            cacheManager.Add(frame, bitmapRef);
                             cacheManager.UpdateBlocks();
                         }
 
-                        ImmediateCanvas canvas = Renderer.GetInternalCanvas(renderer);
-                        DrawBoundaries(renderer, canvas, true);
-
-                        bitmap = renderer.Snapshot();
-                    }
-
-                    if (bitmap != null)
-                    {
-                        using (bitmap)
+                        using (var canvas = new SKCanvas(bitmap.SKBitmap))
                         {
-                            UpdateImage(bitmap);
+                            DrawBoundaries(renderer, canvas, new(bitmap.Width, bitmap.Height), true);
                         }
                     }
+
+                    UpdateImage(bitmapRef);
 
                     AfterRendered.OnNext(Unit.Default);
                 }
@@ -816,6 +792,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
         AfterRendered.Dispose();
         PreviewInvalidated = null;
         Scene = null!;
+        PreviewImage.Value?.Dispose();
         PreviewImage.Value = null!;
         _logger.LogInformation("Disposed PlayerViewModel. ({SceneId})", _editViewModel.SceneId);
     }
@@ -831,7 +808,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
 
     public TaskCompletionSource<Rect>? TcsForCrop { get; private set; }
 
-    public async Task<Bitmap<Bgra8888>> DrawSelectedDrawable(Drawable drawable)
+    public async Task<Bitmap> DrawSelectedDrawable(Drawable drawable)
     {
         await Pause();
 
@@ -853,7 +830,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
         });
     }
 
-    public async Task<Bitmap<Bgra8888>> DrawFrame()
+    public async Task<Bitmap> DrawFrame()
     {
         await Pause();
 

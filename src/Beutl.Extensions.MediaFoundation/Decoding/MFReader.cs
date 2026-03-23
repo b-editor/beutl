@@ -81,7 +81,7 @@ public class MFReader : MediaReader
 
     public override bool HasAudio { get; }
 
-    public override unsafe bool ReadVideo(int frame, [NotNullWhen(true)] out IBitmap? image)
+    public override unsafe bool ReadVideo(int frame, [NotNullWhen(true)] out Bitmap? image)
     {
         if (MFThread.Dispatcher.CheckAccess())
         {
@@ -93,9 +93,9 @@ public class MFReader : MediaReader
             if (!HasVideo || _decoder == null || IsDisposed)
                 return false;
 
-            (bool result, IBitmap? image1) = MFThread.Dispatcher.Invoke(() =>
+            (bool result, Bitmap? image1) = MFThread.Dispatcher.Invoke(() =>
             {
-                bool ret = ReadVideoCore(frame, out IBitmap? image1);
+                bool ret = ReadVideoCore(frame, out Bitmap? image1);
                 return (ret, image1);
             });
             image = image1!;
@@ -103,7 +103,7 @@ public class MFReader : MediaReader
         }
     }
 
-    private unsafe bool ReadVideoCore(int frame, [NotNullWhen(true)] out IBitmap? image)
+    private unsafe bool ReadVideoCore(int frame, [NotNullWhen(true)] out Bitmap? image)
     {
         image = null;
         if (!HasVideo || _decoder == null || IsDisposed)
@@ -117,7 +117,7 @@ public class MFReader : MediaReader
         {
             using var dst = new Mat(info.ImageFormat.Height, info.ImageFormat.Width, MatType.CV_8UC4);
             Cv2.CvtColor(mat, dst, ColorConversionCodes.YUV2BGRA_YUY2);
-            var result = new Bitmap<Bgra8888>(info.ImageFormat.Width, info.ImageFormat.Height);
+            var result = new Bitmap(info.ImageFormat.Width, info.ImageFormat.Height);
             Buffer.MemoryCopy((void*)dst.Data, (void*)result.Data, result.ByteCount, result.ByteCount);
 
             image = result;

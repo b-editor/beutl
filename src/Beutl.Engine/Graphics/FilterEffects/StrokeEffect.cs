@@ -1,10 +1,8 @@
 ﻿using System.ComponentModel.DataAnnotations;
-using Beutl.Animation;
 using Beutl.Engine;
 using Beutl.Graphics.Rendering;
 using Beutl.Language;
 using Beutl.Media;
-using Beutl.Media.Pixel;
 using SkiaSharp;
 
 namespace Beutl.Graphics.Effects;
@@ -50,7 +48,7 @@ public partial class StrokeEffect : FilterEffect
 
     private static void Apply((Point Offset, Pen.Resource? Pen, StrokeStyles Style) data, CustomFilterEffectContext context)
     {
-        static SKPath CreateBorderPath(Bitmap<Bgra8888> src)
+        static SKPath CreateBorderPath(Bitmap src)
         {
             using var contours = ContourTracer.FindContours(src);
 

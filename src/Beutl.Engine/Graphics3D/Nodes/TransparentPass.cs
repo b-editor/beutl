@@ -120,10 +120,7 @@ public sealed class TransparentPass : GraphicsNode3D
             viewMatrix,
             projectionMatrix,
             camera.Position,
-            new Vector3(
-                ambientColor.R / 255f * ambientIntensity,
-                ambientColor.G / 255f * ambientIntensity,
-                ambientColor.B / 255f * ambientIntensity),
+            ambientColor.ToLinearPremultiplied().AsVector3() * ambientIntensity,
             lights,
             compositionContext);
 

@@ -343,7 +343,7 @@ public partial class NodePortView : UserControl
                 }
             case NodeMonitorContentKind.Image:
                 {
-                    var image = new Image
+                    var bitmapView = new BitmapView
                     {
                         MaxHeight = 200,
                         MaxWidth = 200,
@@ -353,16 +353,16 @@ public partial class NodePortView : UserControl
 
                     void OnImageInvalidated(object? sender, EventArgs e)
                     {
-                        image.Source = monitorObj.DisplayBitmap;
-                        image.InvalidateVisual();
+                        bitmapView.Source = monitorObj.DisplayBitmap;
+                        bitmapView.InvalidateVisual();
                     }
 
                     monitorObj.ImageInvalidated += OnImageInvalidated;
                     Disposable.Create(() => monitorObj.ImageInvalidated -= OnImageInvalidated)
                         .DisposeWith(_disposables);
 
-                    Grid.SetColumn(image, 1);
-                    grid.Children.Add(image);
+                    Grid.SetColumn(bitmapView, 1);
+                    grid.Children.Add(bitmapView);
                     break;
                 }
         }

@@ -162,6 +162,7 @@ public static class PropertyEditorService
             new(typeof(SoundSource), new(_ => new SoundSourceEditor(), s => new SoundSourceEditorViewModel(s.ToTyped<SoundSource?>()))),
             new(typeof(TextureSource), new(_ => new TextureSourceEditor(), s => new TextureSourceEditorViewModel(s.ToTyped<TextureSource?>()))),
             new(typeof(ModelSource), new(_ => new ModelSourceEditor(), s => new ModelSourceEditorViewModel(s.ToTyped<ModelSource?>()))),
+            new(typeof(CubeSource), new(_ => new CubeSourceEditor(), s => new CubeSourceEditorViewModel(s.ToTyped<CubeSource?>()))),
 
             new(typeof(Brush), new(_ => new BrushEditor(), s => new BrushEditorViewModel(s.ToTyped<Brush?>()))),
             new(typeof(Pen), new(_ => new PenEditor(), s => new PenEditorViewModel(s.ToTyped<Pen?>()))),

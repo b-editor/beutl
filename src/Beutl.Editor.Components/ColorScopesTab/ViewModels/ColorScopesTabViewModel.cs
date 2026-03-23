@@ -1,7 +1,7 @@
 ﻿using System.Text.Json.Nodes;
-
-using Avalonia.Media.Imaging;
 using Beutl.Editor.Services;
+using Beutl.Media;
+using Beutl.Media.Source;
 using Microsoft.Extensions.DependencyInjection;
 using Reactive.Bindings;
 
@@ -17,7 +17,7 @@ public sealed class ColorScopesTabViewModel : IToolContext
     {
         _editorContext = editorContext;
         _player = editorContext.GetRequiredService<IPreviewPlayer>();
-        SourceBitmap.Value = _player.PreviewImage.Value as WriteableBitmap;
+        SourceBitmap.Value = _player.PreviewImage.Value;
 
         // Update scope after rendering is complete
         _player.AfterRendered.CombineLatest(IsSelected)
@@ -25,7 +25,7 @@ public sealed class ColorScopesTabViewModel : IToolContext
             {
                 if (!IsSelected.Value) return;
 
-                SourceBitmap.Value = _player.PreviewImage.Value as WriteableBitmap;
+                SourceBitmap.Value = _player.PreviewImage.Value;
                 RefreshRequested?.Invoke(this, EventArgs.Empty);
             })
             .DisposeWith(_disposables);
@@ -43,7 +43,7 @@ public sealed class ColorScopesTabViewModel : IToolContext
 
     public ReactivePropertySlim<ColorScopeType> SelectedScopeType { get; } = new(ColorScopeType.Waveform);
 
-    public ReactivePropertySlim<WriteableBitmap?> SourceBitmap { get; } = new();
+    public ReactivePropertySlim<Ref<Bitmap>?> SourceBitmap { get; } = new();
 
     // Waveform settings
     public ReactivePropertySlim<WaveformMode> WaveformMode { get; } = new(ViewModels.WaveformMode.RgbOverlay);

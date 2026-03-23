@@ -7,6 +7,7 @@
              xmlns:lang="using:Beutl.Language"
              xmlns:local="using:Beutl.Views"
              xmlns:pathEditor="using:Beutl.Editor.Components.PathEditorTab.Views"
+             xmlns:controls="using:Beutl.Controls"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="using:Beutl.ViewModels"
              d:DesignHeight="450"
@@ -128,9 +129,9 @@
                         Background="Black"
                         ClipToBounds="True" />
 
-                <Image Name="image"
-                       RenderOptions.BitmapInterpolationMode="HighQuality"
-                       Source="{Binding PreviewImage.Value, Mode=OneWay}" />
+                <controls:BitmapView Name="image"
+                                     InterpolationMode="HighQuality"
+                                     Source="{Binding PreviewImage.Value, Mode=OneWay}" />
 
                 <pathEditor:PathEditorView Width="{Binding #image.Bounds.Width}"
                                            Height="{Binding #image.Bounds.Height}"

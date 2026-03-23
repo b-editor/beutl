@@ -2,7 +2,6 @@
 using Beutl.Graphics.Rendering;
 using Beutl.Logging;
 using Beutl.Media;
-using Beutl.Media.Pixel;
 using Beutl.Media.Source;
 using Beutl.ProjectSystem;
 using Beutl.Services;
@@ -81,7 +80,7 @@ public sealed class BufferedPlayer : IPlayer
 
                     // キャッシュを探す
                     // cacheは参照を既に追加されている
-                    if (_frameCacheManager.TryGet(frame, out Ref<Bitmap<Bgra8888>>? cache))
+                    if (_frameCacheManager.TryGet(frame, out Ref<Bitmap>? cache))
                     {
                         _queue.Enqueue(new(cache, frame));
                     }
@@ -89,7 +88,7 @@ public sealed class BufferedPlayer : IPlayer
                     {
                         var compositionFrame = _renderer.Compositor.EvaluateGraphics(time);
                         _renderer.Render(compositionFrame);
-                        using (Ref<Bitmap<Bgra8888>> bitmap = Ref<Bitmap<Bgra8888>>.Create(_renderer.Snapshot()))
+                        using (Ref<Bitmap> bitmap = Ref<Bitmap>.Create(_renderer.Snapshot()))
                         {
                             _queue.Enqueue(new(bitmap.Clone(), frame));
                             _frameCacheManager.Add(frame, bitmap);

@@ -77,7 +77,7 @@ internal sealed class Renderer3D : IRenderer3D
         _flipPass.Initialize(width, height);
 
         // Create output texture for Skia integration
-        _outputTexture = _context.CreateTexture2D(width, height, TextureFormat.BGRA8Unorm);
+        _outputTexture = _context.CreateTexture2D(width, height, TextureFormat.RGBA16Float);
     }
 
     public void Resize(int width, int height)
@@ -120,7 +120,7 @@ internal sealed class Renderer3D : IRenderer3D
 
         // Recreate output texture
         _outputTexture?.Dispose();
-        _outputTexture = _context.CreateTexture2D(width, height, TextureFormat.BGRA8Unorm);
+        _outputTexture = _context.CreateTexture2D(width, height, TextureFormat.RGBA16Float);
     }
 
     public void Render(

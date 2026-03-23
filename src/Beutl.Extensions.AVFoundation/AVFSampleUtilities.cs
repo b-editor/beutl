@@ -11,10 +11,13 @@ namespace Beutl.Extensions.AVFoundation;
 
 public class AVFSampleUtilities
 {
-    public static unsafe CVPixelBuffer? ConvertToCVPixelBuffer(Bitmap<Bgra8888> bitmap)
+    public static unsafe CVPixelBuffer? ConvertToCVPixelBuffer(Bitmap bitmap)
     {
-        int width = bitmap.Width;
-        int height = bitmap.Height;
+        // RgbaF16/LinearSrgb → Bgra8888/Srgb に変換（CVPixelBufferはBGRA/sRGB前提）
+        using var converted = bitmap.Convert(BitmapColorType.Bgra8888, BitmapAlphaType.Premul, BitmapColorSpace.Srgb);
+
+        int width = converted.Width;
+        int height = converted.Height;
         var pixelBuffer = new CVPixelBuffer(width, height, CVPixelFormatType.CV32BGRA, new CVPixelBufferAttributes
         {
             PixelFormatType = CVPixelFormatType.CV32BGRA,
@@ -26,15 +29,15 @@ public class AVFSampleUtilities
         if (r != CVReturn.Success) return null;
 
         Buffer.MemoryCopy(
-            (void*)bitmap.Data, (void*)pixelBuffer.GetBaseAddress(0),
-            bitmap.ByteCount, bitmap.ByteCount);
+            (void*)converted.Data, (void*)pixelBuffer.GetBaseAddress(0),
+            converted.ByteCount, converted.ByteCount);
 
         pixelBuffer.Unlock(CVOptionFlags.None);
 
         return pixelBuffer;
     }
 
-    public static unsafe Bitmap<Bgra8888>? ConvertToBgra(CMSampleBuffer buffer)
+    public static unsafe Bitmap? ConvertToBgra(CMSampleBuffer buffer)
     {
         using var imageBuffer = buffer.GetImageBuffer();
         if (imageBuffer is not CVPixelBuffer pixelBuffer) return null;
@@ -44,24 +47,24 @@ public class AVFSampleUtilities
 
         int width = pixelBuffer.Width;
         int height = pixelBuffer.Height;
-        var bitmap = new Bitmap<Bgra8888>(width, height);
+        var bitmap = new Bitmap(width, height);
         if (pixelBuffer.ColorSpace.Model == CGColorSpaceModel.RGB && pixelBuffer.BytesPerRow == width * 4)
         {
             Buffer.MemoryCopy(
                 (void*)pixelBuffer.GetBaseAddress(0), (void*)bitmap.Data,
                 bitmap.ByteCount, bitmap.ByteCount);
             pixelBuffer.Unlock(CVOptionFlags.None);
+            Bgra8888* pixels = (Bgra8888*)bitmap.Data;
             Parallel.For(0, width * height, i =>
             {
-                // argb
-                // bgra
-                var o = bitmap.DataSpan[i];
-                bitmap.DataSpan[i] = new Bgra8888(o.G, o.R, o.A, o.B);
+                // argb -> bgra swizzle
+                var o = pixels[i];
+                pixels[i] = new Bgra8888(o.G, o.R, o.A, o.B);
             });
             return bitmap;
         }
 
-        int bytesPerRow = width * height * 4;
+        int bytesPerRow = width * 4;
         using (CGColorSpace colorSpace = CGColorSpace.CreateDeviceRGB())
         using (var cgContext = new CGBitmapContext(
                    bitmap.Data, width, height,

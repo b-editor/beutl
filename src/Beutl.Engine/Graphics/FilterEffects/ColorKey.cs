@@ -4,7 +4,6 @@ using Beutl.Language;
 using Beutl.Logging;
 using Beutl.Media;
 using Microsoft.Extensions.Logging;
-using SkiaSharp;
 
 namespace Beutl.Graphics.Effects;
 
@@ -23,23 +22,27 @@ public partial class ColorKey : FilterEffect
             uniform float range;
             uniform float boundary;
 
-            // Rec.601 での輝度変換
+            // Rec.709 での輝度変換（リニアsRGB用）
             half calcLuma(half3 c) {
-                return clamp(dot(c, half3(0.299, 0.587, 0.114)), 0.0, 1.0);
+                return clamp(dot(c, half3(0.2126, 0.7152, 0.0722)), 0.0, 1.0);
             }
 
             half4 main(float2 fragCoord) {
-                // 入力画像から色を取得
                 half4 c = src.eval(fragCoord);
 
-                // 入力色と基準色を輝度に変換
-                half luma = calcLuma(c.rgb);
+                // プリマルチプライドアルファを解除
+                half alpha = c.a;
+                if (alpha <= 0.0001) return half4(0.0);
+                half3 rgb = c.rgb / alpha;
+
+                // リニア空間でRec.709係数を使って輝度を計算
+                half luma = calcLuma(rgb);
                 half keyLuma = calcLuma(color.rgb);
 
                 half diff = abs(luma - keyLuma);
-
                 half mask = smoothstep(range, range + boundary, diff);
 
+                // 元のプリマルチプライド値にマスクを乗算して透過させる
                 return c * mask;
             }
             """;
@@ -85,16 +88,13 @@ public partial class ColorKey : FilterEffect
             using var image = renderTarget.Value.Snapshot();
             using var baseShader = image.ToShader();
 
-            // SKRuntimeShaderBuilderを作成して、child shaderとuniformを設定
             var builder = s_shader.CreateBuilder();
 
-            // child shaderとしてテクスチャ用のシェーダーを設定
             builder.Children["src"] = baseShader;
-            builder.Uniforms["color"] = new SKColor(data.color.R, data.color.G, data.color.B, data.color.A);
+            builder.Uniforms["color"] = data.color.ToLinear().ToSKColorF();
             builder.Uniforms["range"] = data.range / 100f;
             builder.Uniforms["boundary"] = data.boundary / 100f;
 
-            // 新しいターゲットに適用
             c.Targets[i] = s_shader.ApplyToNewTarget(c, builder, effectTarget.Bounds);
         }
     }

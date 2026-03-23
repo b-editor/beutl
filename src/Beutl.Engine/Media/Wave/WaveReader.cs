@@ -61,7 +61,7 @@ public sealed class WaveReader : MediaReader
         }
     }
 
-    public override bool ReadVideo(int frame, [NotNullWhen(true)] out IBitmap? image)
+    public override bool ReadVideo(int frame, [NotNullWhen(true)] out Bitmap? image)
     {
         image = null;
         return false;

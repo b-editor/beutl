@@ -1,7 +1,6 @@
 ﻿using Beutl.Graphics.Backend;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
-using Beutl.Media.Pixel;
 using Beutl.Media.Source;
 using Beutl.Media.TextFormatting;
 using Beutl.Threading;
@@ -151,7 +150,7 @@ public partial class ImmediateCanvas : ICanvas
         return new TmpBackdrop(_renderTarget.Snapshot());
     }
 
-    public void DrawBitmap(IBitmap bmp, Brush.Resource? fill, Pen.Resource? pen)
+    public void DrawBitmap(Bitmap bmp, Brush.Resource? fill, Pen.Resource? pen)
     {
         ObjectDisposedException.ThrowIf(bmp.IsDisposed, bmp);
 
@@ -162,17 +161,9 @@ public partial class ImmediateCanvas : ICanvas
         var size = new Size(bmp.Width, bmp.Height);
         ConfigureFillPaint(new(size), fill);
 
-        if (bmp is Bitmap<Bgra8888>)
-        {
-            using var img = SKImage.FromPixels(new SKImageInfo(bmp.Width, bmp.Height, SKColorType.Bgra8888), bmp.Data);
+        using var img = SKImage.FromBitmap(bmp.SKBitmap);
 
-            Canvas.DrawImage(img, 0, 0, new SKSamplingOptions(SKCubicResampler.Mitchell), _sharedFillPaint);
-        }
-        else
-        {
-            using var img = bmp.ToSKImage();
-            Canvas.DrawImage(img, 0, 0, new SKSamplingOptions(SKCubicResampler.Mitchell), _sharedFillPaint);
-        }
+        Canvas.DrawImage(img, 0, 0, new SKSamplingOptions(SKCubicResampler.Mitchell), _sharedFillPaint);
     }
 
     public void DrawImageSource(ImageSource.Resource source, Brush.Resource? fill, Pen.Resource? pen)
@@ -193,7 +184,7 @@ public partial class ImmediateCanvas : ICanvas
 
     public void DrawVideoSource(VideoSource.Resource source, int frame, Brush.Resource? fill, Pen.Resource? pen)
     {
-        if (source.Read(frame, out IBitmap? bitmap))
+        if (source.Read(frame, out Bitmap? bitmap))
         {
             using (bitmap)
             {

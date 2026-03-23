@@ -2,6 +2,7 @@
 using Beutl.Engine;
 using Beutl.Graphics.Backend;
 using Beutl.Language;
+using Beutl.Media;
 using Beutl.Media.Source;
 
 namespace Beutl.Graphics3D.Textures;
@@ -40,17 +41,26 @@ public sealed partial class ImageTextureSource : TextureSource
             {
                 DisposeGpuTexture();
 
+                using var linearBitmap = Source.Bitmap.Convert(
+                    Source.Bitmap.ColorType == BitmapColorType.RgbaF16
+                        ? BitmapColorType.RgbaF16
+                        : BitmapColorType.Bgra8888,
+                    BitmapAlphaType.Premul,
+                    BitmapColorSpace.LinearSrgb);
+
                 _gpuTexture = graphicsContext.CreateTexture2D(
                     Source.FrameSize.Width,
                     Source.FrameSize.Height,
-                    TextureFormat.BGRA8Unorm);
+                    linearBitmap.ColorType == BitmapColorType.RgbaF16
+                        ? TextureFormat.RGBA16Float
+                        : TextureFormat.BGRA8Unorm);
 
                 // Upload pixel data
                 unsafe
                 {
                     var data = new ReadOnlySpan<byte>(
-                        (void*)Source.Bitmap.Data,
-                        Source.Bitmap.ByteCount);
+                        (void*)linearBitmap.Data,
+                        linearBitmap.ByteCount);
                     _gpuTexture.Upload(data);
                 }
 

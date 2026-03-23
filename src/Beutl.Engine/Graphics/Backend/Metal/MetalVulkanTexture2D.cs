@@ -75,7 +75,8 @@ internal sealed unsafe class MetalVulkanTexture2D : VulkanTexture2D
             backendTexture,
             GRSurfaceOrigin.TopLeft,
             1,
-            _format.ToSkiaColorType());
+            _format.ToSkiaColorType(),
+            SKColorSpace.CreateSrgbLinear());
     }
 
     private IntPtr ExportMetalTexture()

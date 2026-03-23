@@ -1,9 +1,4 @@
-﻿using Avalonia;
-using Avalonia.Media.Imaging;
-using Avalonia.Platform;
-using Beutl.Editor.Services;
-using Beutl.Media;
-using Beutl.Media.Pixel;
+﻿using Beutl.Editor.Services;
 using Beutl.Media.Source;
 using Beutl.NodeGraph;
 using Microsoft.Extensions.DependencyInjection;
@@ -46,7 +41,7 @@ public class NodeMonitorViewModel : NodeMemberViewModel
 
     public ReactivePropertySlim<string?> DisplayText { get; } = new();
 
-    public WriteableBitmap? DisplayBitmap { get; private set; }
+    public Ref<Media.Bitmap>? DisplayBitmap { get; private set; }
 
     public event EventHandler? ImageInvalidated;
 
@@ -57,64 +52,33 @@ public class NodeMonitorViewModel : NodeMemberViewModel
             case NodeMonitorContentKind.Text when Model is NodeMonitor<string?> textMonitor:
                 DisplayText.Value = textMonitor.Value;
                 break;
-            case NodeMonitorContentKind.Image when Model is NodeMonitor<Ref<IBitmap>?> imageMonitor:
+            case NodeMonitorContentKind.Image when Model is NodeMonitor<Ref<Media.Bitmap>?> imageMonitor:
                 UpdateImage(imageMonitor.Value);
                 break;
         }
     }
 
-    private unsafe void UpdateImage(Ref<IBitmap>? source)
+    private void UpdateImage(Ref<Media.Bitmap>? source)
     {
         if (source == null)
         {
+            DisplayBitmap?.Dispose();
             DisplayBitmap = null;
             ImageInvalidated?.Invoke(this, EventArgs.Empty);
             return;
         }
 
-        Bitmap<Bgra8888>? bitmap = null;
-        bool shouldDispose = false;
         try
         {
-            using var cloned = source.Clone();
-            bitmap = cloned.Value as Bitmap<Bgra8888>;
-            if (bitmap == null)
-            {
-                bitmap = cloned.Value.Convert<Bgra8888>();
-                shouldDispose = true;
-            }
-
-            if (DisplayBitmap is { } existing
-                && existing.PixelSize.Width == bitmap.Width
-                && existing.PixelSize.Height == bitmap.Height)
-            {
-                // 画像サイズが同じなら再利用
-            }
-            else
-            {
-                DisplayBitmap = new WriteableBitmap(
-                    new Avalonia.PixelSize(bitmap.Width, bitmap.Height),
-                    new Vector(96, 96),
-                    PixelFormat.Bgra8888,
-                    AlphaFormat.Premul);
-            }
-
-            using (ILockedFramebuffer buf = DisplayBitmap.Lock())
-            {
-                int size = bitmap.ByteCount;
-                Buffer.MemoryCopy((void*)bitmap.Data, (void*)buf.Address, size, size);
-            }
+            var old = DisplayBitmap;
+            DisplayBitmap = source.Clone();
+            old?.Dispose();
 
             ImageInvalidated?.Invoke(this, EventArgs.Empty);
         }
         catch
         {
             // 変換失敗時は何もしない
-        }
-        finally
-        {
-            if (shouldDispose)
-                bitmap?.Dispose();
         }
     }
 

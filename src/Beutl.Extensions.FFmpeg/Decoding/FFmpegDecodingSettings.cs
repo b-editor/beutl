@@ -13,6 +13,7 @@ public sealed class FFmpegDecodingSettings : ExtensionSettings
     public static readonly CoreProperty<ScalingAlgorithm> ScalingProperty;
     public static readonly CoreProperty<int> ThreadCountProperty;
     public static readonly CoreProperty<AccelerationOptions> AccelerationProperty;
+    public static readonly CoreProperty<bool> ForceSrgbGammaProperty;
 
     static FFmpegDecodingSettings()
     {
@@ -26,6 +27,10 @@ public sealed class FFmpegDecodingSettings : ExtensionSettings
 
         AccelerationProperty = ConfigureProperty<AccelerationOptions, FFmpegDecodingSettings>(nameof(Acceleration))
             .DefaultValue(AccelerationOptions.Software)
+            .Register();
+
+        ForceSrgbGammaProperty = ConfigureProperty<bool, FFmpegDecodingSettings>(nameof(ForceSrgbGamma))
+            .DefaultValue(true)
             .Register();
 
         AffectsConfig<FFmpegDecodingSettings>(ScalingProperty, ThreadCountProperty, AccelerationProperty);
@@ -47,6 +52,12 @@ public sealed class FFmpegDecodingSettings : ExtensionSettings
     {
         get => GetValue(AccelerationProperty);
         set => SetValue(AccelerationProperty, value);
+    }
+
+    public bool ForceSrgbGamma
+    {
+        get => GetValue(ForceSrgbGammaProperty);
+        set => SetValue(ForceSrgbGammaProperty, value);
     }
 
     public enum ScalingAlgorithm

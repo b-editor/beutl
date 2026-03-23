@@ -31,8 +31,7 @@ public sealed partial class Curves : FilterEffect
 
             const float3 LUMA = float3(0.2126, 0.7152, 0.0722);
 
-            float3 rgb_to_hsv(float3 c)
-            {
+            float3 rgb_to_hsv(float3 c) {
                 float4 K = float4(0., -1./3., 2./3., -1.);
                 float4 p = mix(float4(c.bg, K.wz), float4(c.gb, K.xy), step(c.b, c.g));
                 float4 q = mix(float4(p.xyw, c.r), float4(c.r, p.yzx), step(p.x, c.r));
@@ -42,18 +41,32 @@ public sealed partial class Curves : FilterEffect
                 return float3(abs(q.z + (q.w - q.y) / (6. * d + e)), d / (q.x + e), q.x);
             }
 
-            float3 hsv_to_rgb(float3 c)
-            {
+            float3 hsv_to_rgb(float3 c) {
                 float4 K = float4(1., 2./3., 1./3., 3.);
                 float3 p = abs(fract(c.xxx + K.xyz) * 6. - K.www);
                 return c.z * mix(K.xxx, clamp(p - K.xxx, 0., 1.), c.y);
+            }
+
+            // リニアsRGB -> sRGBガンマ変換
+            float3 linearToSrgb(float3 c) {
+                float3 lo = c * 12.92;
+                float3 hi = 1.055 * pow(c, float3(1.0/2.4)) - 0.055;
+                return mix(lo, hi, step(float3(0.0031308), c));
+            }
+
+            // sRGBガンマ -> リニアsRGB変換
+            float3 srgbToLinear(float3 c) {
+                float3 lo = c / 12.92;
+                float3 hi = pow((c + 0.055) / 1.055, float3(2.4));
+                return mix(lo, hi, step(float3(0.04045), c));
             }
 
             half4 main(float2 coord) {
                 half4 baseColor = src.eval(coord);
                 if (baseColor.a <= 0.0001) return baseColor;
 
-                float3 rgb = baseColor.rgb / baseColor.a;
+                // プリマルチプライドアルファを解除し、sRGBガンマ空間に変換
+                float3 rgb = linearToSrgb(baseColor.rgb / baseColor.a);
                 float luma = dot(rgb, LUMA);
                 float3 hsv = rgb_to_hsv(rgb);
 
@@ -81,7 +94,10 @@ public sealed partial class Curves : FilterEffect
                 rgb.b = masterCurve.eval(float2(rgb.b, 0.5)).a;
 
                 rgb = clamp(rgb, 0.0, 1.0);
-                return half4(rgb * baseColor.a, baseColor.a);
+
+                // リニア空間に戻してプリマルチプライドアルファを再適用
+                float3 result = srgbToLinear(rgb);
+                return half4(half3(result * baseColor.a), baseColor.a);
             }
             """;
 

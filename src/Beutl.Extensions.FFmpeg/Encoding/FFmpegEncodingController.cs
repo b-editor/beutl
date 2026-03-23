@@ -1,5 +1,6 @@
 ﻿using Beutl.Extensibility;
 using Beutl.Logging;
+using Beutl.Media;
 using FFmpeg.AutoGen.Abstractions;
 using FFmpegSharp;
 using Microsoft.Extensions.Logging;
@@ -287,9 +288,11 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
             return null;
 
         using var bitmap = await frameProvider.RenderFrame(state.NextPts);
+        // RgbaF16/LinearSrgb → Bgra8888/Srgb に変換（エンコーダはBGRA/sRGB前提）
+        using var converted = bitmap.Convert(BitmapColorType.Bgra8888, BitmapAlphaType.Premul, BitmapColorSpace.Srgb);
         unsafe
         {
-            Buffer.MemoryCopy((void*)bitmap.Data, (void*)srcFrame.Data[0], bitmap.ByteCount, bitmap.ByteCount);
+            Buffer.MemoryCopy((void*)converted.Data, (void*)srcFrame.Data[0], converted.ByteCount, converted.ByteCount);
         }
 
         var o = sws.ConvertFrame(srcFrame);

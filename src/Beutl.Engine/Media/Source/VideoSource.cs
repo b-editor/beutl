@@ -2,7 +2,6 @@
 using System.Text.Json.Serialization;
 using Beutl.Composition;
 using Beutl.Engine;
-using Beutl.Graphics.Rendering;
 using Beutl.Media.Decoding;
 
 namespace Beutl.Media.Source;
@@ -45,7 +44,7 @@ public sealed class VideoSource : MediaSource
 
         public MediaReader? MediaReader => _counter?.Value;
 
-        public bool Read(TimeSpan frame, [NotNullWhen(true)] out IBitmap? bitmap)
+        public bool Read(TimeSpan frame, [NotNullWhen(true)] out Bitmap? bitmap)
         {
             if (IsDisposed || _counter == null)
             {
@@ -58,7 +57,7 @@ public sealed class VideoSource : MediaSource
             return _counter.Value.ReadVideo((int)frameNum, out bitmap);
         }
 
-        public bool Read(int frame, [NotNullWhen(true)] out IBitmap? bitmap)
+        public bool Read(int frame, [NotNullWhen(true)] out Bitmap? bitmap)
         {
             if (IsDisposed || _counter == null)
             {

@@ -12,12 +12,12 @@ internal static class TestMediaHelper
 {
     public static Uri CreateTestImageUri(int width, int height, Color? fillColor = null)
     {
-        using var bitmap = new Bitmap<Bgra8888>(width, height);
+        using var bitmap = new Bitmap(width, height);
 
         // Fill with a solid color
         var color = fillColor ?? Colors.White;
         var pixel = new Bgra8888(color.B, color.G, color.R, color.A);
-        bitmap.Fill(pixel);
+        bitmap.GetPixelSpan<Bgra8888>().Fill(pixel);
 
         using var stream = new MemoryStream();
         bitmap.Save(stream, EncodedImageFormat.Png);
@@ -128,7 +128,7 @@ internal sealed class TestMediaReader : MediaReader
 
     public override bool HasAudio => false;
 
-    public override bool ReadVideo(int frame, [NotNullWhen(true)] out IBitmap? image)
+    public override bool ReadVideo(int frame, [NotNullWhen(true)] out Bitmap? image)
     {
         if (frame < 0 || frame >= _frameCount)
         {
@@ -137,10 +137,10 @@ internal sealed class TestMediaReader : MediaReader
         }
 
         // Create a simple test bitmap
-        var bitmap = new Bitmap<Bgra8888>(_frameSize.Width, _frameSize.Height);
+        var bitmap = new Bitmap(_frameSize.Width, _frameSize.Height);
         // Fill with a frame-dependent color for testing
         byte colorValue = (byte)((frame * 10) % 256);
-        bitmap.Fill(new Bgra8888(colorValue, colorValue, colorValue, 255));
+        bitmap.GetPixelSpan<Bgra8888>().Fill(new Bgra8888(colorValue, colorValue, colorValue, 255));
         image = bitmap;
         return true;
     }

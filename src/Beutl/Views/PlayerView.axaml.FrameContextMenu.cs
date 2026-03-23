@@ -4,7 +4,6 @@ using Avalonia.Platform.Storage;
 
 using Beutl.Graphics;
 using Beutl.Media;
-using Beutl.Media.Pixel;
 using Beutl.ProjectSystem;
 using Beutl.Services;
 using Beutl.ViewModels;
@@ -87,7 +86,7 @@ public partial class PlayerView
         return await storage.SaveFilePickerAsync(options);
     }
 
-    private static async Task SaveImage(IStorageFile file, Bitmap<Bgra8888> bitmap)
+    private static async Task SaveImage(IStorageFile file, Bitmap bitmap)
     {
         string str = file.Path.ToString();
         EncodedImageFormat format = Graphics.Image.ToImageFormat(str);
@@ -105,7 +104,7 @@ public partial class PlayerView
         {
             try
             {
-                Task<Bitmap<Bgra8888>> renderTask = viewModel.DrawSelectedDrawable(drawable);
+                Task<Bitmap> renderTask = viewModel.DrawSelectedDrawable(drawable);
 
                 FilePickerSaveOptions options = SharedFilePickerOptions.SaveImage();
                 Type type = drawable.GetType();
@@ -114,7 +113,7 @@ public partial class PlayerView
 
                 if (file != null)
                 {
-                    using Bitmap<Bgra8888> bitmap = await renderTask;
+                    using Bitmap bitmap = await renderTask;
                     await SaveImage(file, bitmap);
                     _logger.LogInformation("Selected element saved as image: {FilePath}", file.Path);
                 }
@@ -134,14 +133,14 @@ public partial class PlayerView
         {
             try
             {
-                Task<Bitmap<Bgra8888>> renderTask = viewModel.DrawFrame();
+                Task<Bitmap> renderTask = viewModel.DrawFrame();
 
                 string additional = Path.GetFileNameWithoutExtension(scene.Uri!.LocalPath);
                 IStorageFile? file = await SaveImageFilePicker(additional, storage);
 
                 if (file != null)
                 {
-                    using Bitmap<Bgra8888> bitmap = await renderTask;
+                    using Bitmap bitmap = await renderTask;
                     await SaveImage(file, bitmap);
                     _logger.LogInformation("Frame saved as image: {FilePath}", file.Path);
                 }

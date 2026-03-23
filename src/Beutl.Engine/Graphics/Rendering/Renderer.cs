@@ -2,7 +2,6 @@
 using Beutl.Composition;
 using Beutl.Graphics.Rendering.Cache;
 using Beutl.Media;
-using Beutl.Media.Pixel;
 
 namespace Beutl.Graphics.Rendering;
 
@@ -359,7 +358,7 @@ public class Renderer : IRenderer
         return null;
     }
 
-    public Bitmap<Bgra8888> Snapshot()
+    public Bitmap Snapshot()
     {
         RenderThread.Dispatcher.VerifyAccess();
         return _surface.Snapshot();

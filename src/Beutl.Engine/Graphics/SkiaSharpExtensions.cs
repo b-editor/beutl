@@ -1,4 +1,5 @@
-﻿using Beutl.Media;
+﻿using System.Numerics;
+using Beutl.Media;
 
 using SkiaSharp;
 
@@ -93,6 +94,11 @@ internal static class SkiaSharpExtensions
     public static SKColor ToSKColor(this Color c)
     {
         return new SKColor(c.R, c.G, c.B, c.A);
+    }
+
+    public static SKColorF ToSKColorF(this Vector4 c)
+    {
+        return new SKColorF(c.X, c.Y, c.Z, c.W);
     }
 
     public static SKShaderTileMode ToSKShaderTileMode(this GradientSpreadMethod m)

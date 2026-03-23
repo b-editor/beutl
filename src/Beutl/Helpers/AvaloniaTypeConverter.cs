@@ -1,7 +1,6 @@
 ﻿using System.Collections.Specialized;
 using Avalonia;
 using Avalonia.Media.Imaging;
-using Avalonia.Platform;
 using Avalonia.Threading;
 using Beutl.Composition;
 using Beutl.Controls;
@@ -280,17 +279,7 @@ public static class AvaloniaTypeConverter
 
                 var previous = _bitmap;
                 var pixelSize = new PixelSize(bitmap.Width, bitmap.Height);
-                _bitmap = new WriteableBitmap(pixelSize, new Vector(96, 96), PixelFormat.Bgra8888,
-                    AlphaFormat.Unpremul);
-
-                using (var locked = _bitmap.Lock())
-                {
-                    unsafe
-                    {
-                        Buffer.MemoryCopy((void*)bitmap.Data, (void*)locked.Address, bitmap.ByteCount,
-                            bitmap.ByteCount);
-                    }
-                }
+                _bitmap = bitmap.ToAvaWriteableBitmap(null);
 
                 await Dispatcher.UIThread.InvokeAsync(() =>
                 {

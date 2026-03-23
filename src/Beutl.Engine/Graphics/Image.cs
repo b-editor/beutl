@@ -1,14 +1,12 @@
 ﻿using System.Collections.Frozen;
 using System.Collections.Immutable;
-using Beutl.Graphics.Operations;
 using Beutl.Media;
-using Beutl.Media.Pixel;
 using OpenCvSharp;
 using SkiaSharp;
 
 namespace Beutl.Graphics;
 
-public static unsafe partial class Image
+public static partial class Image
 {
     private static readonly FrozenDictionary<string, EncodedImageFormat> s_extensionToFormat;
 
@@ -34,166 +32,33 @@ public static unsafe partial class Image
         s_extensionToFormat = list.ToFrozenDictionary();
     }
 
-    public static void AlphaSubtract(this Bitmap<Bgra8888> image, Bitmap<Bgra8888> mask)
+    public static Bitmap ToBitmap(
+        this SKImage self,
+        BitmapColorType? colorType = null,
+        BitmapAlphaType? alphaType = null,
+        BitmapColorSpace? colorSpace = null)
     {
-        if (image is null) throw new ArgumentNullException(nameof(image));
-        if (mask is null) throw new ArgumentNullException(nameof(mask));
-        image.ThrowIfDisposed();
-        mask.ThrowIfDisposed();
+        var colorType2 = colorType ?? BitmapColorTypeExtensions.FromSKColorType(self.ColorType);
+        var alphaType2 = alphaType ?? BitmapAlphaTypeExtensions.FromSKAlphaType(self.AlphaType);
+        var colorSpace2 = colorSpace ?? BitmapColorSpace.FromSKColorSpace(self.ColorSpace);
+        var bitmap = new Bitmap(self.Width, self.Height, colorType2, alphaType2, colorSpace2);
+        self.ReadPixels(
+            bitmap.SKBitmap.Info,
+            bitmap.Data,
+            bitmap.RowBytes);
 
-        var data = (Bgra8888*)image.Data;
-        var maskptr = (Bgra8888*)mask.Data;
-        Parallel.For(0, image.Width * image.Height, new AlphaSubtractOperation(data, maskptr).Invoke);
+        return bitmap;
     }
 
-    public static Bitmap<Grayscale8> AlphaMap(this Bitmap<Bgra8888> image)
+    public static Mat ToMat(this Bitmap self)
     {
-        if (image is null) throw new ArgumentNullException(nameof(image));
-        image.ThrowIfDisposed();
-
-        var result = new Bitmap<Grayscale8>(image.Width, image.Height);
-        var src = (Bgra8888*)image.Data;
-        var dst = (Grayscale8*)result.Data;
-
-        Parallel.For(0, image.Width * image.Height, new AlphaMapOperation(src, dst).Invoke);
-
-        return result;
-    }
-
-    public static Bitmap<Bgra8888> ToBitmap(this Mat self)
-    {
-        using var bmp = self.ToSKBitmap();
-        return bmp.ToBitmap();
-    }
-
-    public static Bitmap<Bgra8888> ToBitmap(this SKBitmap self)
-    {
-        if (self.ColorType is SKColorType.Bgra8888)
+        if (self.ColorType != BitmapColorType.Bgra8888)
         {
-            var result = new Bitmap<Bgra8888>(self.Width, self.Height);
-
-            Buffer.MemoryCopy((void*)self.GetPixels(), (void*)result.Data, result.ByteCount, result.ByteCount);
-
-            return result;
+            throw new InvalidOperationException(
+                $"AsMat requires Bgra8888 pixel format, but the bitmap is {self.ColorType}. " +
+                $"Use ToMat() which converts automatically, or convert the bitmap first with Bitmap.Convert().");
         }
-        else
-        {
-            using var bmp = new SKBitmap(new SKImageInfo(self.Width, self.Height, SKColorType.Bgra8888));
-            using var canvas = new SKCanvas(bmp);
-            canvas.DrawBitmap(self, SKPoint.Empty);
 
-            var result = new Bitmap<Bgra8888>(self.Width, self.Height);
-
-            Buffer.MemoryCopy((void*)bmp.GetPixels(), (void*)result.Data, result.ByteCount, result.ByteCount);
-
-            return result;
-        }
-    }
-
-    public static Bitmap<Bgra8888> ToBitmap(this SKImage self)
-    {
-        var result = new Bitmap<Bgra8888>(self.Width, self.Height);
-        self.ReadPixels(new SKImageInfo(self.Width, self.Height, SKColorType.Bgra8888), result.Data);
-        return result;
-    }
-
-    public static SKBitmap ToSKBitmap(this Bitmap<Bgra8888> self)
-    {
-        var result = new SKBitmap(new(self.Width, self.Height, SKColorType.Bgra8888));
-
-        result.SetPixels(self.Data);
-
-        return result;
-    }
-
-    public static SKBitmap ToSKBitmap(this IBitmap self)
-    {
-        if (self is Bitmap<Bgra8888> bgra8888)
-        {
-            var result = new SKBitmap(new(bgra8888.Width, bgra8888.Height, SKColorType.Bgra8888));
-
-            result.SetPixels(bgra8888.Data);
-
-            return result;
-        }
-        else if (self is Bitmap<Bgra4444> bgra4444)
-        {
-            var result = new SKBitmap(new(bgra4444.Width, bgra4444.Height, SKColorType.Argb4444));
-
-            result.SetPixels(bgra4444.Data);
-
-            return result;
-        }
-        else if (self is Bitmap<Grayscale8> grayscale8)
-        {
-            var result = new SKBitmap(new(grayscale8.Width, grayscale8.Height, SKColorType.Alpha8));
-
-            result.SetPixels(grayscale8.Data);
-
-            return result;
-        }
-        else
-        {
-            using Bitmap<Bgra8888> typed = self.Convert<Bgra8888>();
-            var result = new SKBitmap(new(typed.Width, typed.Height, SKColorType.Bgra8888));
-
-            result.SetPixels(typed.Data);
-
-            return result;
-        }
-    }
-
-    public static SKImage ToSKImage(this IBitmap self)
-    {
-        if (self is Bitmap<Bgra8888> bgra8888)
-        {
-            var result = SKImage.FromPixelCopy(
-                new(bgra8888.Width, bgra8888.Height, SKColorType.Bgra8888),
-                bgra8888.Data);
-
-            return result;
-        }
-        else if (self is Bitmap<Bgra4444> bgra4444)
-        {
-            var result = SKImage.FromPixelCopy(
-                new(bgra4444.Width, bgra4444.Height, SKColorType.Argb4444),
-                bgra4444.Data);
-
-            return result;
-        }
-        else if (self is Bitmap<Grayscale8> grayscale8)
-        {
-            var result = SKImage.FromPixelCopy(
-                new(grayscale8.Width, grayscale8.Height, SKColorType.Alpha8),
-                grayscale8.Data);
-
-            return result;
-        }
-        else
-        {
-            using Bitmap<Bgra8888> typed = self.Convert<Bgra8888>();
-            var result = SKImage.FromPixelCopy(new(typed.Width, typed.Height, SKColorType.Bgra8888), typed.Data);
-
-            return result;
-        }
-    }
-
-    public static SKBitmap ToSKBitmap(this Mat self)
-    {
-        var result = new SKBitmap(new(self.Width, self.Height, SKColorType.Bgra8888));
-
-        result.SetPixels(self.Data);
-
-        return result;
-    }
-
-    public static Mat ToMat(this Bitmap<Bgra8888> self)
-    {
-        return Mat.FromPixelData(self.Height, self.Width, MatType.CV_8UC4, self.Data);
-    }
-
-    public static Mat AsMat(this Bitmap<Bgra8888> self)
-    {
         return Mat.FromPixelData(self.Height, self.Width, MatType.CV_8UC4, self.Data);
     }
 

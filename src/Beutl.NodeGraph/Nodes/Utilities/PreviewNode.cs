@@ -7,7 +7,7 @@ namespace Beutl.NodeGraph.Nodes.Utilities;
 
 public partial class PreviewNode : GraphNode
 {
-    private readonly NodeMonitor<Ref<IBitmap>?> _preview;
+    private readonly NodeMonitor<Ref<Bitmap>?> _preview;
 
     public PreviewNode()
     {
@@ -30,7 +30,7 @@ public partial class PreviewNode : GraphNode
                 var processor = new RenderNodeProcessor(renderNode, true);
                 var bitmap = processor.RasterizeAndConcat();
                 node._preview.Value?.Dispose();
-                node._preview.Value = Ref<IBitmap>.Create(bitmap);
+                node._preview.Value = Ref<Bitmap>.Create(bitmap);
             }
             else
             {

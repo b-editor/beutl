@@ -39,7 +39,7 @@ public class AnimatedImageReader : MediaReader
 
     public override bool HasAudio => false;
 
-    public override bool ReadVideo(int frame, [NotNullWhen(true)] out IBitmap? image)
+    public override bool ReadVideo(int frame, [NotNullWhen(true)] out Bitmap? image)
     {
         image = null;
         if (_codec == null)
@@ -80,7 +80,7 @@ public class AnimatedImageReader : MediaReader
 
         if (_lastFrame?.Index == detectedFrame)
         {
-            image = _lastFrame.Bitmap.ToBitmap();
+            image = new Bitmap(_lastFrame.Bitmap.Copy());
             return true;
         }
 
@@ -96,7 +96,7 @@ public class AnimatedImageReader : MediaReader
             _lastFrame = null;
         }
 
-        image = bitmap.ToBitmap();
+        image = new Bitmap(bitmap.Copy());
         return true;
     }
 

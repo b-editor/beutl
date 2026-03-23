@@ -2,6 +2,10 @@
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using Beutl.Editor.Components.ColorScopesTab.ViewModels;
+using Beutl.Media;
+using Beutl.Media.Pixel;
+using BtlBitmap = Beutl.Media.Bitmap;
+using PixelSize = Avalonia.PixelSize;
 
 namespace Beutl.Editor.Components.ColorScopesTab.Views.Scopes;
 
@@ -70,22 +74,22 @@ public class WaveformControl : ScopeControlBase
     protected override string[]? HorizontalAxisLabels => null;
 
     protected override unsafe WriteableBitmap? RenderScope(
-        byte[] sourceData,
-        int sourceWidth,
-        int sourceHeight,
-        int sourceStride,
+        BtlBitmap sourceBitmap,
         int targetWidth,
         int targetHeight,
         WriteableBitmap? existingBitmap)
     {
-        WriteableBitmap result = existingBitmap?.PixelSize.Width == targetWidth && existingBitmap.PixelSize.Height == targetHeight
-            ? existingBitmap
-            : new WriteableBitmap(
-                new PixelSize(targetWidth, targetHeight),
-                new Vector(96, 96),
-                PixelFormat.Bgra8888,
-                AlphaFormat.Premul);
+        WriteableBitmap result =
+            existingBitmap?.PixelSize.Width == targetWidth && existingBitmap.PixelSize.Height == targetHeight
+                ? existingBitmap
+                : new WriteableBitmap(
+                    new PixelSize(targetWidth, targetHeight),
+                    new Vector(96, 96),
+                    PixelFormat.Bgra8888,
+                    AlphaFormat.Premul);
 
+        int sourceWidth = sourceBitmap.Width;
+        int sourceHeight = sourceBitmap.Height;
         if (targetWidth == 0 || targetHeight == 0 || sourceWidth == 0 || sourceHeight == 0)
         {
             return result;
@@ -96,7 +100,7 @@ public class WaveformControl : ScopeControlBase
         float gain = Gain;
         bool showGrid = ShowGrid;
         float[]? gridStrength = showGrid ? CreateGridStrength(targetHeight) : null;
-        int sampleCount = (int)Math.Clamp(sourceHeight * 0.25f, 32f, 1024f);
+        int sampleCount = (int)Math.Clamp(sourceBitmap.Height * 0.25f, 32f, 1024f);
         float invSamplesGain = gain / Math.Max(sampleCount, 1);
 
         // Pre-compute inverse values to avoid division in hot loops
@@ -104,12 +108,26 @@ public class WaveformControl : ScopeControlBase
         float invSampleCount = 1f / sampleCount;
 
         using ILockedFramebuffer fb = result.Lock();
-
-        fixed (byte* srcPtr = sourceData)
+        BtlBitmap rgbaGammaOrLinear;
+        bool requireDispose = false;
+        // TODO: Linear/Gammaを切り替えられるようにする
+        if (sourceBitmap.ColorType == BitmapColorType.RgbaF16 &&
+            (sourceBitmap.ColorSpace == BitmapColorSpace.Srgb || sourceBitmap.ColorSpace == BitmapColorSpace.LinearSrgb))
         {
-            IntPtr safeSrcPtr = (IntPtr)srcPtr;
+            rgbaGammaOrLinear = sourceBitmap;
+        }
+        else
+        {
+            rgbaGammaOrLinear = sourceBitmap.Convert(BitmapColorType.RgbaF16, BitmapAlphaType.Unpremul, BitmapColorSpace.Srgb);
+            requireDispose = true;
+        }
+
+        try
+        {
             byte* destPtr = (byte*)fb.Address;
             int destRowBytes = fb.RowBytes;
+            bool premul = rgbaGammaOrLinear.AlphaType == BitmapAlphaType.Premul;
+            bool linear = rgbaGammaOrLinear.ColorSpace == BitmapColorSpace.LinearSrgb;
 
             Parallel.For(0, targetWidth, x =>
             {
@@ -134,13 +152,19 @@ public class WaveformControl : ScopeControlBase
                 {
                     int srcY = Math.Clamp((int)((i + 0.5f) * invSampleCount * sourceHeight), 0, sourceHeight - 1);
 
-                    byte* sample = (byte*)safeSrcPtr + (srcY * sourceStride) + (srcX * 4);
-                    float b = sample[0] * (1f / 255f);
-                    float g = sample[1] * (1f / 255f);
-                    float r = sample[2] * (1f / 255f);
-                    float a = sample[3] * (1f / 255f);
+                    // ReSharper disable once AccessToDisposedClosure
+                    RgbaF16 sample = rgbaGammaOrLinear.GetRow<RgbaF16>(srcY)[srcX];
+                    if (linear)
+                    {
+                        sample = sample.LinearToSrgb();
+                    }
 
-                    if (a > 0f && a < 1f)
+                    float r = (float)sample.R;
+                    float g = (float)sample.G;
+                    float b = (float)sample.B;
+                    float a = (float)sample.A;
+
+                    if (a > 0f && a < 1f && premul)
                     {
                         float invA = 1f / a;
                         r *= invA;
@@ -236,6 +260,11 @@ public class WaveformControl : ScopeControlBase
                     destPtr[destIndex + 3] = 255;
                 }
             });
+        }
+        finally
+        {
+            if (requireDispose)
+                rgbaGammaOrLinear.Dispose();
         }
 
         return result;

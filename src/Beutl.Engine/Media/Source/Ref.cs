@@ -29,6 +29,11 @@ public sealed class Ref<T> : IDisposable
 
     public Ref<T> Clone()
     {
+        return TryClone() ?? throw new ObjectDisposedException("Ref<" + typeof(T) + ">");
+    }
+
+    public Ref<T>? TryClone()
+    {
         lock (_lock)
         {
             if (Value != null)
@@ -37,7 +42,8 @@ public sealed class Ref<T> : IDisposable
                 _counter.AddRef();
                 return newRef;
             }
-            throw new ObjectDisposedException("Ref<" + typeof(T) + ">");
+
+            return null;
         }
     }
 

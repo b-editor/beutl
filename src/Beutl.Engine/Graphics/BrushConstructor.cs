@@ -221,7 +221,7 @@ public readonly struct BrushConstructor(Rect bounds, Brush.Resource? brush, Blen
         if (tileBrush is ImageBrush.Resource imageBrush
             && imageBrush.Source?.Bitmap is { } bitmap)
         {
-            skImage = bitmap.ToSKImage();
+            skImage = SKImage.FromBitmap(bitmap.SKBitmap);
             pixelSize = new(bitmap.Width, bitmap.Height);
         }
         else if (tileBrush is DrawableBrush.Resource drawableBrush)

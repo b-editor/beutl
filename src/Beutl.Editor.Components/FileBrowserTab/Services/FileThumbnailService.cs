@@ -346,8 +346,8 @@ public sealed class FileThumbnailService : IDisposable
                 {
                     cancellationToken.ThrowIfCancellationRequested();
 
-                    // SKBitmapに変換
-                    using var skBitmap = bmp.ToSKBitmap();
+                    // SKBitmapを取得
+                    var skBitmap = bmp.SKBitmap;
 
                     // サムネイルサイズにリサイズ
                     float scale = Math.Min((float)ThumbnailSize / skBitmap.Width, (float)ThumbnailSize / skBitmap.Height);

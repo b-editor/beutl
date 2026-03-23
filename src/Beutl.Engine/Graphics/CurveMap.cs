@@ -1,4 +1,6 @@
-﻿using System.Collections.Immutable;
+﻿using System.Buffers;
+using System.Collections.Immutable;
+using System.Runtime.InteropServices;
 using System.Text.Json.Serialization;
 
 using Beutl.Converters;
@@ -116,22 +118,28 @@ public sealed class CurveMap : IEquatable<CurveMap>
 
     public SKShader ToShader()
     {
-        var data = new byte[256];
-        for (int i = 0; i < data.Length; i++)
+        var data = ArrayPool<Half>.Shared.Rent(10000);
+        try
         {
-            float v = Evaluate(i / 255f);
-            data[i] = (byte)Math.Clamp((int)(v * 255f), 0, 255);
-        }
+            for (int i = 0; i < data.Length; i++)
+            {
+                float v = Evaluate(i / 9999f);
+                data[i] = (Half)v;
+            }
 
-        var info = new SKImageInfo(256, 1, SKColorType.Alpha8, SKAlphaType.Unpremul);
-        using SKData pixels = SKData.CreateCopy(data);
-        using SKImage image = SKImage.FromPixels(info, pixels, info.RowBytes);
-        return SKShader.CreateImage(
-            image,
-            SKShaderTileMode.Clamp,
-            SKShaderTileMode.Clamp,
-            SKSamplingOptions.Default,
-            SKMatrix.CreateScale(1 / 256f, 1));
+            var info = new SKImageInfo(10000, 1, SKColorType.AlphaF16, SKAlphaType.Unpremul);
+            using SKImage image = SKImage.FromPixelCopy(info, MemoryMarshal.AsBytes(data.AsSpan()), info.RowBytes);
+            return SKShader.CreateImage(
+                image,
+                SKShaderTileMode.Clamp,
+                SKShaderTileMode.Clamp,
+                SKSamplingOptions.Default,
+                SKMatrix.CreateScale(1 / 10000f, 1));
+        }
+        finally
+        {
+            ArrayPool<Half>.Shared.Return(data);
+        }
     }
 
     public bool Equals(CurveMap? other)

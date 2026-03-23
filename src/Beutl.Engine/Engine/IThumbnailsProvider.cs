@@ -14,7 +14,7 @@ public interface IThumbnailsProvider
     /// </summary>
     string? GetThumbnailsCacheKey() => null;
 
-    IAsyncEnumerable<(int Index, int Count, IBitmap Thumbnail)> GetThumbnailStripAsync(
+    IAsyncEnumerable<(int Index, int Count, Bitmap Thumbnail)> GetThumbnailStripAsync(
         int maxWidth,
         int maxHeight,
         IThumbnailCacheService? cacheService = null,

@@ -156,11 +156,7 @@ public sealed partial class TransparentMaterial : Material3D
                 View = context.ViewMatrix,
                 Projection = context.ProjectionMatrix,
                 CameraPosition = new Vector4(context.CameraPosition, 1.0f),
-                BaseColor = new Vector4(
-                    Color.R / 255f,
-                    Color.G / 255f,
-                    Color.B / 255f,
-                    Color.A / 255f),
+                BaseColor = Color.ToLinearPremultiplied(),
                 LightDirection = new Vector4(Vector3.Normalize(lightDirection), 0.0f),
                 LightColor = new Vector4(lightColor, 1.0f),
                 AmbientColor = new Vector4(context.AmbientColor, 1.0f),
@@ -322,12 +318,6 @@ public sealed partial class TransparentMaterial : Material3D
                 
                 // Combine lighting
                 vec3 color = ambient + diffuse + specular;
-                
-                // Apply tone mapping (simple Reinhard)
-                color = color / (color + vec3(1.0));
-                
-                // Gamma correction
-                color = pow(color, vec3(1.0 / 2.2));
                 
                 // Final opacity combines material opacity with fresnel
                 // More transparent at center, more opaque/reflective at edges

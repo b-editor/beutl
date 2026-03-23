@@ -2,59 +2,43 @@
 using System.Runtime.InteropServices;
 
 using Beutl.Graphics;
-using Beutl.Graphics.Operations;
-using Beutl.Media.Pixel;
 
 using SkiaSharp;
 
 namespace Beutl.Media;
 
-public readonly struct BitmapInfo(int width, int height, int byteCount, int pixelSize)
+public sealed class Bitmap : ICloneable, IDisposable
 {
-    public int Width { get; } = width;
+    private readonly SKBitmap _skBitmap;
+    private readonly BitmapColorSpace _colorSpace;
+    private readonly bool _ownsData;
 
-    public int Height { get; } = height;
-
-    public int ByteCount { get; } = byteCount;
-
-    public int PixelSize { get; } = pixelSize;
-}
-
-public unsafe class Bitmap<T> : IBitmap
-    where T : unmanaged, IPixel<T>
-{
-    private readonly bool _requireDispose = true;
-    private T* _pointer;
-
-    public Bitmap(int width, int height)
+    public Bitmap(int width, int height,
+        BitmapColorType colorType = BitmapColorType.Bgra8888,
+        BitmapAlphaType alphaType = BitmapAlphaType.Unpremul,
+        BitmapColorSpace? colorSpace = null)
     {
         ThrowOutOfRange(width, height);
-
-        Width = width;
-        Height = height;
-        _pointer = (T*)NativeMemory.AllocZeroed((nuint)ByteCount);
+        _colorSpace = colorSpace ?? BitmapColorSpace.Srgb;
+        var info = new SKImageInfo(width, height, colorType.ToSKColorType(), alphaType.ToSKAlphaType(), _colorSpace.SKColorSpace);
+        _skBitmap = new SKBitmap(info);
+        _skBitmap.Erase(SKColor.Empty);
+        _ownsData = true;
     }
 
-    public Bitmap(int width, int height, T* data)
+    public Bitmap(SKBitmap skBitmap)
     {
-        ThrowOutOfRange(width, height);
-        if (data == null) throw new ArgumentNullException(nameof(data));
-
-        _requireDispose = false;
-        Width = width;
-        Height = height;
-        _pointer = data;
+        ArgumentNullException.ThrowIfNull(skBitmap);
+        _skBitmap = skBitmap;
+        _colorSpace = BitmapColorSpace.FromSKColorSpace(skBitmap.ColorSpace);
+        _ownsData = true;
     }
 
-    public Bitmap(int width, int height, IntPtr data)
+    internal Bitmap(SKBitmap skBitmap, bool ownsData)
     {
-        ThrowOutOfRange(width, height);
-        if (data == IntPtr.Zero) throw new ArgumentNullException(nameof(data));
-
-        _requireDispose = false;
-        Width = width;
-        Height = height;
-        _pointer = (T*)data;
+        _skBitmap = skBitmap;
+        _colorSpace = BitmapColorSpace.FromSKColorSpace(skBitmap.ColorSpace);
+        _ownsData = ownsData;
     }
 
     ~Bitmap()
@@ -62,110 +46,123 @@ public unsafe class Bitmap<T> : IBitmap
         Dispose();
     }
 
-    public int Width { get; }
+    public int Width => _skBitmap.Width;
 
-    public int Height { get; }
+    public int Height => _skBitmap.Height;
 
-    public int ByteCount => Width * Height * PixelSize;
+    public int ByteCount => _skBitmap.ByteCount;
 
-    public int PixelSize => sizeof(T);
+    public int BytesPerPixel => _skBitmap.BytesPerPixel;
 
-    public Span<T> DataSpan => new(_pointer, Width * Height);
+    public int RowBytes => _skBitmap.RowBytes;
 
-    public IntPtr Data => (IntPtr)_pointer;
+    public IntPtr Data => _skBitmap.GetPixels();
 
-    public BitmapInfo Info => new(Width, Height, ByteCount, PixelSize);
+    public BitmapColorType ColorType => BitmapColorTypeExtensions.FromSKColorType(_skBitmap.ColorType);
+
+    public BitmapAlphaType AlphaType => BitmapAlphaTypeExtensions.FromSKAlphaType(_skBitmap.AlphaType);
+
+    public BitmapColorSpace ColorSpace => _colorSpace;
 
     public bool IsDisposed { get; private set; }
 
-    public Type PixelType => typeof(T);
+    internal SKBitmap SKBitmap => _skBitmap;
 
-    public ref T this[int x, int y]
+    public BitmapInfo Info => new(Width, Height, ByteCount, BytesPerPixel, ColorType, AlphaType, _colorSpace);
+
+    public unsafe Span<byte> GetPixelSpan()
     {
-        get
-        {
-            ThrowColOutOfRange(x);
+        ThrowIfDisposed();
+        return new Span<byte>((void*)Data, ByteCount);
+    }
 
-            return ref this[y][x];
+    public unsafe Span<T> GetPixelSpan<T>() where T : unmanaged
+    {
+        ThrowIfDisposed();
+        return MemoryMarshal.Cast<byte, T>(new Span<byte>((void*)Data, ByteCount));
+    }
+
+    public unsafe Span<byte> GetRow(int y)
+    {
+        ThrowIfDisposed();
+        ThrowRowOutOfRange(y);
+        byte* ptr = (byte*)Data + (long)y * RowBytes;
+        return new Span<byte>(ptr, Width * BytesPerPixel);
+    }
+
+    public unsafe Span<T> GetRow<T>(int y) where T : unmanaged
+    {
+        ThrowIfDisposed();
+        ThrowRowOutOfRange(y);
+        byte* ptr = (byte*)Data + (long)y * RowBytes;
+        return MemoryMarshal.Cast<byte, T>(new Span<byte>(ptr, Width * BytesPerPixel));
+    }
+
+    public Bitmap ExtractSubset(PixelRect roi)
+    {
+        ThrowIfDisposed();
+        ThrowOutOfRange(roi);
+
+        var result = new Bitmap(roi.Width, roi.Height, ColorType, AlphaType, _colorSpace);
+        int bytesPerRow = roi.Width * BytesPerPixel;
+
+        unsafe
+        {
+            byte* srcBase = (byte*)Data;
+            byte* dstBase = (byte*)result.Data;
+            Parallel.For(0, roi.Height, y =>
+            {
+                byte* src = srcBase + (long)(y + roi.Y) * RowBytes + (long)roi.X * BytesPerPixel;
+                byte* dst = dstBase + (long)y * result.RowBytes;
+                Buffer.MemoryCopy(src, dst, bytesPerRow, bytesPerRow);
+            });
+        }
+
+        return result;
+    }
+
+    public void CopyFrom(Bitmap source, PixelRect destRoi)
+    {
+        ThrowIfDisposed();
+        source.ThrowIfDisposed();
+        if (source.BytesPerPixel != BytesPerPixel)
+            throw new ArgumentException($"Pixel format mismatch: source has {source.BytesPerPixel} bytes per pixel, destination has {BytesPerPixel}.", nameof(source));
+        ThrowOutOfRange(destRoi);
+
+        int bytesPerRow = Math.Min(source.Width, destRoi.Width) * BytesPerPixel;
+
+        unsafe
+        {
+            byte* srcBase = (byte*)source.Data;
+            byte* dstBase = (byte*)Data;
+            int rowsToCopy = Math.Min(source.Height, destRoi.Height);
+            Parallel.For(0, rowsToCopy, y =>
+            {
+                byte* src = srcBase + (long)y * source.RowBytes;
+                byte* dst = dstBase + (long)(y + destRoi.Y) * RowBytes + (long)destRoi.X * BytesPerPixel;
+                Buffer.MemoryCopy(src, dst, bytesPerRow, bytesPerRow);
+            });
         }
     }
 
-    public Span<T> this[int y]
-    {
-        get
-        {
-            ThrowIfDisposed();
-            ThrowRowOutOfRange(y);
-
-            return DataSpan.Slice(y * Width, Width);
-        }
-        set
-        {
-            ThrowIfDisposed();
-            ThrowRowOutOfRange(y);
-
-            value.CopyTo(DataSpan.Slice(y * Width, Width));
-        }
-    }
-
-    public Bitmap<T> this[PixelRect roi]
-    {
-        get
-        {
-            ThrowIfDisposed();
-            ThrowOutOfRange(roi);
-            var value = new Bitmap<T>(roi.Width, roi.Height);
-
-            Parallel.For(0, roi.Height, new CropOperation<T>(this, value, roi).Invoke);
-
-            return value;
-        }
-        set
-        {
-            ThrowIfDisposed();
-            ThrowOutOfRange(roi);
-
-            Parallel.For(0, roi.Height, new ReplaceOperation<T>(value, this, roi).Invoke);
-        }
-    }
-
-    public static Bitmap<T> FromStream(Stream stream)
+    public static Bitmap FromStream(Stream stream)
     {
         ArgumentNullException.ThrowIfNull(stream);
+        var skBitmap = SKBitmap.Decode(stream);
+        if (skBitmap == null) throw new InvalidOperationException("Failed to decode bitmap from stream.");
 
-        using (var bmp = SKBitmap.Decode(stream))
-        {
-            var image = bmp.ToBitmap();
-
-            if (default(T) is Bgra8888)
-            {
-                return (Bitmap<T>)(object)image;
-            }
-
-            Bitmap<T>? converted = image.Convert<T>();
-            image.Dispose();
-            return converted;
-        }
+        return new Bitmap(skBitmap);
     }
 
-    public static Bitmap<T> FromFile(string file)
+    public static Bitmap FromFile(string file)
     {
         ArgumentNullException.ThrowIfNull(file);
         if (!File.Exists(file)) throw new FileNotFoundException(null, file);
 
-        using (var bmp = SKBitmap.Decode(file))
-        {
-            var image = bmp.ToBitmap();
+        var skBitmap = SKBitmap.Decode(file);
+        if (skBitmap == null) throw new InvalidOperationException($"Failed to decode bitmap from file: {file}");
 
-            if (default(T) is Bgra8888)
-            {
-                return (Bitmap<T>)(object)image;
-            }
-
-            Bitmap<T>? converted = image.Convert<T>();
-            image.Dispose();
-            return converted;
-        }
+        return new Bitmap(skBitmap);
     }
 
     public bool Save(string file, EncodedImageFormat format = EncodedImageFormat.Default, int quality = 100)
@@ -174,21 +171,16 @@ public unsafe class Bitmap<T> : IBitmap
         ThrowIfDisposed();
         format = format == EncodedImageFormat.Default ? Image.ToImageFormat(file) : format;
 
-        if (default(T) is Bgra8888)
-        {
-            using var bmp = ((Bitmap<Bgra8888>)(object)this).ToSKBitmap();
-            using var stream = new FileStream(file, FileMode.Create);
+        using var stream = new FileStream(file, FileMode.Create);
 
-            return bmp.Encode(stream, (SKEncodedImageFormat)format, quality);
-        }
-        else
+        // 画像フォーマットはsRGBガンマ前提のため、リニア色空間の場合はsRGBに変換
+        if (!_colorSpace.IsSrgb)
         {
-            using Bitmap<Bgra8888> converted = Convert<Bgra8888>();
-            using var bmp = converted.ToSKBitmap();
-            using var stream = new FileStream(file, FileMode.Create);
-
-            return bmp.Encode(stream, (SKEncodedImageFormat)format, quality);
+            using var srgb = Convert(BitmapColorType.Bgra8888, colorSpace: BitmapColorSpace.Srgb);
+            return srgb._skBitmap.Encode(stream, (SKEncodedImageFormat)format, quality);
         }
+
+        return _skBitmap.Encode(stream, (SKEncodedImageFormat)format, quality);
     }
 
     public bool Save(Stream stream, EncodedImageFormat format = EncodedImageFormat.Default, int quality = 100)
@@ -197,95 +189,75 @@ public unsafe class Bitmap<T> : IBitmap
         ThrowIfDisposed();
         format = format == EncodedImageFormat.Default ? EncodedImageFormat.Png : format;
 
-        if (default(T) is Bgra8888)
+        // 画像フォーマットはsRGBガンマ前提のため、リニア色空間の場合はsRGBに変換
+        if (!_colorSpace.IsSrgb)
         {
-            using var bmp = ((Bitmap<Bgra8888>)(object)this).ToSKBitmap();
-
-            return bmp.Encode(stream, (SKEncodedImageFormat)format, quality);
-        }
-        else
-        {
-            using Bitmap<Bgra8888> converted = Convert<Bgra8888>();
-            using var bmp = converted.ToSKBitmap();
-
-            return bmp.Encode(stream, (SKEncodedImageFormat)format, quality);
-        }
-    }
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void ThrowIfDisposed()
-    {
-        ObjectDisposedException.ThrowIf(IsDisposed, this);
-    }
-
-    public void Dispose()
-    {
-        if (!IsDisposed && _requireDispose)
-        {
-            if (_pointer != null) NativeMemory.Free(_pointer);
-
-            _pointer = null;
+            using var srgb = Convert(BitmapColorType.Bgra8888, colorSpace: BitmapColorSpace.Srgb);
+            return srgb._skBitmap.Encode(stream, (SKEncodedImageFormat)format, quality);
         }
 
-        IsDisposed = true;
-        GC.SuppressFinalize(this);
+        return _skBitmap.Encode(stream, (SKEncodedImageFormat)format, quality);
     }
 
-    public Bitmap<T2> Convert<T2>()
-        where T2 : unmanaged, IPixel<T2>
+    public Bitmap Convert(BitmapColorType colorType, BitmapAlphaType? alphaType = null, BitmapColorSpace? colorSpace = null)
     {
         ThrowIfDisposed();
-        var dst = new Bitmap<T2>(Width, Height);
+        var destAlpha = alphaType ?? AlphaType;
+        var destColorSpace = colorSpace ?? _colorSpace;
 
-        T* srcPtr = _pointer;
-        T2* dstPtr = dst._pointer;
+        var destInfo = new SKImageInfo(Width, Height, colorType.ToSKColorType(), destAlpha.ToSKAlphaType(), destColorSpace.SKColorSpace);
+        var destBitmap = new SKBitmap(destInfo);
+        using var canvas = new SKCanvas(destBitmap);
+        using var paint = new SKPaint { BlendMode = SKBlendMode.Src };
+        canvas.DrawBitmap(_skBitmap, SKPoint.Empty, paint);
 
-        Parallel.For(0, Width * Height, new ConvertOperation<T, T2>(srcPtr, dstPtr).Invoke);
-
-        return dst;
+        return new Bitmap(destBitmap);
     }
 
-    public Bitmap<T> Clone()
+    public Bitmap Clone()
     {
         ThrowIfDisposed();
-
-        int size = ByteCount;
-        var img = new Bitmap<T>(Width, Height);
-        Buffer.MemoryCopy(_pointer, img._pointer, size, size);
-
-        return img;
+        var copy = _skBitmap.Copy();
+        return new Bitmap(copy);
     }
 
     public void Clear()
     {
         ThrowIfDisposed();
-
-        DataSpan.Clear();
+        _skBitmap.Erase(SKColor.Empty);
     }
 
-    public void Fill(T fill)
+    public unsafe void Flip(FlipMode mode)
     {
         ThrowIfDisposed();
-        DataSpan.Fill(fill);
-    }
+        int rowBytes = Width * BytesPerPixel;
 
-    public void Flip(FlipMode mode)
-    {
-        ThrowIfDisposed();
         if (mode is FlipMode.Y or FlipMode.XY)
         {
-            Parallel.For(0, Height, y => this[y].Reverse());
+            byte* basePtr = (byte*)Data;
+            int bpp = BytesPerPixel;
+            Parallel.For(0, Height, y =>
+            {
+                var row = new Span<byte>(basePtr + (long)y * RowBytes, rowBytes);
+                Span<byte> tmp = stackalloc byte[bpp];
+                for (int left = 0, right = Width - 1; left < right; left++, right--)
+                {
+                    row.Slice(left * bpp, bpp).CopyTo(tmp);
+                    row.Slice(right * bpp, bpp).CopyTo(row.Slice(left * bpp, bpp));
+                    tmp.CopyTo(row.Slice(right * bpp, bpp));
+                }
+            });
         }
 
         if (mode is FlipMode.X or FlipMode.XY)
         {
+            byte* basePtr = (byte*)Data;
             Parallel.For(0, Height / 2, top =>
             {
-                Span<T> tmp = stackalloc T[Width];
                 int bottom = Height - top - 1;
-
-                Span<T> topSpan = this[bottom];
-                Span<T> bottomSpan = this[top];
+                Span<byte> tmp = stackalloc byte[rowBytes];
+                var topSpan = new Span<byte>(basePtr + (long)top * RowBytes, rowBytes);
+                var bottomSpan = new Span<byte>(basePtr + (long)bottom * RowBytes, rowBytes);
 
                 topSpan.CopyTo(tmp);
                 bottomSpan.CopyTo(topSpan);
@@ -294,20 +266,20 @@ public unsafe class Bitmap<T> : IBitmap
         }
     }
 
-    public Bitmap<T> MakeBorder(int top, int bottom, int left, int right)
+    public Bitmap MakeBorder(int top, int bottom, int left, int right)
     {
         ThrowIfDisposed();
 
         int width = left + right + Width;
         int height = top + bottom + Height;
-        var img = new Bitmap<T>(width, height);
+        var img = new Bitmap(width, height, ColorType, AlphaType, _colorSpace);
 
-        img[new PixelRect(left, top, Width, Height)] = this;
+        img.CopyFrom(this, new PixelRect(left, top, Width, Height));
 
         return img;
     }
 
-    public Bitmap<T> MakeBorder(int width, int height)
+    public Bitmap MakeBorder(int width, int height)
     {
         ThrowIfDisposed();
 
@@ -318,50 +290,48 @@ public unsafe class Bitmap<T> : IBitmap
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void ThrowIfDisposed()
+    {
+        ObjectDisposedException.ThrowIf(IsDisposed, this);
+    }
+
+    public void Dispose()
+    {
+        if (!IsDisposed && _ownsData)
+        {
+            _skBitmap.Dispose();
+        }
+
+        IsDisposed = true;
+        GC.SuppressFinalize(this);
+    }
+
+    object ICloneable.Clone() => Clone();
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void ThrowOutOfRange(int width, int height)
     {
         if (width < 0)
-        {
             throw new ArgumentOutOfRangeException(nameof(width), "'width' is less than 0.");
-        }
         if (height < 0)
-        {
             throw new ArgumentOutOfRangeException(nameof(height), "'height' is less than 0.");
-        }
-    }
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private void ThrowColOutOfRange(int x)
-    {
-        if (x < 0)
-        {
-            throw new ArgumentOutOfRangeException(nameof(x), "'x' is less than 0.");
-        }
-        else if (x > Width)
-        {
-            throw new ArgumentOutOfRangeException(nameof(x), $"'x' is more than {Width}");
-        }
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private void ThrowRowOutOfRange(int y)
     {
         if (y < 0)
-        {
             throw new ArgumentOutOfRangeException(nameof(y), "'y' is less than 0.");
-        }
-        else if (y > Height)
-        {
-            throw new ArgumentOutOfRangeException(nameof(y), $"'y' is more than {Height}");
-        }
+        else if (y >= Height)
+            throw new ArgumentOutOfRangeException(nameof(y), $"'y' is more than or equal to {Height}");
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private void ThrowOutOfRange(PixelRect roi)
     {
+        if (roi.X < 0 || roi.Y < 0 || roi.Width < 0 || roi.Height < 0)
+            throw new ArgumentOutOfRangeException(nameof(roi));
         if (roi.Bottom > Height) throw new ArgumentOutOfRangeException(nameof(roi));
-        else if (roi.Right > Width) throw new ArgumentOutOfRangeException(nameof(roi));
+        if (roi.Right > Width) throw new ArgumentOutOfRangeException(nameof(roi));
     }
-
-    IBitmap IBitmap.Clone() => Clone();
 }

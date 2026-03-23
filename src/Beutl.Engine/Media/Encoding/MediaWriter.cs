@@ -43,7 +43,7 @@ public abstract class MediaWriter : IDisposable
             ?? throw new NotSupportedException("Not supported format.");
     }
 
-    public abstract bool AddVideo(IBitmap image);
+    public abstract bool AddVideo(Bitmap image);
 
     public abstract bool AddAudio(IPcm sound);
 
