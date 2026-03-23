@@ -56,7 +56,7 @@ public partial class Scene3D : Drawable, IFlowOperator
     /// Gets the ambient light intensity.
     /// </summary>
     [Display(Name = nameof(GraphicsStrings.Scene3D_AmbientIntensity), ResourceType = typeof(GraphicsStrings))]
-    [Range(0f, 1f)]
+    [Range(0f, 1f), NumberStep(0.1, 0.01)]
     public IProperty<float> AmbientIntensity { get; } = Property.CreateAnimatable(0.1f);
 
     /// <summary>

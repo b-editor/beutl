@@ -21,7 +21,7 @@ public partial class PerspectiveCamera : Camera3D
     /// Gets the vertical field of view in degrees.
     /// </summary>
     [Display(Name = nameof(GraphicsStrings.PerspectiveCamera_FieldOfView), ResourceType = typeof(GraphicsStrings))]
-    [Range(1f, 179f)]
+    [Range(1f, 179f), NumberStep(1, 0.1)]
     public IProperty<float> FieldOfView { get; } = Property.CreateAnimatable(60f);
 
     /// <inheritdoc />

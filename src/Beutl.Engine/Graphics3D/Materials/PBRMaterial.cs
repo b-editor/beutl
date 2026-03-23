@@ -37,14 +37,14 @@ public sealed partial class PBRMaterial : Material3D
     /// Gets the metallic factor (0 = dielectric, 1 = metal).
     /// </summary>
     [Display(Name = nameof(GraphicsStrings.PBRMaterial_Metallic), ResourceType = typeof(GraphicsStrings))]
-    [Range(0f, 1f)]
+    [Range(0f, 1f), NumberStep(0.1, 0.01)]
     public IProperty<float> Metallic { get; } = Property.CreateAnimatable(0f);
 
     /// <summary>
     /// Gets the roughness factor (0 = smooth, 1 = rough).
     /// </summary>
     [Display(Name = nameof(GraphicsStrings.PBRMaterial_Roughness), ResourceType = typeof(GraphicsStrings))]
-    [Range(0f, 1f)]
+    [Range(0f, 1f), NumberStep(0.1, 0.01)]
     public IProperty<float> Roughness { get; } = Property.CreateAnimatable(0.5f);
 
     /// <summary>
@@ -58,7 +58,7 @@ public sealed partial class PBRMaterial : Material3D
     /// Gets the ambient occlusion factor.
     /// </summary>
     [Display(Name = nameof(GraphicsStrings.PBRMaterial_AmbientOcclusion), ResourceType = typeof(GraphicsStrings))]
-    [Range(0f, 1f)]
+    [Range(0f, 1f), NumberStep(0.1, 0.01)]
     public IProperty<float> AmbientOcclusion { get; } = Property.CreateAnimatable(1f);
 
     /// <summary>
@@ -77,7 +77,7 @@ public sealed partial class PBRMaterial : Material3D
     /// Gets the emissive intensity.
     /// </summary>
     [Display(Name = nameof(GraphicsStrings.PBRMaterial_EmissiveIntensity), ResourceType = typeof(GraphicsStrings))]
-    [Range(0f, float.MaxValue)]
+    [Range(0f, float.MaxValue), NumberStep(0.1, 0.01)]
     public IProperty<float> EmissiveIntensity { get; } = Property.CreateAnimatable(1f);
 
     /// <summary>
@@ -96,7 +96,7 @@ public sealed partial class PBRMaterial : Material3D
     /// Gets the normal map strength (0 = flat, 1 = full effect).
     /// </summary>
     [Display(Name = nameof(GraphicsStrings.PBRMaterial_NormalMapStrength), ResourceType = typeof(GraphicsStrings))]
-    [Range(0f, 2f)]
+    [Range(0f, 2f), NumberStep(0.1, 0.01)]
     public IProperty<float> NormalMapStrength { get; } = Property.CreateAnimatable(1f);
 
     public partial class Resource

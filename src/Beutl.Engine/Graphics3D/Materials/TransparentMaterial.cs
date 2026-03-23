@@ -32,7 +32,7 @@ public sealed partial class TransparentMaterial : Material3D
     /// Gets the opacity of the material (0-1).
     /// </summary>
     [Display(Name = nameof(GraphicsStrings.Opacity), ResourceType = typeof(GraphicsStrings))]
-    [Range(0f, 1f)]
+    [Range(0f, 1f), NumberStep(0.1, 0.01)]
     public IProperty<float> Opacity { get; } = Property.CreateAnimatable(0.5f);
 
     /// <summary>
@@ -46,14 +46,14 @@ public sealed partial class TransparentMaterial : Material3D
     /// Higher values increase edge reflection.
     /// </summary>
     [Display(Name = nameof(GraphicsStrings.TransparentMaterial_IndexOfRefraction), ResourceType = typeof(GraphicsStrings))]
-    [Range(1f, 2.5f)]
+    [Range(1f, 2.5f), NumberStep(0.1, 0.01)]
     public IProperty<float> IndexOfRefraction { get; } = Property.CreateAnimatable(1.5f);
 
     /// <summary>
     /// Gets the roughness of the material (0-1).
     /// </summary>
     [Display(Name = nameof(GraphicsStrings.TransparentMaterial_Roughness), ResourceType = typeof(GraphicsStrings))]
-    [Range(0f, 1f)]
+    [Range(0f, 1f), NumberStep(0.1, 0.01)]
     public IProperty<float> Roughness { get; } = Property.CreateAnimatable(0.1f);
 
     public partial class Resource

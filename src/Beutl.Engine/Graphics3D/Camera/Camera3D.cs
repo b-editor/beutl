@@ -18,13 +18,13 @@ public abstract partial class Camera3D : EngineObject
     /// <summary>
     /// Gets the position of the camera in world space.
     /// </summary>
-    [Display(Name = nameof(GraphicsStrings.Position), ResourceType = typeof(GraphicsStrings))]
+    [Display(Name = nameof(GraphicsStrings.Position), ResourceType = typeof(GraphicsStrings)), NumberStep(0.1, 0.01)]
     public IProperty<Vector3> Position { get; } = Property.CreateAnimatable(new Vector3(0, 0, 5));
 
     /// <summary>
     /// Gets the target point the camera is looking at.
     /// </summary>
-    [Display(Name = nameof(GraphicsStrings.Target), ResourceType = typeof(GraphicsStrings))]
+    [Display(Name = nameof(GraphicsStrings.Target), ResourceType = typeof(GraphicsStrings)), NumberStep(0.1, 0.01)]
     public IProperty<Vector3> Target { get; } = Property.CreateAnimatable(Vector3.Zero);
 
     /// <summary>
@@ -37,14 +37,14 @@ public abstract partial class Camera3D : EngineObject
     /// Gets the near clipping plane distance.
     /// </summary>
     [Display(Name = nameof(GraphicsStrings.Camera3D_NearPlane), ResourceType = typeof(GraphicsStrings))]
-    [Range(0.001f, float.MaxValue)]
+    [Range(0.001f, float.MaxValue), NumberStep(1, 0.1)]
     public IProperty<float> NearPlane { get; } = Property.CreateAnimatable(0.1f);
 
     /// <summary>
     /// Gets the far clipping plane distance.
     /// </summary>
     [Display(Name = nameof(GraphicsStrings.Camera3D_FarPlane), ResourceType = typeof(GraphicsStrings))]
-    [Range(0.001f, float.MaxValue)]
+    [Range(0.001f, float.MaxValue), NumberStep(1, 0.1)]
     public IProperty<float> FarPlane { get; } = Property.CreateAnimatable(1000f);
 
     /// <summary>

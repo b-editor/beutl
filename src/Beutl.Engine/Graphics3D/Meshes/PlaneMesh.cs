@@ -20,28 +20,28 @@ public sealed partial class PlaneMesh : Mesh
     /// Gets the width of the plane (X-axis).
     /// </summary>
     [Display(Name = nameof(GraphicsStrings.Width), ResourceType = typeof(GraphicsStrings))]
-    [Range(0.001f, float.MaxValue)]
+    [Range(0.001f, float.MaxValue), NumberStep(0.1, 0.01)]
     public IProperty<float> Width { get; } = Property.CreateAnimatable(1f);
 
     /// <summary>
     /// Gets the height of the plane (Z-axis).
     /// </summary>
     [Display(Name = nameof(GraphicsStrings.Height), ResourceType = typeof(GraphicsStrings))]
-    [Range(0.001f, float.MaxValue)]
+    [Range(0.001f, float.MaxValue), NumberStep(0.1, 0.01)]
     public IProperty<float> Height { get; } = Property.CreateAnimatable(1f);
 
     /// <summary>
     /// Gets the number of segments along the width (X-axis).
     /// </summary>
     [Display(Name = nameof(GraphicsStrings.PlaneMesh_WidthSegments), ResourceType = typeof(GraphicsStrings))]
-    [Range(1, int.MaxValue)]
+    [Range(1, int.MaxValue), NumberStep(1, 1)]
     public IProperty<int> WidthSegments { get; } = Property.CreateAnimatable(1);
 
     /// <summary>
     /// Gets the number of segments along the height (Z-axis).
     /// </summary>
     [Display(Name = nameof(GraphicsStrings.PlaneMesh_HeightSegments), ResourceType = typeof(GraphicsStrings))]
-    [Range(1, int.MaxValue)]
+    [Range(1, int.MaxValue), NumberStep(1, 1)]
     public IProperty<int> HeightSegments { get; } = Property.CreateAnimatable(1);
 
     /// <inheritdoc />
