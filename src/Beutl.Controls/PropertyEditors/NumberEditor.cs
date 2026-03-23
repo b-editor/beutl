@@ -108,9 +108,9 @@ public class NumberEditor<TValue> : StringEditor
 
             // ポインタロック + デルタ取得
             Point move = PointerLockHelper.Moved(_headerText, point, ref _headerDragStart);
-            TValue delta = TValue.CreateTruncating(move.X);
+            TValue delta = TValue.CreateTruncating(move.X) * SmallChange;
             TValue oldValue = Value;
-            TValue newValue = Value + delta;
+            TValue newValue = NumberEditorHelper.AddPreservingScale(oldValue, delta);
             if (newValue != oldValue)
             {
                 Value = newValue;
@@ -210,15 +210,17 @@ public class NumberEditor<TValue> : StringEditor
             && TValue.TryParse(InnerTextBox.Text, CultureInfo.CurrentUICulture, out TValue value))
         {
             TValue delta = LargeChange;
+            double wheelDelta = e.Delta.Y;
             if (e.KeyModifiers.HasFlag(KeyModifiers.Shift))
             {
                 delta = SmallChange;
+                wheelDelta = e.Delta.X;
             }
 
-            value = e.Delta.Y switch
+            value = wheelDelta switch
             {
-                < 0 => value - delta,
-                > 0 => value + delta,
+                < 0 => NumberEditorHelper.AddPreservingScale(value, -delta),
+                > 0 => NumberEditorHelper.AddPreservingScale(value, delta),
                 _ => value
             };
 

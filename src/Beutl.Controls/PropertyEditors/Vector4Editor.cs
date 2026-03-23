@@ -203,9 +203,13 @@ public class Vector4Editor<TElement> : Vector4Editor
 
             // ポインタロック + デルタ取得
             Point move = PointerLockHelper.Moved(_headerText, point, ref _headerDragStart);
-            TElement delta = TElement.CreateTruncating(move.X);
+            TElement delta = TElement.CreateTruncating(move.X) * SmallChange;
 
-            var newValues = (FirstValue + delta, SecondValue + delta, ThirdValue + delta, FourthValue + delta);
+            var newValues = (
+                NumberEditorHelper.AddPreservingScale(FirstValue, delta),
+                NumberEditorHelper.AddPreservingScale(SecondValue, delta),
+                NumberEditorHelper.AddPreservingScale(ThirdValue, delta),
+                NumberEditorHelper.AddPreservingScale(FourthValue, delta));
             var oldValues = (FirstValue, SecondValue, ThirdValue, FourthValue);
 
             (FirstValue, SecondValue, ThirdValue, FourthValue) = newValues;
@@ -363,15 +367,17 @@ public class Vector4Editor<TElement> : Vector4Editor
             && TElement.TryParse(textBox.Text, CultureInfo.CurrentUICulture, out TElement value))
         {
             TElement delta = LargeChange;
+            double wheelDelta = e.Delta.Y;
             if (e.KeyModifiers.HasFlag(KeyModifiers.Shift))
             {
+                wheelDelta = e.Delta.X;
                 delta = SmallChange;
             }
 
-            value = e.Delta.Y switch
+            value = wheelDelta switch
             {
-                < 0 => value - delta,
-                > 0 => value + delta,
+                < 0 => NumberEditorHelper.AddPreservingScale(value, -delta),
+                > 0 => NumberEditorHelper.AddPreservingScale(value, delta),
                 _ => value
             };
 

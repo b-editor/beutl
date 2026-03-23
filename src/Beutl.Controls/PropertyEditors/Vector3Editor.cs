@@ -174,25 +174,25 @@ public class Vector3Editor<TElement> : Vector3Editor
 
             // ポインタロック + デルタ取得
             Point move = PointerLockHelper.Moved(headerText, point, ref _headerDragStart);
-            TElement delta = TElement.CreateTruncating(move.X);
+            TElement delta = TElement.CreateTruncating(move.X) * SmallChange;
 
             var newValues = (FirstValue, SecondValue, ThirdValue);
             var oldValues = (FirstValue, SecondValue, ThirdValue);
             switch (headerText.Name)
             {
                 case "PART_HeaderFirstTextBlock":
-                    newValues.FirstValue += delta;
+                    newValues.FirstValue = NumberEditorHelper.AddPreservingScale(newValues.FirstValue, delta);
                     break;
                 case "PART_HeaderSecondTextBlock":
-                    newValues.SecondValue += delta;
+                    newValues.SecondValue = NumberEditorHelper.AddPreservingScale(newValues.SecondValue, delta);
                     break;
                 case "PART_HeaderThirdTextBlock":
-                    newValues.ThirdValue += delta;
+                    newValues.ThirdValue = NumberEditorHelper.AddPreservingScale(newValues.ThirdValue, delta);
                     break;
                 case "PART_HeaderTextBlock":
-                    newValues.FirstValue += delta;
-                    newValues.SecondValue += delta;
-                    newValues.ThirdValue += delta;
+                    newValues.FirstValue = NumberEditorHelper.AddPreservingScale(newValues.FirstValue, delta);
+                    newValues.SecondValue = NumberEditorHelper.AddPreservingScale(newValues.SecondValue, delta);
+                    newValues.ThirdValue = NumberEditorHelper.AddPreservingScale(newValues.ThirdValue, delta);
                     break;
                 default:
                     break;
@@ -350,15 +350,17 @@ public class Vector3Editor<TElement> : Vector3Editor
             && TElement.TryParse(textBox.Text, CultureInfo.CurrentUICulture, out TElement value))
         {
             TElement delta = LargeChange;
+            double wheelDelta = e.Delta.Y;
             if (e.KeyModifiers.HasFlag(KeyModifiers.Shift))
             {
+                wheelDelta = e.Delta.X;
                 delta = SmallChange;
             }
 
-            value = e.Delta.Y switch
+            value = wheelDelta switch
             {
-                < 0 => value - delta,
-                > 0 => value + delta,
+                < 0 => NumberEditorHelper.AddPreservingScale(value, -delta),
+                > 0 => NumberEditorHelper.AddPreservingScale(value, delta),
                 _ => value
             };
 
