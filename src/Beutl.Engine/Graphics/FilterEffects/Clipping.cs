@@ -63,12 +63,12 @@ public sealed partial class Clipping : FilterEffect
         int x1 = 0;
         int y1 = 0;
 
-        Span<byte> pixels = bitmap.GetPixelSpan();
         for (int y = 0; y < bitmap.Height; y++)
         {
+            var row = bitmap.GetRow(y);
             for (int x = 0; x < bitmap.Width; x++)
             {
-                if (pixels[y * bitmap.Width + x] != 0)
+                if (row[x] != 0)
                 {
                     if (x0 > x) x0 = x;
                     if (y0 > y) y0 = y;
