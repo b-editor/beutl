@@ -33,7 +33,7 @@ public sealed class FFmpegDecodingSettings : ExtensionSettings
             .DefaultValue(true)
             .Register();
 
-        AffectsConfig<FFmpegDecodingSettings>(ScalingProperty, ThreadCountProperty, AccelerationProperty);
+        AffectsConfig<FFmpegDecodingSettings>(ScalingProperty, ThreadCountProperty, AccelerationProperty, ForceSrgbGammaProperty);
     }
 
     public ScalingAlgorithm Scaling
