@@ -71,18 +71,14 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
                 throw new InvalidOperationException("Channels must be greater than 0");
             if (bitRate < 0)
                 throw new InvalidOperationException("Bitrate must be greater than 0");
-            if (supportedFmts.Length == 0 || supportedSampleRates.Length == 0)
-            {
-                _logger.LogInformation("Supported sample rates: {Rates}", string.Join(", ", supportedSampleRates));
-                _logger.LogInformation("Supported sample formats: {Formats}", string.Join(", ", supportedFmts));
-                throw new InvalidOperationException("Invalid audio codec");
-            }
+            _logger.LogInformation("Supported sample rates: {Rates}", string.Join(", ", supportedSampleRates));
+            _logger.LogInformation("Supported sample formats: {Formats}", string.Join(", ", supportedFmts));
 
             if (sampleRate <= 0)
             {
-                sampleRate = supportedSampleRates[0];
+                sampleRate = supportedSampleRates.FirstOrDefault(44100);
             }
-            else if (supportedSampleRates.All(i => i != sampleRate))
+            else if (supportedSampleRates.All(i => i != sampleRate)) // supportedSampleRatesが空のときはこの条件は常にfalseになる
             {
                 throw new InvalidOperationException(
                     $"Invalid sample rate.\nSupported sample rates: {string.Join(", ", supportedSampleRates)}");
@@ -90,7 +86,7 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
 
             if (format == AVSampleFormat.AV_SAMPLE_FMT_NONE)
             {
-                format = supportedFmts.First();
+                format = supportedFmts.FirstOrDefault(AVSampleFormat.AV_SAMPLE_FMT_S16);
             }
             else if (supportedFmts.All(i => i != format))
             {
