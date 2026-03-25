@@ -7,9 +7,13 @@ using Beutl.PropertyAdapters;
 using FFmpeg.AutoGen.Abstractions;
 
 #if FFMPEG_BUILD_IN
-namespace Beutl.Embedding.FFmpeg.Encoding;
+using Beutl.Embedding.FFmpeg.Encoding;
+using AudioFormat = Beutl.Embedding.FFmpeg.Encoding.FFmpegAudioEncoderSettings.AudioFormat;
+namespace Beutl.Embedding.FFmpeg.PropertyEditors;
 #else
-namespace Beutl.Extensions.FFmpeg.Encoding;
+using Beutl.Extensions.FFmpeg.Encoding;
+using AudioFormat = Beutl.Extensions.FFmpeg.Encoding.FFmpegAudioEncoderSettings.AudioFormat;
+namespace Beutl.Extensions.FFmpeg.PropertyEditors;
 #endif
 
 public sealed class FFmpegEncoderSpecializedPropertyExtension : PropertyEditorExtension

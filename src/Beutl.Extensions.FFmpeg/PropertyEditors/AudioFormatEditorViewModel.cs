@@ -1,56 +1,55 @@
 using System.Reactive.Disposables;
 using System.Text.Json.Nodes;
-
 using Avalonia;
 using Avalonia.Interactivity;
-
 using Beutl.Controls.PropertyEditors;
 using Beutl.Extensibility;
 using Beutl.PropertyAdapters;
 using Beutl.Reactive;
-
-using FFmpeg.AutoGen.Abstractions;
-
 using FFmpegSharp;
-
 using Reactive.Bindings;
 
 #if FFMPEG_BUILD_IN
-namespace Beutl.Embedding.FFmpeg.Encoding;
+using Beutl.Embedding.FFmpeg.Encoding;
+using AudioFormat = Beutl.Embedding.FFmpeg.Encoding.FFmpegAudioEncoderSettings.AudioFormat;
+
+namespace Beutl.Embedding.FFmpeg.PropertyEditors;
 #else
-namespace Beutl.Extensions.FFmpeg.Encoding;
+using Beutl.Extensions.FFmpeg.Encoding;
+using AudioFormat = Beutl.Extensions.FFmpeg.Encoding.FFmpegAudioEncoderSettings.AudioFormat;
+namespace Beutl.Extensions.FFmpeg.PropertyEditors;
 #endif
 
-internal sealed class PixelFormatEditorViewModel : IPropertyEditorContext
+internal sealed class AudioFormatEditorViewModel : IPropertyEditorContext
 {
-    private readonly IPropertyAdapter<AVPixelFormat> _property;
+    private readonly IPropertyAdapter<AudioFormat> _property;
     private readonly CompositeDisposable _disposables = [];
     private readonly ReactivePropertySlim<int> _selectedIndex;
 
-    private FFmpegVideoEncoderSettings? _settings;
-    private AVPixelFormat[] _currentFormats = [];
+    private FFmpegAudioEncoderSettings? _settings;
+    private AudioFormat[] _currentFormats = [];
     private IReadOnlyList<EnumItem> _currentItems = [];
     private WeakReference<EnumEditor>? _editorRef;
 
-    public PixelFormatEditorViewModel(
-        IPropertyAdapter<AVPixelFormat> property,
+    public AudioFormatEditorViewModel(
+        IPropertyAdapter<AudioFormat> property,
         PropertyEditorExtension extension)
     {
         _property = property;
         Extension = extension;
         _selectedIndex = new ReactivePropertySlim<int>(-1).DisposeWith(_disposables);
 
-        // CorePropertyAdapterからFFmpegVideoEncoderSettingsを取得
-        if (property is CorePropertyAdapter<AVPixelFormat> cpa)
+        // CorePropertyAdapterからFFmpegAudioEncoderSettingsを取得
+        if (property is CorePropertyAdapter<AudioFormat> cpa)
         {
-            _settings = cpa.Object as FFmpegVideoEncoderSettings;
+            _settings = cpa.Object as FFmpegAudioEncoderSettings;
         }
 
         if (_settings != null)
         {
             // コーデック変更を監視
-            _settings.GetObservable(FFmpegVideoEncoderSettings.CodecProperty)
-                .Subscribe(_ => UpdatePixelFormats())
+            _settings.GetObservable(FFmpegAudioEncoderSettings.CodecProperty)
+                .Subscribe(_ => UpdateAudioFormats())
                 .DisposeWith(_disposables);
         }
 
@@ -65,7 +64,7 @@ internal sealed class PixelFormatEditorViewModel : IPropertyEditorContext
             .DisposeWith(_disposables);
 
         // 初期化
-        UpdatePixelFormats();
+        UpdateAudioFormats();
     }
 
     public PropertyEditorExtension Extension { get; }
@@ -89,19 +88,19 @@ internal sealed class PixelFormatEditorViewModel : IPropertyEditorContext
         }
     }
 
-    private void UpdatePixelFormats()
+    private void UpdateAudioFormats()
     {
         try
         {
-            AVPixelFormat[] supportedFmts = _settings != null
+            AudioFormat[] supportedFmts = _settings != null
                 ? GetCodecFormats(_settings)
                 : GetAllFormats();
 
             // AV_PIX_FMT_NONE ("Auto") を先頭に追加
-            _currentFormats = [AVPixelFormat.AV_PIX_FMT_NONE, .. supportedFmts];
+            _currentFormats = [AudioFormat.Default, .. supportedFmts];
             _currentItems = _currentFormats
                 .Select(f => new EnumItem(
-                    f == AVPixelFormat.AV_PIX_FMT_NONE ? "Auto" : ffmpeg.av_get_pix_fmt_name(f),
+                    f == AudioFormat.Default ? "Auto" : f.ToString(),
                     null,
                     f))
                 .ToArray();
@@ -116,10 +115,10 @@ internal sealed class PixelFormatEditorViewModel : IPropertyEditorContext
             var currentValue = _property.GetValue();
             int index = Array.IndexOf(_currentFormats, currentValue);
             _selectedIndex.Value = -1; // 一旦リセット
-            if (index < 0 && currentValue != AVPixelFormat.AV_PIX_FMT_NONE)
+            if (index < 0 && currentValue != AudioFormat.Default)
             {
                 // 非対応フォーマットが選択されていたらAutoにリセット
-                _property.SetValue(AVPixelFormat.AV_PIX_FMT_NONE);
+                _property.SetValue(AudioFormat.Default);
                 _selectedIndex.Value = 0;
             }
             else
@@ -130,8 +129,8 @@ internal sealed class PixelFormatEditorViewModel : IPropertyEditorContext
         catch
         {
             // エラー時はAutoのみ表示
-            _currentFormats = [AVPixelFormat.AV_PIX_FMT_NONE];
-            _currentItems = [new EnumItem("Auto", null, AVPixelFormat.AV_PIX_FMT_NONE)];
+            _currentFormats = [AudioFormat.Default];
+            _currentItems = [new EnumItem("Auto", null, AudioFormat.Default)];
             _selectedIndex.Value = 0;
 
             if (_editorRef?.TryGetTarget(out var editor) == true)
@@ -141,7 +140,7 @@ internal sealed class PixelFormatEditorViewModel : IPropertyEditorContext
         }
     }
 
-    private static AVPixelFormat[] GetCodecFormats(FFmpegVideoEncoderSettings settings)
+    private static AudioFormat[] GetCodecFormats(FFmpegAudioEncoderSettings settings)
     {
         MediaCodec codec;
         if (settings.Codec.Equals(CodecRecord.Default))
@@ -153,26 +152,21 @@ internal sealed class PixelFormatEditorViewModel : IPropertyEditorContext
             }
 
             var outFormat = OutputFormat.GuessFormat(null, outputFile, null);
-            codec = MediaCodec.FindEncoder(outFormat.VideoCodec);
+            codec = MediaCodec.FindEncoder(outFormat.AudioCodec);
         }
         else
         {
             codec = MediaCodec.FindEncoder(settings.Codec.Name);
         }
 
-        var fmts = codec.GetPixelFmts()
-            .Where(f => ffmpeg.sws_isSupportedOutput(f) != 0)
-            .ToArray();
+        var fmts = codec.GetSampelFmts().Select(f => (AudioFormat)f).ToArray();
 
         return fmts.Length > 0 ? fmts : GetAllFormats();
     }
 
-    private static AVPixelFormat[] GetAllFormats()
+    private static AudioFormat[] GetAllFormats()
     {
-        return Enum.GetValues<AVPixelFormat>()
-            .Where(f => f != AVPixelFormat.AV_PIX_FMT_NONE
-                        && f >= 0
-                        && ffmpeg.sws_isSupportedOutput(f) != 0)
+        return Enum.GetValues<AudioFormat>()
             .ToArray();
     }
 

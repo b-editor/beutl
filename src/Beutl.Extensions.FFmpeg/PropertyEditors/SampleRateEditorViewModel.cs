@@ -1,22 +1,21 @@
 using System.Reactive.Disposables;
 using System.Text.Json.Nodes;
-
 using Avalonia;
 using Avalonia.Interactivity;
-
 using Beutl.Controls.PropertyEditors;
 using Beutl.Extensibility;
 using Beutl.PropertyAdapters;
 using Beutl.Reactive;
-
 using FFmpegSharp;
-
 using Reactive.Bindings;
 
 #if FFMPEG_BUILD_IN
-namespace Beutl.Embedding.FFmpeg.Encoding;
+using Beutl.Embedding.FFmpeg.Encoding;
+
+namespace Beutl.Embedding.FFmpeg.PropertyEditors;
 #else
-namespace Beutl.Extensions.FFmpeg.Encoding;
+using Beutl.Extensions.FFmpeg.Encoding;
+namespace Beutl.Extensions.FFmpeg.PropertyEditors;
 #endif
 
 internal sealed class SampleRateEditorViewModel : IPropertyEditorContext
