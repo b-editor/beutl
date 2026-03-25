@@ -51,6 +51,7 @@ public sealed class FFmpegReader : MediaReader
     private double _videoAvgFrameRateDouble;
     private MediaFrame? _swVideoFrame;
     private bool _isHWDecoding;
+    private bool _isHdr;
     private BitmapColorSpace? _colorspace;
 
     public FFmpegReader(string file, MediaOptions options, FFmpegDecodingSettings settings)
@@ -271,7 +272,10 @@ public sealed class FFmpegReader : MediaReader
 
         // PixelConverterを初期化（遅延初期化）
         _pixelConverter ??= new PixelConverter();
-        _pixelConverter.SetOpts(width, height, AVPixelFormat.AV_PIX_FMT_BGRA);
+
+        // HDR時はRGBA64LE (16bit/ch)、SDR時はBGRA (8bit/ch)
+        var dstPixFmt = _isHdr ? AVPixelFormat.AV_PIX_FMT_RGBA64LE : AVPixelFormat.AV_PIX_FMT_BGRA;
+        _pixelConverter.SetOpts(width, height, dstPixFmt);
 
         // 変換
         using var dstFrame = _pixelConverter.ConvertFrame(videoFrame, (int)_settings.Scaling);
@@ -280,8 +284,10 @@ public sealed class FFmpegReader : MediaReader
         var colorSpace = !_settings.ForceSrgbGamma ? GetFrameColorSpace(dstFrame) : BitmapColorSpace.Srgb;
 
         // ビットマップにコピー
-        var bmp = new Bitmap(width, height, BitmapColorType.Bgra8888, BitmapAlphaType.Unpremul, colorSpace);
-        int byteCount = width * height * 4;
+        var colorType = _isHdr ? BitmapColorType.Rgba16161616 : BitmapColorType.Bgra8888;
+        int bytesPerPixel = _isHdr ? 8 : 4;
+        var bmp = new Bitmap(width, height, colorType, BitmapAlphaType.Unpremul, colorSpace);
+        int byteCount = width * height * bytesPerPixel;
         Buffer.MemoryCopy(dstFrame.Data[0], (void*)bmp.Data, byteCount, byteCount);
 
         image = bmp;
@@ -581,6 +587,12 @@ public sealed class FFmpegReader : MediaReader
     private unsafe void GetPacketColorSpace()
     {
         if (_videoStream == null) return;
+
+        // HDR判定: PQ (HDR10) または HLG の場合はHDR
+        var trc = _videoStream.Codecpar->color_trc;
+        _isHdr = trc is AVColorTransferCharacteristic.AVCOL_TRC_SMPTE2084
+            or AVColorTransferCharacteristic.AVCOL_TRC_ARIB_STD_B67;
+
         AVPacketSideData* psd = ffmpeg.av_packet_side_data_get(
             _videoStream.Codecpar->coded_side_data,
             _videoStream.Codecpar->nb_coded_side_data,
@@ -620,7 +632,7 @@ public sealed class FFmpegReader : MediaReader
 
         if (_colorspace != null)
         {
-            _logger.LogInformation("Video color space: {ColorSpace}", _colorspace);
+            _logger.LogInformation("Video color space: {ColorSpace} ({Hdr})", _colorspace, _isHdr ? "HDR" : "SDR");
         }
         else
         {
