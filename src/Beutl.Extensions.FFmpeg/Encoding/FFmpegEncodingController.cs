@@ -22,9 +22,9 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
         public long NextPts { get; set; }
     }
 
-    public override FFmpegVideoEncoderSettings VideoSettings { get; } = new();
+    public override FFmpegVideoEncoderSettings VideoSettings { get; } = new() { OutputFile = outputFile };
 
-    public override FFmpegAudioEncoderSettings AudioSettings { get; } = new();
+    public override FFmpegAudioEncoderSettings AudioSettings { get; } = new() { OutputFile = outputFile };
 
     private AVHWDeviceType? GetAVHWDeviceType()
     {

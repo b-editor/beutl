@@ -80,6 +80,8 @@ public sealed class FFmpegVideoEncoderSettings : VideoEncoderSettings
         ];
     }
 
+    public string? OutputFile { get; set; }
+
     public AVPixelFormat Format
     {
         get => GetValue(FormatProperty);

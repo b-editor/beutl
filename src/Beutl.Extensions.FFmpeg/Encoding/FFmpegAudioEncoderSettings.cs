@@ -25,6 +25,8 @@ public sealed class FFmpegAudioEncoderSettings : AudioEncoderSettings
             .Register();
     }
 
+    public string? OutputFile { get; set; }
+
     [ChoicesProvider(typeof(AudioCodecChoicesProvider))]
     [NotAutoSerialized]
     public CodecRecord Codec
