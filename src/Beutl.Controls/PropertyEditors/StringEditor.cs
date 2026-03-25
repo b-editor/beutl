@@ -32,7 +32,7 @@ public class StringEditor : PropertyEditor
         set => SetAndRaise(TextProperty, ref _text, value);
     }
 
-    protected TextBox InnerTextBox { get; private set; }
+    protected TextBox InnerTextBox { get; set; }
 
     protected override Type StyleKeyOverride => typeof(StringEditor);
 
@@ -40,20 +40,23 @@ public class StringEditor : PropertyEditor
     {
         _disposables.Clear();
         base.OnApplyTemplate(e);
-        InnerTextBox = e.NameScope.Get<TextBox>("PART_InnerTextBox");
-        InnerTextBox.AddDisposableHandler(GotFocusEvent, (_, e) => OnTextBoxGotFocus(e))
-            .DisposeWith(_disposables);
-        InnerTextBox.AddDisposableHandler(LostFocusEvent, (_, e) => OnTextBoxLostFocus(e))
-            .DisposeWith(_disposables);
-        InnerTextBox.GetPropertyChangedObservable(TextBox.TextProperty)
-            .Subscribe(e =>
-            {
-                if (e is AvaloniaPropertyChangedEventArgs<string> args)
+        InnerTextBox = e.NameScope.Find<TextBox>("PART_InnerTextBox");
+        if (InnerTextBox != null)
+        {
+            InnerTextBox.AddDisposableHandler(GotFocusEvent, (_, e) => OnTextBoxGotFocus(e))
+                .DisposeWith(_disposables);
+            InnerTextBox.AddDisposableHandler(LostFocusEvent, (_, e) => OnTextBoxLostFocus(e))
+                .DisposeWith(_disposables);
+            InnerTextBox.GetPropertyChangedObservable(TextBox.TextProperty)
+                .Subscribe(e =>
                 {
-                    OnTextBoxTextChanged(args.NewValue.GetValueOrDefault(), args.OldValue.GetValueOrDefault());
-                }
-            })
-            .DisposeWith(_disposables);
+                    if (e is AvaloniaPropertyChangedEventArgs<string> args)
+                    {
+                        OnTextBoxTextChanged(args.NewValue.GetValueOrDefault(), args.OldValue.GetValueOrDefault());
+                    }
+                })
+                .DisposeWith(_disposables);
+        }
     }
 
     protected override Size MeasureOverride(Size availableSize)

@@ -1,0 +1,81 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:local="using:Beutl.Controls.PropertyEditors">
+
+    <ControlTheme x:Key="{x:Type local:AutoCompleteStringEditor}" TargetType="local:AutoCompleteStringEditor">
+        <Setter Property="MinWidth" Value="{DynamicResource PropertyEditorMinWidth}" />
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Border Padding="{TemplateBinding Padding}"
+                        BorderBrush="{TemplateBinding BorderBrush}"
+                        BorderThickness="{TemplateBinding BorderThickness}"
+                        CornerRadius="{TemplateBinding CornerRadius}">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="2*" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="150" SharedSizeGroup="TextBox_SizeGroup" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <TextBlock Name="PART_HeaderTextBlock"
+                                   Margin="4,0,0,0"
+                                   HorizontalAlignment="Left"
+                                   VerticalAlignment="Center"
+                                   ClipToBounds="False"
+                                   Text="{TemplateBinding Header}"
+                                   TextTrimming="CharacterEllipsis"
+                                   ToolTip.Tip="{TemplateBinding Description}" />
+
+                        <GridSplitter Grid.Column="1" Background="Transparent" />
+
+                        <Grid Grid.Column="2"
+                              MinWidth="120"
+                              Margin="4"
+                              ColumnDefinitions="*,Auto">
+                            <AutoCompleteBox x:Name="PART_InnerAutoCompleteBox"
+                                             FilterMode="{TemplateBinding FilterMode}"
+                                             IsEnabled="{TemplateBinding IsReadOnly,
+                                                                         Converter={x:Static BoolConverters.Not}}"
+                                             IsTextCompletionEnabled="True"
+                                             ItemsSource="{TemplateBinding ItemsSource}"
+                                             Text="{TemplateBinding Text,
+                                                                    Mode=TwoWay}" />
+
+                            <StackPanel Name="LeftRightButtons"
+                                        Grid.Column="1"
+                                        Margin="4,0,0,0"
+                                        Orientation="Horizontal">
+                                <Button Name="PART_LeftButton"
+                                        Classes="left"
+                                        Theme="{StaticResource PropertyEditorLeftRightButton}" />
+
+                                <Button Name="PART_RightButton"
+                                        Classes="right"
+                                        Theme="{StaticResource PropertyEditorLeftRightButton}" />
+                            </StackPanel>
+                        </Grid>
+
+                        <ContentPresenter Name="PART_MenuContentPresenter"
+                                          Grid.Column="3"
+                                          Content="{TemplateBinding MenuContent}"
+                                          ContentTemplate="{TemplateBinding MenuContentTemplate}" />
+                    </Grid>
+                </Border>
+            </ControlTemplate>
+        </Setter>
+
+        <Style Selector="^:not(:visible-left-button) /template/ Button#PART_LeftButton">
+            <Setter Property="IsEnabled" Value="False" />
+        </Style>
+        <Style Selector="^:not(:visible-right-button) /template/ Button#PART_RightButton">
+            <Setter Property="IsEnabled" Value="False" />
+        </Style>
+        <Style Selector="^[KeyFrameCount=0]">
+            <Style Selector="^ /template/ StackPanel#LeftRightButtons">
+                <Setter Property="IsVisible" Value="False" />
+            </Style>
+        </Style>
+    </ControlTheme>
+
+</ResourceDictionary>
