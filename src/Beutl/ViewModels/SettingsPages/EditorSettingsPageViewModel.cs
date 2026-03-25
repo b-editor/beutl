@@ -104,6 +104,20 @@ public sealed class EditorSettingsPageViewModel : IDisposable
         TimelineAutoScrollMode.Subscribe(b => _editorConfig.TimelineAutoScrollMode = (TimelineAutoScrollMode)b)
             .DisposeWith(_disposables);
 
+        ToneMappingMode = _editorConfig.GetObservable(EditorConfig.ToneMappingModeProperty)
+            .Select(v => (int)v)
+            .ToReactiveProperty()
+            .DisposeWith(_disposables);
+        ToneMappingMode.Subscribe(b => _editorConfig.ToneMappingMode = (UIToneMappingOperator)b)
+            .DisposeWith(_disposables);
+
+        ToneMappingExposure = _editorConfig.GetObservable(EditorConfig.ToneMappingExposureProperty)
+            .Select(v => (double)v)
+            .ToReactiveProperty()
+            .DisposeWith(_disposables);
+        ToneMappingExposure.Subscribe(b => _editorConfig.ToneMappingExposure = (float)b)
+            .DisposeWith(_disposables);
+
         // GPU selection
         InitializeGpuSelection();
     }
@@ -166,6 +180,10 @@ public sealed class EditorSettingsPageViewModel : IDisposable
     public ReactiveProperty<bool> ClampResizeToOriginalLength { get; }
 
     public ReactiveProperty<int> TimelineAutoScrollMode { get; }
+
+    public ReactiveProperty<int> ToneMappingMode { get; }
+
+    public ReactiveProperty<double> ToneMappingExposure { get; }
 
     public IReadOnlyList<GpuItem> AvailableGpus { get; private set; } = [];
 

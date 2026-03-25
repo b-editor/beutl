@@ -185,6 +185,39 @@
                     </ctrls:OptionsDisplayItem.ActionButton>
                 </ctrls:OptionsDisplayItem>
 
+                <TextBlock Margin="0,16,0,0"
+                           Text="{x:Static lang:SettingsStrings.ToneMapping}"
+                           Theme="{StaticResource BodyStrongTextBlockStyle}" />
+
+                <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsStrings.ToneMappingMode_Description}"
+                                          Header="{x:Static lang:SettingsStrings.ToneMappingMode}">
+                    <ctrls:OptionsDisplayItem.ActionButton>
+                        <ComboBox MinWidth="250" SelectedIndex="{CompiledBinding ToneMappingMode.Value}">
+                            <ComboBoxItem Content="{x:Static lang:SettingsStrings.ToneMappingMode_None}" />
+                            <ComboBoxItem Content="{x:Static lang:SettingsStrings.ToneMappingMode_Reinhard}" />
+                            <ComboBoxItem Content="{x:Static lang:SettingsStrings.ToneMappingMode_ACES}" />
+                            <ComboBoxItem Content="{x:Static lang:SettingsStrings.ToneMappingMode_Hable}" />
+                        </ComboBox>
+                    </ctrls:OptionsDisplayItem.ActionButton>
+                </ctrls:OptionsDisplayItem>
+
+                <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsStrings.ToneMappingExposure_Description}"
+                                          Header="{x:Static lang:SettingsStrings.ToneMappingExposure}">
+                    <ctrls:OptionsDisplayItem.ActionButton>
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <Slider MinWidth="200"
+                                    Minimum="-5"
+                                    Maximum="5"
+                                    TickFrequency="0.1"
+                                    IsSnapToTickEnabled="True"
+                                    Value="{Binding ToneMappingExposure.Value}" />
+                            <TextBlock VerticalAlignment="Center"
+                                       Width="40"
+                                       Text="{Binding ToneMappingExposure.Value, StringFormat={}{0:F1}}" />
+                        </StackPanel>
+                    </ctrls:OptionsDisplayItem.ActionButton>
+                </ctrls:OptionsDisplayItem>
+
             </StackPanel>
         </ScrollViewer>
     </Grid>

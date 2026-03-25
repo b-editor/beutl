@@ -131,7 +131,9 @@
 
                 <controls:BitmapView Name="image"
                                      InterpolationMode="HighQuality"
-                                     Source="{Binding PreviewImage.Value, Mode=OneWay}" />
+                                     Source="{Binding PreviewImage.Value, Mode=OneWay}"
+                                     ToneMapping="{Binding ToneMappingMode.Value, Mode=OneWay}"
+                                     ToneMappingExposure="{Binding ToneMappingExposure.Value, Mode=OneWay}" />
 
                 <pathEditor:PathEditorView Width="{Binding #image.Bounds.Width}"
                                            Height="{Binding #image.Bounds.Height}"

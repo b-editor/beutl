@@ -41,6 +41,14 @@ public enum TimelineAutoScrollMode
     PageScroll
 }
 
+public enum UIToneMappingOperator
+{
+    None,
+    Reinhard,
+    ACES,
+    Hable
+}
+
 public sealed partial class EditorConfig : ConfigurationBase
 {
     public static readonly CoreProperty<bool> AutoAdjustSceneDurationProperty;
@@ -56,6 +64,8 @@ public sealed partial class EditorConfig : ConfigurationBase
     public static readonly CoreProperty<bool> SwapTimelineScrollDirectionProperty;
     public static readonly CoreProperty<bool> ClampResizeToOriginalLengthProperty;
     public static readonly CoreProperty<TimelineAutoScrollMode> TimelineAutoScrollModeProperty;
+    public static readonly CoreProperty<UIToneMappingOperator> ToneMappingModeProperty;
+    public static readonly CoreProperty<float> ToneMappingExposureProperty;
 
     static EditorConfig()
     {
@@ -116,6 +126,14 @@ public sealed partial class EditorConfig : ConfigurationBase
 
         TimelineAutoScrollModeProperty = ConfigureProperty<TimelineAutoScrollMode, EditorConfig>(nameof(TimelineAutoScrollMode))
             .DefaultValue(TimelineAutoScrollMode.PageScroll)
+            .Register();
+
+        ToneMappingModeProperty = ConfigureProperty<UIToneMappingOperator, EditorConfig>(nameof(ToneMappingMode))
+            .DefaultValue(UIToneMappingOperator.None)
+            .Register();
+
+        ToneMappingExposureProperty = ConfigureProperty<float, EditorConfig>(nameof(ToneMappingExposure))
+            .DefaultValue(0f)
             .Register();
 
     }
@@ -201,6 +219,18 @@ public sealed partial class EditorConfig : ConfigurationBase
     {
         get => GetValue(TimelineAutoScrollModeProperty);
         set => SetValue(TimelineAutoScrollModeProperty, value);
+    }
+
+    public UIToneMappingOperator ToneMappingMode
+    {
+        get => GetValue(ToneMappingModeProperty);
+        set => SetValue(ToneMappingModeProperty, value);
+    }
+
+    public float ToneMappingExposure
+    {
+        get => GetValue(ToneMappingExposureProperty);
+        set => SetValue(ToneMappingExposureProperty, value);
     }
 
     public CoreDictionary<string, LibraryTabDisplayMode> LibraryTabDisplayModes { get; } = new()
