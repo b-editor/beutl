@@ -18,7 +18,12 @@ public class HistogramControl : ScopeControlBase
         AvaloniaProperty.RegisterDirect<HistogramControl, HistogramMode>(
             nameof(Mode), o => o.Mode, (o, v) => o.Mode = v, HistogramMode.Overlay);
 
+    public static readonly DirectProperty<HistogramControl, float> HdrRangeProperty =
+        AvaloniaProperty.RegisterDirect<HistogramControl, float>(
+            nameof(HdrRange), o => o.HdrRange, (o, v) => o.HdrRange = v, 1.0f);
+
     private HistogramMode _mode = HistogramMode.Overlay;
+    private float _hdrRange = 1.0f;
 
     private static readonly string[] s_horizontalLabels = ["0", "64", "128", "192", "255"];
     private static readonly (float R, float G, float B) s_colorRed = (1.00f, 0.25f, 0.25f);
@@ -27,8 +32,9 @@ public class HistogramControl : ScopeControlBase
 
     static HistogramControl()
     {
-        AffectsRender<HistogramControl>(ModeProperty);
+        AffectsRender<HistogramControl>(ModeProperty, HdrRangeProperty);
         ModeProperty.Changed.AddClassHandler<HistogramControl>((o, _) => o.Refresh());
+        HdrRangeProperty.Changed.AddClassHandler<HistogramControl>((o, _) => o.Refresh());
     }
 
     public HistogramMode Mode
@@ -37,9 +43,18 @@ public class HistogramControl : ScopeControlBase
         set => SetAndRaise(ModeProperty, ref _mode, value);
     }
 
+    public float HdrRange
+    {
+        get => _hdrRange;
+        set => SetAndRaise(HdrRangeProperty, ref _hdrRange, Math.Max(value, 0.01f));
+    }
+
     protected override string[]? VerticalAxisLabels => null;
 
-    protected override string[]? HorizontalAxisLabels => s_horizontalLabels;
+    protected override string[]? HorizontalAxisLabels =>
+        _hdrRange > 1.01f
+            ? ["0", $"{_hdrRange * 0.25f:F1}", $"{_hdrRange * 0.5f:F1}", $"{_hdrRange * 0.75f:F1}", $"{_hdrRange:F1}"]
+            : s_horizontalLabels;
 
     protected override unsafe WriteableBitmap RenderScope(
         BtlBitmap sourceBitmap,
@@ -47,48 +62,63 @@ public class HistogramControl : ScopeControlBase
         int targetHeight,
         WriteableBitmap? existingBitmap)
     {
-        // Calculate histograms
-        var rHist = new int[256];
-        var gHist = new int[256];
-        var bHist = new int[256];
+        // Calculate histograms using RgbaF16 for HDR support
+        const int binCount = 256;
+        var rHist = new int[binCount];
+        var gHist = new int[binCount];
+        var bHist = new int[binCount];
 
         int sourceWidth = sourceBitmap.Width;
         int sourceHeight = sourceBitmap.Height;
         int xStep = Math.Max(1, sourceWidth / 256);
         int yStep = Math.Max(1, sourceHeight / 256);
+        float hdrRange = HdrRange;
+        float binScale = (binCount - 1) / hdrRange;
 
-        BtlBitmap rgbaGamma;
+        BtlBitmap rgbaF16;
         bool requireDispose = false;
-        // TODO: Linear/Gammaを切り替えられるようにする
-        // TODO: 解像度を高くする
-        if (sourceBitmap.ColorType == BitmapColorType.Bgra8888 && sourceBitmap.ColorSpace == BitmapColorSpace.Srgb)
+        if (sourceBitmap.ColorType == BitmapColorType.RgbaF16 && sourceBitmap.ColorSpace == BitmapColorSpace.Srgb)
         {
-            rgbaGamma = sourceBitmap;
+            rgbaF16 = sourceBitmap;
         }
         else
         {
-            rgbaGamma = sourceBitmap.Convert(BitmapColorType.Bgra8888, colorSpace: BitmapColorSpace.Srgb);
+            rgbaF16 = sourceBitmap.Convert(BitmapColorType.RgbaF16, BitmapAlphaType.Unpremul, BitmapColorSpace.Srgb);
             requireDispose = true;
         }
 
         try
         {
+            bool premul = rgbaF16.AlphaType == BitmapAlphaType.Premul;
             for (int y = 0; y < sourceHeight; y += yStep)
             {
-                var row = rgbaGamma.GetRow<Bgra8888>(y);
+                var row = rgbaF16.GetRow<RgbaF16>(y);
                 for (int x = 0; x < sourceWidth; x += xStep)
                 {
-                    Bgra8888 pixel = row[x];
-                    rHist[pixel.R]++;
-                    gHist[pixel.G]++;
-                    bHist[pixel.B]++;
+                    RgbaF16 pixel = row[x];
+                    float r = (float)pixel.R;
+                    float g = (float)pixel.G;
+                    float b = (float)pixel.B;
+                    float a = (float)pixel.A;
+
+                    if (premul && a > 0f && a < 1f)
+                    {
+                        float invA = 1f / a;
+                        r *= invA;
+                        g *= invA;
+                        b *= invA;
+                    }
+
+                    rHist[Math.Clamp((int)(r * binScale + 0.5f), 0, binCount - 1)]++;
+                    gHist[Math.Clamp((int)(g * binScale + 0.5f), 0, binCount - 1)]++;
+                    bHist[Math.Clamp((int)(b * binScale + 0.5f), 0, binCount - 1)]++;
                 }
             }
         }
         finally
         {
             if (requireDispose)
-                rgbaGamma.Dispose();
+                rgbaF16.Dispose();
         }
         var mode = Mode;
 
