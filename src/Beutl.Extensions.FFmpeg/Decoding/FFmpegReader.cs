@@ -8,6 +8,7 @@ using Beutl.Media.Music.Samples;
 using FFmpeg.AutoGen.Abstractions;
 using FFmpegSharp;
 using Microsoft.Extensions.Logging;
+using SkiaSharp;
 
 #if FFMPEG_BUILD_IN
 namespace Beutl.Embedding.FFmpeg.Decoding;
@@ -289,9 +290,41 @@ public sealed class FFmpegReader : MediaReader
         var bmp = new Bitmap(width, height, colorType, BitmapAlphaType.Unpremul, colorSpace);
         int byteCount = width * height * bytesPerPixel;
         Buffer.MemoryCopy(dstFrame.Data[0], (void*)bmp.Data, byteCount, byteCount);
-
+        // ConvertLuminance(ref bmp);
         image = bmp;
         return true;
+    }
+
+    // DEBUG用
+    private void ConvertLuminance(ref Bitmap bitmap)
+    {
+        var transferFn = bitmap.ColorSpace.GetNumericalTransferFunction();
+
+        if (transferFn == BitmapColorSpaceTransferFn.Pq || transferFn == BitmapColorSpaceTransferFn.Hlg)
+        {
+            const float pqReferenceWhite = 203.0f;
+            const float sdrReferenceWhite = 80.0f;
+            float gain = sdrReferenceWhite / pqReferenceWhite;
+
+            var srcBitmap = bitmap;
+            var dstBitmap = new Bitmap(bitmap.Width, bitmap.Height, bitmap.ColorType, bitmap.AlphaType,
+                bitmap.ColorSpace);
+            using (var filter = SKColorFilter.CreateColorMatrix(
+                   [
+                       gain, 0, 0, 0, 0,
+                       0, gain, 0, 0, 0,
+                       0, 0, gain, 0, 0,
+                       0, 0, 0, 1, 0,
+                   ]))
+            using (var paint = new SKPaint { ColorFilter = filter, BlendMode = SKBlendMode.Src })
+            using (var canvas = new SKCanvas(dstBitmap.SKBitmap))
+            {
+                canvas.DrawBitmap(srcBitmap.SKBitmap, 0, 0, paint);
+            }
+
+            bitmap = dstBitmap;
+            srcBitmap.Dispose();
+        }
     }
 
     protected override void Dispose(bool disposing)
