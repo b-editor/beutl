@@ -370,7 +370,7 @@ public class Vector4Editor<TElement> : Vector4Editor
             double wheelDelta = e.Delta.Y;
             if (e.KeyModifiers.HasFlag(KeyModifiers.Shift))
             {
-                wheelDelta = e.Delta.X;
+                wheelDelta = -e.Delta.X;
                 delta = SmallChange;
             }
 

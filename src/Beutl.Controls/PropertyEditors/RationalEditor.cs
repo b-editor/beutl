@@ -173,12 +173,14 @@ public class RationalEditor : StringEditor
             && Rational.TryParse(InnerTextBox.Text, CultureInfo.CurrentUICulture, out Rational value))
         {
             var delta = new Rational(10);
+            double wheelDelta = e.Delta.Y;
             if (e.KeyModifiers.HasFlag(KeyModifiers.Shift))
             {
                 delta = Rational.One;
+                wheelDelta = -e.Delta.X;
             }
 
-            value = e.Delta.Y switch
+            value = wheelDelta switch
             {
                 < 0 => value - delta,
                 > 0 => value + delta,

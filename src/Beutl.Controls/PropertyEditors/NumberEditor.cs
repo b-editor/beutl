@@ -214,7 +214,7 @@ public class NumberEditor<TValue> : StringEditor
             if (e.KeyModifiers.HasFlag(KeyModifiers.Shift))
             {
                 delta = SmallChange;
-                wheelDelta = e.Delta.X;
+                wheelDelta = -e.Delta.X;
             }
 
             value = wheelDelta switch
