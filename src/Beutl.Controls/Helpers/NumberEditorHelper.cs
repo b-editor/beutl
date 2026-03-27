@@ -7,14 +7,22 @@ public static class NumberEditorHelper
     public static TValue AddPreservingScale<TValue>(TValue original, TValue delta)
         where TValue : INumber<TValue>
     {
-        // original のスケールに合わせて delta を調整
-        var originalDecimal = decimal.CreateTruncating(original);
-        var deltaDecimal = decimal.CreateTruncating(delta);
-        int scale = Math.Max(GetScale(originalDecimal), GetScale(deltaDecimal));
-        decimal result = originalDecimal + deltaDecimal;
+        try
+        {
+            // original のスケールに合わせて delta を調整
+            var originalDecimal = decimal.CreateTruncating(original);
+            var deltaDecimal = decimal.CreateTruncating(delta);
+            int scale = Math.Max(GetScale(originalDecimal), GetScale(deltaDecimal));
+            decimal result = originalDecimal + deltaDecimal;
 
-        // 同じスケールに正規化
-        return TValue.CreateTruncating(decimal.Round(result, scale));
+            // 同じスケールに正規化
+            return TValue.CreateTruncating(decimal.Round(result, scale));
+        }
+        catch (OverflowException)
+        {
+            // decimal に収まらない場合はスケール保持を諦めて単純加算にフォールバック
+            return original + delta;
+        }
     }
 
     public static int GetScale(decimal value)
