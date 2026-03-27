@@ -329,12 +329,14 @@ public class RelativeRectEditor : Vector4Editor
             }
 
             float delta3 = delta2;
+            var wheelDelta = e.Delta.Y;
             if (e.KeyModifiers.HasFlag(KeyModifiers.Shift))
             {
                 delta3 = delta1;
+                wheelDelta = -e.Delta.X;
             }
 
-            value = e.Delta.Y switch
+            value = wheelDelta switch
             {
                 < 0 => value - delta3,
                 > 0 => value + delta3,

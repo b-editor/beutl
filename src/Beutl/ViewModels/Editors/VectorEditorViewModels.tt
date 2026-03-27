@@ -24,6 +24,7 @@
         ("System.Numerics", "Vector4", "float", "X", "Y", "Z", "W", false),
     };
 #>
+using System.ComponentModel.DataAnnotations;
 using Avalonia;
 using Avalonia.Interactivity;
 
@@ -64,6 +65,20 @@ namespace Beutl.ViewModels.Editors
             base.Accept(visitor);
             if (visitor is Vector2Editor<<#= t.Element #>> editor && !Disposables.IsDisposed)
             {
+                var attrs = PropertyAdapter.GetAttributes();
+                var stepAttr = attrs.OfType<NumberStepAttribute>().FirstOrDefault();
+                if (stepAttr != null)
+                {
+                    editor.LargeChange = <#= t.Element #>.CreateTruncating(stepAttr.LargeChange);
+                    editor.SmallChange = <#= t.Element #>.CreateTruncating(stepAttr.SmallChange);
+                }
+
+                var formatAttr = attrs.OfType<DisplayFormatAttribute>().FirstOrDefault();
+                if (formatAttr != null)
+                {
+                    editor.NumberFormat = formatAttr.DataFormatString;
+                }
+
 <# if (t.IsSize) { #>
                 editor.FirstHeader = Strings.Width;
                 editor.SecondHeader = Strings.Height;
@@ -143,6 +158,20 @@ namespace Beutl.ViewModels.Editors
             base.Accept(visitor);
             if (visitor is Vector3Editor<<#= t.Element #>> editor && !Disposables.IsDisposed)
             {
+                var attrs = PropertyAdapter.GetAttributes();
+                var stepAttr = attrs.OfType<NumberStepAttribute>().FirstOrDefault();
+                if (stepAttr != null)
+                {
+                    editor.LargeChange = <#= t.Element #>.CreateTruncating(stepAttr.LargeChange);
+                    editor.SmallChange = <#= t.Element #>.CreateTruncating(stepAttr.SmallChange);
+                }
+
+                var formatAttr = attrs.OfType<DisplayFormatAttribute>().FirstOrDefault();
+                if (formatAttr != null)
+                {
+                    editor.NumberFormat = formatAttr.DataFormatString;
+                }
+
                 editor.FirstHeader = "X";
                 editor.SecondHeader = "Y";
                 editor.ThirdHeader = "Z";
@@ -229,6 +258,20 @@ namespace Beutl.ViewModels.Editors
             base.Accept(visitor);
             if (visitor is Vector4Editor<<#= t.Element #>> editor && !Disposables.IsDisposed)
             {
+                var attrs = PropertyAdapter.GetAttributes();
+                var stepAttr = attrs.OfType<NumberStepAttribute>().FirstOrDefault();
+                if (stepAttr != null)
+                {
+                    editor.LargeChange = <#= t.Element #>.CreateTruncating(stepAttr.LargeChange);
+                    editor.SmallChange = <#= t.Element #>.CreateTruncating(stepAttr.SmallChange);
+                }
+
+                var formatAttr = attrs.OfType<DisplayFormatAttribute>().FirstOrDefault();
+                if (formatAttr != null)
+                {
+                    editor.NumberFormat = formatAttr.DataFormatString;
+                }
+
                 editor.FirstHeader = "X";
                 editor.SecondHeader = "Y";
 <# if (t.IsRect) { #>

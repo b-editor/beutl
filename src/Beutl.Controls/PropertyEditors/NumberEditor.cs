@@ -22,6 +22,22 @@ public class NumberEditor<TValue> : StringEditor
             o => o.Value,
             (o, v) => o.Value = v,
             defaultBindingMode: BindingMode.TwoWay);
+
+    public static readonly StyledProperty<TValue> LargeChangeProperty =
+        AvaloniaProperty.Register<NumberEditor<TValue>, TValue>(
+            nameof(LargeChange),
+            defaultValue: TValue.CreateTruncating(10));
+
+    public static readonly StyledProperty<TValue> SmallChangeProperty =
+        AvaloniaProperty.Register<NumberEditor<TValue>, TValue>(
+            nameof(SmallChange),
+            defaultValue: TValue.One);
+
+    public static readonly StyledProperty<string> NumberFormatProperty =
+        AvaloniaProperty.Register<NumberEditor<TValue>, string>(
+            nameof(NumberFormat),
+            defaultValue: null);
+
     private TValue _value;
     private TValue _oldValue;
     private readonly CompositeDisposable _disposables = [];
@@ -41,9 +57,27 @@ public class NumberEditor<TValue> : StringEditor
         {
             if (SetAndRaise(ValueProperty, ref _value, value))
             {
-                Text = value.ToString();
+                Text = value.ToString(NumberFormat ?? "G", CultureInfo.CurrentUICulture);
             }
         }
+    }
+
+    public TValue LargeChange
+    {
+        get => GetValue(LargeChangeProperty);
+        set => SetValue(LargeChangeProperty, value);
+    }
+
+    public TValue SmallChange
+    {
+        get => GetValue(SmallChangeProperty);
+        set => SetValue(SmallChangeProperty, value);
+    }
+
+    public string NumberFormat
+    {
+        get => GetValue(NumberFormatProperty);
+        set => SetValue(NumberFormatProperty, value);
     }
 
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
@@ -74,9 +108,9 @@ public class NumberEditor<TValue> : StringEditor
 
             // ポインタロック + デルタ取得
             Point move = PointerLockHelper.Moved(_headerText, point, ref _headerDragStart);
-            TValue delta = TValue.CreateTruncating(move.X);
+            TValue delta = TValue.CreateTruncating(move.X) * SmallChange;
             TValue oldValue = Value;
-            TValue newValue = Value + delta;
+            TValue newValue = NumberEditorHelper.AddPreservingScale(oldValue, delta);
             if (newValue != oldValue)
             {
                 Value = newValue;
@@ -175,16 +209,18 @@ public class NumberEditor<TValue> : StringEditor
             && InnerTextBox.IsKeyboardFocusWithin
             && TValue.TryParse(InnerTextBox.Text, CultureInfo.CurrentUICulture, out TValue value))
         {
-            TValue delta = TValue.CreateTruncating(10);
+            TValue delta = LargeChange;
+            double wheelDelta = e.Delta.Y;
             if (e.KeyModifiers.HasFlag(KeyModifiers.Shift))
             {
-                delta = TValue.One;
+                delta = SmallChange;
+                wheelDelta = -e.Delta.X;
             }
 
-            value = e.Delta.Y switch
+            value = wheelDelta switch
             {
-                < 0 => value - delta,
-                > 0 => value + delta,
+                < 0 => NumberEditorHelper.AddPreservingScale(value, -delta),
+                > 0 => NumberEditorHelper.AddPreservingScale(value, delta),
                 _ => value
             };
 

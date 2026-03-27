@@ -26,6 +26,7 @@ public abstract partial class Object3D : EngineObject
     /// Gets the position of the object in world space.
     /// </summary>
     [Display(Name = nameof(GraphicsStrings.Position), ResourceType = typeof(GraphicsStrings))]
+    [NumberStep(0.1, 0.01)]
     public IProperty<Vector3> Position { get; } = Property.CreateAnimatable(Vector3.Zero);
 
     /// <summary>
@@ -38,6 +39,7 @@ public abstract partial class Object3D : EngineObject
     /// Gets the scale of the object.
     /// </summary>
     [Display(Name = nameof(GraphicsStrings.Scale), ResourceType = typeof(GraphicsStrings))]
+    [NumberStep(0.1, 0.01)]
     public IProperty<Vector3> Scale { get; } = Property.CreateAnimatable(Vector3.One);
 
     /// <summary>

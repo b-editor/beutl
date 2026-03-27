@@ -31,6 +31,12 @@ public class Vector3Editor<TElement> : Vector3Editor
             o => o.ThirdValue,
             (o, v) => o.ThirdValue = v);
 
+    public static readonly StyledProperty<TElement> LargeChangeProperty =
+        Vector4Editor<TElement>.LargeChangeProperty.AddOwner<Vector3Editor<TElement>>();
+
+    public static readonly StyledProperty<TElement> SmallChangeProperty =
+        Vector4Editor<TElement>.SmallChangeProperty.AddOwner<Vector3Editor<TElement>>();
+
     private readonly CompositeDisposable _disposables = [];
     private TElement _firstValue;
     private TElement _oldFirstValue;
@@ -57,7 +63,7 @@ public class Vector3Editor<TElement> : Vector3Editor
         {
             if (SetAndRaise(FirstValueProperty, ref _firstValue, value))
             {
-                FirstText = value.ToString();
+                FirstText = value.ToString(NumberFormat ?? "G", CultureInfo.CurrentUICulture);
             }
         }
     }
@@ -69,7 +75,7 @@ public class Vector3Editor<TElement> : Vector3Editor
         {
             if (SetAndRaise(SecondValueProperty, ref _secondValue, value))
             {
-                SecondText = value.ToString();
+                SecondText = value.ToString(NumberFormat ?? "G", CultureInfo.CurrentUICulture);
             }
         }
     }
@@ -81,9 +87,21 @@ public class Vector3Editor<TElement> : Vector3Editor
         {
             if (SetAndRaise(ThirdValueProperty, ref _thirdValue, value))
             {
-                ThirdText = value.ToString();
+                ThirdText = value.ToString(NumberFormat ?? "G", CultureInfo.CurrentUICulture);
             }
         }
+    }
+
+    public TElement LargeChange
+    {
+        get => GetValue(LargeChangeProperty);
+        set => SetValue(LargeChangeProperty, value);
+    }
+
+    public TElement SmallChange
+    {
+        get => GetValue(SmallChangeProperty);
+        set => SetValue(SmallChangeProperty, value);
     }
 
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
@@ -127,9 +145,9 @@ public class Vector3Editor<TElement> : Vector3Editor
 
         _disposables.Clear();
         base.OnApplyTemplate(e);
-        FirstText = _firstValue.ToString();
-        SecondText = _secondValue.ToString();
-        ThirdText = _thirdValue.ToString();
+        FirstText = _firstValue.ToString(NumberFormat ?? "G", CultureInfo.CurrentUICulture);
+        SecondText = _secondValue.ToString(NumberFormat ?? "G", CultureInfo.CurrentUICulture);
+        ThirdText = _thirdValue.ToString(NumberFormat ?? "G", CultureInfo.CurrentUICulture);
 
         SubscribeEvents(InnerFirstTextBox);
         SubscribeEvents(InnerSecondTextBox);
@@ -156,25 +174,25 @@ public class Vector3Editor<TElement> : Vector3Editor
 
             // ポインタロック + デルタ取得
             Point move = PointerLockHelper.Moved(headerText, point, ref _headerDragStart);
-            TElement delta = TElement.CreateTruncating(move.X);
+            TElement delta = TElement.CreateTruncating(move.X) * SmallChange;
 
             var newValues = (FirstValue, SecondValue, ThirdValue);
             var oldValues = (FirstValue, SecondValue, ThirdValue);
             switch (headerText.Name)
             {
                 case "PART_HeaderFirstTextBlock":
-                    newValues.FirstValue += delta;
+                    newValues.FirstValue = NumberEditorHelper.AddPreservingScale(newValues.FirstValue, delta);
                     break;
                 case "PART_HeaderSecondTextBlock":
-                    newValues.SecondValue += delta;
+                    newValues.SecondValue = NumberEditorHelper.AddPreservingScale(newValues.SecondValue, delta);
                     break;
                 case "PART_HeaderThirdTextBlock":
-                    newValues.ThirdValue += delta;
+                    newValues.ThirdValue = NumberEditorHelper.AddPreservingScale(newValues.ThirdValue, delta);
                     break;
                 case "PART_HeaderTextBlock":
-                    newValues.FirstValue += delta;
-                    newValues.SecondValue += delta;
-                    newValues.ThirdValue += delta;
+                    newValues.FirstValue = NumberEditorHelper.AddPreservingScale(newValues.FirstValue, delta);
+                    newValues.SecondValue = NumberEditorHelper.AddPreservingScale(newValues.SecondValue, delta);
+                    newValues.ThirdValue = NumberEditorHelper.AddPreservingScale(newValues.ThirdValue, delta);
                     break;
                 default:
                     break;
@@ -331,16 +349,18 @@ public class Vector3Editor<TElement> : Vector3Editor
             && textBox.IsKeyboardFocusWithin
             && TElement.TryParse(textBox.Text, CultureInfo.CurrentUICulture, out TElement value))
         {
-            TElement delta = TElement.CreateTruncating(10);
+            TElement delta = LargeChange;
+            double wheelDelta = e.Delta.Y;
             if (e.KeyModifiers.HasFlag(KeyModifiers.Shift))
             {
-                delta = TElement.One;
+                wheelDelta = -e.Delta.X;
+                delta = SmallChange;
             }
 
-            value = e.Delta.Y switch
+            value = wheelDelta switch
             {
-                < 0 => value - delta,
-                > 0 => value + delta,
+                < 0 => NumberEditorHelper.AddPreservingScale(value, -delta),
+                > 0 => NumberEditorHelper.AddPreservingScale(value, delta),
                 _ => value
             };
 
@@ -410,6 +430,9 @@ public class Vector3Editor : PropertyEditor
     public static readonly StyledProperty<bool> IsUniformProperty =
         Vector4Editor.IsUniformProperty.AddOwner<Vector3Editor>();
 
+    public static readonly StyledProperty<string> NumberFormatProperty =
+        Vector4Editor.NumberFormatProperty.AddOwner<Vector3Editor>();
+
     private const string FocusAnyTextBox = ":focus-any-textbox";
     private const string FocusFirstTextBox = ":focus-1st-textbox";
     private const string FocusSecondTextBox = ":focus-2nd-textbox";
@@ -462,6 +485,12 @@ public class Vector3Editor : PropertyEditor
     {
         get => GetValue(IsUniformProperty);
         set => SetValue(IsUniformProperty, value);
+    }
+
+    public string NumberFormat
+    {
+        get => GetValue(NumberFormatProperty);
+        set => SetValue(NumberFormatProperty, value);
     }
 
     protected TextBox InnerFirstTextBox { get; private set; }

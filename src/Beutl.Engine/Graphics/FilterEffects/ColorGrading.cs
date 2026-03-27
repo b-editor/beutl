@@ -165,7 +165,7 @@ public sealed partial class ColorGrading : FilterEffect
     public IProperty<float> Tint { get; } = Property.CreateAnimatable<float>();
 
     [Display(Name = nameof(GraphicsStrings.ColorGrading_Exposure), ResourceType = typeof(GraphicsStrings))]
-    [Range(-5, 5)]
+    [Range(-5, 5), NumberStep(0.1, 0.01)]
     public IProperty<float> Exposure { get; } = Property.CreateAnimatable<float>();
 
     [Display(Name = nameof(GraphicsStrings.ColorGrading_Contrast), ResourceType = typeof(GraphicsStrings))]
@@ -173,7 +173,7 @@ public sealed partial class ColorGrading : FilterEffect
     public IProperty<float> Contrast { get; } = Property.CreateAnimatable<float>();
 
     [Display(Name = nameof(GraphicsStrings.ColorGrading_ContrastPivot), ResourceType = typeof(GraphicsStrings))]
-    [Range(0, 1)]
+    [Range(0, 1), NumberStep(0.1, 0.01)]
     public IProperty<float> ContrastPivot { get; } = Property.CreateAnimatable(0.5f);
 
     [Display(Name = nameof(GraphicsStrings.ColorGrading_Saturation), ResourceType = typeof(GraphicsStrings))]

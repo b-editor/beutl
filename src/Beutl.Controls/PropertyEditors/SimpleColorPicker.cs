@@ -376,12 +376,14 @@ public class SimpleColorPicker : TemplatedControl
             && TryParseOpacity(_opacityBox.Text, out float value))
         {
             float delta = 10;
+            var wheelDelta = e.Delta.Y;
             if (e.KeyModifiers.HasFlag(KeyModifiers.Shift))
             {
                 delta = 1;
+                wheelDelta = -e.Delta.X;
             }
 
-            value = e.Delta.Y switch
+            value = wheelDelta switch
             {
                 < 0 => value - delta,
                 > 0 => value + delta,

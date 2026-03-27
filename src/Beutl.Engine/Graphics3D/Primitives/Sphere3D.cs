@@ -21,21 +21,21 @@ public sealed partial class Sphere3D : Object3D
     /// Gets the radius of the sphere.
     /// </summary>
     [Display(Name = nameof(GraphicsStrings.Radius), ResourceType = typeof(GraphicsStrings))]
-    [Range(0.001f, float.MaxValue)]
+    [Range(0.001f, float.MaxValue), NumberStep(0.1, 0.01)]
     public IProperty<float> Radius { get; } = Property.CreateAnimatable(0.5f);
 
     /// <summary>
     /// Gets the number of horizontal segments (longitude).
     /// </summary>
     [Display(Name = nameof(GraphicsStrings.Sphere3D_Segments), ResourceType = typeof(GraphicsStrings))]
-    [Range(3, 128)]
+    [Range(3, 128), NumberStep(1, 1)]
     public IProperty<int> Segments { get; } = Property.CreateAnimatable(32);
 
     /// <summary>
     /// Gets the number of vertical rings (latitude).
     /// </summary>
     [Display(Name = nameof(GraphicsStrings.Sphere3D_Rings), ResourceType = typeof(GraphicsStrings))]
-    [Range(2, 128)]
+    [Range(2, 128), NumberStep(1, 1)]
     public IProperty<int> Rings { get; } = Property.CreateAnimatable(16);
 
     public partial class Resource

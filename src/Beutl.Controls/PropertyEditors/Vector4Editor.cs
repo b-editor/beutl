@@ -45,6 +45,16 @@ public class Vector4Editor<TElement> : Vector4Editor
             o => o.FourthValue,
             (o, v) => o.FourthValue = v,
             defaultBindingMode: BindingMode.TwoWay);
+
+    public static readonly StyledProperty<TElement> LargeChangeProperty =
+        AvaloniaProperty.Register<Vector4Editor<TElement>, TElement>(
+            nameof(LargeChange),
+            defaultValue: TElement.CreateTruncating(10));
+
+    public static readonly StyledProperty<TElement> SmallChangeProperty =
+        AvaloniaProperty.Register<Vector4Editor<TElement>, TElement>(
+            nameof(SmallChange),
+            defaultValue: TElement.One);
 #pragma warning restore AVP1002 // AvaloniaProperty objects should not be owned by a generic type
 
     private readonly CompositeDisposable _disposables = [];
@@ -75,7 +85,7 @@ public class Vector4Editor<TElement> : Vector4Editor
         {
             if (SetAndRaise(FirstValueProperty, ref _firstValue, value))
             {
-                FirstText = value.ToString();
+                FirstText = value.ToString(NumberFormat ?? "G", CultureInfo.CurrentUICulture);
             }
         }
     }
@@ -87,7 +97,7 @@ public class Vector4Editor<TElement> : Vector4Editor
         {
             if (SetAndRaise(SecondValueProperty, ref _secondValue, value))
             {
-                SecondText = value.ToString();
+                SecondText = value.ToString(NumberFormat ?? "G", CultureInfo.CurrentUICulture);
             }
         }
     }
@@ -99,7 +109,7 @@ public class Vector4Editor<TElement> : Vector4Editor
         {
             if (SetAndRaise(ThirdValueProperty, ref _thirdValue, value))
             {
-                ThirdText = value.ToString();
+                ThirdText = value.ToString(NumberFormat ?? "G", CultureInfo.CurrentUICulture);
             }
         }
     }
@@ -111,9 +121,21 @@ public class Vector4Editor<TElement> : Vector4Editor
         {
             if (SetAndRaise(FourthValueProperty, ref _fourthValue, value))
             {
-                FourthText = value.ToString();
+                FourthText = value.ToString(NumberFormat ?? "G", CultureInfo.CurrentUICulture);
             }
         }
+    }
+
+    public TElement LargeChange
+    {
+        get => GetValue(LargeChangeProperty);
+        set => SetValue(LargeChangeProperty, value);
+    }
+
+    public TElement SmallChange
+    {
+        get => GetValue(SmallChangeProperty);
+        set => SetValue(SmallChangeProperty, value);
     }
 
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
@@ -143,10 +165,10 @@ public class Vector4Editor<TElement> : Vector4Editor
 
         _disposables.Clear();
         base.OnApplyTemplate(e);
-        FirstText = _firstValue.ToString();
-        SecondText = _secondValue.ToString();
-        ThirdText = _thirdValue.ToString();
-        FourthText = _fourthValue.ToString();
+        FirstText = _firstValue.ToString(NumberFormat ?? "G", CultureInfo.CurrentUICulture);
+        SecondText = _secondValue.ToString(NumberFormat ?? "G", CultureInfo.CurrentUICulture);
+        ThirdText = _thirdValue.ToString(NumberFormat ?? "G", CultureInfo.CurrentUICulture);
+        FourthText = _fourthValue.ToString(NumberFormat ?? "G", CultureInfo.CurrentUICulture);
 
         SubscribeEvents(InnerFirstTextBox);
         SubscribeEvents(InnerSecondTextBox);
@@ -181,9 +203,13 @@ public class Vector4Editor<TElement> : Vector4Editor
 
             // ポインタロック + デルタ取得
             Point move = PointerLockHelper.Moved(_headerText, point, ref _headerDragStart);
-            TElement delta = TElement.CreateTruncating(move.X);
+            TElement delta = TElement.CreateTruncating(move.X) * SmallChange;
 
-            var newValues = (FirstValue + delta, SecondValue + delta, ThirdValue + delta, FourthValue + delta);
+            var newValues = (
+                NumberEditorHelper.AddPreservingScale(FirstValue, delta),
+                NumberEditorHelper.AddPreservingScale(SecondValue, delta),
+                NumberEditorHelper.AddPreservingScale(ThirdValue, delta),
+                NumberEditorHelper.AddPreservingScale(FourthValue, delta));
             var oldValues = (FirstValue, SecondValue, ThirdValue, FourthValue);
 
             (FirstValue, SecondValue, ThirdValue, FourthValue) = newValues;
@@ -340,16 +366,18 @@ public class Vector4Editor<TElement> : Vector4Editor
             && textBox.IsKeyboardFocusWithin
             && TElement.TryParse(textBox.Text, CultureInfo.CurrentUICulture, out TElement value))
         {
-            TElement delta = TElement.CreateTruncating(10);
+            TElement delta = LargeChange;
+            double wheelDelta = e.Delta.Y;
             if (e.KeyModifiers.HasFlag(KeyModifiers.Shift))
             {
-                delta = TElement.One;
+                wheelDelta = -e.Delta.X;
+                delta = SmallChange;
             }
 
-            value = e.Delta.Y switch
+            value = wheelDelta switch
             {
-                < 0 => value - delta,
-                > 0 => value + delta,
+                < 0 => NumberEditorHelper.AddPreservingScale(value, -delta),
+                > 0 => NumberEditorHelper.AddPreservingScale(value, delta),
                 _ => value
             };
 
@@ -438,6 +466,11 @@ public class Vector4Editor : PropertyEditor
     public static readonly StyledProperty<bool> IsUniformProperty =
         AvaloniaProperty.Register<Vector4Editor, bool>(nameof(IsUniform));
 
+    public static readonly StyledProperty<string> NumberFormatProperty =
+        AvaloniaProperty.Register<Vector4Editor, string>(
+            nameof(NumberFormat),
+            defaultValue: null);
+
     private const string FocusAnyTextBox = ":focus-any-textbox";
     private const string FocusFirstTextBox = ":focus-1st-textbox";
     private const string FocusSecondTextBox = ":focus-2nd-textbox";
@@ -504,6 +537,12 @@ public class Vector4Editor : PropertyEditor
     {
         get => GetValue(IsUniformProperty);
         set => SetValue(IsUniformProperty, value);
+    }
+
+    public string NumberFormat
+    {
+        get => GetValue(NumberFormatProperty);
+        set => SetValue(NumberFormatProperty, value);
     }
 
     protected TextBox InnerFirstTextBox { get; private set; }

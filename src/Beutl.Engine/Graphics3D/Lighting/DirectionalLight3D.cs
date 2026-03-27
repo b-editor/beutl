@@ -21,6 +21,7 @@ public partial class DirectionalLight3D : Light3D
     /// not where it's coming from.
     /// </summary>
     [Display(Name = nameof(GraphicsStrings.Direction), ResourceType = typeof(GraphicsStrings))]
+    [NumberStep(1, 0.1)]
     public IProperty<Vector3> Direction { get; } = Property.CreateAnimatable(new Vector3(0, -1, 0));
 
     /// <summary>
@@ -36,7 +37,7 @@ public partial class DirectionalLight3D : Light3D
     /// Gets the maximum distance from the camera at which shadows are rendered.
     /// </summary>
     [Display(Name = nameof(GraphicsStrings.DirectionalLight3D_ShadowDistance), ResourceType = typeof(GraphicsStrings))]
-    [Range(1f, 1000f)]
+    [Range(1f, 1000f), NumberStep(1, 0.1)]
     public IProperty<float> ShadowDistance { get; } = Property.CreateAnimatable(50f);
 
     /// <summary>
