@@ -144,8 +144,8 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
         var format = (AVPixelFormat)VideoSettings.Format;
         int bitRate = VideoSettings.Bitrate;
         var options = new MediaDictionary(VideoSettings.Options
-            .Where(item => !string.IsNullOrWhiteSpace(item.Key))
-            .Select(item => new KeyValuePair<string, string>(item.Key, item.Value)));
+            .Where(item => !string.IsNullOrWhiteSpace(item.Name))
+            .Select(item => new KeyValuePair<string, string>(item.Name, item.Value)));
 
         encoder = MediaEncoder.Create(codec, codecContext =>
         {
