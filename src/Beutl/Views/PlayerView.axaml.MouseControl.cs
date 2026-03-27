@@ -152,7 +152,7 @@ public partial class PlayerView
 
         public Element? Element { get; private set; }
 
-        private BitmapView Image => View.image;
+        private Control Image => View.image;
 
         private (TranslateTransform?, Matrix) FindOrCreateTranslation(Drawable drawable)
         {
@@ -390,7 +390,7 @@ public partial class PlayerView
 
         private Player Player => View.Player;
 
-        private BitmapView Image => View.image;
+        private Control Image => View.image;
 
         public void OnMoved(PointerEventArgs e)
         {
@@ -609,7 +609,7 @@ public partial class PlayerView
 
         private CompositionContext CompositionContext => field ??= new(EditViewModel.CurrentTime.Value);
 
-        private BitmapView Image => View.image;
+        private Control Image => View.image;
 
         private KeyFrameState<Vector3>? FindKeyFramePairOrNull(IProperty<Vector3> property)
         {
