@@ -682,8 +682,7 @@ public sealed class FFmpegReader : MediaReader
 
         // HDR判定: PQ (HDR10) または HLG の場合はHDR
         var trc = _videoStream.Codecpar->color_trc;
-        _isHdr = trc is AVColorTransferCharacteristic.AVCOL_TRC_SMPTE2084
-            or AVColorTransferCharacteristic.AVCOL_TRC_ARIB_STD_B67;
+        _isHdr = ColorSpaceHelper.IsHdrTransfer(trc);
 
         AVPacketSideData* psd = ffmpeg.av_packet_side_data_get(
             _videoStream.Codecpar->coded_side_data,
@@ -696,8 +695,8 @@ public sealed class FFmpegReader : MediaReader
 
         if (_colorspace == null)
         {
-            var transferFn = GetTransferFunction(_videoStream.Codecpar->color_trc);
-            var gamut = GetBitmapColorSpaceXyz(_videoStream.Codecpar->color_primaries);
+            var transferFn = ColorSpaceHelper.GetTransferFunction(_videoStream.Codecpar->color_trc);
+            var gamut = ColorSpaceHelper.GetBitmapColorSpaceXyz(_videoStream.Codecpar->color_primaries);
 
             if (transferFn == BitmapColorSpaceTransferFn.Srgb && gamut == BitmapColorSpaceXyz.Srgb)
             {
@@ -737,59 +736,10 @@ public sealed class FFmpegReader : MediaReader
         }
     }
 
-    private static BitmapColorSpaceTransferFn GetTransferFunction(AVColorTransferCharacteristic trc)
-    {
-        return trc switch
-        {
-            AVColorTransferCharacteristic.AVCOL_TRC_LINEAR => BitmapColorSpaceTransferFn.Linear,
-            AVColorTransferCharacteristic.AVCOL_TRC_GAMMA22 => BitmapColorSpaceTransferFn.TwoDotTwo,
-            AVColorTransferCharacteristic.AVCOL_TRC_BT2020_10 or
-                AVColorTransferCharacteristic.AVCOL_TRC_BT2020_12 => BitmapColorSpaceTransferFn.Rec2020,
-            AVColorTransferCharacteristic.AVCOL_TRC_SMPTE2084 => BitmapColorSpaceTransferFn.Pq,
-            AVColorTransferCharacteristic.AVCOL_TRC_ARIB_STD_B67 => BitmapColorSpaceTransferFn.Hlg,
-            AVColorTransferCharacteristic.AVCOL_TRC_BT709 or
-                AVColorTransferCharacteristic.AVCOL_TRC_SMPTE170M or
-                AVColorTransferCharacteristic.AVCOL_TRC_IEC61966_2_4 or
-                AVColorTransferCharacteristic.AVCOL_TRC_BT1361_ECG => BitmapColorSpaceTransferFn.Bt709,
-            AVColorTransferCharacteristic.AVCOL_TRC_GAMMA28 => BitmapColorSpaceTransferFn.Gamma28,
-            AVColorTransferCharacteristic.AVCOL_TRC_SMPTE240M => BitmapColorSpaceTransferFn.Smpte240M,
-            AVColorTransferCharacteristic.AVCOL_TRC_SMPTE428 => BitmapColorSpaceTransferFn.Smpte428,
-            _ => BitmapColorSpaceTransferFn.Srgb
-        };
-    }
-
-    private static BitmapColorSpaceXyz GetBitmapColorSpaceXyz(AVColorPrimaries primaries)
-    {
-        return primaries switch
-        {
-            AVColorPrimaries.AVCOL_PRI_BT709 => BitmapColorSpaceXyz.Bt709,
-            AVColorPrimaries.AVCOL_PRI_BT470M => BitmapColorSpaceXyz.Bt470M,
-            AVColorPrimaries.AVCOL_PRI_BT470BG => BitmapColorSpaceXyz.Bt470BG,
-            AVColorPrimaries.AVCOL_PRI_SMPTE170M => BitmapColorSpaceXyz.Smpte170M,
-            AVColorPrimaries.AVCOL_PRI_SMPTE240M => BitmapColorSpaceXyz.Smpte240M,
-            AVColorPrimaries.AVCOL_PRI_FILM => BitmapColorSpaceXyz.Film,
-            AVColorPrimaries.AVCOL_PRI_BT2020 => BitmapColorSpaceXyz.Rec2020,
-            AVColorPrimaries.AVCOL_PRI_SMPTE428 => BitmapColorSpaceXyz.Xyz,
-            AVColorPrimaries.AVCOL_PRI_SMPTE431 => BitmapColorSpaceXyz.Smpte431,
-            AVColorPrimaries.AVCOL_PRI_SMPTE432 => BitmapColorSpaceXyz.Dcip3,
-            AVColorPrimaries.AVCOL_PRI_EBU3213 => BitmapColorSpaceXyz.Ebu3213,
-            _ => BitmapColorSpaceXyz.Srgb
-        };
-    }
-
     private BitmapColorSpace GetFrameColorSpace(MediaFrame frame)
     {
         if (_colorspace != null) return _colorspace;
 
-        var transferFn = GetTransferFunction(frame.ColorTrc);
-        var gamut = GetBitmapColorSpaceXyz(frame.ColorPrimaries);
-
-        if (transferFn == BitmapColorSpaceTransferFn.Srgb && gamut == BitmapColorSpaceXyz.Srgb)
-            return BitmapColorSpace.Srgb;
-
-        if (transferFn == BitmapColorSpaceTransferFn.Linear && gamut == BitmapColorSpaceXyz.Srgb)
-            return BitmapColorSpace.LinearSrgb;
-
-        return BitmapColorSpace.CreateRgb(transferFn, gamut);
+        return ColorSpaceHelper.BuildTargetColorSpace(frame.ColorTrc, frame.ColorPrimaries);
     }
 }

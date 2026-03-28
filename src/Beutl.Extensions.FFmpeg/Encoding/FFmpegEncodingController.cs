@@ -17,6 +17,9 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
     private readonly ILogger _logger = Log.CreateLogger<FFmpegEncodingController>();
     const int AV_CODEC_HW_CONFIG_METHOD_HW_DEVICE_CTX = 0x01;
 
+    private bool _isHdr;
+    private BitmapColorSpace? _targetColorSpace;
+
     private class EncodeState
     {
         public long NextPts { get; set; }
@@ -176,6 +179,11 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
             codecContext.GopSize = VideoSettings.KeyframeRate;
             codecContext.ThreadCount = Math.Min(Environment.ProcessorCount, 16);
 
+            codecContext.ColorPrimaries = VideoSettings.ColorPrimaries;
+            codecContext.ColorTrc = VideoSettings.ColorTrc;
+            codecContext.Colorspace = VideoSettings.ColorSpace;
+            codecContext.ColorRange = VideoSettings.ColorRange;
+
             var hwType = GetAVHWDeviceType();
             codecContext.InitHWDeviceContext(hwType);
 
@@ -186,12 +194,19 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
         }, options);
         stream = muxer.AddStream(encoder);
 
+        _isHdr = ColorSpaceHelper.IsHdrTransfer(VideoSettings.ColorTrc);
+        _targetColorSpace = _isHdr
+            ? ColorSpaceHelper.BuildTargetColorSpace(VideoSettings.ColorTrc, VideoSettings.ColorPrimaries)
+            : null;
+
         sws = new PixelConverter();
         sws.SetOpts(VideoSettings.DestinationSize.Width, VideoSettings.DestinationSize.Height, encoder.PixFmt);
 
         videoFrame.Width = VideoSettings.SourceSize.Width;
         videoFrame.Height = VideoSettings.SourceSize.Height;
-        videoFrame.Format = (int)AVPixelFormat.AV_PIX_FMT_BGRA;
+        videoFrame.Format = _isHdr
+            ? (int)AVPixelFormat.AV_PIX_FMT_RGBA64LE
+            : (int)AVPixelFormat.AV_PIX_FMT_BGRA;
         videoFrame.AllocateBuffer();
     }
 
@@ -282,17 +297,31 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
 
     private static async ValueTask<MediaFrame?> GetVideoFrame(
         MediaFrame srcFrame, PixelConverter sws, EncodeState state,
-        IFrameProvider frameProvider)
+        IFrameProvider frameProvider,
+        bool isHdr, BitmapColorSpace? targetColorSpace)
     {
         if (state.NextPts >= frameProvider.FrameCount)
             return null;
 
         using var bitmap = await frameProvider.RenderFrame(state.NextPts);
-        // RgbaF16/LinearSrgb → Bgra8888/Srgb に変換（エンコーダはBGRA/sRGB前提）
-        using var converted = bitmap.Convert(BitmapColorType.Bgra8888, BitmapAlphaType.Premul, BitmapColorSpace.Srgb);
-        unsafe
+
+        if (isHdr && targetColorSpace != null)
         {
-            Buffer.MemoryCopy((void*)converted.Data, (void*)srcFrame.Data[0], converted.ByteCount, converted.ByteCount);
+            // HDR: RgbaF16/LinearSrgb → Rgba16161616/ターゲット色空間（例: BT.2020/PQ）
+            using var converted = bitmap.Convert(BitmapColorType.Rgba16161616, BitmapAlphaType.Unpremul, targetColorSpace);
+            unsafe
+            {
+                Buffer.MemoryCopy((void*)converted.Data, (void*)srcFrame.Data[0], converted.ByteCount, converted.ByteCount);
+            }
+        }
+        else
+        {
+            // SDR: RgbaF16/LinearSrgb → Bgra8888/Srgb
+            using var converted = bitmap.Convert(BitmapColorType.Bgra8888, BitmapAlphaType.Premul, BitmapColorSpace.Srgb);
+            unsafe
+            {
+                Buffer.MemoryCopy((void*)converted.Data, (void*)srcFrame.Data[0], converted.ByteCount, converted.ByteCount);
+            }
         }
 
         var o = sws.ConvertFrame(srcFrame);
@@ -301,12 +330,13 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
         return o;
     }
 
-    private static async ValueTask<bool> WriteVideoFrame(
+    private async ValueTask<bool> WriteVideoFrame(
         MediaMuxer muxer, PixelConverter sws, MediaEncoder encoder,
         MediaStream stream, MediaFrame srcFrame,
         EncodeState state, IFrameProvider frameProvider)
     {
-        return WriteFrame(muxer, encoder, stream, await GetVideoFrame(srcFrame, sws, state, frameProvider));
+        return WriteFrame(muxer, encoder, stream,
+            await GetVideoFrame(srcFrame, sws, state, frameProvider, _isHdr, _targetColorSpace));
     }
 
     private static unsafe bool WriteFrame(MediaMuxer muxer, MediaEncoder encoder, MediaStream stream,
