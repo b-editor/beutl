@@ -95,7 +95,7 @@ internal sealed unsafe class VulkanPresentPipeline : IDisposable
                 return;
             }
 
-            vec4 c = texture(srcTexture, vec2(srcUV.x, pc.srcRect.z - srcUV.y));
+            vec4 c = texture(srcTexture, vec2(srcUV.x, pc.srcRect.w - srcUV.y));
             float alpha = c.a;
             if (alpha <= 0.0001) { outColor = vec4(0.0); return; }
 
@@ -168,6 +168,12 @@ internal sealed unsafe class VulkanPresentPipeline : IDisposable
 
             return descriptorSet;
         }
+    }
+
+    public void FreeDescriptorSet(DescriptorSet descriptorSet)
+    {
+        if (descriptorSet.Handle != 0)
+            _vk.FreeDescriptorSets(_device, _descriptorPool, 1, &descriptorSet);
     }
 
     public void UpdateDescriptorSet(DescriptorSet descriptorSet, ImageView textureView)

@@ -182,6 +182,12 @@ public class HdrBitmapView : NativeControlHost
         {
             _renderer?.Dispose();
             _renderer = null;
+
+            if (OperatingSystem.IsWindows())
+                DestroyWindow(handle.Handle);
+            else if (OperatingSystem.IsMacOS())
+                ReleaseMacOSView(handle.Handle);
+
             throw;
         }
 

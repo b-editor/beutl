@@ -61,6 +61,9 @@ internal sealed unsafe class VulkanSwapchainRenderer : IDisposable
     private DeviceMemory _stagingMemory;
     private ulong _stagingSize;
 
+    // Pre-allocated render command buffer (reused each frame)
+    private CommandBuffer _renderCommandBuffer;
+
     // Synchronization
     private VkSemaphore _imageAvailableSemaphore;
     private VkSemaphore _renderFinishedSemaphore;
@@ -96,6 +99,7 @@ internal sealed unsafe class VulkanSwapchainRenderer : IDisposable
         _surface = VulkanSurfaceHelper.CreateSurface(_vk, _instance, nativeHandle, handleDescriptor);
         _swapchain = new VulkanSwapchain(_vk, _instance, _physicalDevice, _device, _queueFamilyIndex, _surface, width, height);
         _pipeline = new VulkanPresentPipeline(_vk, _device, _swapchain.Format, _swapchain.ImageViews, _swapchain.Extent);
+        _renderCommandBuffer = AllocateCommandBuffer();
 
         StartPresentThread();
 
@@ -104,7 +108,7 @@ internal sealed unsafe class VulkanSwapchainRenderer : IDisposable
 
     public void Resize(uint width, uint height)
     {
-        if (_swapchain == null || _pipeline == null)
+        if (_swapchain == null || _pipeline == null || _disposed)
             return;
 
         if (width == 0 || height == 0)
@@ -116,7 +120,14 @@ internal sealed unsafe class VulkanSwapchainRenderer : IDisposable
 
     public void RequestRender(Ref<Bitmap> bitmapRef, RenderParams renderParams)
     {
-        _commandQueue.TryAdd(new RenderCommand.DrawCommand(bitmapRef, renderParams));
+        if (_disposed)
+        {
+            bitmapRef.Dispose();
+            return;
+        }
+
+        if (!_commandQueue.TryAdd(new RenderCommand.DrawCommand(bitmapRef, renderParams)))
+            bitmapRef.Dispose();
     }
 
     private void StartPresentThread()
@@ -167,6 +178,10 @@ internal sealed unsafe class VulkanSwapchainRenderer : IDisposable
                     s_logger.LogError(ex, "Error in presentation thread");
                 }
             }
+        }
+        catch (InvalidOperationException)
+        {
+            // BlockingCollection completed
         }
         catch (Exception ex)
         {
@@ -283,7 +298,8 @@ internal sealed unsafe class VulkanSwapchainRenderer : IDisposable
 
     private void RecordAndSubmit(uint imageIndex, RenderParams renderParams)
     {
-        var cmdBuf = AllocateCommandBuffer();
+        var cmdBuf = _renderCommandBuffer;
+        _vk.ResetCommandBuffer(cmdBuf, 0);
         BeginCommandBuffer(cmdBuf);
 
         var extent = _swapchain!.Extent;
@@ -523,9 +539,24 @@ internal sealed unsafe class VulkanSwapchainRenderer : IDisposable
         VkSemaphore imageAvailable, renderFinished;
         Fence fence;
 
-        _vk.CreateSemaphore(_device, &semaphoreInfo, null, &imageAvailable);
-        _vk.CreateSemaphore(_device, &semaphoreInfo, null, &renderFinished);
-        _vk.CreateFence(_device, &fenceInfo, null, &fence);
+        var result = _vk.CreateSemaphore(_device, &semaphoreInfo, null, &imageAvailable);
+        if (result != Result.Success)
+            throw new InvalidOperationException($"Failed to create imageAvailable semaphore: {result}");
+
+        result = _vk.CreateSemaphore(_device, &semaphoreInfo, null, &renderFinished);
+        if (result != Result.Success)
+        {
+            _vk.DestroySemaphore(_device, imageAvailable, null);
+            throw new InvalidOperationException($"Failed to create renderFinished semaphore: {result}");
+        }
+
+        result = _vk.CreateFence(_device, &fenceInfo, null, &fence);
+        if (result != Result.Success)
+        {
+            _vk.DestroySemaphore(_device, imageAvailable, null);
+            _vk.DestroySemaphore(_device, renderFinished, null);
+            throw new InvalidOperationException($"Failed to create fence: {result}");
+        }
 
         _imageAvailableSemaphore = imageAvailable;
         _renderFinishedSemaphore = renderFinished;
@@ -596,6 +627,12 @@ internal sealed unsafe class VulkanSwapchainRenderer : IDisposable
 
     private void DestroySourceImage()
     {
+        if (_descriptorSet.Handle != 0)
+        {
+            _pipeline?.FreeDescriptorSet(_descriptorSet);
+            _descriptorSet = default;
+        }
+
         if (_sourceImageView.Handle != 0)
         {
             _vk.DestroyImageView(_device, _sourceImageView, null);
@@ -825,7 +862,8 @@ internal sealed unsafe class VulkanSwapchainRenderer : IDisposable
 
         // Stop presentation thread
         _running = false;
-        _presentThread?.Join(1000);
+        _commandQueue.CompleteAdding();
+        _presentThread?.Join(2000);
 
         // Drain remaining commands
         while (_commandQueue.TryTake(out var cmd))
@@ -855,6 +893,12 @@ internal sealed unsafe class VulkanSwapchainRenderer : IDisposable
                 _vk.DestroySemaphore(_device, _renderFinishedSemaphore, null);
             if (_inFlightFence.Handle != 0)
                 _vk.DestroyFence(_device, _inFlightFence, null);
+            if (_renderCommandBuffer.Handle != 0)
+            {
+                var renderCmdBuf = _renderCommandBuffer;
+                _vk.FreeCommandBuffers(_device, _commandPool, 1, &renderCmdBuf);
+            }
+
             if (_commandPool.Handle != 0)
                 _vk.DestroyCommandPool(_device, _commandPool, null);
 
