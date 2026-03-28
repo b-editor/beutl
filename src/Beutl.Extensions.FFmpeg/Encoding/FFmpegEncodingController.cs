@@ -19,6 +19,9 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
 
     private bool _isHdr;
     private BitmapColorSpace? _targetColorSpace;
+    private MediaFilterGraph? _filterGraph;
+    private MediaFilterContext? _bufferSrcCtx;
+    private MediaFilterContext? _bufferSinkCtx;
 
     private class EncodeState
     {
@@ -47,6 +50,63 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
             FFmpegEncodingSettings.AccelerationOptions.Vulkan => AVHWDeviceType.AV_HWDEVICE_TYPE_VULKAN,
             _ => null
         };
+    }
+
+    private void InitEncodeFilterGraph(MediaEncoder encoder)
+    {
+        _filterGraph = new MediaFilterGraph();
+
+        var bufferSrc = new MediaFilter(MediaFilter.VideoSources.Buffer);
+        var bufferSink = new MediaFilter(MediaFilter.VideoSinks.Buffersink);
+
+        int width = VideoSettings.SourceSize.Width;
+        int height = VideoSettings.SourceSize.Height;
+        var srcPixFmt = _isHdr ? AVPixelFormat.AV_PIX_FMT_RGBA64LE : AVPixelFormat.AV_PIX_FMT_BGRA;
+        var fps = VideoSettings.FrameRate;
+        var timeBase = new AVRational { num = (int)fps.Denominator, den = (int)fps.Numerator };
+        var sar = new AVRational { num = 1, den = 1 };
+        var frameRate = new AVRational { num = (int)fps.Numerator, den = (int)fps.Denominator };
+
+        _bufferSrcCtx = _filterGraph.AddVideoSrcFilter(
+            bufferSrc, width, height, srcPixFmt, timeBase, sar, frameRate);
+        _bufferSinkCtx = _filterGraph.AddVideoSinkFilter(bufferSink, [encoder.PixFmt]);
+
+        if (_isHdr)
+        {
+            // HDR: 逆ゲイン(203/80) → PixFmt変換
+            // Reader は colorchannelmixer(gain=80/203) でPQ参照白をSDR白に正規化するため、
+            // エンコーダではその逆数(203/80≈2.5375)を適用する。
+            // colorchannelmixer は -2〜2 の範囲制限があるため lutrgb を使用する。
+            const float pqReferenceWhite = 203.0f;
+            const float sdrReferenceWhite = 80.0f;
+            float gain = pqReferenceWhite / sdrReferenceWhite;
+
+            var lutFilter = new MediaFilter("lutrgb");
+            var lutStr = FormattableString.Invariant($"r=val*{gain}:g=val*{gain}:b=val*{gain}");
+            var lutCtx = _filterGraph.AddFilter(lutFilter, lutStr);
+
+            var formatFilter = new MediaFilter("format");
+            var formatStr = $"pix_fmts={ffmpeg.av_get_pix_fmt_name(encoder.PixFmt)}";
+            var formatCtx = _filterGraph.AddFilter(formatFilter, formatStr);
+
+            // Chain: buffersrc(rgba64le) → lutrgb(gain=203/80) → format(target) → buffersink
+            _bufferSrcCtx.LinkTo(0, lutCtx);
+            lutCtx.LinkTo(0, formatCtx);
+            formatCtx.LinkTo(0, _bufferSinkCtx);
+        }
+        else
+        {
+            // SDR: PixFmt変換のみ
+            var formatFilter = new MediaFilter("format");
+            var formatStr = $"pix_fmts={ffmpeg.av_get_pix_fmt_name(encoder.PixFmt)}";
+            var formatCtx = _filterGraph.AddFilter(formatFilter, formatStr);
+
+            // Chain: buffersrc(bgra) → format(target) → buffersink
+            _bufferSrcCtx.LinkTo(0, formatCtx);
+            formatCtx.LinkTo(0, _bufferSinkCtx);
+        }
+
+        _filterGraph.Initialize();
     }
 
     private void ConfigureAudioStream(
@@ -140,7 +200,7 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
 
     private void ConfigureVideoStream(
         OutputFormat outFormat, MediaMuxer muxer,
-        MediaFrame videoFrame, out MediaEncoder encoder, out MediaStream stream, out PixelConverter sws)
+        MediaFrame videoFrame, out MediaEncoder encoder, out MediaStream stream)
     {
         var codec = VideoSettings.Codec.Equals(CodecRecord.Default)
             ? MediaCodec.FindEncoder(outFormat.VideoCodec)
@@ -199,8 +259,7 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
             ? ColorSpaceHelper.BuildTargetColorSpace(VideoSettings.ColorTrc, VideoSettings.ColorPrimaries)
             : null;
 
-        sws = new PixelConverter();
-        sws.SetOpts(VideoSettings.DestinationSize.Width, VideoSettings.DestinationSize.Height, encoder.PixFmt);
+        InitEncodeFilterGraph(encoder);
 
         videoFrame.Width = VideoSettings.SourceSize.Width;
         videoFrame.Height = VideoSettings.SourceSize.Height;
@@ -219,7 +278,6 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
         using (var videoFrame = new MediaFrame())
         using (var audioFrame = new MediaFrame())
         {
-            PixelConverter? sws = null;
             SampleConverter? swr = null;
             var outFormat = muxer.Format;
 
@@ -233,7 +291,7 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
 
             if (outFormat.VideoCodec != AVCodecID.AV_CODEC_ID_NONE)
             {
-                ConfigureVideoStream(outFormat, muxer, videoFrame, out var encoder, out var stream, out sws);
+                ConfigureVideoStream(outFormat, muxer, videoFrame, out var encoder, out var stream);
                 encoders.Add((encoder, stream));
                 encodeVideo = true;
             }
@@ -251,7 +309,7 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
                         audioState.NextPts, encoders[0].Item1.TimeBase) <= 0))
                 {
                     encodeVideo = await WriteVideoFrame(
-                        muxer, sws!, encoders[1].Item1, encoders[1].Item2, videoFrame, videoState, frameProvider);
+                        muxer, encoders[1].Item1, encoders[1].Item2, videoFrame, videoState, frameProvider);
                 }
                 else
                 {
@@ -263,6 +321,10 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
             muxer.FlushCodecs(encoders.Select(i => i.Item1));
             muxer.WriteTrailer();
             encoders.ForEach(t => t.Item1.Dispose());
+            _filterGraph?.Dispose();
+            _filterGraph = null;
+            _bufferSrcCtx = null;
+            _bufferSinkCtx = null;
         }
     }
 
@@ -295,20 +357,18 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
         return WriteFrame(muxer, encoder, stream, f);
     }
 
-    private static async ValueTask<MediaFrame?> GetVideoFrame(
-        MediaFrame srcFrame, PixelConverter sws, EncodeState state,
-        IFrameProvider frameProvider,
-        bool isHdr, BitmapColorSpace? targetColorSpace)
+    private async ValueTask<MediaFrame?> GetVideoFrame(
+        MediaFrame srcFrame, EncodeState state, IFrameProvider frameProvider)
     {
         if (state.NextPts >= frameProvider.FrameCount)
             return null;
 
         using var bitmap = await frameProvider.RenderFrame(state.NextPts);
 
-        if (isHdr && targetColorSpace != null)
+        if (_isHdr && _targetColorSpace != null)
         {
-            // HDR: RgbaF16/LinearSrgb → Rgba16161616/ターゲット色空間（例: BT.2020/PQ）
-            using var converted = bitmap.Convert(BitmapColorType.Rgba16161616, BitmapAlphaType.Unpremul, targetColorSpace);
+            // Skia: LinearSrgb → ターゲット色空間（例: BT.2020/PQ）
+            using var converted = bitmap.Convert(BitmapColorType.Rgba16161616, BitmapAlphaType.Unpremul, _targetColorSpace);
             unsafe
             {
                 Buffer.MemoryCopy((void*)converted.Data, (void*)srcFrame.Data[0], converted.ByteCount, converted.ByteCount);
@@ -316,7 +376,7 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
         }
         else
         {
-            // SDR: RgbaF16/LinearSrgb → Bgra8888/Srgb
+            // Skia: LinearSrgb → Bgra8888/Srgb
             using var converted = bitmap.Convert(BitmapColorType.Bgra8888, BitmapAlphaType.Premul, BitmapColorSpace.Srgb);
             unsafe
             {
@@ -324,19 +384,30 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
             }
         }
 
-        var o = sws.ConvertFrame(srcFrame);
-        o.Pts = state.NextPts;
+        // AVFilter: ゲイン補正(HDRのみ) + PixFmt変換
+        const int AV_BUFFERSRC_FLAG_KEEP_REF = 8;
+        _bufferSrcCtx!.WriteFrame(srcFrame, AV_BUFFERSRC_FLAG_KEEP_REF);
+
+        var filterOutput = new MediaFrame();
+        int ret = _bufferSinkCtx!.GetFrame(filterOutput);
+        if (ret < 0)
+        {
+            filterOutput.Dispose();
+            return null;
+        }
+
+        filterOutput.Pts = state.NextPts;
         state.NextPts += 1;
-        return o;
+        return filterOutput;
     }
 
     private async ValueTask<bool> WriteVideoFrame(
-        MediaMuxer muxer, PixelConverter sws, MediaEncoder encoder,
+        MediaMuxer muxer, MediaEncoder encoder,
         MediaStream stream, MediaFrame srcFrame,
         EncodeState state, IFrameProvider frameProvider)
     {
         return WriteFrame(muxer, encoder, stream,
-            await GetVideoFrame(srcFrame, sws, state, frameProvider, _isHdr, _targetColorSpace));
+            await GetVideoFrame(srcFrame, state, frameProvider));
     }
 
     private static unsafe bool WriteFrame(MediaMuxer muxer, MediaEncoder encoder, MediaStream stream,
