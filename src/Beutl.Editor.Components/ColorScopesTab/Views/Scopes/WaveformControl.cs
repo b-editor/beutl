@@ -1,4 +1,5 @@
 ﻿using Avalonia;
+using Avalonia.Layout;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using Beutl.Editor.Components.ColorScopesTab.ViewModels;
@@ -9,7 +10,7 @@ using PixelSize = Avalonia.PixelSize;
 
 namespace Beutl.Editor.Components.ColorScopesTab.Views.Scopes;
 
-public class WaveformControl : ScopeControlBase
+public class WaveformControl : HdrScopeControlBase
 {
     public static readonly DirectProperty<WaveformControl, WaveformMode> ModeProperty =
         AvaloniaProperty.RegisterDirect<WaveformControl, WaveformMode>(
@@ -27,17 +28,12 @@ public class WaveformControl : ScopeControlBase
         AvaloniaProperty.RegisterDirect<WaveformControl, bool>(
             nameof(ShowGrid), o => o.ShowGrid, (o, v) => o.ShowGrid = v, true);
 
-    public static readonly DirectProperty<WaveformControl, float> HdrRangeProperty =
-        AvaloniaProperty.RegisterDirect<WaveformControl, float>(
-            nameof(HdrRange), o => o.HdrRange, (o, v) => o.HdrRange = v, 1.0f);
-
     private WaveformMode _mode = WaveformMode.Luma;
     private float _thickness = 5f;
     private float _gain = 10.0f;
     private bool _showGrid = true;
-    private float _hdrRange = 1.0f;
 
-    private static readonly string[] s_verticalLabels = ["100", "75", "50", "25", "0"];
+    private static readonly string[] s_verticalLabelsSdr = ["1.0", "0.8", "0.5", "0.3", "0"];
     private static readonly (float R, float G, float B) s_colorLuma = (0.85f, 0.92f, 1.00f);
     private static readonly (float R, float G, float B) s_colorRed = (1.00f, 0.25f, 0.25f);
     private static readonly (float R, float G, float B) s_colorGreen = (0.25f, 1.00f, 0.35f);
@@ -46,10 +42,11 @@ public class WaveformControl : ScopeControlBase
 
     static WaveformControl()
     {
-        AffectsRender<WaveformControl>(ModeProperty, ThicknessProperty, GainProperty, ShowGridProperty, HdrRangeProperty);
+        AffectsRender<WaveformControl>(ModeProperty, ThicknessProperty, GainProperty, ShowGridProperty);
         ModeProperty.Changed.AddClassHandler<WaveformControl>((o, _) => o.Refresh());
-        HdrRangeProperty.Changed.AddClassHandler<WaveformControl>((o, _) => o.Refresh());
     }
+
+    protected override Orientation DragAxis => Orientation.Vertical;
 
     public WaveformMode Mode
     {
@@ -75,16 +72,10 @@ public class WaveformControl : ScopeControlBase
         set => SetAndRaise(ShowGridProperty, ref _showGrid, value);
     }
 
-    public float HdrRange
-    {
-        get => _hdrRange;
-        set => SetAndRaise(HdrRangeProperty, ref _hdrRange, Math.Max(value, 0.01f));
-    }
-
     protected override string[]? VerticalAxisLabels =>
-        _hdrRange > 1.01f
-            ? [FormatRange(_hdrRange), FormatRange(_hdrRange * 0.75f), FormatRange(_hdrRange * 0.5f), FormatRange(_hdrRange * 0.25f), "0"]
-            : s_verticalLabels;
+        HdrRange is > 0.99f and < 1.01f
+            ? s_verticalLabelsSdr
+            : [FormatRange(HdrRange), FormatRange(HdrRange * 0.75f), FormatRange(HdrRange * 0.5f), FormatRange(HdrRange * 0.25f), "0"];
 
     private static string FormatRange(float v) => v >= 10 ? $"{v:F0}" : $"{v:F1}";
 

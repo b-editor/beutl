@@ -1,4 +1,5 @@
 ﻿using Avalonia;
+using Avalonia.Layout;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using Beutl.Editor.Components.ColorScopesTab.ViewModels;
@@ -12,30 +13,26 @@ namespace Beutl.Editor.Components.ColorScopesTab.Views.Scopes;
 /// <summary>
 /// Control that displays a histogram visualization of RGB color distribution.
 /// </summary>
-public class HistogramControl : ScopeControlBase
+public class HistogramControl : HdrScopeControlBase
 {
     public static readonly DirectProperty<HistogramControl, HistogramMode> ModeProperty =
         AvaloniaProperty.RegisterDirect<HistogramControl, HistogramMode>(
             nameof(Mode), o => o.Mode, (o, v) => o.Mode = v, HistogramMode.Overlay);
 
-    public static readonly DirectProperty<HistogramControl, float> HdrRangeProperty =
-        AvaloniaProperty.RegisterDirect<HistogramControl, float>(
-            nameof(HdrRange), o => o.HdrRange, (o, v) => o.HdrRange = v, 1.0f);
-
     private HistogramMode _mode = HistogramMode.Overlay;
-    private float _hdrRange = 1.0f;
 
-    private static readonly string[] s_horizontalLabels = ["0", "64", "128", "192", "255"];
+    private static readonly string[] s_horizontalLabelsSdr = ["0", "0.3", "0.5", "0.8", "1.0"];
     private static readonly (float R, float G, float B) s_colorRed = (1.00f, 0.25f, 0.25f);
     private static readonly (float R, float G, float B) s_colorGreen = (0.25f, 1.00f, 0.35f);
     private static readonly (float R, float G, float B) s_colorBlue = (0.35f, 0.60f, 1.00f);
 
     static HistogramControl()
     {
-        AffectsRender<HistogramControl>(ModeProperty, HdrRangeProperty);
+        AffectsRender<HistogramControl>(ModeProperty);
         ModeProperty.Changed.AddClassHandler<HistogramControl>((o, _) => o.Refresh());
-        HdrRangeProperty.Changed.AddClassHandler<HistogramControl>((o, _) => o.Refresh());
     }
+
+    protected override Orientation DragAxis => Orientation.Horizontal;
 
     public HistogramMode Mode
     {
@@ -43,18 +40,12 @@ public class HistogramControl : ScopeControlBase
         set => SetAndRaise(ModeProperty, ref _mode, value);
     }
 
-    public float HdrRange
-    {
-        get => _hdrRange;
-        set => SetAndRaise(HdrRangeProperty, ref _hdrRange, Math.Max(value, 0.01f));
-    }
-
     protected override string[]? VerticalAxisLabels => null;
 
     protected override string[]? HorizontalAxisLabels =>
-        _hdrRange > 1.01f
-            ? ["0", $"{_hdrRange * 0.25f:F1}", $"{_hdrRange * 0.5f:F1}", $"{_hdrRange * 0.75f:F1}", $"{_hdrRange:F1}"]
-            : s_horizontalLabels;
+        HdrRange is > 0.99f and < 1.01f
+            ? s_horizontalLabelsSdr
+            : ["0", $"{HdrRange * 0.25f:F1}", $"{HdrRange * 0.5f:F1}", $"{HdrRange * 0.75f:F1}", $"{HdrRange:F1}"];
 
     protected override unsafe WriteableBitmap RenderScope(
         BtlBitmap sourceBitmap,
