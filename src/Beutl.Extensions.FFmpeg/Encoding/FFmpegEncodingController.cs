@@ -71,40 +71,12 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
             bufferSrc, width, height, srcPixFmt, timeBase, sar, frameRate);
         _bufferSinkCtx = _filterGraph.AddVideoSinkFilter(bufferSink, [encoder.PixFmt]);
 
-        if (_isHdr)
-        {
-            // HDR: 逆ゲイン(203/80) → PixFmt変換
-            // Reader は colorchannelmixer(gain=80/203) でPQ参照白をSDR白に正規化するため、
-            // エンコーダではその逆数(203/80≈2.5375)を適用する。
-            // colorchannelmixer は -2〜2 の範囲制限があるため lutrgb を使用する。
-            const float pqReferenceWhite = 203.0f;
-            const float sdrReferenceWhite = 80.0f;
-            float gain = pqReferenceWhite / sdrReferenceWhite;
+        var formatFilter = new MediaFilter("format");
+        var formatStr = $"pix_fmts={ffmpeg.av_get_pix_fmt_name(encoder.PixFmt)}";
+        var formatCtx = _filterGraph.AddFilter(formatFilter, formatStr);
 
-            var lutFilter = new MediaFilter("lutrgb");
-            var lutStr = FormattableString.Invariant($"r=val*{gain}:g=val*{gain}:b=val*{gain}");
-            var lutCtx = _filterGraph.AddFilter(lutFilter, lutStr);
-
-            var formatFilter = new MediaFilter("format");
-            var formatStr = $"pix_fmts={ffmpeg.av_get_pix_fmt_name(encoder.PixFmt)}";
-            var formatCtx = _filterGraph.AddFilter(formatFilter, formatStr);
-
-            // Chain: buffersrc(rgba64le) → lutrgb(gain=203/80) → format(target) → buffersink
-            _bufferSrcCtx.LinkTo(0, lutCtx);
-            lutCtx.LinkTo(0, formatCtx);
-            formatCtx.LinkTo(0, _bufferSinkCtx);
-        }
-        else
-        {
-            // SDR: PixFmt変換のみ
-            var formatFilter = new MediaFilter("format");
-            var formatStr = $"pix_fmts={ffmpeg.av_get_pix_fmt_name(encoder.PixFmt)}";
-            var formatCtx = _filterGraph.AddFilter(formatFilter, formatStr);
-
-            // Chain: buffersrc(bgra) → format(target) → buffersink
-            _bufferSrcCtx.LinkTo(0, formatCtx);
-            formatCtx.LinkTo(0, _bufferSinkCtx);
-        }
+        _bufferSrcCtx.LinkTo(0, formatCtx);
+        formatCtx.LinkTo(0, _bufferSinkCtx);
 
         _filterGraph.Initialize();
     }
@@ -198,7 +170,7 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
         audioFrame.AllocateBuffer();
     }
 
-    private void ConfigureVideoStream(
+    private unsafe void ConfigureVideoStream(
         OutputFormat outFormat, MediaMuxer muxer,
         MediaFrame videoFrame, out MediaEncoder encoder, out MediaStream stream)
     {
@@ -254,9 +226,16 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
         }, options);
         stream = muxer.AddStream(encoder);
 
+        // Apple QuickTime requires 'hvc1' sample entry type for HEVC playback
+        if (stream.Codecpar->codec_id == AVCodecID.AV_CODEC_ID_HEVC)
+        {
+            // MKTAG('h','v','c','1')
+            stream.Codecpar->codec_tag = 0x31637668;
+        }
+
         _isHdr = ColorSpaceHelper.IsHdrTransfer(VideoSettings.ColorTrc);
         _targetColorSpace = _isHdr
-            ? ColorSpaceHelper.BuildTargetColorSpace(VideoSettings.ColorTrc, VideoSettings.ColorPrimaries)
+            ? ColorSpaceHelper.BuildEncodeColorSpace(VideoSettings.ColorTrc, VideoSettings.ColorPrimaries)
             : null;
 
         InitEncodeFilterGraph(encoder);
@@ -266,6 +245,10 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
         videoFrame.Format = _isHdr
             ? (int)AVPixelFormat.AV_PIX_FMT_RGBA64LE
             : (int)AVPixelFormat.AV_PIX_FMT_BGRA;
+        videoFrame.ColorPrimaries = VideoSettings.ColorPrimaries;
+        videoFrame.ColorTrc = VideoSettings.ColorTrc;
+        videoFrame.Colorspace = VideoSettings.ColorSpace;
+        videoFrame.ColorRange = VideoSettings.ColorRange;
         videoFrame.AllocateBuffer();
     }
 

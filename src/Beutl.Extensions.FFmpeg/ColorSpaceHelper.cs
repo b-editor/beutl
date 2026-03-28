@@ -30,6 +30,63 @@ internal static class ColorSpaceHelper
         return BitmapColorSpace.CreateRgb(transferFn, gamut);
     }
 
+    /// <summary>
+    /// エンコード用の色空間を構築する。
+    /// HDR (PQ/HLG) の場合、内部リニア空間の1.0がリファレンス白（203 nit）に
+    /// マッピングされるよう、ガマット行列に輝度スケーリングを組み込む。
+    /// </summary>
+    public static BitmapColorSpace BuildEncodeColorSpace(
+        AVColorTransferCharacteristic trc, AVColorPrimaries primaries)
+    {
+        var transferFn = GetTransferFunction(trc);
+        var gamut = GetBitmapColorSpaceXyz(primaries);
+
+        float scale = GetEncodeLuminanceScale(trc);
+        if (scale != 1.0f)
+        {
+            gamut = gamut.Scale(scale);
+        }
+
+        return BitmapColorSpace.CreateRgb(transferFn, gamut);
+    }
+
+    private static float GetEncodeLuminanceScale(AVColorTransferCharacteristic trc)
+    {
+        return trc switch
+        {
+            AVColorTransferCharacteristic.AVCOL_TRC_SMPTE2084 => GetPqLuminanceScale(),
+            AVColorTransferCharacteristic.AVCOL_TRC_ARIB_STD_B67 => GetHlgLuminanceScale(),
+            _ => 1.0f
+        };
+    }
+
+    private static float GetPqLuminanceScale()
+    {
+        // PQ: 内部リニア1.0 = リファレンス白 (203 nit)
+        // PQピーク = 10000 nit
+        // ガマット行列をスケーリングして、逆行列が内部1.0をPQリニア 203/10000 にマッピングするようにする
+        const float referenceWhiteNits = 203f;
+        const float pqPeakNits = 10000f;
+        return pqPeakNits / referenceWhiteNits;
+    }
+
+    private static float GetHlgLuminanceScale()
+    {
+        // HLG: 内部リニア1.0 = リファレンス白
+        // BT.2100でのHLGリファレンス白はコードレベル ~0.75
+        // SkiaのHLG EOTF（OOTF含む）でリファレンスコードの表示リニア値を取得し、
+        // スケールファクターを計算する
+        const float hlgReferenceCode = 0.75f;
+        float eotfValue = BitmapColorSpaceTransferFn.Hlg.Transform(hlgReferenceCode);
+        if (eotfValue <= 0 || !float.IsFinite(eotfValue))
+        {
+            // フォールバック: OOTF γ=3 での近似値
+            return 18.0f;
+        }
+
+        return 1f / eotfValue;
+    }
+
     public static BitmapColorSpaceTransferFn GetTransferFunction(AVColorTransferCharacteristic trc)
     {
         return trc switch
