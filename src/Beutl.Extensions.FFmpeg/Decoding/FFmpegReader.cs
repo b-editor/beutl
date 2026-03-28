@@ -8,7 +8,6 @@ using Beutl.Media.Music.Samples;
 using FFmpeg.AutoGen.Abstractions;
 using FFmpegSharp;
 using Microsoft.Extensions.Logging;
-using SkiaSharp;
 
 #if FFMPEG_BUILD_IN
 namespace Beutl.Embedding.FFmpeg.Decoding;
@@ -41,7 +40,6 @@ public sealed class FFmpegReader : MediaReader
     private MediaFrame? _currentVideoFrame;
     private MediaFrame? _currentAudioFrame;
     private MediaPacket? _packet;
-    private PixelConverter? _pixelConverter;
     private SampleConverter? _sampleConverter;
     private long _audioNowTimestamp;
     private long _audioNextTimestamp;
@@ -54,6 +52,13 @@ public sealed class FFmpegReader : MediaReader
     private bool _isHWDecoding;
     private bool _isHdr;
     private BitmapColorSpace? _colorspace;
+    private MediaFilterGraph? _filterGraph;
+    private MediaFilterContext? _bufferSrcCtx;
+    private MediaFilterContext? _bufferSinkCtx;
+    private MediaFrame? _filterFrame;
+    private int _filterWidth;
+    private int _filterHeight;
+    private AVPixelFormat _filterSrcPixFmt = AVPixelFormat.AV_PIX_FMT_NONE;
 
     public FFmpegReader(string file, MediaOptions options, FFmpegDecodingSettings settings)
     {
@@ -271,68 +276,122 @@ public sealed class FFmpegReader : MediaReader
         int width = videoFrame.Width;
         int height = videoFrame.Height;
 
-        // PixelConverterを初期化（遅延初期化）
-        _pixelConverter ??= new PixelConverter();
+        // AVFilterグラフを初期化（入力パラメータ変更時のみ再構築）
+        InitFilterGraph(videoFrame);
 
-        // HDR時はRGBA64LE (16bit/ch)、SDR時はBGRA (8bit/ch)
-        var dstPixFmt = _isHdr ? AVPixelFormat.AV_PIX_FMT_RGBA64LE : AVPixelFormat.AV_PIX_FMT_BGRA;
-        _pixelConverter.SetOpts(width, height, dstPixFmt);
+        // フレームをフィルタグラフに送信
+        const int AV_BUFFERSRC_FLAG_KEEP_REF = 8;
+        _bufferSrcCtx!.WriteFrame(videoFrame, AV_BUFFERSRC_FLAG_KEEP_REF);
 
-        // 変換
-        using var dstFrame = _pixelConverter.ConvertFrame(videoFrame, (int)_settings.Scaling);
+        // フィルタグラフから変換済みフレームを取得
+        _filterFrame ??= new MediaFrame();
+        int ret = _bufferSinkCtx!.GetFrame(_filterFrame);
+        if (ret < 0)
+        {
+            _filterFrame.Unref();
+            image = null;
+            return false;
+        }
 
         // フレームの色空間を取得
-        var colorSpace = !_settings.ForceSrgbGamma ? GetFrameColorSpace(dstFrame) : BitmapColorSpace.Srgb;
+        var colorSpace = !_settings.ForceSrgbGamma ? GetFrameColorSpace(_filterFrame) : BitmapColorSpace.Srgb;
 
         // ビットマップにコピー
         var colorType = _isHdr ? BitmapColorType.Rgba16161616 : BitmapColorType.Bgra8888;
         int bytesPerPixel = _isHdr ? 8 : 4;
         var bmp = new Bitmap(width, height, colorType, BitmapAlphaType.Unpremul, colorSpace);
-        int byteCount = width * height * bytesPerPixel;
-        Buffer.MemoryCopy(dstFrame.Data[0], (void*)bmp.Data, byteCount, byteCount);
-        // ConvertLuminance(ref bmp);
+
+        try
+        {
+            int byteCount = width * height * bytesPerPixel;
+            Buffer.MemoryCopy(_filterFrame.Data[0], (void*)bmp.Data, byteCount, byteCount);
+        }
+        catch
+        {
+            bmp.Dispose();
+            throw;
+        }
+        finally
+        {
+            _filterFrame.Unref();
+        }
+
         image = bmp;
         return true;
     }
 
-    // DEBUG用
-    private void ConvertLuminance(ref Bitmap bitmap)
+    private void InitFilterGraph(MediaFrame videoFrame)
     {
-        var transferFn = bitmap.ColorSpace.GetNumericalTransferFunction();
+        int width = videoFrame.Width;
+        int height = videoFrame.Height;
+        var srcPixFmt = (AVPixelFormat)videoFrame.Format;
 
-        if (transferFn == BitmapColorSpaceTransferFn.Pq || transferFn == BitmapColorSpaceTransferFn.Hlg)
+        // 入力パラメータが変わっていなければ再構築不要
+        if (_filterGraph != null && _filterWidth == width && _filterHeight == height && _filterSrcPixFmt == srcPixFmt)
+            return;
+
+        _filterGraph?.Dispose();
+
+        _filterGraph = new MediaFilterGraph();
+
+        var bufferSrc = new MediaFilter(MediaFilter.VideoSources.Buffer);
+        var bufferSink = new MediaFilter(MediaFilter.VideoSinks.Buffersink);
+
+        var timeBase = _videoStream!.TimeBase;
+        var aspect = videoFrame.SampleAspectRatio;
+        var frameRate = _videoStream.AvgFrameRate;
+
+        _bufferSrcCtx = _filterGraph.AddVideoSrcFilter(bufferSrc, width, height, srcPixFmt, timeBase, aspect, frameRate);
+
+        var dstPixFmt = _isHdr ? AVPixelFormat.AV_PIX_FMT_RGBA64LE : AVPixelFormat.AV_PIX_FMT_BGRA;
+        _bufferSinkCtx = _filterGraph.AddVideoSinkFilter(bufferSink, [dstPixFmt]);
+
+        if (_isHdr)
         {
+            // HDR (PQ/HLG): RGBA64LEに変換後、参照白色点に基づく輝度調整
             const float pqReferenceWhite = 203.0f;
             const float sdrReferenceWhite = 80.0f;
             float gain = sdrReferenceWhite / pqReferenceWhite;
 
-            var srcBitmap = bitmap;
-            var dstBitmap = new Bitmap(bitmap.Width, bitmap.Height, bitmap.ColorType, bitmap.AlphaType,
-                bitmap.ColorSpace);
-            using (var filter = SKColorFilter.CreateColorMatrix(
-                   [
-                       gain, 0, 0, 0, 0,
-                       0, gain, 0, 0, 0,
-                       0, 0, gain, 0, 0,
-                       0, 0, 0, 1, 0,
-                   ]))
-            using (var paint = new SKPaint { ColorFilter = filter, BlendMode = SKBlendMode.Src })
-            using (var canvas = new SKCanvas(dstBitmap.SKBitmap))
-            {
-                canvas.DrawBitmap(srcBitmap.SKBitmap, 0, 0, paint);
-            }
+            var formatFilter = new MediaFilter("format");
+            var formatCtx = _filterGraph.AddFilter(formatFilter, "pix_fmts=rgba64le");
 
-            bitmap = dstBitmap;
-            srcBitmap.Dispose();
+            var mixerFilter = new MediaFilter("colorchannelmixer");
+            var gainStr = FormattableString.Invariant($"rr={gain}:gg={gain}:bb={gain}");
+            var mixerCtx = _filterGraph.AddFilter(mixerFilter, gainStr);
+
+            _bufferSrcCtx.LinkTo(0, formatCtx);
+            formatCtx.LinkTo(0, mixerCtx);
+            mixerCtx.LinkTo(0, _bufferSinkCtx);
         }
+        else
+        {
+            // SDR: BGRAに変換
+            var formatFilter = new MediaFilter("format");
+            var formatCtx = _filterGraph.AddFilter(formatFilter, "pix_fmts=bgra");
+
+            _bufferSrcCtx.LinkTo(0, formatCtx);
+            formatCtx.LinkTo(0, _bufferSinkCtx);
+        }
+
+        _filterGraph.Initialize();
+
+        _filterWidth = width;
+        _filterHeight = height;
+        _filterSrcPixFmt = srcPixFmt;
     }
 
     protected override void Dispose(bool disposing)
     {
         if (disposing)
         {
-            _pixelConverter?.Dispose();
-            _pixelConverter = null;
+            _filterFrame?.Dispose();
+            _filterFrame = null;
+
+            _filterGraph?.Dispose();
+            _filterGraph = null;
+            _bufferSrcCtx = null;
+            _bufferSinkCtx = null;
 
             _sampleConverter?.Dispose();
             _sampleConverter = null;
