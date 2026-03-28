@@ -1,4 +1,4 @@
-using Beutl.Logging;
+﻿using Beutl.Logging;
 using Microsoft.Extensions.Logging;
 using Silk.NET.Vulkan;
 using Silk.NET.Vulkan.Extensions.KHR;

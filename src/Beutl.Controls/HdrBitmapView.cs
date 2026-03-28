@@ -1,4 +1,4 @@
-#nullable enable
+﻿#nullable enable
 
 using System.Runtime.InteropServices;
 using Avalonia;

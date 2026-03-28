@@ -1,4 +1,4 @@
-using System.Runtime.InteropServices;
+﻿using System.Runtime.InteropServices;
 using Beutl.Logging;
 using Microsoft.Extensions.Logging;
 using Silk.NET.Vulkan;
@@ -351,9 +351,12 @@ internal sealed unsafe class VulkanPresentPipeline : IDisposable
 
             var viewport = new Viewport
             {
-                X = 0, Y = 0,
-                Width = extent.Width, Height = extent.Height,
-                MinDepth = 0, MaxDepth = 1
+                X = 0,
+                Y = 0,
+                Width = extent.Width,
+                Height = extent.Height,
+                MinDepth = 0,
+                MaxDepth = 1
             };
 
             var scissor = new Rect2D
