@@ -1,5 +1,6 @@
 ﻿namespace Beutl.Graphics;
 
+[Obsolete("バイトベースのLUTはHDR値を破壊します。SkSLシェーダーベースの実装を使用してください。")]
 public static partial class LookupTable
 {
     internal static readonly byte[] s_linear;

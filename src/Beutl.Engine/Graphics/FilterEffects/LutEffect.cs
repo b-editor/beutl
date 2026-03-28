@@ -15,6 +15,7 @@ public sealed partial class LutEffect : FilterEffect
         BeutlApplication.Current.LoggerFactory.CreateLogger<LutEffect>();
 
     private static readonly SKSLShader? s_shader;
+    private static readonly SKSLShader? s_1dShader;
 
     static LutEffect()
     {
@@ -134,6 +135,65 @@ public sealed partial class LutEffect : FilterEffect
         {
             s_logger.LogError("Failed to compile SKSL: {ErrorText}", errorText);
         }
+
+        // 1D LUT SkSLシェーダー（バイトテーブルの代替）
+        string sksl1d =
+            """
+            uniform shader src;
+            uniform shader lut;
+            uniform int lutSize;
+            uniform float strength;
+
+            float3 linearToSrgb(float3 c) {
+                float3 lo = c * 12.92;
+                float3 hi = 1.055 * pow(max(c, float3(0.0)), float3(1.0/2.4)) - 0.055;
+                return mix(lo, hi, step(float3(0.0031308), c));
+            }
+
+            float3 srgbToLinear(float3 c) {
+                float3 lo = c / 12.92;
+                float3 hi = pow((c + 0.055) / 1.055, float3(2.4));
+                return mix(lo, hi, step(float3(0.04045), c));
+            }
+
+            half4 main(float2 fragCoord) {
+                float4 c = float4(src.eval(fragCoord));
+
+                float alpha = c.a;
+                if (alpha <= 0.0001) return half4(0.0);
+                float3 rgb = c.rgb / alpha;
+
+                float3 srgbColor = linearToSrgb(rgb);
+
+                float maxIdx = float(lutSize - 1);
+                float rIdx = clamp(srgbColor.r, 0.0, 1.0) * maxIdx;
+                float gIdx = clamp(srgbColor.g, 0.0, 1.0) * maxIdx;
+                float bIdx = clamp(srgbColor.b, 0.0, 1.0) * maxIdx;
+
+                float rResult = mix(
+                    lut.eval(float2(floor(rIdx), 0.0)).r,
+                    lut.eval(float2(min(floor(rIdx) + 1.0, maxIdx), 0.0)).r,
+                    fract(rIdx));
+                float gResult = mix(
+                    lut.eval(float2(floor(gIdx), 0.0)).g,
+                    lut.eval(float2(min(floor(gIdx) + 1.0, maxIdx), 0.0)).g,
+                    fract(gIdx));
+                float bResult = mix(
+                    lut.eval(float2(floor(bIdx), 0.0)).b,
+                    lut.eval(float2(min(floor(bIdx) + 1.0, maxIdx), 0.0)).b,
+                    fract(bIdx));
+
+                float3 lutResult = srgbToLinear(float3(rResult, gResult, bResult));
+                float3 result = mix(rgb, lutResult, strength);
+
+                return half4(half3(result * alpha), half(alpha));
+            }
+            """;
+
+        if (!SKSLShader.TryCreate(sksl1d, out s_1dShader, out string? error1d))
+        {
+            s_logger.LogError("Failed to compile 1D LUT SKSL: {ErrorText}", error1d);
+        }
     }
 
     public LutEffect()
@@ -158,51 +218,47 @@ public sealed partial class LutEffect : FilterEffect
 
             if (cube.Dimention == CubeFileDimension.OneDimension)
             {
-                // 1D LUTパスはSKColorFilter.CreateTable（バイトテーブル）を使用。
-
-                context.LookupTable(
-                    cube,
-                    strength,
-                    static (cube, data) =>
-                    {
-                        LookupTable.Linear(data.A);
-
-                        // sRGB空間のLUTテーブルを一時配列に取得
-                        byte[] srgbR = new byte[256];
-                        byte[] srgbG = new byte[256];
-                        byte[] srgbB = new byte[256];
-                        cube.ToLUT(1, srgbR, srgbG, srgbB);
-
-                        // リニアバイト入力 → sRGBガンマ変換 → LUT適用 → リニア変換
-                        for (int i = 0; i < 256; i++)
-                        {
-                            float linear = i / 255f;
-                            // リニア → sRGBガンマ
-                            float srgb = linear <= 0.0031308f
-                                ? linear * 12.92f
-                                : 1.055f * MathF.Pow(linear, 1f / 2.4f) - 0.055f;
-                            int srgbIdx = Math.Clamp((int)(srgb * 255f + 0.5f), 0, 255);
-
-                            // sRGB空間でLUTルックアップし、結果をリニアに変換
-                            data.R[i] = SrgbByteToLinearByte(srgbR[srgbIdx]);
-                            data.G[i] = SrgbByteToLinearByte(srgbG[srgbIdx]);
-                            data.B[i] = SrgbByteToLinearByte(srgbB[srgbIdx]);
-                        }
-
-                        static byte SrgbByteToLinearByte(byte srgbByte)
-                        {
-                            float s = srgbByte / 255f;
-                            float linear = s <= 0.04045f
-                                ? s / 12.92f
-                                : MathF.Pow((s + 0.055f) / 1.055f, 2.4f);
-                            return (byte)Math.Clamp((int)(linear * 255f + 0.5f), 0, 255);
-                        }
-                    });
+                context.CustomEffect((cube, strength), OnApply1DLUT_GPU, static (_, r) => r);
             }
             else
             {
                 context.CustomEffect((cube, strength), OnApply3DLUT_GPU, static (_, r) => r);
             }
+        }
+    }
+
+    private void OnApply1DLUT_GPU((CubeFile cube, float strength) data, CustomFilterEffectContext c)
+    {
+        if (s_1dShader is null) return;
+
+        for (int i = 0; i < c.Targets.Count; i++)
+        {
+            using var effectTarget = c.Targets[i];
+            var renderTarget = effectTarget.RenderTarget!;
+
+            using var image = renderTarget.Value.Snapshot();
+            using var baseShader = image.ToShader();
+
+            var builder = s_1dShader.CreateBuilder();
+
+            using var lutImage = SKImage.Create(new SKImageInfo(data.cube.Data.Length, 1, SKColorType.RgbaF32));
+            using (var pixmap = lutImage.PeekPixels())
+            {
+                var span = pixmap.GetPixelSpan<Vector4>();
+                for (int j = 0; j < data.cube.Data.Length; j++)
+                {
+                    var color = data.cube.Data[j];
+                    span[j] = new Vector4(color, 1);
+                }
+            }
+            using var lutShader = lutImage.ToShader();
+
+            builder.Children["src"] = baseShader;
+            builder.Children["lut"] = lutShader;
+            builder.Uniforms["lutSize"] = data.cube.Size;
+            builder.Uniforms["strength"] = data.strength;
+
+            c.Targets[i] = s_1dShader.ApplyToNewTarget(c, builder, effectTarget.Bounds);
         }
     }
 
