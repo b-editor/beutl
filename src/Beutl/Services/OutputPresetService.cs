@@ -276,6 +276,9 @@ public sealed class OutputPresetService
             new AdditionalOption("preset", "medium"),
             new AdditionalOption("crf", "20"),
             new AdditionalOption("profile", "main10"),
+            new AdditionalOption("x265-params",
+                "colorprim=bt2020:transfer=smpte2084:colormatrix=bt2020nc:range=limited"
+                + ":master-display=G(13250,34500)B(7500,3000)R(34000,16000)WP(15635,16450)L(10000000,1):max-cll=1000,400:repeat-headers=1"),
         ]);
         aud.Bitrate = 192000;
         aud.Codec = AudioCodecChoicesProvider.GetChoices()
@@ -312,6 +315,10 @@ public sealed class OutputPresetService
             new AdditionalOption("preset", "medium"),
             new AdditionalOption("crf", "20"),
             new AdditionalOption("profile", "main10"),
+            new AdditionalOption("x265-params",
+                "repeat-headers=1"),
+            // new AdditionalOption("x265-params",
+            //     "colorprim=bt2020:transfer=arib-std-b67:colormatrix=bt2020nc:range=limited:repeat-headers=1"),
         ]);
         aud.Bitrate = 192000;
         aud.Codec = AudioCodecChoicesProvider.GetChoices()
