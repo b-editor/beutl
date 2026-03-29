@@ -31,11 +31,11 @@ internal static class ColorSpaceHelper
     }
 
     /// <summary>
-    /// エンコード用の色空間を構築する。
+    /// HDR用の色空間を構築する（エンコード/デコード共通）。
     /// HDR (PQ/HLG) の場合、内部リニア空間の1.0がリファレンス白（203 nit）に
     /// マッピングされるよう、ガマット行列に輝度スケーリングを組み込む。
     /// </summary>
-    public static BitmapColorSpace BuildEncodeColorSpace(
+    public static BitmapColorSpace BuildHdrColorSpace(
         AVColorTransferCharacteristic trc, AVColorPrimaries primaries)
     {
         var transferFn = GetTransferFunction(trc);

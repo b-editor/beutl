@@ -294,7 +294,7 @@ public sealed class FFmpegReader : MediaReader
         }
 
         // フレームの色空間を取得
-        var colorSpace = !_settings.ForceSrgbGamma ? GetFrameColorSpace(_filterFrame) : BitmapColorSpace.Srgb;
+        var colorSpace = (!_settings.ForceSrgbGamma || _isHdr) ? GetFrameColorSpace(_filterFrame) : BitmapColorSpace.Srgb;
 
         // ビットマップにコピー
         var colorType = _isHdr ? BitmapColorType.Rgba16161616 : BitmapColorType.Bgra8888;
@@ -348,21 +348,13 @@ public sealed class FFmpegReader : MediaReader
 
         if (_isHdr)
         {
-            // HDR (PQ/HLG): RGBA64LEに変換後、参照白色点に基づく輝度調整
-            const float pqReferenceWhite = 203.0f;
-            const float sdrReferenceWhite = 80.0f;
-            float gain = sdrReferenceWhite / pqReferenceWhite;
-
+            // HDR (PQ/HLG): RGBA64LEに変換のみ。
+            // 輝度マッピングはSkiaの色空間変換で行う（BuildHdrColorSpaceでガマット行列にスケーリングを組み込み済み）
             var formatFilter = new MediaFilter("format");
             var formatCtx = _filterGraph.AddFilter(formatFilter, "pix_fmts=rgba64le");
 
-            var mixerFilter = new MediaFilter("colorchannelmixer");
-            var gainStr = FormattableString.Invariant($"rr={gain}:gg={gain}:bb={gain}");
-            var mixerCtx = _filterGraph.AddFilter(mixerFilter, gainStr);
-
             _bufferSrcCtx.LinkTo(0, formatCtx);
-            formatCtx.LinkTo(0, mixerCtx);
-            mixerCtx.LinkTo(0, _bufferSinkCtx);
+            formatCtx.LinkTo(0, _bufferSinkCtx);
         }
         else
         {
@@ -695,20 +687,29 @@ public sealed class FFmpegReader : MediaReader
 
         if (_colorspace == null)
         {
-            var transferFn = ColorSpaceHelper.GetTransferFunction(_videoStream.Codecpar->color_trc);
-            var gamut = ColorSpaceHelper.GetBitmapColorSpaceXyz(_videoStream.Codecpar->color_primaries);
-
-            if (transferFn == BitmapColorSpaceTransferFn.Srgb && gamut == BitmapColorSpaceXyz.Srgb)
+            if (_isHdr)
             {
-                _colorspace = BitmapColorSpace.Srgb;
-            }
-            else if (transferFn == BitmapColorSpaceTransferFn.Linear && gamut == BitmapColorSpaceXyz.Srgb)
-            {
-                _colorspace = BitmapColorSpace.LinearSrgb;
+                // HDR: 輝度スケーリング付き色空間（エンコードと対称）
+                _colorspace = ColorSpaceHelper.BuildHdrColorSpace(
+                    _videoStream.Codecpar->color_trc, _videoStream.Codecpar->color_primaries);
             }
             else
             {
-                _colorspace = BitmapColorSpace.CreateRgb(transferFn, gamut);
+                var transferFn = ColorSpaceHelper.GetTransferFunction(_videoStream.Codecpar->color_trc);
+                var gamut = ColorSpaceHelper.GetBitmapColorSpaceXyz(_videoStream.Codecpar->color_primaries);
+
+                if (transferFn == BitmapColorSpaceTransferFn.Srgb && gamut == BitmapColorSpaceXyz.Srgb)
+                {
+                    _colorspace = BitmapColorSpace.Srgb;
+                }
+                else if (transferFn == BitmapColorSpaceTransferFn.Linear && gamut == BitmapColorSpaceXyz.Srgb)
+                {
+                    _colorspace = BitmapColorSpace.LinearSrgb;
+                }
+                else
+                {
+                    _colorspace = BitmapColorSpace.CreateRgb(transferFn, gamut);
+                }
             }
         }
 
@@ -732,7 +733,14 @@ public sealed class FFmpegReader : MediaReader
 
         if (_settings.ForceSrgbGamma && _colorspace != BitmapColorSpace.Srgb)
         {
-            _logger.LogWarning("ForceSrgbGamma is enabled, but the detected color space is not sRGB. Forcing sRGB gamma may lead to incorrect colors.");
+            if (_isHdr)
+            {
+                _logger.LogInformation("ForceSrgbGamma is enabled, but HDR content detected. HDR color space will be used instead of sRGB.");
+            }
+            else
+            {
+                _logger.LogWarning("ForceSrgbGamma is enabled, but the detected color space is not sRGB. Forcing sRGB gamma may lead to incorrect colors.");
+            }
         }
     }
 
@@ -740,6 +748,7 @@ public sealed class FFmpegReader : MediaReader
     {
         if (_colorspace != null) return _colorspace;
 
+        if (_isHdr) return ColorSpaceHelper.BuildHdrColorSpace(frame.ColorTrc, frame.ColorPrimaries);
         return ColorSpaceHelper.BuildTargetColorSpace(frame.ColorTrc, frame.ColorPrimaries);
     }
 }

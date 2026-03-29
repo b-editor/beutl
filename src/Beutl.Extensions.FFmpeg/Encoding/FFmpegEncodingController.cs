@@ -235,7 +235,7 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
 
         _isHdr = ColorSpaceHelper.IsHdrTransfer(VideoSettings.ColorTrc);
         _targetColorSpace = _isHdr
-            ? ColorSpaceHelper.BuildEncodeColorSpace(VideoSettings.ColorTrc, VideoSettings.ColorPrimaries)
+            ? ColorSpaceHelper.BuildHdrColorSpace(VideoSettings.ColorTrc, VideoSettings.ColorPrimaries)
             : null;
 
         InitEncodeFilterGraph(encoder);
