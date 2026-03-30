@@ -1,4 +1,4 @@
-using Avalonia;
+﻿using Avalonia;
 using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
