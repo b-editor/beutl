@@ -201,8 +201,10 @@ internal sealed unsafe class VulkanSwapchainRenderer : IDisposable
         s_logger.LogDebug("Swapchain resized to {Width}x{Height}", width, height);
     }
 
-    private void ExecuteRender(Ref<Bitmap> bitmapRef, RenderParams renderParams)
+    private void ExecuteRender(Ref<Bitmap> bitmapRef, RenderParams renderParams, int retryCount = 0)
     {
+        if (retryCount > 10) return;
+
         if (_swapchain == null || _pipeline == null)
             return;
 
@@ -233,6 +235,7 @@ internal sealed unsafe class VulkanSwapchainRenderer : IDisposable
         if (presentResult is Result.ErrorOutOfDateKhr or Result.SuboptimalKhr)
         {
             ExecuteResize(_swapchain.Extent.Width, _swapchain.Extent.Height);
+            ExecuteRender(bitmapRef, renderParams, ++retryCount); // Retry render after resize
         }
     }
 
