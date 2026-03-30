@@ -3,6 +3,7 @@
 using System.Runtime.InteropServices;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.LogicalTree;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
@@ -31,7 +32,8 @@ public class HdrBitmapView : NativeControlHost
             nameof(InterpolationMode), BitmapInterpolationMode.HighQuality);
 
     public static readonly StyledProperty<UIToneMappingOperator> ToneMappingProperty =
-        AvaloniaProperty.Register<HdrBitmapView, UIToneMappingOperator>(nameof(ToneMapping), UIToneMappingOperator.None);
+        AvaloniaProperty.Register<HdrBitmapView, UIToneMappingOperator>(nameof(ToneMapping),
+            UIToneMappingOperator.None);
 
     public static readonly StyledProperty<float> ToneMappingExposureProperty =
         AvaloniaProperty.Register<HdrBitmapView, float>(nameof(ToneMappingExposure), 0f);
@@ -83,6 +85,37 @@ public class HdrBitmapView : NativeControlHost
     {
         get => _isHdrActive;
         private set => SetAndRaise(IsHdrActiveProperty, ref _isHdrActive, value);
+    }
+
+    protected override void OnAttachedToLogicalTree(LogicalTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToLogicalTree(e);
+        if (e.Root is TopLevel topLevel)
+        {
+            topLevel.ScalingChanged += OnTopLevelScalingChanged;
+        }
+    }
+
+    protected override void OnDetachedFromLogicalTree(LogicalTreeAttachmentEventArgs e)
+    {
+        base.OnDetachedFromLogicalTree(e);
+        if (e.Root is TopLevel topLevel)
+        {
+            topLevel.ScalingChanged -= OnTopLevelScalingChanged;
+        }
+    }
+
+    private void OnTopLevelScalingChanged(object? sender, EventArgs e)
+    {
+        if (_renderer != null && Bounds.Width > 0 && Bounds.Height > 0)
+        {
+            var scaling = VisualRoot?.RenderScaling ?? 1.0;
+            _renderer.Resize(
+                (uint)(Bounds.Width * scaling),
+                (uint)(Bounds.Height * scaling));
+
+            RequestRender();
+        }
     }
 
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
@@ -258,8 +291,8 @@ public class HdrBitmapView : NativeControlHost
     {
         var hwnd = CreateWindowExW(
             0x00000000, // dwExStyle
-            "Static",   // lpClassName
-            "",         // lpWindowName
+            "Static", // lpClassName
+            "", // lpWindowName
             0x40000000 | 0x10000000, // WS_CHILD | WS_VISIBLE
             0, 0, 1, 1,
             parent.Handle,
