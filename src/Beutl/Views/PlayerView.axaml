@@ -124,19 +124,13 @@
             <Panel Name="framePanel"
                    Margin="0"
                    Background="Transparent">
-                <Border Width="{Binding #image.Bounds.Width}"
-                        Height="{Binding #image.Bounds.Height}"
+                <Border Name="imageBackground"
                         Background="Black"
                         ClipToBounds="True" />
 
-                <controls:HdrBitmapView Name="image"
-                                        InterpolationMode="HighQuality"
-                                        Source="{Binding PreviewImage.Value, Mode=OneWay}"
-                                        ToneMapping="{Binding ToneMappingMode.Value, Mode=OneWay}"
-                                        ToneMappingExposure="{Binding ToneMappingExposure.Value, Mode=OneWay}" />
+                <!-- BitmapView or HdrBitmapView is created dynamically in code-behind -->
 
-                <pathEditor:PathEditorView Width="{Binding #image.Bounds.Width}"
-                                           Height="{Binding #image.Bounds.Height}"
+                <pathEditor:PathEditorView Name="pathEditorView"
                                            DataContext="{Binding PathEditor}" />
             </Panel>
         </Player.Content>

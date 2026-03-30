@@ -118,6 +118,12 @@ public sealed class EditorSettingsPageViewModel : IDisposable
         ToneMappingExposure.Subscribe(b => _editorConfig.ToneMappingExposure = (float)b)
             .DisposeWith(_disposables);
 
+        UseHdrPreview = _editorConfig.GetObservable(EditorConfig.UseHdrPreviewProperty)
+            .ToReactiveProperty()
+            .DisposeWith(_disposables);
+        UseHdrPreview.Subscribe(b => _editorConfig.UseHdrPreview = b)
+            .DisposeWith(_disposables);
+
         // GPU selection
         InitializeGpuSelection();
     }
@@ -184,6 +190,8 @@ public sealed class EditorSettingsPageViewModel : IDisposable
     public ReactiveProperty<int> ToneMappingMode { get; }
 
     public ReactiveProperty<double> ToneMappingExposure { get; }
+
+    public ReactiveProperty<bool> UseHdrPreview { get; }
 
     public IReadOnlyList<GpuItem> AvailableGpus { get; private set; } = [];
 

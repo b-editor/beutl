@@ -383,4 +383,12 @@
     <value>トーンマッピングの露出レベルを調整します</value>
     <comment/>
   </data>
+  <data name="UseHdrPreview" xml:space="preserve">
+    <value>HDRプレビュー</value>
+    <comment/>
+  </data>
+  <data name="UseHdrPreview_Description" xml:space="preserve">
+    <value>プレビュープレーヤーにHDRレンダリングを使用します（マウス操作などが制限されます）</value>
+    <comment/>
+  </data>
 </root>

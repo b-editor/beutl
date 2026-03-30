@@ -387,4 +387,12 @@
     <value>Adjust the exposure level for tone mapping</value>
     <comment/>
   </data>
+  <data name="UseHdrPreview" xml:space="preserve">
+    <value>HDR Preview</value>
+    <comment/>
+  </data>
+  <data name="UseHdrPreview_Description" xml:space="preserve">
+    <value>Use HDR rendering for the preview player (mouse operations, etc., will be restricted)</value>
+    <comment/>
+  </data>
 </root>

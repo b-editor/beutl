@@ -66,6 +66,7 @@ public sealed partial class EditorConfig : ConfigurationBase
     public static readonly CoreProperty<TimelineAutoScrollMode> TimelineAutoScrollModeProperty;
     public static readonly CoreProperty<UIToneMappingOperator> ToneMappingModeProperty;
     public static readonly CoreProperty<float> ToneMappingExposureProperty;
+    public static readonly CoreProperty<bool> UseHdrPreviewProperty;
 
     static EditorConfig()
     {
@@ -136,6 +137,9 @@ public sealed partial class EditorConfig : ConfigurationBase
             .DefaultValue(0f)
             .Register();
 
+        UseHdrPreviewProperty = ConfigureProperty<bool, EditorConfig>(nameof(UseHdrPreview))
+            .DefaultValue(false)
+            .Register();
     }
 
     public EditorConfig()
@@ -231,6 +235,12 @@ public sealed partial class EditorConfig : ConfigurationBase
     {
         get => GetValue(ToneMappingExposureProperty);
         set => SetValue(ToneMappingExposureProperty, value);
+    }
+
+    public bool UseHdrPreview
+    {
+        get => GetValue(UseHdrPreviewProperty);
+        set => SetValue(UseHdrPreviewProperty, value);
     }
 
     public CoreDictionary<string, LibraryTabDisplayMode> LibraryTabDisplayModes { get; } = new()
