@@ -337,7 +337,14 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
         ISampleProvider sampleProvider)
     {
         var f = await GetAudioFrame(src, swr, state, sampleProvider);
-        return WriteFrame(muxer, encoder, stream, f);
+        try
+        {
+            return WriteFrame(muxer, encoder, stream, f);
+        }
+        finally
+        {
+            f?.Dispose();
+        }
     }
 
     private async ValueTask<MediaFrame?> GetVideoFrame(
@@ -389,8 +396,15 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
         MediaStream stream, MediaFrame srcFrame,
         EncodeState state, IFrameProvider frameProvider)
     {
-        return WriteFrame(muxer, encoder, stream,
-            await GetVideoFrame(srcFrame, state, frameProvider));
+        var f = await GetVideoFrame(srcFrame, state, frameProvider);
+        try
+        {
+            return WriteFrame(muxer, encoder, stream, f);
+        }
+        finally
+        {
+            f?.Dispose();
+        }
     }
 
     private static unsafe bool WriteFrame(MediaMuxer muxer, MediaEncoder encoder, MediaStream stream,
