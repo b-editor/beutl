@@ -78,7 +78,7 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
             {
                 sampleRate = supportedSampleRates.FirstOrDefault(44100);
             }
-            else if (supportedSampleRates.All(i => i != sampleRate)) // supportedSampleRatesが空のときはこの条件は常にfalseになる
+            else if (supportedSampleRates.Length > 0 && supportedSampleRates.All(i => i != sampleRate))
             {
                 throw new InvalidOperationException(
                     $"Invalid sample rate.\nSupported sample rates: {string.Join(", ", supportedSampleRates)}");
@@ -88,7 +88,7 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
             {
                 format = supportedFmts.FirstOrDefault(AVSampleFormat.AV_SAMPLE_FMT_S16);
             }
-            else if (supportedFmts.All(i => i != format))
+            else if (supportedFmts.Length > 0 && supportedFmts.All(i => i != format))
             {
                 throw new InvalidOperationException(
                     $"Invalid sample format.\nSupported sample formats: {string.Join(", ", supportedFmts.Cast<FFmpegAudioEncoderSettings.AudioFormat>())}");
