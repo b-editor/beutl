@@ -9,8 +9,8 @@ public static class YuvConversion
     public static unsafe void BgraToI420(byte* src, byte* dst, int width, int height)
     {
         int yPlaneSize = width * height;
-        int uvWidth = width / 2;
-        int uvHeight = height / 2;
+        int uvWidth = (width + 1) / 2;
+        int uvHeight = (height + 1) / 2;
         int uPlaneOffset = yPlaneSize;
         int vPlaneOffset = yPlaneSize + uvWidth * uvHeight;
 
@@ -35,16 +35,18 @@ public static class YuvConversion
         Parallel.For(0, uvHeight, uvY =>
         {
             int srcY = uvY * 2;
+            int srcY1 = Math.Min(srcY + 1, height - 1);
             byte* srcRow0 = (byte*)srcAddr + srcY * width * 4;
-            byte* srcRow1 = (byte*)srcAddr + (srcY + 1) * width * 4;
+            byte* srcRow1 = (byte*)srcAddr + srcY1 * width * 4;
             byte* uRow = (byte*)dstAddr + uPlaneOffset + uvY * uvWidth;
             byte* vRow = (byte*)dstAddr + vPlaneOffset + uvY * uvWidth;
 
             for (int uvX = 0; uvX < uvWidth; uvX++)
             {
                 int srcX = uvX * 2;
+                int srcX1 = Math.Min(srcX + 1, width - 1);
                 int off00 = srcX * 4;
-                int off10 = (srcX + 1) * 4;
+                int off10 = srcX1 * 4;
 
                 int b = srcRow0[off00] + srcRow0[off10] + srcRow1[off00] + srcRow1[off10];
                 int g = srcRow0[off00 + 1] + srcRow0[off10 + 1] + srcRow1[off00 + 1] + srcRow1[off10 + 1];
@@ -64,9 +66,9 @@ public static class YuvConversion
     public static unsafe void I420ToBgra(byte* src, byte* dst, int width, int height)
     {
         int yPlaneSize = width * height;
-        int uvWidth = width / 2;
+        int uvWidth = (width + 1) / 2;
         int uPlaneOffset = yPlaneSize;
-        int vPlaneOffset = yPlaneSize + uvWidth * (height / 2);
+        int vPlaneOffset = yPlaneSize + uvWidth * ((height + 1) / 2);
 
         nint srcAddr = (nint)src;
         nint dstAddr = (nint)dst;
@@ -127,6 +129,22 @@ public static class YuvConversion
                 dstRow[i * 8 + 6] = Clamp((298 * c1 + 409 * e + 128) >> 8);         // R
                 dstRow[i * 8 + 7] = 255;                                             // A
             }
+
+            // Handle last pixel for odd width
+            if (width % 2 != 0)
+            {
+                int off = pairs * 4;
+                int y0 = srcRow[off];
+                int u = srcRow[off + 1];
+
+                int c0 = y0 - 16;
+                int d = u - 128;
+                int dstOff = pairs * 8;
+                dstRow[dstOff] = Clamp((298 * c0 + 516 * d + 128) >> 8);             // B
+                dstRow[dstOff + 1] = Clamp((298 * c0 - 100 * d + 128) >> 8);         // G
+                dstRow[dstOff + 2] = Clamp((298 * c0 + 128) >> 8);                   // R
+                dstRow[dstOff + 3] = 255;                                             // A
+            }
         });
     }
 
@@ -138,6 +156,6 @@ public static class YuvConversion
 
     public static int GetI420BufferSize(int width, int height)
     {
-        return width * height + (width / 2) * (height / 2) * 2;
+        return width * height + ((width + 1) / 2) * ((height + 1) / 2) * 2;
     }
 }
