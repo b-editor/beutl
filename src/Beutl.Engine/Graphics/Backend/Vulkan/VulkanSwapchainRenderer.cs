@@ -61,8 +61,9 @@ internal sealed unsafe class VulkanSwapchainRenderer : IDisposable
     private DeviceMemory _stagingMemory;
     private ulong _stagingSize;
 
-    // Pre-allocated render command buffer (reused each frame)
+    // Pre-allocated command buffers (reused each frame)
     private CommandBuffer _renderCommandBuffer;
+    private CommandBuffer _uploadCommandBuffer;
 
     // Synchronization
     private VkSemaphore _imageAvailableSemaphore;
@@ -100,6 +101,7 @@ internal sealed unsafe class VulkanSwapchainRenderer : IDisposable
         _swapchain = new VulkanSwapchain(_vk, _instance, _physicalDevice, _device, _queueFamilyIndex, _surfaceInfo.Surface, width, height);
         _pipeline = new VulkanPresentPipeline(_vk, _device, _swapchain.Format, _swapchain.ImageViews, _swapchain.Extent);
         _renderCommandBuffer = AllocateCommandBuffer();
+        _uploadCommandBuffer = AllocateCommandBuffer();
 
         StartPresentThread();
 
@@ -267,7 +269,8 @@ internal sealed unsafe class VulkanSwapchainRenderer : IDisposable
         _vk.UnmapMemory(_device, _stagingMemory);
 
         // Copy staging buffer to image
-        var cmdBuf = AllocateCommandBuffer();
+        var cmdBuf = _uploadCommandBuffer;
+        _vk.ResetCommandBuffer(cmdBuf, 0);
         BeginCommandBuffer(cmdBuf);
 
         // Transition to transfer dst
@@ -773,8 +776,6 @@ internal sealed unsafe class VulkanSwapchainRenderer : IDisposable
         _vk.ResetFences(_device, 1, &fence);
         _vk.QueueSubmit(_graphicsQueue, 1, &submitInfo, _inFlightFence);
         _vk.WaitForFences(_device, 1, &fence, Vk.True, ulong.MaxValue);
-
-        _vk.FreeCommandBuffers(_device, _commandPool, 1, &cmdBuf);
     }
 
     private void TransitionImageLayout(CommandBuffer cmdBuf, Image image, ImageLayout oldLayout, ImageLayout newLayout)
@@ -897,10 +898,15 @@ internal sealed unsafe class VulkanSwapchainRenderer : IDisposable
                 _vk.DestroySemaphore(_device, _renderFinishedSemaphore, null);
             if (_inFlightFence.Handle != 0)
                 _vk.DestroyFence(_device, _inFlightFence, null);
-            if (_renderCommandBuffer.Handle != 0)
+            if (_renderCommandBuffer.Handle != 0 || _uploadCommandBuffer.Handle != 0)
             {
-                var renderCmdBuf = _renderCommandBuffer;
-                _vk.FreeCommandBuffers(_device, _commandPool, 1, &renderCmdBuf);
+                var cmdBufs = stackalloc CommandBuffer[2];
+                int count = 0;
+                if (_renderCommandBuffer.Handle != 0)
+                    cmdBufs[count++] = _renderCommandBuffer;
+                if (_uploadCommandBuffer.Handle != 0)
+                    cmdBufs[count++] = _uploadCommandBuffer;
+                _vk.FreeCommandBuffers(_device, _commandPool, (uint)count, cmdBufs);
             }
 
             if (_commandPool.Handle != 0)
