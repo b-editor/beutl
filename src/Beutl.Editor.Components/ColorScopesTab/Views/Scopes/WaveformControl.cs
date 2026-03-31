@@ -1,4 +1,5 @@
 ﻿using Avalonia;
+using Avalonia.Layout;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using Beutl.Editor.Components.ColorScopesTab.ViewModels;
@@ -9,7 +10,7 @@ using PixelSize = Avalonia.PixelSize;
 
 namespace Beutl.Editor.Components.ColorScopesTab.Views.Scopes;
 
-public class WaveformControl : ScopeControlBase
+public class WaveformControl : HdrScopeControlBase
 {
     public static readonly DirectProperty<WaveformControl, WaveformMode> ModeProperty =
         AvaloniaProperty.RegisterDirect<WaveformControl, WaveformMode>(
@@ -32,7 +33,7 @@ public class WaveformControl : ScopeControlBase
     private float _gain = 10.0f;
     private bool _showGrid = true;
 
-    private static readonly string[] s_verticalLabels = ["100", "75", "50", "25", "0"];
+    private static readonly string[] s_verticalLabelsSdr = ["1.0", "0.8", "0.5", "0.3", "0"];
     private static readonly (float R, float G, float B) s_colorLuma = (0.85f, 0.92f, 1.00f);
     private static readonly (float R, float G, float B) s_colorRed = (1.00f, 0.25f, 0.25f);
     private static readonly (float R, float G, float B) s_colorGreen = (0.25f, 1.00f, 0.35f);
@@ -44,6 +45,8 @@ public class WaveformControl : ScopeControlBase
         AffectsRender<WaveformControl>(ModeProperty, ThicknessProperty, GainProperty, ShowGridProperty);
         ModeProperty.Changed.AddClassHandler<WaveformControl>((o, _) => o.Refresh());
     }
+
+    protected override Orientation DragAxis => Orientation.Vertical;
 
     public WaveformMode Mode
     {
@@ -69,7 +72,12 @@ public class WaveformControl : ScopeControlBase
         set => SetAndRaise(ShowGridProperty, ref _showGrid, value);
     }
 
-    protected override string[]? VerticalAxisLabels => s_verticalLabels;
+    protected override string[]? VerticalAxisLabels =>
+        HdrRange is > 0.99f and < 1.01f
+            ? s_verticalLabelsSdr
+            : [FormatRange(HdrRange), FormatRange(HdrRange * 0.75f), FormatRange(HdrRange * 0.5f), FormatRange(HdrRange * 0.25f), "0"];
+
+    private static string FormatRange(float v) => v >= 10 ? $"{v:F0}" : $"{v:F1}";
 
     protected override string[]? HorizontalAxisLabels => null;
 
@@ -99,7 +107,8 @@ public class WaveformControl : ScopeControlBase
         float thickness = Thickness;
         float gain = Gain;
         bool showGrid = ShowGrid;
-        float[]? gridStrength = showGrid ? CreateGridStrength(targetHeight) : null;
+        float hdrRange = HdrRange;
+        float[]? gridStrength = showGrid ? CreateGridStrength(targetHeight, hdrRange) : null;
         int sampleCount = (int)Math.Clamp(sourceBitmap.Height * 0.25f, 32f, 1024f);
         float invSamplesGain = gain / Math.Max(sampleCount, 1);
 
@@ -176,13 +185,13 @@ public class WaveformControl : ScopeControlBase
 
                     if (mode == WaveformMode.Luma)
                     {
-                        AddContribution(yBuffer, y, targetHeight, thickness);
+                        AddContribution(yBuffer, y, targetHeight, thickness, hdrRange);
                     }
                     else if (mode == WaveformMode.RgbOverlay)
                     {
-                        AddContribution(rBuffer, r, targetHeight, thickness);
-                        AddContribution(gBuffer, g, targetHeight, thickness);
-                        AddContribution(bBuffer, b, targetHeight, thickness);
+                        AddContribution(rBuffer, r, targetHeight, thickness, hdrRange);
+                        AddContribution(gBuffer, g, targetHeight, thickness, hdrRange);
+                        AddContribution(bBuffer, b, targetHeight, thickness, hdrRange);
                     }
                     else
                     {
@@ -190,15 +199,15 @@ public class WaveformControl : ScopeControlBase
 
                         if (paradeBand < 0.5f)
                         {
-                            AddContribution(rBuffer, channel, targetHeight, thickness);
+                            AddContribution(rBuffer, channel, targetHeight, thickness, hdrRange);
                         }
                         else if (paradeBand < 1.5f)
                         {
-                            AddContribution(gBuffer, channel, targetHeight, thickness);
+                            AddContribution(gBuffer, channel, targetHeight, thickness, hdrRange);
                         }
                         else
                         {
-                            AddContribution(bBuffer, channel, targetHeight, thickness);
+                            AddContribution(bBuffer, channel, targetHeight, thickness, hdrRange);
                         }
                     }
                 }
@@ -270,10 +279,10 @@ public class WaveformControl : ScopeControlBase
         return result;
     }
 
-    private static void AddContribution(Span<float> buffer, float value, int height, float thickness)
+    private static void AddContribution(Span<float> buffer, float value, int height, float thickness, float hdrRange = 1f)
     {
-        float clamped = Math.Clamp(value, 0f, 1f);
-        float yPos = 1f - clamped;
+        float normalized = Math.Clamp(value / hdrRange, 0f, 1f);
+        float yPos = 1f - normalized;
         float center = yPos * height;
         float radius = MathF.Max(thickness * 3f, 1f);
         int start = Math.Max(0, (int)MathF.Floor(center - radius));
@@ -293,7 +302,7 @@ public class WaveformControl : ScopeControlBase
         }
     }
 
-    private static float[] CreateGridStrength(int height)
+    private static float[] CreateGridStrength(int height, float hdrRange = 1f)
     {
         var grid = new float[height];
 
@@ -301,11 +310,20 @@ public class WaveformControl : ScopeControlBase
         {
             float v = (y + 0.5f) / height;
             float g = 0f;
+            // 0%, 25%, 50%, 75%, 100% of hdrRange
             g += 0.35f * GridLine(v, 1f - 0f, 0.75f, height);
             g += 0.25f * GridLine(v, 1f - 0.25f, 0.75f, height);
             g += 0.30f * GridLine(v, 1f - 0.50f, 0.75f, height);
             g += 0.25f * GridLine(v, 1f - 0.75f, 0.75f, height);
             g += 0.35f * GridLine(v, 1f - 1f, 0.75f, height);
+
+            // HDRモード時: SDR参照ライン（value=1.0）を表示
+            if (hdrRange > 1.01f)
+            {
+                float sdrLine = 1f - (1f / hdrRange);
+                g += 0.50f * GridLine(v, sdrLine, 0.75f, height);
+            }
+
             grid[y] = g * 0.12f;
         }
 

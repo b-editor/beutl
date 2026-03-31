@@ -1,14 +1,14 @@
 <UserControl x:Class="Beutl.Views.PlayerView"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="using:Beutl.Controls"
              xmlns:converters="clr-namespace:Beutl.Converters;assembly=Beutl"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:icons="using:FluentIcons.FluentAvalonia"
              xmlns:lang="using:Beutl.Language"
              xmlns:local="using:Beutl.Views"
-             xmlns:pathEditor="using:Beutl.Editor.Components.PathEditorTab.Views"
-             xmlns:controls="using:Beutl.Controls"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:pathEditor="using:Beutl.Editor.Components.PathEditorTab.Views"
              xmlns:vm="using:Beutl.ViewModels"
              d:DesignHeight="450"
              d:DesignWidth="800"
@@ -124,17 +124,13 @@
             <Panel Name="framePanel"
                    Margin="0"
                    Background="Transparent">
-                <Border Width="{Binding #image.Bounds.Width}"
-                        Height="{Binding #image.Bounds.Height}"
+                <Border Name="imageBackground"
                         Background="Black"
                         ClipToBounds="True" />
 
-                <controls:BitmapView Name="image"
-                                     InterpolationMode="HighQuality"
-                                     Source="{Binding PreviewImage.Value, Mode=OneWay}" />
+                <!-- BitmapView or HdrBitmapView is created dynamically in code-behind -->
 
-                <pathEditor:PathEditorView Width="{Binding #image.Bounds.Width}"
-                                           Height="{Binding #image.Bounds.Height}"
+                <pathEditor:PathEditorView Name="pathEditorView"
                                            DataContext="{Binding PathEditor}" />
             </Panel>
         </Player.Content>

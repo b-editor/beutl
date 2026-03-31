@@ -351,4 +351,48 @@
   <data name="Font" xml:space="preserve">
     <value>Font</value>
   </data>
+  <data name="ToneMapping" xml:space="preserve">
+    <value>Tone Mapping</value>
+    <comment/>
+  </data>
+  <data name="ToneMappingMode" xml:space="preserve">
+    <value>Tone mapping</value>
+    <comment/>
+  </data>
+  <data name="ToneMappingMode_Description" xml:space="preserve">
+    <value>Select the tone mapping operator for the preview</value>
+    <comment/>
+  </data>
+  <data name="ToneMappingMode_None" xml:space="preserve">
+    <value>None</value>
+    <comment/>
+  </data>
+  <data name="ToneMappingMode_Reinhard" xml:space="preserve">
+    <value>Reinhard</value>
+    <comment/>
+  </data>
+  <data name="ToneMappingMode_ACES" xml:space="preserve">
+    <value>ACES</value>
+    <comment/>
+  </data>
+  <data name="ToneMappingMode_Hable" xml:space="preserve">
+    <value>Hable</value>
+    <comment/>
+  </data>
+  <data name="ToneMappingExposure" xml:space="preserve">
+    <value>Exposure</value>
+    <comment/>
+  </data>
+  <data name="ToneMappingExposure_Description" xml:space="preserve">
+    <value>Adjust the exposure level for tone mapping</value>
+    <comment/>
+  </data>
+  <data name="UseHdrPreview" xml:space="preserve">
+    <value>HDR Preview</value>
+    <comment/>
+  </data>
+  <data name="UseHdrPreview_Description" xml:space="preserve">
+    <value>Use HDR rendering for the preview player (mouse operations, etc., will be restricted)</value>
+    <comment/>
+  </data>
 </root>

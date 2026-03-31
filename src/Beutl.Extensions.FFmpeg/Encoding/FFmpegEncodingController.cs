@@ -17,6 +17,12 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
     private readonly ILogger _logger = Log.CreateLogger<FFmpegEncodingController>();
     const int AV_CODEC_HW_CONFIG_METHOD_HW_DEVICE_CTX = 0x01;
 
+    private bool _isHdr;
+    private BitmapColorSpace? _targetColorSpace;
+    private MediaFilterGraph? _filterGraph;
+    private MediaFilterContext? _bufferSrcCtx;
+    private MediaFilterContext? _bufferSinkCtx;
+
     private class EncodeState
     {
         public long NextPts { get; set; }
@@ -44,6 +50,35 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
             FFmpegEncodingSettings.AccelerationOptions.Vulkan => AVHWDeviceType.AV_HWDEVICE_TYPE_VULKAN,
             _ => null
         };
+    }
+
+    private void InitEncodeFilterGraph(MediaEncoder encoder)
+    {
+        _filterGraph = new MediaFilterGraph();
+
+        var bufferSrc = new MediaFilter(MediaFilter.VideoSources.Buffer);
+        var bufferSink = new MediaFilter(MediaFilter.VideoSinks.Buffersink);
+
+        int width = VideoSettings.SourceSize.Width;
+        int height = VideoSettings.SourceSize.Height;
+        var srcPixFmt = _isHdr ? AVPixelFormat.AV_PIX_FMT_RGBA64LE : AVPixelFormat.AV_PIX_FMT_BGRA;
+        var fps = VideoSettings.FrameRate;
+        var timeBase = new AVRational { num = (int)fps.Denominator, den = (int)fps.Numerator };
+        var sar = new AVRational { num = 1, den = 1 };
+        var frameRate = new AVRational { num = (int)fps.Numerator, den = (int)fps.Denominator };
+
+        _bufferSrcCtx = _filterGraph.AddVideoSrcFilter(
+            bufferSrc, width, height, srcPixFmt, timeBase, sar, frameRate);
+        _bufferSinkCtx = _filterGraph.AddVideoSinkFilter(bufferSink, [encoder.PixFmt]);
+
+        var formatFilter = new MediaFilter("format");
+        var formatStr = $"pix_fmts={ffmpeg.av_get_pix_fmt_name(encoder.PixFmt)}";
+        var formatCtx = _filterGraph.AddFilter(formatFilter, formatStr);
+
+        _bufferSrcCtx.LinkTo(0, formatCtx);
+        formatCtx.LinkTo(0, _bufferSinkCtx);
+
+        _filterGraph.Initialize();
     }
 
     private void ConfigureAudioStream(
@@ -131,9 +166,9 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
         audioFrame.AllocateBuffer();
     }
 
-    private void ConfigureVideoStream(
+    private unsafe void ConfigureVideoStream(
         OutputFormat outFormat, MediaMuxer muxer,
-        MediaFrame videoFrame, out MediaEncoder encoder, out MediaStream stream, out PixelConverter sws)
+        MediaFrame videoFrame, out MediaEncoder encoder, out MediaStream stream)
     {
         var codec = VideoSettings.Codec.Equals(CodecRecord.Default)
             ? MediaCodec.FindEncoder(outFormat.VideoCodec)
@@ -172,6 +207,11 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
             codecContext.GopSize = VideoSettings.KeyframeRate;
             codecContext.ThreadCount = Math.Min(Environment.ProcessorCount, 16);
 
+            codecContext.ColorPrimaries = VideoSettings.ColorPrimaries;
+            codecContext.ColorTrc = VideoSettings.ColorTrc;
+            codecContext.Colorspace = VideoSettings.ColorSpace;
+            codecContext.ColorRange = VideoSettings.ColorRange;
+
             var hwType = GetAVHWDeviceType();
             codecContext.InitHWDeviceContext(hwType);
 
@@ -182,12 +222,29 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
         }, options);
         stream = muxer.AddStream(encoder);
 
-        sws = new PixelConverter();
-        sws.SetOpts(VideoSettings.DestinationSize.Width, VideoSettings.DestinationSize.Height, encoder.PixFmt);
+        // Apple QuickTime requires 'hvc1' sample entry type for HEVC playback
+        if (stream.Codecpar->codec_id == AVCodecID.AV_CODEC_ID_HEVC)
+        {
+            // MKTAG('h','v','c','1')
+            stream.Codecpar->codec_tag = 0x31637668;
+        }
+
+        _isHdr = ColorSpaceHelper.IsHdrTransfer(VideoSettings.ColorTrc);
+        _targetColorSpace = _isHdr
+            ? ColorSpaceHelper.BuildHdrColorSpace(VideoSettings.ColorTrc, VideoSettings.ColorPrimaries)
+            : null;
+
+        InitEncodeFilterGraph(encoder);
 
         videoFrame.Width = VideoSettings.SourceSize.Width;
         videoFrame.Height = VideoSettings.SourceSize.Height;
-        videoFrame.Format = (int)AVPixelFormat.AV_PIX_FMT_BGRA;
+        videoFrame.Format = _isHdr
+            ? (int)AVPixelFormat.AV_PIX_FMT_RGBA64LE
+            : (int)AVPixelFormat.AV_PIX_FMT_BGRA;
+        videoFrame.ColorPrimaries = VideoSettings.ColorPrimaries;
+        videoFrame.ColorTrc = VideoSettings.ColorTrc;
+        videoFrame.Colorspace = VideoSettings.ColorSpace;
+        videoFrame.ColorRange = VideoSettings.ColorRange;
         videoFrame.AllocateBuffer();
     }
 
@@ -200,7 +257,6 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
         using (var videoFrame = new MediaFrame())
         using (var audioFrame = new MediaFrame())
         {
-            PixelConverter? sws = null;
             SampleConverter? swr = null;
             var outFormat = muxer.Format;
 
@@ -214,7 +270,7 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
 
             if (outFormat.VideoCodec != AVCodecID.AV_CODEC_ID_NONE)
             {
-                ConfigureVideoStream(outFormat, muxer, videoFrame, out var encoder, out var stream, out sws);
+                ConfigureVideoStream(outFormat, muxer, videoFrame, out var encoder, out var stream);
                 encoders.Add((encoder, stream));
                 encodeVideo = true;
             }
@@ -232,7 +288,7 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
                         audioState.NextPts, encoders[0].Item1.TimeBase) <= 0))
                 {
                     encodeVideo = await WriteVideoFrame(
-                        muxer, sws!, encoders[1].Item1, encoders[1].Item2, videoFrame, videoState, frameProvider);
+                        muxer, encoders[1].Item1, encoders[1].Item2, videoFrame, videoState, frameProvider);
                 }
                 else
                 {
@@ -244,6 +300,10 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
             muxer.FlushCodecs(encoders.Select(i => i.Item1));
             muxer.WriteTrailer();
             encoders.ForEach(t => t.Item1.Dispose());
+            _filterGraph?.Dispose();
+            _filterGraph = null;
+            _bufferSrcCtx = null;
+            _bufferSinkCtx = null;
         }
     }
 
@@ -273,36 +333,74 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
         ISampleProvider sampleProvider)
     {
         var f = await GetAudioFrame(src, swr, state, sampleProvider);
-        return WriteFrame(muxer, encoder, stream, f);
+        try
+        {
+            return WriteFrame(muxer, encoder, stream, f);
+        }
+        finally
+        {
+            f?.Dispose();
+        }
     }
 
-    private static async ValueTask<MediaFrame?> GetVideoFrame(
-        MediaFrame srcFrame, PixelConverter sws, EncodeState state,
-        IFrameProvider frameProvider)
+    private async ValueTask<MediaFrame?> GetVideoFrame(
+        MediaFrame srcFrame, EncodeState state, IFrameProvider frameProvider)
     {
         if (state.NextPts >= frameProvider.FrameCount)
             return null;
 
         using var bitmap = await frameProvider.RenderFrame(state.NextPts);
-        // RgbaF16/LinearSrgb → Bgra8888/Srgb に変換（エンコーダはBGRA/sRGB前提）
-        using var converted = bitmap.Convert(BitmapColorType.Bgra8888, BitmapAlphaType.Premul, BitmapColorSpace.Srgb);
-        unsafe
+
+        if (_isHdr && _targetColorSpace != null)
         {
-            Buffer.MemoryCopy((void*)converted.Data, (void*)srcFrame.Data[0], converted.ByteCount, converted.ByteCount);
+            // Skia: LinearSrgb → ターゲット色空間（例: BT.2020/PQ）
+            using var converted = bitmap.Convert(BitmapColorType.Rgba16161616, BitmapAlphaType.Unpremul, _targetColorSpace);
+            unsafe
+            {
+                Buffer.MemoryCopy((void*)converted.Data, (void*)srcFrame.Data[0], converted.ByteCount, converted.ByteCount);
+            }
+        }
+        else
+        {
+            // Skia: LinearSrgb → Bgra8888/Srgb
+            using var converted = bitmap.Convert(BitmapColorType.Bgra8888, BitmapAlphaType.Premul, BitmapColorSpace.Srgb);
+            unsafe
+            {
+                Buffer.MemoryCopy((void*)converted.Data, (void*)srcFrame.Data[0], converted.ByteCount, converted.ByteCount);
+            }
         }
 
-        var o = sws.ConvertFrame(srcFrame);
-        o.Pts = state.NextPts;
+        // AVFilter: ゲイン補正(HDRのみ) + PixFmt変換
+        const int AV_BUFFERSRC_FLAG_KEEP_REF = 8;
+        _bufferSrcCtx!.WriteFrame(srcFrame, AV_BUFFERSRC_FLAG_KEEP_REF);
+
+        var filterOutput = new MediaFrame();
+        int ret = _bufferSinkCtx!.GetFrame(filterOutput);
+        if (ret < 0)
+        {
+            filterOutput.Dispose();
+            return null;
+        }
+
+        filterOutput.Pts = state.NextPts;
         state.NextPts += 1;
-        return o;
+        return filterOutput;
     }
 
-    private static async ValueTask<bool> WriteVideoFrame(
-        MediaMuxer muxer, PixelConverter sws, MediaEncoder encoder,
+    private async ValueTask<bool> WriteVideoFrame(
+        MediaMuxer muxer, MediaEncoder encoder,
         MediaStream stream, MediaFrame srcFrame,
         EncodeState state, IFrameProvider frameProvider)
     {
-        return WriteFrame(muxer, encoder, stream, await GetVideoFrame(srcFrame, sws, state, frameProvider));
+        var f = await GetVideoFrame(srcFrame, state, frameProvider);
+        try
+        {
+            return WriteFrame(muxer, encoder, stream, f);
+        }
+        finally
+        {
+            f?.Dispose();
+        }
     }
 
     private static unsafe bool WriteFrame(MediaMuxer muxer, MediaEncoder encoder, MediaStream stream,

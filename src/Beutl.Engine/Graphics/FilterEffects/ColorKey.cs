@@ -24,7 +24,7 @@ public partial class ColorKey : FilterEffect
 
             // Rec.709 での輝度変換（リニアsRGB用）
             half calcLuma(half3 c) {
-                return clamp(dot(c, half3(0.2126, 0.7152, 0.0722)), 0.0, 1.0);
+                return dot(c, half3(0.2126, 0.7152, 0.0722));
             }
 
             half4 main(float2 fragCoord) {

@@ -202,6 +202,9 @@ internal sealed unsafe class VulkanInstance : IDisposable
             extensions.Add("VK_KHR_wayland_surface");
         }
 
+        // HDR swapchain color space negotiation
+        extensions.Add("VK_EXT_swapchain_colorspace");
+
         if (_enableValidation)
         {
             extensions.Add(ExtDebugUtils.ExtensionName);

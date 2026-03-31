@@ -156,6 +156,14 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                 }
             })
             .DisposeWith(_disposables);
+
+        ToneMappingMode = GlobalConfiguration.Instance.EditorConfig.GetObservable(EditorConfig.ToneMappingModeProperty)
+            .ToReactiveProperty()
+            .DisposeWith(_disposables);
+
+        ToneMappingExposure = GlobalConfiguration.Instance.EditorConfig.GetObservable(EditorConfig.ToneMappingExposureProperty)
+            .ToReactiveProperty()
+            .DisposeWith(_disposables);
     }
 
     private void ClearAllGizmoTargets()
@@ -242,6 +250,10 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
     public ReactivePropertySlim<GizmoMode> SelectedGizmoMode { get; } = new(GizmoMode.Translate);
 
     public ReactivePropertySlim<Matrix> FrameMatrix { get; } = new(Matrix.Identity);
+
+    public ReactiveProperty<UIToneMappingOperator> ToneMappingMode { get; }
+
+    public ReactiveProperty<float> ToneMappingExposure { get; }
 
     public event EventHandler? PreviewInvalidated;
 

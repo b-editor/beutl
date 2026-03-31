@@ -48,8 +48,12 @@ public sealed class ColorScopesTabViewModel : IToolContext
     // Waveform settings
     public ReactivePropertySlim<WaveformMode> WaveformMode { get; } = new(ViewModels.WaveformMode.RgbOverlay);
 
+    public ReactivePropertySlim<float> WaveformHdrRange { get; } = new(1.0f);
+
     // Histogram settings
     public ReactivePropertySlim<HistogramMode> HistogramMode { get; } = new(ViewModels.HistogramMode.Parade);
+
+    public ReactivePropertySlim<float> HistogramHdrRange { get; } = new(1.0f);
 
     public IReactiveProperty<bool> IsSelected { get; } = new ReactiveProperty<bool>();
 
@@ -88,12 +92,28 @@ public sealed class ColorScopesTabViewModel : IToolContext
             }
         }
 
+        if (json.TryGetPropertyValue("waveformHdrRange", out var waveformHdrNode) && waveformHdrNode is JsonValue waveformHdrValue)
+        {
+            if (waveformHdrValue.TryGetValue(out float waveformHdr) && waveformHdr >= 0.01f)
+            {
+                WaveformHdrRange.Value = waveformHdr;
+            }
+        }
+
         // Histogram settings
         if (json.TryGetPropertyValue("histogramMode", out var histogramModeNode) && histogramModeNode is JsonValue histogramModeValue)
         {
             if (histogramModeValue.TryGetValue(out int histogramMode) && Enum.IsDefined(typeof(HistogramMode), histogramMode))
             {
                 HistogramMode.Value = (HistogramMode)histogramMode;
+            }
+        }
+
+        if (json.TryGetPropertyValue("histogramHdrRange", out var histogramHdrNode) && histogramHdrNode is JsonValue histogramHdrValue)
+        {
+            if (histogramHdrValue.TryGetValue(out float histogramHdr) && histogramHdr >= 0.01f)
+            {
+                HistogramHdrRange.Value = histogramHdr;
             }
         }
     }
@@ -104,8 +124,10 @@ public sealed class ColorScopesTabViewModel : IToolContext
 
         // Waveform settings
         json["waveformMode"] = (int)WaveformMode.Value;
+        json["waveformHdrRange"] = WaveformHdrRange.Value;
 
         // Histogram settings
         json["histogramMode"] = (int)HistogramMode.Value;
+        json["histogramHdrRange"] = HistogramHdrRange.Value;
     }
 }

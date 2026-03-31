@@ -437,6 +437,7 @@ public sealed class FilterEffectContext : IDisposable
         AppendSKColorFilter(Unit.Default, (_, _) => SKColorFilter.CreateLumaColor());
     }
 
+    [Obsolete("Byte-based LUTs destroy HDR values. Please use CustomEffect and SkSL shaders instead.")]
     public void LookupTable<T>(
         T data,
         float strength,
@@ -467,6 +468,7 @@ public sealed class FilterEffectContext : IDisposable
         });
     }
 
+    [Obsolete("Byte-based LUTs destroy HDR values. Please use CustomEffect and SkSL shaders instead.")]
     public void LookupTable<T>(
         T data,
         float strength,

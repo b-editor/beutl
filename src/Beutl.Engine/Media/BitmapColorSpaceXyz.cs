@@ -96,6 +96,15 @@ public readonly struct BitmapColorSpaceXyz : IEquatable<BitmapColorSpaceXyz>
         return new BitmapColorSpaceXyz(xyz.Values);
     }
 
+    public BitmapColorSpaceXyz Scale(float factor)
+    {
+        if (_values is null) return default;
+        var scaled = new float[9];
+        for (int i = 0; i < 9; i++)
+            scaled[i] = _values[i] * factor;
+        return new BitmapColorSpaceXyz(scaled);
+    }
+
     public BitmapColorSpaceXyz Invert()
     {
         return FromSK(ToSKXyz().Invert());

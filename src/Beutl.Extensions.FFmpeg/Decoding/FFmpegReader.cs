@@ -40,7 +40,6 @@ public sealed class FFmpegReader : MediaReader
     private MediaFrame? _currentVideoFrame;
     private MediaFrame? _currentAudioFrame;
     private MediaPacket? _packet;
-    private PixelConverter? _pixelConverter;
     private SampleConverter? _sampleConverter;
     private long _audioNowTimestamp;
     private long _audioNextTimestamp;
@@ -51,7 +50,15 @@ public sealed class FFmpegReader : MediaReader
     private double _videoAvgFrameRateDouble;
     private MediaFrame? _swVideoFrame;
     private bool _isHWDecoding;
+    private bool _isHdr;
     private BitmapColorSpace? _colorspace;
+    private MediaFilterGraph? _filterGraph;
+    private MediaFilterContext? _bufferSrcCtx;
+    private MediaFilterContext? _bufferSinkCtx;
+    private MediaFrame? _filterFrame;
+    private int _filterWidth;
+    private int _filterHeight;
+    private AVPixelFormat _filterSrcPixFmt = AVPixelFormat.AV_PIX_FMT_NONE;
 
     public FFmpegReader(string file, MediaOptions options, FFmpegDecodingSettings settings)
     {
@@ -269,31 +276,114 @@ public sealed class FFmpegReader : MediaReader
         int width = videoFrame.Width;
         int height = videoFrame.Height;
 
-        // PixelConverterを初期化（遅延初期化）
-        _pixelConverter ??= new PixelConverter();
-        _pixelConverter.SetOpts(width, height, AVPixelFormat.AV_PIX_FMT_BGRA);
+        // AVFilterグラフを初期化（入力パラメータ変更時のみ再構築）
+        InitFilterGraph(videoFrame);
 
-        // 変換
-        using var dstFrame = _pixelConverter.ConvertFrame(videoFrame, (int)_settings.Scaling);
+        // フレームをフィルタグラフに送信
+        const int AV_BUFFERSRC_FLAG_KEEP_REF = 8;
+        _bufferSrcCtx!.WriteFrame(videoFrame, AV_BUFFERSRC_FLAG_KEEP_REF);
+
+        // フィルタグラフから変換済みフレームを取得
+        _filterFrame ??= new MediaFrame();
+        int ret = _bufferSinkCtx!.GetFrame(_filterFrame);
+        if (ret < 0)
+        {
+            _filterFrame.Unref();
+            image = null;
+            return false;
+        }
 
         // フレームの色空間を取得
-        var colorSpace = !_settings.ForceSrgbGamma ? GetFrameColorSpace(dstFrame) : BitmapColorSpace.Srgb;
+        var colorSpace = (!_settings.ForceSrgbGamma || _isHdr) ? GetFrameColorSpace(_filterFrame) : BitmapColorSpace.Srgb;
 
         // ビットマップにコピー
-        var bmp = new Bitmap(width, height, BitmapColorType.Bgra8888, BitmapAlphaType.Unpremul, colorSpace);
-        int byteCount = width * height * 4;
-        Buffer.MemoryCopy(dstFrame.Data[0], (void*)bmp.Data, byteCount, byteCount);
+        var colorType = _isHdr ? BitmapColorType.Rgba16161616 : BitmapColorType.Bgra8888;
+        int bytesPerPixel = _isHdr ? 8 : 4;
+        var bmp = new Bitmap(width, height, colorType, BitmapAlphaType.Unpremul, colorSpace);
+
+        try
+        {
+            int byteCount = width * height * bytesPerPixel;
+            Buffer.MemoryCopy(_filterFrame.Data[0], (void*)bmp.Data, byteCount, byteCount);
+        }
+        catch
+        {
+            bmp.Dispose();
+            throw;
+        }
+        finally
+        {
+            _filterFrame.Unref();
+        }
 
         image = bmp;
         return true;
+    }
+
+    private void InitFilterGraph(MediaFrame videoFrame)
+    {
+        int width = videoFrame.Width;
+        int height = videoFrame.Height;
+        var srcPixFmt = (AVPixelFormat)videoFrame.Format;
+
+        // 入力パラメータが変わっていなければ再構築不要
+        if (_filterGraph != null && _filterWidth == width && _filterHeight == height && _filterSrcPixFmt == srcPixFmt)
+            return;
+
+        _filterGraph?.Dispose();
+
+        _filterGraph = new MediaFilterGraph();
+
+        var bufferSrc = new MediaFilter(MediaFilter.VideoSources.Buffer);
+        var bufferSink = new MediaFilter(MediaFilter.VideoSinks.Buffersink);
+
+        var timeBase = _videoStream!.TimeBase;
+        var aspect = videoFrame.SampleAspectRatio;
+        var frameRate = _videoStream.AvgFrameRate;
+
+        _bufferSrcCtx = _filterGraph.AddVideoSrcFilter(bufferSrc, width, height, srcPixFmt, timeBase, aspect, frameRate);
+
+        var dstPixFmt = _isHdr ? AVPixelFormat.AV_PIX_FMT_RGBA64LE : AVPixelFormat.AV_PIX_FMT_BGRA;
+        _bufferSinkCtx = _filterGraph.AddVideoSinkFilter(bufferSink, [dstPixFmt]);
+
+        if (_isHdr)
+        {
+            // HDR (PQ/HLG): RGBA64LEに変換のみ。
+            // 輝度マッピングはSkiaの色空間変換で行う（BuildHdrColorSpaceでガマット行列にスケーリングを組み込み済み）
+            var formatFilter = new MediaFilter("format");
+            var formatCtx = _filterGraph.AddFilter(formatFilter, "pix_fmts=rgba64le");
+
+            _bufferSrcCtx.LinkTo(0, formatCtx);
+            formatCtx.LinkTo(0, _bufferSinkCtx);
+        }
+        else
+        {
+            // SDR: BGRAに変換
+            var formatFilter = new MediaFilter("format");
+            var formatCtx = _filterGraph.AddFilter(formatFilter, "pix_fmts=bgra");
+
+            _bufferSrcCtx.LinkTo(0, formatCtx);
+            formatCtx.LinkTo(0, _bufferSinkCtx);
+        }
+
+        _filterGraph.Initialize();
+
+        _filterWidth = width;
+        _filterHeight = height;
+        _filterSrcPixFmt = srcPixFmt;
     }
 
     protected override void Dispose(bool disposing)
     {
         if (disposing)
         {
-            _pixelConverter?.Dispose();
-            _pixelConverter = null;
+            _filterFrame?.Dispose();
+            _filterFrame = null;
+
+            _filterGraph?.Dispose();
+            _filterGraph = null;
+            _bufferSrcCtx = null;
+            _bufferSinkCtx = null;
 
             _sampleConverter?.Dispose();
             _sampleConverter = null;
@@ -581,6 +671,11 @@ public sealed class FFmpegReader : MediaReader
     private unsafe void GetPacketColorSpace()
     {
         if (_videoStream == null) return;
+
+        // HDR判定: PQ (HDR10) または HLG の場合はHDR
+        var trc = _videoStream.Codecpar->color_trc;
+        _isHdr = ColorSpaceHelper.IsHdrTransfer(trc);
+
         AVPacketSideData* psd = ffmpeg.av_packet_side_data_get(
             _videoStream.Codecpar->coded_side_data,
             _videoStream.Codecpar->nb_coded_side_data,
@@ -592,20 +687,29 @@ public sealed class FFmpegReader : MediaReader
 
         if (_colorspace == null)
         {
-            var transferFn = GetTransferFunction(_videoStream.Codecpar->color_trc);
-            var gamut = GetBitmapColorSpaceXyz(_videoStream.Codecpar->color_primaries);
-
-            if (transferFn == BitmapColorSpaceTransferFn.Srgb && gamut == BitmapColorSpaceXyz.Srgb)
+            if (_isHdr)
             {
-                _colorspace = BitmapColorSpace.Srgb;
-            }
-            else if (transferFn == BitmapColorSpaceTransferFn.Linear && gamut == BitmapColorSpaceXyz.Srgb)
-            {
-                _colorspace = BitmapColorSpace.LinearSrgb;
+                // HDR: 輝度スケーリング付き色空間（エンコードと対称）
+                _colorspace = ColorSpaceHelper.BuildHdrColorSpace(
+                    _videoStream.Codecpar->color_trc, _videoStream.Codecpar->color_primaries);
             }
             else
             {
-                _colorspace = BitmapColorSpace.CreateRgb(transferFn, gamut);
+                var transferFn = ColorSpaceHelper.GetTransferFunction(_videoStream.Codecpar->color_trc);
+                var gamut = ColorSpaceHelper.GetBitmapColorSpaceXyz(_videoStream.Codecpar->color_primaries);
+
+                if (transferFn == BitmapColorSpaceTransferFn.Srgb && gamut == BitmapColorSpaceXyz.Srgb)
+                {
+                    _colorspace = BitmapColorSpace.Srgb;
+                }
+                else if (transferFn == BitmapColorSpaceTransferFn.Linear && gamut == BitmapColorSpaceXyz.Srgb)
+                {
+                    _colorspace = BitmapColorSpace.LinearSrgb;
+                }
+                else
+                {
+                    _colorspace = BitmapColorSpace.CreateRgb(transferFn, gamut);
+                }
             }
         }
 
@@ -620,7 +724,7 @@ public sealed class FFmpegReader : MediaReader
 
         if (_colorspace != null)
         {
-            _logger.LogInformation("Video color space: {ColorSpace}", _colorspace);
+            _logger.LogInformation("Video color space: {ColorSpace} ({Hdr})", _colorspace, _isHdr ? "HDR" : "SDR");
         }
         else
         {
@@ -629,63 +733,22 @@ public sealed class FFmpegReader : MediaReader
 
         if (_settings.ForceSrgbGamma && _colorspace != BitmapColorSpace.Srgb)
         {
-            _logger.LogWarning("ForceSrgbGamma is enabled, but the detected color space is not sRGB. Forcing sRGB gamma may lead to incorrect colors.");
+            if (_isHdr)
+            {
+                _logger.LogInformation("ForceSrgbGamma is enabled, but HDR content detected. HDR color space will be used instead of sRGB.");
+            }
+            else
+            {
+                _logger.LogWarning("ForceSrgbGamma is enabled, but the detected color space is not sRGB. Forcing sRGB gamma may lead to incorrect colors.");
+            }
         }
-    }
-
-    private static BitmapColorSpaceTransferFn GetTransferFunction(AVColorTransferCharacteristic trc)
-    {
-        return trc switch
-        {
-            AVColorTransferCharacteristic.AVCOL_TRC_LINEAR => BitmapColorSpaceTransferFn.Linear,
-            AVColorTransferCharacteristic.AVCOL_TRC_GAMMA22 => BitmapColorSpaceTransferFn.TwoDotTwo,
-            AVColorTransferCharacteristic.AVCOL_TRC_BT2020_10 or
-                AVColorTransferCharacteristic.AVCOL_TRC_BT2020_12 => BitmapColorSpaceTransferFn.Rec2020,
-            AVColorTransferCharacteristic.AVCOL_TRC_SMPTE2084 => BitmapColorSpaceTransferFn.Pq,
-            AVColorTransferCharacteristic.AVCOL_TRC_ARIB_STD_B67 => BitmapColorSpaceTransferFn.Hlg,
-            AVColorTransferCharacteristic.AVCOL_TRC_BT709 or
-                AVColorTransferCharacteristic.AVCOL_TRC_SMPTE170M or
-                AVColorTransferCharacteristic.AVCOL_TRC_IEC61966_2_4 or
-                AVColorTransferCharacteristic.AVCOL_TRC_BT1361_ECG => BitmapColorSpaceTransferFn.Bt709,
-            AVColorTransferCharacteristic.AVCOL_TRC_GAMMA28 => BitmapColorSpaceTransferFn.Gamma28,
-            AVColorTransferCharacteristic.AVCOL_TRC_SMPTE240M => BitmapColorSpaceTransferFn.Smpte240M,
-            AVColorTransferCharacteristic.AVCOL_TRC_SMPTE428 => BitmapColorSpaceTransferFn.Smpte428,
-            _ => BitmapColorSpaceTransferFn.Srgb
-        };
-    }
-
-    private static BitmapColorSpaceXyz GetBitmapColorSpaceXyz(AVColorPrimaries primaries)
-    {
-        return primaries switch
-        {
-            AVColorPrimaries.AVCOL_PRI_BT709 => BitmapColorSpaceXyz.Bt709,
-            AVColorPrimaries.AVCOL_PRI_BT470M => BitmapColorSpaceXyz.Bt470M,
-            AVColorPrimaries.AVCOL_PRI_BT470BG => BitmapColorSpaceXyz.Bt470BG,
-            AVColorPrimaries.AVCOL_PRI_SMPTE170M => BitmapColorSpaceXyz.Smpte170M,
-            AVColorPrimaries.AVCOL_PRI_SMPTE240M => BitmapColorSpaceXyz.Smpte240M,
-            AVColorPrimaries.AVCOL_PRI_FILM => BitmapColorSpaceXyz.Film,
-            AVColorPrimaries.AVCOL_PRI_BT2020 => BitmapColorSpaceXyz.Rec2020,
-            AVColorPrimaries.AVCOL_PRI_SMPTE428 => BitmapColorSpaceXyz.Xyz,
-            AVColorPrimaries.AVCOL_PRI_SMPTE431 => BitmapColorSpaceXyz.Smpte431,
-            AVColorPrimaries.AVCOL_PRI_SMPTE432 => BitmapColorSpaceXyz.Dcip3,
-            AVColorPrimaries.AVCOL_PRI_EBU3213 => BitmapColorSpaceXyz.Ebu3213,
-            _ => BitmapColorSpaceXyz.Srgb
-        };
     }
 
     private BitmapColorSpace GetFrameColorSpace(MediaFrame frame)
     {
         if (_colorspace != null) return _colorspace;
 
-        var transferFn = GetTransferFunction(frame.ColorTrc);
-        var gamut = GetBitmapColorSpaceXyz(frame.ColorPrimaries);
-
-        if (transferFn == BitmapColorSpaceTransferFn.Srgb && gamut == BitmapColorSpaceXyz.Srgb)
-            return BitmapColorSpace.Srgb;
-
-        if (transferFn == BitmapColorSpaceTransferFn.Linear && gamut == BitmapColorSpaceXyz.Srgb)
-            return BitmapColorSpace.LinearSrgb;
-
-        return BitmapColorSpace.CreateRgb(transferFn, gamut);
+        if (_isHdr) return ColorSpaceHelper.BuildHdrColorSpace(frame.ColorTrc, frame.ColorPrimaries);
+        return ColorSpaceHelper.BuildTargetColorSpace(frame.ColorTrc, frame.ColorPrimaries);
     }
 }

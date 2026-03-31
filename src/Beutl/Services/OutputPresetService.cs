@@ -255,5 +255,84 @@ public sealed class OutputPresetService
                 ["AudioSettings"] = CoreSerializer.SerializeToJsonObject(aud)
             },
             "Low Quality"));
+
+        // HDR10 (PQ)
+        ObjectRegenerator.Regenerate<FFmpegVideoEncoderSettings>(vid, out vid);
+        ObjectRegenerator.Regenerate<FFmpegAudioEncoderSettings>(aud, out aud);
+
+        vid.Format = AVPixelFormat.AV_PIX_FMT_YUV420P10LE;
+        vid.Bitrate = 20000000;
+        vid.KeyframeRate = 24;
+        vid.Codec = VideoCodecChoicesProvider.GetChoices()
+            .Cast<CodecRecord>()
+            .FirstOrDefault(i => i.Name == "libx265") ?? CodecRecord.Default;
+        vid.ColorPrimaries = AVColorPrimaries.AVCOL_PRI_BT2020;
+        vid.ColorTrc = AVColorTransferCharacteristic.AVCOL_TRC_SMPTE2084;
+        vid.ColorSpace = AVColorSpace.AVCOL_SPC_BT2020_NCL;
+        vid.ColorRange = AVColorRange.AVCOL_RANGE_MPEG;
+        vid.Options.Clear();
+        vid.Options.AddRange(
+        [
+            new AdditionalOption("preset", "medium"),
+            new AdditionalOption("crf", "20"),
+            new AdditionalOption("profile", "main10"),
+            new AdditionalOption("x265-params",
+                "colorprim=bt2020:transfer=smpte2084:colormatrix=bt2020nc:range=limited"
+                + ":master-display=G(13250,34500)B(7500,3000)R(34000,16000)WP(15635,16450)L(10000000,1):max-cll=1000,400:repeat-headers=1"),
+        ]);
+        aud.Bitrate = 192000;
+        aud.Codec = AudioCodecChoicesProvider.GetChoices()
+            .Cast<CodecRecord>()
+            .FirstOrDefault(i => i.Name == "aac") ?? CodecRecord.Default;
+
+        _items.Add(new OutputPresetItem(
+            SceneOutputExtension.Instance,
+            new JsonObject
+            {
+                ["SelectedEncoder"] = TypeFormat.ToString(typeof(FFmpegControlledEncodingExtension)),
+                ["VideoSettings"] = CoreSerializer.SerializeToJsonObject(vid),
+                ["AudioSettings"] = CoreSerializer.SerializeToJsonObject(aud)
+            },
+            "HDR10 (PQ)"));
+
+        // HLG
+        ObjectRegenerator.Regenerate<FFmpegVideoEncoderSettings>(vid, out vid);
+        ObjectRegenerator.Regenerate<FFmpegAudioEncoderSettings>(aud, out aud);
+
+        vid.Format = AVPixelFormat.AV_PIX_FMT_YUV420P10LE;
+        vid.Bitrate = 20000000;
+        vid.KeyframeRate = 24;
+        vid.Codec = VideoCodecChoicesProvider.GetChoices()
+            .Cast<CodecRecord>()
+            .FirstOrDefault(i => i.Name == "libx265") ?? CodecRecord.Default;
+        vid.ColorPrimaries = AVColorPrimaries.AVCOL_PRI_BT2020;
+        vid.ColorTrc = AVColorTransferCharacteristic.AVCOL_TRC_ARIB_STD_B67;
+        vid.ColorSpace = AVColorSpace.AVCOL_SPC_BT2020_NCL;
+        vid.ColorRange = AVColorRange.AVCOL_RANGE_MPEG;
+        vid.Options.Clear();
+        vid.Options.AddRange(
+        [
+            new AdditionalOption("preset", "medium"),
+            new AdditionalOption("crf", "20"),
+            new AdditionalOption("profile", "main10"),
+            new AdditionalOption("x265-params",
+                "repeat-headers=1"),
+            // new AdditionalOption("x265-params",
+            //     "colorprim=bt2020:transfer=arib-std-b67:colormatrix=bt2020nc:range=limited:repeat-headers=1"),
+        ]);
+        aud.Bitrate = 192000;
+        aud.Codec = AudioCodecChoicesProvider.GetChoices()
+            .Cast<CodecRecord>()
+            .FirstOrDefault(i => i.Name == "aac") ?? CodecRecord.Default;
+
+        _items.Add(new OutputPresetItem(
+            SceneOutputExtension.Instance,
+            new JsonObject
+            {
+                ["SelectedEncoder"] = TypeFormat.ToString(typeof(FFmpegControlledEncodingExtension)),
+                ["VideoSettings"] = CoreSerializer.SerializeToJsonObject(vid),
+                ["AudioSettings"] = CoreSerializer.SerializeToJsonObject(aud)
+            },
+            "HLG"));
     }
 }

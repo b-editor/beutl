@@ -55,6 +55,10 @@ public sealed class FFmpegVideoEncoderSettings : VideoEncoderSettings
 {
     public static readonly CoreProperty<AVPixelFormat> FormatProperty;
     public static readonly CoreProperty<CodecRecord> CodecProperty;
+    public static readonly CoreProperty<AVColorPrimaries> ColorPrimariesProperty;
+    public static readonly CoreProperty<AVColorTransferCharacteristic> ColorTrcProperty;
+    public static readonly CoreProperty<AVColorSpace> ColorSpaceProperty;
+    public static readonly CoreProperty<AVColorRange> ColorRangeProperty;
     public static readonly CoreProperty<CoreList<AdditionalOption>> OptionsProperty;
 
     static FFmpegVideoEncoderSettings()
@@ -65,6 +69,22 @@ public sealed class FFmpegVideoEncoderSettings : VideoEncoderSettings
 
         CodecProperty = ConfigureProperty<CodecRecord, FFmpegVideoEncoderSettings>(nameof(Codec))
             .DefaultValue(CodecRecord.Default)
+            .Register();
+
+        ColorPrimariesProperty = ConfigureProperty<AVColorPrimaries, FFmpegVideoEncoderSettings>(nameof(ColorPrimaries))
+            .DefaultValue(AVColorPrimaries.AVCOL_PRI_UNSPECIFIED)
+            .Register();
+
+        ColorTrcProperty = ConfigureProperty<AVColorTransferCharacteristic, FFmpegVideoEncoderSettings>(nameof(ColorTrc))
+            .DefaultValue(AVColorTransferCharacteristic.AVCOL_TRC_UNSPECIFIED)
+            .Register();
+
+        ColorSpaceProperty = ConfigureProperty<AVColorSpace, FFmpegVideoEncoderSettings>(nameof(ColorSpace))
+            .DefaultValue(AVColorSpace.AVCOL_SPC_UNSPECIFIED)
+            .Register();
+
+        ColorRangeProperty = ConfigureProperty<AVColorRange, FFmpegVideoEncoderSettings>(nameof(ColorRange))
+            .DefaultValue(AVColorRange.AVCOL_RANGE_UNSPECIFIED)
             .Register();
 
         OptionsProperty = ConfigureProperty<CoreList<AdditionalOption>, FFmpegVideoEncoderSettings>(nameof(Options))
@@ -96,6 +116,30 @@ public sealed class FFmpegVideoEncoderSettings : VideoEncoderSettings
     {
         get => GetValue(CodecProperty);
         set => SetValue(CodecProperty, value);
+    }
+
+    public AVColorPrimaries ColorPrimaries
+    {
+        get => GetValue(ColorPrimariesProperty);
+        set => SetValue(ColorPrimariesProperty, value);
+    }
+
+    public AVColorTransferCharacteristic ColorTrc
+    {
+        get => GetValue(ColorTrcProperty);
+        set => SetValue(ColorTrcProperty, value);
+    }
+
+    public AVColorSpace ColorSpace
+    {
+        get => GetValue(ColorSpaceProperty);
+        set => SetValue(ColorSpaceProperty, value);
+    }
+
+    public AVColorRange ColorRange
+    {
+        get => GetValue(ColorRangeProperty);
+        set => SetValue(ColorRangeProperty, value);
     }
 
     public CoreList<AdditionalOption> Options

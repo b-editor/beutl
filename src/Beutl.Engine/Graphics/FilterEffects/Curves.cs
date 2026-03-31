@@ -93,8 +93,6 @@ public sealed partial class Curves : FilterEffect
                 rgb.g = masterCurve.eval(float2(rgb.g, 0.5)).a;
                 rgb.b = masterCurve.eval(float2(rgb.b, 0.5)).a;
 
-                rgb = clamp(rgb, 0.0, 1.0);
-
                 // リニア空間に戻してプリマルチプライドアルファを再適用
                 float3 result = srgbToLinear(rgb);
                 return half4(half3(result * baseColor.a), baseColor.a);
