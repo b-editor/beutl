@@ -1,4 +1,5 @@
-﻿using Beutl.Collections;
+﻿using System.ComponentModel;
+using Beutl.Collections;
 using Beutl.Media.Encoding;
 using Beutl.Serialization;
 using FFmpeg.AutoGen.Abstractions;
@@ -12,40 +13,41 @@ namespace Beutl.Extensions.FFmpeg.Encoding;
 
 public sealed class AdditionalOption : CoreObject
 {
-    public static readonly CoreProperty<string> KeyProperty;
     public static readonly CoreProperty<string> ValueProperty;
 
     static AdditionalOption()
     {
-        KeyProperty = ConfigureProperty<string, AdditionalOption>(nameof(Key))
-            .DefaultValue("")
-            .Register();
-
         ValueProperty = ConfigureProperty<string, AdditionalOption>(nameof(Value))
             .DefaultValue("")
             .Register();
+
+        NameProperty.OverrideMetadata<AdditionalOption>(
+            new CorePropertyMetadata<string>(attributes: [new BrowsableAttribute(true)]));
     }
 
     public AdditionalOption()
     {
     }
 
-    public AdditionalOption(string key, string value)
+    public AdditionalOption(string name, string value)
     {
-        Key = key;
+        Name = name;
         Value = value;
-    }
-
-    public string Key
-    {
-        get => GetValue(KeyProperty);
-        set => SetValue(KeyProperty, value);
     }
 
     public string Value
     {
         get => GetValue(ValueProperty);
         set => SetValue(ValueProperty, value);
+    }
+
+    public override void Deserialize(ICoreSerializationContext context)
+    {
+        base.Deserialize(context);
+        if (context.Contains("Key"))
+        {
+            Name = context.GetValue<string>("Key") ?? Name;
+        }
     }
 }
 
@@ -79,6 +81,8 @@ public sealed class FFmpegVideoEncoderSettings : VideoEncoderSettings
             new("level", "4.0")
         ];
     }
+
+    public string? OutputFile { get; set; }
 
     public AVPixelFormat Format
     {
@@ -131,7 +135,7 @@ public sealed class FFmpegVideoEncoderSettings : VideoEncoderSettings
         if (string.IsNullOrEmpty(value)) return;
         bool unset = value.Equals("(unset)", StringComparison.OrdinalIgnoreCase);
 
-        AdditionalOption? option = Options.FirstOrDefault(i => i.Key == newKey);
+        AdditionalOption? option = Options.FirstOrDefault(i => i.Name == newKey);
         if (option == null)
         {
             if (unset) return;

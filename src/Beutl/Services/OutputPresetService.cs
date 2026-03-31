@@ -223,8 +223,8 @@ public sealed class OutputPresetService
 
         vid.Bitrate = 8000000;
         vid.KeyframeRate = 30;
-        vid.Options.First(i => i.Key == "preset").Value = "medium";
-        vid.Options.First(i => i.Key == "crf").Value = "23";
+        vid.Options.First(i => i.Name == "preset").Value = "medium";
+        vid.Options.First(i => i.Name == "crf").Value = "23";
         aud.Bitrate = 128000;
 
         _items.Add(new OutputPresetItem(
@@ -242,8 +242,8 @@ public sealed class OutputPresetService
 
         vid.Bitrate = 3000000;
         vid.KeyframeRate = 60;
-        vid.Options.First(i => i.Key == "preset").Value = "ultrafast";
-        vid.Options.First(i => i.Key == "crf").Value = "28";
+        vid.Options.First(i => i.Name == "preset").Value = "ultrafast";
+        vid.Options.First(i => i.Name == "crf").Value = "28";
         aud.Bitrate = 128000;
 
         _items.Add(new OutputPresetItem(

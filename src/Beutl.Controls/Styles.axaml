@@ -32,6 +32,7 @@
 
                 <ResourceInclude Source="/Styling/PropertyEditors/PropertyEditorResources.axaml" />
                 <ResourceInclude Source="/Styling/PropertyEditors/StringEditor.axaml" />
+                <ResourceInclude Source="/Styling/PropertyEditors/AutoCompleteStringEditor.axaml" />
                 <ResourceInclude Source="/Styling/PropertyEditors/Vector2Editor.axaml" />
                 <ResourceInclude Source="/Styling/PropertyEditors/Vector3Editor.axaml" />
                 <ResourceInclude Source="/Styling/PropertyEditors/Vector4Editor.axaml" />

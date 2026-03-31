@@ -22,9 +22,9 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
         public long NextPts { get; set; }
     }
 
-    public override FFmpegVideoEncoderSettings VideoSettings { get; } = new();
+    public override FFmpegVideoEncoderSettings VideoSettings { get; } = new() { OutputFile = outputFile };
 
-    public override FFmpegAudioEncoderSettings AudioSettings { get; } = new();
+    public override FFmpegAudioEncoderSettings AudioSettings { get; } = new() { OutputFile = outputFile };
 
     private AVHWDeviceType? GetAVHWDeviceType()
     {
@@ -71,18 +71,14 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
                 throw new InvalidOperationException("Channels must be greater than 0");
             if (bitRate < 0)
                 throw new InvalidOperationException("Bitrate must be greater than 0");
-            if (supportedFmts.Length == 0 || supportedSampleRates.Length == 0)
-            {
-                _logger.LogInformation("Supported sample rates: {Rates}", string.Join(", ", supportedSampleRates));
-                _logger.LogInformation("Supported sample formats: {Formats}", string.Join(", ", supportedFmts));
-                throw new InvalidOperationException("Invalid audio codec");
-            }
+            _logger.LogInformation("Supported sample rates: {Rates}", string.Join(", ", supportedSampleRates));
+            _logger.LogInformation("Supported sample formats: {Formats}", string.Join(", ", supportedFmts));
 
             if (sampleRate <= 0)
             {
-                sampleRate = supportedSampleRates[0];
+                sampleRate = supportedSampleRates.FirstOrDefault(44100);
             }
-            else if (supportedSampleRates.All(i => i != sampleRate))
+            else if (supportedSampleRates.Length > 0 && supportedSampleRates.All(i => i != sampleRate))
             {
                 throw new InvalidOperationException(
                     $"Invalid sample rate.\nSupported sample rates: {string.Join(", ", supportedSampleRates)}");
@@ -90,9 +86,9 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
 
             if (format == AVSampleFormat.AV_SAMPLE_FMT_NONE)
             {
-                format = supportedFmts.First();
+                format = supportedFmts.FirstOrDefault(AVSampleFormat.AV_SAMPLE_FMT_S16);
             }
-            else if (supportedFmts.All(i => i != format))
+            else if (supportedFmts.Length > 0 && supportedFmts.All(i => i != format))
             {
                 throw new InvalidOperationException(
                     $"Invalid sample format.\nSupported sample formats: {string.Join(", ", supportedFmts.Cast<FFmpegAudioEncoderSettings.AudioFormat>())}");
@@ -148,8 +144,8 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
         var format = (AVPixelFormat)VideoSettings.Format;
         int bitRate = VideoSettings.Bitrate;
         var options = new MediaDictionary(VideoSettings.Options
-            .Where(item => !string.IsNullOrWhiteSpace(item.Key))
-            .Select(item => new KeyValuePair<string, string>(item.Key, item.Value)));
+            .Where(item => !string.IsNullOrWhiteSpace(item.Name))
+            .Select(item => new KeyValuePair<string, string>(item.Name, item.Value)));
 
         encoder = MediaEncoder.Create(codec, codecContext =>
         {
