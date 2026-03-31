@@ -1,3 +1,4 @@
+using System.Buffers;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;
 
@@ -13,6 +14,7 @@ public partial class FrameCacheManager
     private class CacheEntry : IDisposable
     {
         private byte[] _data;
+        private int _dataLength;
         private int _width;
         private int _height;
         private bool _isYuv;
@@ -27,22 +29,23 @@ public partial class FrameCacheManager
 
         public DateTime LastAccessTime { get; private set; }
 
-        public int ByteCount => _data.Length;
+        public int ByteCount => _dataLength;
 
         public bool IsLocked { get; set; }
 
         [MemberNotNull(nameof(_data))]
         public void SetBitmap(Ref<Bitmap> bitmap, FrameCacheOptions options)
         {
+            ReturnBuffer();
             using Ref<Bitmap> t = bitmap.Clone();
             if (t.Value.ColorType != BitmapColorType.Bgra8888)
             {
                 using var converted = t.Value.Convert(BitmapColorType.Bgra8888);
-                (_data, _width, _height, _isYuv, _bottom, _right) = ToCacheData(converted, options);
+                (_data, _dataLength, _width, _height, _isYuv, _bottom, _right) = ToCacheData(converted, options);
             }
             else
             {
-                (_data, _width, _height, _isYuv, _bottom, _right) = ToCacheData(t.Value, options);
+                (_data, _dataLength, _width, _height, _isYuv, _bottom, _right) = ToCacheData(t.Value, options);
             }
 
             LastAccessTime = DateTime.UtcNow;
@@ -54,7 +57,7 @@ public partial class FrameCacheManager
             return Ref<Bitmap>.Create(ToBitmap());
         }
 
-        private static unsafe (byte[] Data, int Width, int Height, bool IsYuv, int Bottom, int Right) ToCacheData(
+        private static unsafe (byte[] Data, int DataLength, int Width, int Height, bool IsYuv, int Bottom, int Right) ToCacheData(
             Bitmap bitmap, FrameCacheOptions options)
         {
             PixelSize size = new(bitmap.Width, bitmap.Height);
@@ -69,7 +72,7 @@ public partial class FrameCacheManager
                 {
                     var resized = current.SKBitmap.Resize(
                         new SKImageInfo(newSize.Width, newSize.Height, SKColorType.Bgra8888, SKAlphaType.Premul),
-                        SKSamplingOptions.Default);
+                        new SKSamplingOptions(SKFilterMode.Linear));
                     if (resized != null)
                     {
                         var resizedBitmap = new Bitmap(resized);
@@ -98,22 +101,23 @@ public partial class FrameCacheManager
                     int w = current.Width;
                     int h = current.Height;
                     int yuvSize = YuvConversion.GetI420BufferSize(w, h);
-                    byte[] yuvData = new byte[yuvSize];
+                    byte[] yuvData = ArrayPool<byte>.Shared.Rent(yuvSize);
 
                     fixed (byte* yuvPtr = yuvData)
                     {
                         YuvConversion.BgraToI420((byte*)current.Data, yuvPtr, w, h);
                     }
 
-                    return (yuvData, w, h, true, bottom, right);
+                    return (yuvData, yuvSize, w, h, true, bottom, right);
                 }
                 else
                 {
                     int w = current.Width;
                     int h = current.Height;
-                    byte[] bgraData = new byte[w * h * 4];
-                    Marshal.Copy(current.Data, bgraData, 0, bgraData.Length);
-                    return (bgraData, w, h, false, 0, 0);
+                    int bgraSize = w * h * 4;
+                    byte[] bgraData = ArrayPool<byte>.Shared.Rent(bgraSize);
+                    Marshal.Copy(current.Data, bgraData, 0, bgraSize);
+                    return (bgraData, bgraSize, w, h, false, 0, 0);
                 }
             }
             finally
@@ -127,7 +131,7 @@ public partial class FrameCacheManager
             if (!_isYuv)
             {
                 var bitmap = new Bitmap(_width, _height);
-                Marshal.Copy(_data, 0, bitmap.Data, _data.Length);
+                Marshal.Copy(_data, 0, bitmap.Data, _dataLength);
                 return bitmap;
             }
             else
@@ -149,8 +153,17 @@ public partial class FrameCacheManager
             }
         }
 
+        private void ReturnBuffer()
+        {
+            if (_data is { Length: > 0 })
+            {
+                ArrayPool<byte>.Shared.Return(_data);
+            }
+        }
+
         public void Dispose()
         {
+            ReturnBuffer();
             _data = null!;
         }
     }
