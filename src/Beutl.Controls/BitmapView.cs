@@ -284,7 +284,6 @@ public class BitmapView : Avalonia.Controls.Control
 
             if (needsToneMapping)
             {
-                Console.WriteLine($"Using tone mapping shader: {tmOperator}, exposure: {tmExposure}");
                 // トーンマッピングシェーダーを使用
                 float scaleX = sourceRect.Width / destRect.Width;
                 float scaleY = sourceRect.Height / destRect.Height;
