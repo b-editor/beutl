@@ -1,4 +1,4 @@
-﻿using System.Runtime.InteropServices;
+using System.Runtime.InteropServices;
 using Beutl.Logging;
 using Microsoft.Extensions.Logging;
 using Silk.NET.Vulkan;
@@ -8,19 +8,33 @@ using Silk.NET.Vulkan.Extensions.KHR;
 namespace Beutl.Graphics.Backend.Vulkan;
 
 /// <summary>
+/// Holds a Vulkan surface and any platform-specific resources that must be released alongside it.
+/// </summary>
+internal readonly struct VulkanSurfaceInfo(SurfaceKHR surface, IntPtr platformHandle = default)
+{
+    public SurfaceKHR Surface { get; } = surface;
+
+    /// <summary>
+    /// Platform-specific handle that must be released when the surface is destroyed.
+    /// On Linux/X11, this is the Display* opened via XOpenDisplay.
+    /// </summary>
+    public IntPtr PlatformHandle { get; } = platformHandle;
+}
+
+/// <summary>
 /// Platform-specific Vulkan surface creation helper.
 /// </summary>
 internal static unsafe class VulkanSurfaceHelper
 {
     private static readonly ILogger s_logger = Log.CreateLogger(typeof(VulkanSurfaceHelper));
 
-    public static SurfaceKHR CreateSurface(Vk vk, Instance instance, IntPtr nativeHandle, string handleDescriptor)
+    public static VulkanSurfaceInfo CreateSurface(Vk vk, Instance instance, IntPtr nativeHandle, string handleDescriptor)
     {
         if (OperatingSystem.IsWindows())
-            return CreateWin32Surface(vk, instance, nativeHandle);
+            return new VulkanSurfaceInfo(CreateWin32Surface(vk, instance, nativeHandle));
 
         if (OperatingSystem.IsMacOS())
-            return CreateMetalSurface(vk, instance, nativeHandle);
+            return new VulkanSurfaceInfo(CreateMetalSurface(vk, instance, nativeHandle));
 
         if (OperatingSystem.IsLinux())
             return CreateXlibSurface(vk, instance, nativeHandle);
@@ -28,9 +42,9 @@ internal static unsafe class VulkanSurfaceHelper
         throw new PlatformNotSupportedException($"Vulkan surface creation is not supported on this platform");
     }
 
-    public static void DestroySurface(Vk vk, Instance instance, SurfaceKHR surface)
+    public static void DestroySurface(Vk vk, Instance instance, VulkanSurfaceInfo surfaceInfo)
     {
-        if (surface.Handle == 0)
+        if (surfaceInfo.Surface.Handle == 0)
             return;
 
         if (!vk.TryGetInstanceExtension(instance, out KhrSurface khrSurface))
@@ -39,7 +53,14 @@ internal static unsafe class VulkanSurfaceHelper
             return;
         }
 
-        khrSurface.DestroySurface(instance, surface, null);
+        khrSurface.DestroySurface(instance, surfaceInfo.Surface, null);
+
+        // Release platform-specific resources (e.g., X11 Display)
+        if (OperatingSystem.IsLinux() && surfaceInfo.PlatformHandle != IntPtr.Zero)
+        {
+            XCloseDisplay(surfaceInfo.PlatformHandle);
+            s_logger.LogDebug("Closed X11 display {Handle}", surfaceInfo.PlatformHandle);
+        }
     }
 
     private static SurfaceKHR CreateWin32Surface(Vk vk, Instance instance, IntPtr hwnd)
@@ -90,7 +111,7 @@ internal static unsafe class VulkanSurfaceHelper
         return surface;
     }
 
-    private static SurfaceKHR CreateXlibSurface(Vk vk, Instance instance, IntPtr xWindow)
+    private static VulkanSurfaceInfo CreateXlibSurface(Vk vk, Instance instance, IntPtr xWindow)
     {
         if (!vk.TryGetInstanceExtension(instance, out KhrXlibSurface xlibSurface))
             throw new InvalidOperationException("VK_KHR_xlib_surface extension is not available");
@@ -109,10 +130,13 @@ internal static unsafe class VulkanSurfaceHelper
         SurfaceKHR surface;
         var result = xlibSurface.CreateXlibSurface(instance, &createInfo, null, &surface);
         if (result != Result.Success)
+        {
+            XCloseDisplay(display);
             throw new InvalidOperationException($"Failed to create Xlib Vulkan surface: {result}");
+        }
 
         s_logger.LogDebug("Created Xlib Vulkan surface from XWindow {Handle}", xWindow);
-        return surface;
+        return new VulkanSurfaceInfo(surface, display);
     }
 
     #region macOS ObjC Interop
@@ -204,6 +228,9 @@ internal static unsafe class VulkanSurfaceHelper
 
     [DllImport("libX11.so.6")]
     private static extern IntPtr XOpenDisplay(string? display);
+
+    [DllImport("libX11.so.6")]
+    private static extern int XCloseDisplay(IntPtr display);
 
     #endregion
 }

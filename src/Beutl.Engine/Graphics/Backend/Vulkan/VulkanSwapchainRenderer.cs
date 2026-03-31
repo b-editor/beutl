@@ -45,7 +45,7 @@ internal sealed unsafe class VulkanSwapchainRenderer : IDisposable
     // Swapchain infrastructure
     private VulkanSwapchain? _swapchain;
     private VulkanPresentPipeline? _pipeline;
-    private SurfaceKHR _surface;
+    private VulkanSurfaceInfo _surfaceInfo;
 
     // Source texture
     private Image _sourceImage;
@@ -96,8 +96,8 @@ internal sealed unsafe class VulkanSwapchainRenderer : IDisposable
 
     public void Initialize(IntPtr nativeHandle, string handleDescriptor, uint width, uint height)
     {
-        _surface = VulkanSurfaceHelper.CreateSurface(_vk, _instance, nativeHandle, handleDescriptor);
-        _swapchain = new VulkanSwapchain(_vk, _instance, _physicalDevice, _device, _queueFamilyIndex, _surface, width, height);
+        _surfaceInfo = VulkanSurfaceHelper.CreateSurface(_vk, _instance, nativeHandle, handleDescriptor);
+        _swapchain = new VulkanSwapchain(_vk, _instance, _physicalDevice, _device, _queueFamilyIndex, _surfaceInfo.Surface, width, height);
         _pipeline = new VulkanPresentPipeline(_vk, _device, _swapchain.Format, _swapchain.ImageViews, _swapchain.Extent);
         _renderCommandBuffer = AllocateCommandBuffer();
 
@@ -888,8 +888,8 @@ internal sealed unsafe class VulkanSwapchainRenderer : IDisposable
             _pipeline?.Dispose();
             _swapchain?.Dispose();
 
-            if (_surface.Handle != 0)
-                VulkanSurfaceHelper.DestroySurface(_vk, _instance, _surface);
+            if (_surfaceInfo.Surface.Handle != 0)
+                VulkanSurfaceHelper.DestroySurface(_vk, _instance, _surfaceInfo);
 
             if (_imageAvailableSemaphore.Handle != 0)
                 _vk.DestroySemaphore(_device, _imageAvailableSemaphore, null);
