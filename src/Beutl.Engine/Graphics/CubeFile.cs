@@ -1,8 +1,6 @@
 ﻿using System.Numerics;
 using System.Text.RegularExpressions;
 
-using OpenCvSharp;
-
 namespace Beutl.Graphics;
 
 public partial class CubeFile : IEquatable<CubeFile>
@@ -30,20 +28,20 @@ public partial class CubeFile : IEquatable<CubeFile>
     }
 
     // https://shizenkarasuzon.hatenablog.com/entry/2020/08/13/185223#1DLUT%E3%81%A83DLUT
-    public Vector3 TrilinearInterplate(Vec3b color)
+    public Vector3 TrilinearInterplate(byte v0, byte v1, byte v2)
     {
         Span<byte> pos = stackalloc byte[3]; // 0~33
         Span<float> delta = stackalloc float[3]; //
         int lut_size = Size;
         int lut_size_2 = lut_size * lut_size;
 
-        pos[0] = (byte)(color[0] * lut_size / 256);
-        pos[1] = (byte)(color[1] * lut_size / 256);
-        pos[2] = (byte)(color[2] * lut_size / 256);
+        pos[0] = (byte)(v0 * lut_size / 256);
+        pos[1] = (byte)(v1 * lut_size / 256);
+        pos[2] = (byte)(v2 * lut_size / 256);
 
-        delta[0] = color[0] * lut_size / 256.0f - pos[0];
-        delta[1] = color[1] * lut_size / 256.0f - pos[1];
-        delta[2] = color[2] * lut_size / 256.0f - pos[2];
+        delta[0] = v0 * lut_size / 256.0f - pos[0];
+        delta[1] = v1 * lut_size / 256.0f - pos[1];
+        delta[2] = v2 * lut_size / 256.0f - pos[2];
 
         Span<Vector3> vertex_color = stackalloc Vector3[8];
         Span<Vector3> surf_color = stackalloc Vector3[4];

@@ -2,7 +2,6 @@
 using Beutl.Engine;
 using Beutl.Language;
 using Beutl.Media;
-using OpenCvSharp;
 
 namespace Beutl.Graphics.Effects.OpenCv;
 
@@ -47,37 +46,38 @@ public partial class MedianBlur : FilterEffect
         for (int i = 0; i < context.Targets.Count; i++)
         {
             var target = context.Targets[i];
-            var renderTarget = target.RenderTarget!;
+            if (target.RenderTarget is null) continue;
+
             int kSize = data.KernelSize;
             if (kSize % 2 == 0)
                 kSize++;
 
+            Bitmap? src = null;
             Bitmap? dst = null;
 
             try
             {
-                using (var src = renderTarget.Snapshot())
+                using (var snapshot = target.RenderTarget.Snapshot())
                 {
                     if (data.FixImageSize)
                     {
-                        dst = src.Clone();
+                        src = snapshot.Clone();
                     }
                     else
                     {
-                        dst = src.MakeBorder(src.Width + kSize, src.Height + kSize);
+                        src = snapshot.MakeBorder(snapshot.Width + kSize, snapshot.Height + kSize);
                     }
                 }
 
-                // OpenCVはBgra8888 (CV_8UC4) を前提とするため、必要に応じて変換
-                if (dst.ColorType != BitmapColorType.Bgra8888)
+                if (src.ColorType != BitmapColorType.Bgra8888)
                 {
-                    var converted = dst.Convert(BitmapColorType.Bgra8888);
-                    dst.Dispose();
-                    dst = converted;
+                    var converted = src.Convert(BitmapColorType.Bgra8888);
+                    src.Dispose();
+                    src = converted;
                 }
 
-                using var mat = dst.ToMat();
-                Cv2.MedianBlur(mat, mat, kSize);
+                dst = new Bitmap(src.Width, src.Height);
+                ApplyMedianFilter(src, dst, kSize);
 
                 EffectTarget newTarget = context.CreateTarget(TransformBounds(data, target.Bounds));
                 using (var canvas = context.Open(newTarget))
@@ -91,8 +91,46 @@ public partial class MedianBlur : FilterEffect
             }
             finally
             {
+                src?.Dispose();
                 dst?.Dispose();
             }
         }
+    }
+
+    private static unsafe void ApplyMedianFilter(Bitmap src, Bitmap dst, int kSize)
+    {
+        int width = src.Width;
+        int height = src.Height;
+        int half = kSize / 2;
+        int medianIndex = (kSize * kSize) / 2;
+
+        nint srcAddr = src.Data;
+        nint dstAddr = dst.Data;
+
+        Parallel.For(0, height, y =>
+        {
+            Span<byte> window = stackalloc byte[kSize * kSize];
+
+            for (int x = 0; x < width; x++)
+            {
+                // Process each channel (B, G, R, A)
+                for (int ch = 0; ch < 4; ch++)
+                {
+                    int count = 0;
+                    for (int ky = -half; ky <= half; ky++)
+                    {
+                        int sy = Math.Clamp(y + ky, 0, height - 1);
+                        for (int kx = -half; kx <= half; kx++)
+                        {
+                            int sx = Math.Clamp(x + kx, 0, width - 1);
+                            window[count++] = ((byte*)srcAddr)[(sy * width + sx) * 4 + ch];
+                        }
+                    }
+
+                    window[..count].Sort();
+                    ((byte*)dstAddr)[(y * width + x) * 4 + ch] = window[count / 2];
+                }
+            }
+        });
     }
 }

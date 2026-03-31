@@ -2,7 +2,7 @@
 using Beutl.Engine;
 using Beutl.Language;
 using Beutl.Media;
-using OpenCvSharp;
+using SkiaSharp;
 
 namespace Beutl.Graphics.Effects.OpenCv;
 
@@ -52,7 +52,7 @@ public partial class Blur : FilterEffect
         for (int i = 0; i < context.Targets.Count; i++)
         {
             var target = context.Targets[i];
-            var renderTarget = target.RenderTarget!;
+            if (target.RenderTarget is null) continue;
 
             int kWidth = data.KernelSize.Width;
             int kHeight = data.KernelSize.Height;
@@ -64,46 +64,23 @@ public partial class Blur : FilterEffect
             if (kHeight % 2 == 0)
                 kHeight++;
 
-            Bitmap? dst = null;
+            // Box blur approximated via Gaussian: sigma = sqrt((K^2 - 1) / 12)
+            float sigmaX = MathF.Sqrt((kWidth * kWidth - 1) / 12f);
+            float sigmaY = MathF.Sqrt((kHeight * kHeight - 1) / 12f);
 
-            try
+            EffectTarget newTarget = context.CreateTarget(TransformBounds(data, target.Bounds));
+            using (var canvas = context.Open(newTarget))
             {
-                using (var src = renderTarget.Snapshot())
+                canvas.Clear();
+                using var filter = SKImageFilter.CreateBlur(sigmaX, sigmaY);
+                using var paint = new SKPaint { ImageFilter = filter };
+                using (canvas.PushPaint(paint))
                 {
-                    if (data.FixImageSize)
-                    {
-                        dst = src.Clone();
-                    }
-                    else
-                    {
-                        dst = src.MakeBorder(src.Width + kWidth, src.Height + kHeight);
-                    }
+                    canvas.DrawRenderTarget(target.RenderTarget, default);
                 }
-
-                // OpenCVはBgra8888 (CV_8UC4) を前提とするため、必要に応じて変換
-                if (dst.ColorType != BitmapColorType.Bgra8888)
-                {
-                    var converted = dst.Convert(BitmapColorType.Bgra8888);
-                    dst.Dispose();
-                    dst = converted;
-                }
-
-                using var mat = dst.ToMat();
-                Cv2.Blur(mat, mat, new(kWidth, kHeight));
-
-                EffectTarget newTarget = context.CreateTarget(TransformBounds(data, target.Bounds));
-                using (var canvas = context.Open(newTarget))
-                {
-                    canvas.Clear();
-                    canvas.DrawBitmap(dst, Brushes.Resource.White, null);
-                }
-                target.Dispose();
-                context.Targets[i] = newTarget;
             }
-            finally
-            {
-                dst?.Dispose();
-            }
+            target.Dispose();
+            context.Targets[i] = newTarget;
         }
     }
 }

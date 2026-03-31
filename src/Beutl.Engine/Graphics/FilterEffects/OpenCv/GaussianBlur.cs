@@ -2,7 +2,7 @@
 using Beutl.Engine;
 using Beutl.Language;
 using Beutl.Media;
-using OpenCvSharp;
+using SkiaSharp;
 
 namespace Beutl.Graphics.Effects.OpenCv;
 
@@ -49,12 +49,20 @@ public partial class GaussianBlur : FilterEffect
         return rect;
     }
 
+    // OpenCV formula: when sigma is 0, compute from kernel size
+    private static float ComputeSigma(float sigma, int ksize)
+    {
+        if (sigma > 0)
+            return sigma;
+        return (float)(0.3 * ((ksize - 1) * 0.5 - 1) + 0.8);
+    }
+
     private static void Apply((PixelSize KernelSize, Size Sigma, bool FixImageSize) data, CustomFilterEffectContext context)
     {
         for (int i = 0; i < context.Targets.Count; i++)
         {
             var target = context.Targets[i];
-            var renderTarget = target.RenderTarget!;
+            if (target.RenderTarget is null) continue;
 
             int kWidth = data.KernelSize.Width;
             int kHeight = data.KernelSize.Height;
@@ -66,46 +74,22 @@ public partial class GaussianBlur : FilterEffect
             if (kHeight % 2 == 0)
                 kHeight++;
 
-            Bitmap? dst = null;
+            float sigmaX = ComputeSigma(data.Sigma.Width, kWidth);
+            float sigmaY = ComputeSigma(data.Sigma.Height, kHeight);
 
-            try
+            EffectTarget newTarget = context.CreateTarget(TransformBounds(data, target.Bounds));
+            using (var canvas = context.Open(newTarget))
             {
-                using (var src = renderTarget.Snapshot())
+                canvas.Clear();
+                using var filter = SKImageFilter.CreateBlur(sigmaX, sigmaY);
+                using var paint = new SKPaint { ImageFilter = filter };
+                using (canvas.PushPaint(paint))
                 {
-                    if (data.FixImageSize)
-                    {
-                        dst = src.Clone();
-                    }
-                    else
-                    {
-                        dst = src.MakeBorder(src.Width + kWidth, src.Height + kHeight);
-                    }
+                    canvas.DrawRenderTarget(target.RenderTarget, default);
                 }
-
-                // OpenCVはBgra8888 (CV_8UC4) を前提とするため、必要に応じて変換
-                if (dst.ColorType != BitmapColorType.Bgra8888)
-                {
-                    var converted = dst.Convert(BitmapColorType.Bgra8888);
-                    dst.Dispose();
-                    dst = converted;
-                }
-
-                using var mat = dst.ToMat();
-                Cv2.GaussianBlur(mat, mat, new(kWidth, kHeight), data.Sigma.Width, data.Sigma.Height);
-
-                EffectTarget newTarget = context.CreateTarget(TransformBounds(data, target.Bounds));
-                using (var canvas = context.Open(newTarget))
-                {
-                    canvas.Clear();
-                    canvas.DrawBitmap(dst, Brushes.Resource.White, null);
-                }
-                target.Dispose();
-                context.Targets[i] = newTarget;
             }
-            finally
-            {
-                dst?.Dispose();
-            }
+            target.Dispose();
+            context.Targets[i] = newTarget;
         }
     }
 }

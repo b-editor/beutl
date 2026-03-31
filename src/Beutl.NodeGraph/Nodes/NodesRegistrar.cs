@@ -69,7 +69,7 @@ public static class NodesRegistrar
                 .Add<FilterEffectNode<CSharpScriptEffect>>(GraphicsStrings.CSharpScriptEffect)
                 .Add<FilterEffectNode<SKSLScriptEffect>>(GraphicsStrings.SKSLScriptEffect)
                 .Add<FilterEffectNode<GLSLScriptEffect>>(GraphicsStrings.GLSLScriptEffect))
-            .AddGroup("OpenCV", o => o
+            .AddGroup(GraphicsStrings.Blur, o => o
                 .Add<FilterEffectNode<Graphics.Effects.OpenCv.Blur>>("CvBlur")
                 .Add<FilterEffectNode<Graphics.Effects.OpenCv.GaussianBlur>>("CvGaussianBlur")
                 .Add<FilterEffectNode<Graphics.Effects.OpenCv.MedianBlur>>("CvMedianBlur"))
