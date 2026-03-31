@@ -45,6 +45,7 @@ public class AutoCompleteStringEditor : StringEditor
         base.OnApplyTemplate(e);
 
         _autoCompleteBox = e.NameScope.Find<AutoCompleteBox>("PART_InnerAutoCompleteBox");
+        _acOldValue = Text;
         if (_autoCompleteBox != null)
         {
             _autoCompleteBox.GetPropertyChangedObservable(AutoCompleteBox.TextProperty)
