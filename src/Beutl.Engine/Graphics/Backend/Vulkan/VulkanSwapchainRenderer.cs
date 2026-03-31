@@ -218,7 +218,6 @@ internal sealed unsafe class VulkanSwapchainRenderer : IDisposable
         // Acquire next swapchain image
         var fence = _inFlightFence;
         _vk.WaitForFences(_device, 1, &fence, Vk.True, ulong.MaxValue);
-        _vk.ResetFences(_device, 1, &fence);
 
         var acquireResult = _swapchain.AcquireNextImage(_imageAvailableSemaphore, out uint imageIndex);
         if (acquireResult == Result.ErrorOutOfDateKhr)
@@ -226,6 +225,8 @@ internal sealed unsafe class VulkanSwapchainRenderer : IDisposable
             ExecuteResize(_swapchain.Extent.Width, _swapchain.Extent.Height);
             return;
         }
+
+        _vk.ResetFences(_device, 1, &fence);
 
         // Record and submit command buffer
         RecordAndSubmit(imageIndex, renderParams);
