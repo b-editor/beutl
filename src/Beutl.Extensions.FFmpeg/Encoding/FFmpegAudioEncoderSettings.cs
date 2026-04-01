@@ -60,16 +60,18 @@ public sealed class FFmpegAudioEncoderSettings : AudioEncoderSettings
     public enum AudioFormat
     {
         Default = -1,
+        U8 = 0,
         S16 = 1,
         S32 = 2,
         Flt = 3,
-        S64 = 4,
-        Dbl = 5,
+        Dbl = 4,
+        U8p = 5,
         S16p = 6,
         S32p = 7,
         Fltp = 8,
-        S64p = 9,
-        Dblp = 10,
+        Dblp = 9,
+        S64 = 10,
+        S64p = 11
     }
 }
 

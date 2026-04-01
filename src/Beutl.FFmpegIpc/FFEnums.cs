@@ -28,8 +28,7 @@ public enum FFColorPrimaries
     SMPTE431 = 11,
     SMPTE432 = 12,
     EBU3213 = 22,
-    JEDEC_P22 = 22,
-    NB = 23,
+    JEDEC_P22 = 22
 }
 
 /// <summary>
@@ -55,8 +54,7 @@ public enum FFColorTransfer
     SMPTEST2084 = 16,
     SMPTE428 = 17,
     SMPTEST428_1 = 17,
-    ARIB_STD_B67 = 18,
-    NB = 19,
+    ARIB_STD_B67 = 18
 }
 
 /// <summary>
@@ -81,8 +79,7 @@ public enum FFColorSpace
     ICTCP = 14,
     IPT_C2 = 15,
     YCGCO_RE = 16,
-    YCGCO_RO = 17,
-    NB = 18,
+    YCGCO_RO = 17
 }
 
 /// <summary>
