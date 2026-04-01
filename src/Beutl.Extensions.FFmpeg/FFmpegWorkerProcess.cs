@@ -105,6 +105,7 @@ public sealed class FFmpegWorkerProcess : IDisposable
                     Console.WriteLine($"[FFmpegWorker] {e.Data}");
             };
             _process.BeginErrorReadLine();
+            _process.BeginOutputReadLine();
 
             // パイプ接続待機
             using var connectCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
@@ -182,6 +183,7 @@ public sealed class FFmpegWorkerProcess : IDisposable
                     Console.WriteLine($"[FFmpegWorker] {e.Data}");
             };
             _process.BeginErrorReadLine();
+            _process.BeginOutputReadLine();
 
             // パイプ接続待機
             pipeServer.WaitForConnection();
