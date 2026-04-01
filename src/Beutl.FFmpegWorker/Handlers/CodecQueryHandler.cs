@@ -42,8 +42,9 @@ internal sealed class CodecQueryHandler
             return IpcMessage.Create(msg.Id, MessageType.QueryPixelFormatsResult,
                 new QueryPixelFormatsResponse { Formats = fmts });
         }
-        catch
+        catch (Exception ex)
         {
+            Console.Error.WriteLine($"QueryPixelFormats: codec-specific query failed, falling back to all formats: {ex.Message}");
             // フォールバック: 全対応フォーマット
             var allFmts = Enum.GetValues<AVPixelFormat>()
                 .Where(f => f != AVPixelFormat.AV_PIX_FMT_NONE && (int)f >= 0 && ffmpeg.sws_isSupportedOutput(f) != 0)
@@ -70,8 +71,9 @@ internal sealed class CodecQueryHandler
             return IpcMessage.Create(msg.Id, MessageType.QuerySampleRatesResult,
                 new QuerySampleRatesResponse { SampleRates = rates });
         }
-        catch
+        catch (Exception ex)
         {
+            Console.Error.WriteLine($"QuerySampleRates: codec-specific query failed: {ex.Message}");
             return IpcMessage.Create(msg.Id, MessageType.QuerySampleRatesResult,
                 new QuerySampleRatesResponse { SampleRates = [] });
         }
@@ -88,8 +90,9 @@ internal sealed class CodecQueryHandler
             return IpcMessage.Create(msg.Id, MessageType.QueryAudioFormatsResult,
                 new QueryAudioFormatsResponse { Formats = fmts });
         }
-        catch
+        catch (Exception ex)
         {
+            Console.Error.WriteLine($"QueryAudioFormats: codec-specific query failed: {ex.Message}");
             return IpcMessage.Create(msg.Id, MessageType.QueryAudioFormatsResult,
                 new QueryAudioFormatsResponse { Formats = [] });
         }
@@ -112,8 +115,9 @@ internal sealed class CodecQueryHandler
             return IpcMessage.Create(msg.Id, MessageType.QueryDefaultCodecResult,
                 new QueryDefaultCodecResponse { VideoCodecName = videoCodec, AudioCodecName = audioCodec });
         }
-        catch
+        catch (Exception ex)
         {
+            Console.Error.WriteLine($"QueryDefaultCodec: query failed: {ex.Message}");
             return IpcMessage.Create(msg.Id, MessageType.QueryDefaultCodecResult,
                 new QueryDefaultCodecResponse());
         }
