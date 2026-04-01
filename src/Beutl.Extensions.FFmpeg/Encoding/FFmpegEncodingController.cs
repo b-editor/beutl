@@ -211,10 +211,6 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
             codecContext.ColorTrc = (AVColorTransferCharacteristic)(int)VideoSettings.ColorTrc;
             codecContext.Colorspace = (AVColorSpace)(int)VideoSettings.ColorSpace;
             codecContext.ColorRange = (AVColorRange)(int)VideoSettings.ColorRange;
-            Console.Error.WriteLine($"ColorPrimitive: {codecContext.ColorPrimaries}");
-            Console.Error.WriteLine($"ColorTrc: {codecContext.ColorTrc}");
-            Console.Error.WriteLine($"Colorspace: {codecContext.Colorspace}");
-            Console.Error.WriteLine($"ColorRange: {codecContext.ColorRange}");
 
             var hwType = GetAVHWDeviceType();
             codecContext.InitHWDeviceContext(hwType);
@@ -255,8 +251,6 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
     public override async ValueTask Encode(IFrameProvider frameProvider, ISampleProvider sampleProvider,
         CancellationToken cancellationToken)
     {
-        Console.Error.WriteLine($"PixelFormat: {(AVPixelFormat)VideoSettings.Format}");
-
         bool encodeVideo = false, encodeAudio = false;
         using (var fs = File.OpenWrite(OutputFile))
         using (var muxer = MediaMuxer.Create(fs, OutputFormat.GuessFormat(null, OutputFile, null)))
