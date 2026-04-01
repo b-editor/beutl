@@ -19,6 +19,10 @@ internal sealed class DecodingHandler : IDisposable
         public SharedMemoryBuffer? VideoBuffer { get; set; }
         public SharedMemoryBuffer? AudioBuffer { get; set; }
 
+        // 色空間キャッシュ: 前フレームと同じなら送信を省略
+        public float[]? LastTransferFn { get; set; }
+        public float[]? LastToXyzD50 { get; set; }
+
         public void Dispose()
         {
             Reader.Dispose();
@@ -124,10 +128,22 @@ internal sealed class DecodingHandler : IDisposable
 
             state.VideoBuffer.Write(new ReadOnlySpan<byte>((void*)bitmap.Data, dataLen));
 
-            // 色空間情報シリアライズ
+            // 色空間情報: 前フレームと異なる場合のみ送信
             var cs = bitmap.ColorSpace;
             var transferFn = cs.GetNumericalTransferFunction();
             var xyz = cs.ToColorSpaceXyz();
+
+            float[] currentTransferFn = [transferFn.G, transferFn.A, transferFn.B, transferFn.C, transferFn.D, transferFn.E, transferFn.F];
+            float[] currentToXyzD50 = xyz.Values.ToArray();
+
+            bool colorSpaceChanged = !currentTransferFn.AsSpan().SequenceEqual(state.LastTransferFn)
+                                     || !currentToXyzD50.AsSpan().SequenceEqual(state.LastToXyzD50);
+
+            if (colorSpaceChanged)
+            {
+                state.LastTransferFn = currentTransferFn;
+                state.LastToXyzD50 = currentToXyzD50;
+            }
 
             return IpcMessage.Create(msg.Id, MessageType.ReadVideoResult, new ReadVideoResponse
             {
@@ -138,8 +154,8 @@ internal sealed class DecodingHandler : IDisposable
                 DataLength = dataLen,
                 IsHdr = bitmap.BytesPerPixel == 8,
                 SharedMemoryName = newShmName,
-                TransferFn = [transferFn.G, transferFn.A, transferFn.B, transferFn.C, transferFn.D, transferFn.E, transferFn.F],
-                ToXyzD50 = xyz.Values.ToArray(),
+                TransferFn = colorSpaceChanged ? currentTransferFn : null,
+                ToXyzD50 = colorSpaceChanged ? currentToXyzD50 : null,
             });
         }
     }

@@ -75,11 +75,12 @@ public sealed class FFmpegReaderProxy : MediaReader
         // 共有メモリから読み取り（Worker側でリサイズされた場合は名前が変わる）
         EnsureVideoBuffer(response.DataLength, response.SharedMemoryName);
 
-        var colorSpace = _colorSpace ?? BitmapColorSpace.Srgb;
+        // 色空間情報は差分送信: Worker側から送られた場合のみキャッシュを更新
         if (response.TransferFn != null && response.ToXyzD50 != null)
         {
-            colorSpace = BuildColorSpaceFromArrays(response.TransferFn, response.ToXyzD50);
+            _colorSpace = BuildColorSpaceFromArrays(response.TransferFn, response.ToXyzD50);
         }
+        var colorSpace = _colorSpace ?? BitmapColorSpace.Srgb;
 
         bool isHdr = response.BytesPerPixel == 8;
         var colorType = isHdr ? BitmapColorType.Rgba16161616 : BitmapColorType.Bgra8888;
