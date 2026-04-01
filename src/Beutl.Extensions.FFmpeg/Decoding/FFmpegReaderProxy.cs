@@ -72,8 +72,8 @@ public sealed class FFmpegReaderProxy : MediaReader
             return false;
         }
 
-        // 共有メモリから読み取り
-        EnsureVideoBuffer(response.DataLength);
+        // 共有メモリから読み取り（Worker側でリサイズされた場合は名前が変わる）
+        EnsureVideoBuffer(response.DataLength, response.SharedMemoryName);
 
         var colorSpace = _colorSpace ?? BitmapColorSpace.Srgb;
         if (response.TransferFn != null && response.ToXyzD50 != null)
@@ -123,7 +123,7 @@ public sealed class FFmpegReaderProxy : MediaReader
             return false;
         }
 
-        EnsureAudioBuffer(response.DataLength);
+        EnsureAudioBuffer(response.DataLength, response.SharedMemoryName);
 
         var pcm = new Pcm<Stereo32BitFloat>(response.SampleRate, response.NumSamples);
         try
@@ -204,24 +204,28 @@ public sealed class FFmpegReaderProxy : MediaReader
         base.Dispose(disposing);
     }
 
-    private void EnsureVideoBuffer(int requiredSize)
+    private void EnsureVideoBuffer(int requiredSize, string? newShmName)
     {
-        if (_videoBuffer != null && _videoBuffer.Capacity >= requiredSize)
+        bool nameChanged = newShmName != null;
+        if (!nameChanged && _videoBuffer != null && _videoBuffer.Capacity >= requiredSize)
             return;
 
         _videoBuffer?.Dispose();
-        string shmName = _openResponse.VideoSharedMemoryName
+        string shmName = newShmName
+            ?? _openResponse.VideoSharedMemoryName
             ?? throw new InvalidOperationException("Video shared memory name not provided");
         _videoBuffer = SharedMemoryBuffer.Open(shmName, requiredSize);
     }
 
-    private void EnsureAudioBuffer(int requiredSize)
+    private void EnsureAudioBuffer(int requiredSize, string? newShmName)
     {
-        if (_audioBuffer != null && _audioBuffer.Capacity >= requiredSize)
+        bool nameChanged = newShmName != null;
+        if (!nameChanged && _audioBuffer != null && _audioBuffer.Capacity >= requiredSize)
             return;
 
         _audioBuffer?.Dispose();
-        string shmName = _openResponse.AudioSharedMemoryName
+        string shmName = newShmName
+            ?? _openResponse.AudioSharedMemoryName
             ?? throw new InvalidOperationException("Audio shared memory name not provided");
         _audioBuffer = SharedMemoryBuffer.Open(shmName, requiredSize);
     }

@@ -11,6 +11,7 @@ internal sealed class DecodingHandler : IDisposable
 {
     private readonly Dictionary<int, ReaderState> _readers = [];
     private int _nextReaderId;
+    private int _shmGeneration;
 
     private sealed class ReaderState : IDisposable
     {
@@ -110,13 +111,15 @@ internal sealed class DecodingHandler : IDisposable
         {
             int dataLen = bitmap.ByteCount;
 
-            // 共有メモリが小さければリサイズ
+            // 共有メモリが小さければリサイズ（一意な名前で再作成）
+            string? newShmName = null;
             if (state.VideoBuffer == null || state.VideoBuffer.Capacity < dataLen)
             {
                 state.VideoBuffer?.Dispose();
                 long newSize = dataLen + 64;
-                string shmName = $"beutl-ffmpeg-video-{Environment.ProcessId}-{request.ReaderId}";
-                state.VideoBuffer = SharedMemoryBuffer.Create(shmName, newSize);
+                int gen = Interlocked.Increment(ref _shmGeneration);
+                newShmName = $"beutl-ffmpeg-video-{Environment.ProcessId}-{request.ReaderId}-{gen}";
+                state.VideoBuffer = SharedMemoryBuffer.Create(newShmName, newSize);
             }
 
             state.VideoBuffer.Write(new ReadOnlySpan<byte>((void*)bitmap.Data, dataLen));
@@ -134,6 +137,7 @@ internal sealed class DecodingHandler : IDisposable
                 BytesPerPixel = bitmap.BytesPerPixel,
                 DataLength = dataLen,
                 IsHdr = bitmap.BytesPerPixel == 8,
+                SharedMemoryName = newShmName,
                 TransferFn = [transferFn.G, transferFn.A, transferFn.B, transferFn.C, transferFn.D, transferFn.E, transferFn.F],
                 ToXyzD50 = xyz.Values.ToArray(),
             });
@@ -156,12 +160,14 @@ internal sealed class DecodingHandler : IDisposable
         {
             int dataLen = sound.NumSamples * (int)sound.SampleSize;
 
+            string? newShmName = null;
             if (state.AudioBuffer == null || state.AudioBuffer.Capacity < dataLen)
             {
                 state.AudioBuffer?.Dispose();
                 long newSize = dataLen + 64;
-                string shmName = $"beutl-ffmpeg-audio-{Environment.ProcessId}-{request.ReaderId}";
-                state.AudioBuffer = SharedMemoryBuffer.Create(shmName, newSize);
+                int gen = Interlocked.Increment(ref _shmGeneration);
+                newShmName = $"beutl-ffmpeg-audio-{Environment.ProcessId}-{request.ReaderId}-{gen}";
+                state.AudioBuffer = SharedMemoryBuffer.Create(newShmName, newSize);
             }
 
             state.AudioBuffer.Write(new ReadOnlySpan<byte>((void*)sound.Data, dataLen));
@@ -172,6 +178,7 @@ internal sealed class DecodingHandler : IDisposable
                 SampleRate = sound.SampleRate,
                 NumSamples = sound.NumSamples,
                 DataLength = dataLen,
+                SharedMemoryName = newShmName,
             });
         }
     }
