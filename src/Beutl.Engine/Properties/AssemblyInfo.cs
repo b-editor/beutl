@@ -6,6 +6,7 @@
 [assembly: InternalsVisibleTo("Beutl.ProjectSystem")]
 [assembly: InternalsVisibleTo("Beutl.UnitTests")]
 [assembly: InternalsVisibleTo("Beutl.Benchmarks")]
+[assembly: InternalsVisibleTo("Beutl.FFmpegBenchmarks")]
 [assembly: InternalsVisibleTo("Beutl.Api")]
 [assembly: InternalsVisibleTo("Beutl.NodeGraph")]
 [assembly: InternalsVisibleTo("Beutl.Embedding.FFmpeg")]
