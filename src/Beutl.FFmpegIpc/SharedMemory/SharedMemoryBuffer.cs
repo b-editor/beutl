@@ -35,7 +35,9 @@ public sealed class SharedMemoryBuffer : IDisposable
     public static SharedMemoryBuffer Create(string name, long capacity)
     {
         string filePath = GetSharedMemoryPath(name);
-        var mmf = MemoryMappedFile.CreateFromFile(filePath, FileMode.Create, null, capacity, MemoryMappedFileAccess.ReadWrite);
+        var stream = new FileStream(filePath, FileMode.Create, FileAccess.ReadWrite, FileShare.ReadWrite);
+        stream.SetLength(capacity);
+        var mmf = MemoryMappedFile.CreateFromFile(stream, null, capacity, MemoryMappedFileAccess.ReadWrite, HandleInheritability.None, leaveOpen: false);
         var accessor = mmf.CreateViewAccessor(0, capacity);
         return new SharedMemoryBuffer(mmf, accessor, name, capacity, filePath, ownsFile: true);
     }
@@ -46,7 +48,8 @@ public sealed class SharedMemoryBuffer : IDisposable
     public static SharedMemoryBuffer Open(string name, long capacity)
     {
         string filePath = GetSharedMemoryPath(name);
-        var mmf = MemoryMappedFile.CreateFromFile(filePath, FileMode.Open, null, 0, MemoryMappedFileAccess.ReadWrite);
+        var stream = new FileStream(filePath, FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite);
+        var mmf = MemoryMappedFile.CreateFromFile(stream, null, 0, MemoryMappedFileAccess.ReadWrite, HandleInheritability.None, leaveOpen: false);
         var accessor = mmf.CreateViewAccessor(0, capacity);
         return new SharedMemoryBuffer(mmf, accessor, name, capacity, filePath, ownsFile: false);
     }
