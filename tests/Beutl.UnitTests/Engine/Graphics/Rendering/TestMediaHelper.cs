@@ -4,6 +4,7 @@ using Beutl.Media;
 using Beutl.Media.Decoding;
 using Beutl.Media.Music;
 using Beutl.Media.Pixel;
+using Beutl.Media.Source;
 using Beutl.Serialization;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering;
@@ -128,7 +129,7 @@ internal sealed class TestMediaReader : MediaReader
 
     public override bool HasAudio => false;
 
-    public override bool ReadVideo(int frame, [NotNullWhen(true)] out Bitmap? image)
+    public override bool ReadVideo(int frame, [NotNullWhen(true)] out Ref<Bitmap>? image)
     {
         if (frame < 0 || frame >= _frameCount)
         {
@@ -141,11 +142,11 @@ internal sealed class TestMediaReader : MediaReader
         // Fill with a frame-dependent color for testing
         byte colorValue = (byte)((frame * 10) % 256);
         bitmap.GetPixelSpan<Bgra8888>().Fill(new Bgra8888(colorValue, colorValue, colorValue, 255));
-        image = bitmap;
+        image = Ref<Bitmap>.Create(bitmap);
         return true;
     }
 
-    public override bool ReadAudio(int start, int length, [NotNullWhen(true)] out IPcm? sound)
+    public override bool ReadAudio(int start, int length, [NotNullWhen(true)] out Ref<IPcm>? sound)
     {
         sound = null;
         return false;

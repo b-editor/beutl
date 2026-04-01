@@ -3,6 +3,7 @@ using Beutl.Graphics;
 using Beutl.Media.Decoding.APNG;
 using Beutl.Media.Decoding.APNG.Chunks;
 using Beutl.Media.Music;
+using Beutl.Media.Source;
 using SkiaSharp;
 
 namespace Beutl.Media.Decoding;
@@ -51,7 +52,7 @@ public class AnimatedPngReader : MediaReader
 
     public override bool HasAudio => false;
 
-    public override bool ReadVideo(int frame, [NotNullWhen(true)] out Bitmap? image)
+    public override bool ReadVideo(int frame, [NotNullWhen(true)] out Ref<Bitmap>? image)
     {
         image = null;
 
@@ -61,7 +62,7 @@ public class AnimatedPngReader : MediaReader
         int detectedFrame = -1;
         if (_defaultImage != null)
         {
-            image = _defaultImage.Clone();
+            image = Ref<Bitmap>.Create(_defaultImage.Clone());
             return true;
         }
         else
@@ -96,7 +97,7 @@ public class AnimatedPngReader : MediaReader
 
         if (_lastFrame?.Index == detectedFrame)
         {
-            image = new Bitmap(_lastFrame.Bitmap.Copy());
+            image = Ref<Bitmap>.Create(new Bitmap(_lastFrame.Bitmap.Copy()));
             return true;
         }
 
@@ -112,7 +113,7 @@ public class AnimatedPngReader : MediaReader
             _lastFrame = null;
         }
 
-        image = new Bitmap(bitmap.Copy());
+        image = Ref<Bitmap>.Create(new Bitmap(bitmap.Copy()));
         return true;
     }
 
@@ -174,7 +175,7 @@ public class AnimatedPngReader : MediaReader
         return frameBitmap;
     }
 
-    public override bool ReadAudio(int start, int length, [NotNullWhen(true)] out IPcm? sound)
+    public override bool ReadAudio(int start, int length, [NotNullWhen(true)] out Ref<IPcm>? sound)
     {
         sound = null;
         return false;

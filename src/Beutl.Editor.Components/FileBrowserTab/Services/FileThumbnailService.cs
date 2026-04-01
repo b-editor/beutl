@@ -339,15 +339,15 @@ public sealed class FileThumbnailService : IDisposable
                     return null;
 
                 // 最初のフレームを読み取る
-                if (!reader.ReadVideo(0, out var bmp) || bmp == null)
+                if (!reader.ReadVideo(0, out var bmpRef) || bmpRef == null)
                     return null;
 
-                using (bmp)
+                using (bmpRef)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
 
                     // SKBitmapを取得
-                    var skBitmap = bmp.SKBitmap;
+                    var skBitmap = bmpRef.Value.SKBitmap;
 
                     // サムネイルサイズにリサイズ
                     float scale = Math.Min((float)ThumbnailSize / skBitmap.Width, (float)ThumbnailSize / skBitmap.Height);

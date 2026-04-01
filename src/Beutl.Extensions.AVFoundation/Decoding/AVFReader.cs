@@ -2,6 +2,7 @@
 using Beutl.Media;
 using Beutl.Media.Decoding;
 using Beutl.Media.Music;
+using Beutl.Media.Source;
 using MonoMac.AVFoundation;
 using MonoMac.Foundation;
 
@@ -39,7 +40,7 @@ public sealed class AVFReader : MediaReader
 
     public override bool HasAudio => _audioReader != null;
 
-    public override bool ReadAudio(int start, int length, [NotNullWhen(true)] out IPcm? sound)
+    public override bool ReadAudio(int start, int length, [NotNullWhen(true)] out Ref<IPcm>? sound)
     {
         if (_audioReader != null)
         {
@@ -50,7 +51,7 @@ public sealed class AVFReader : MediaReader
         return false;
     }
 
-    public override bool ReadVideo(int frame, [NotNullWhen(true)] out Bitmap? image)
+    public override bool ReadVideo(int frame, [NotNullWhen(true)] out Ref<Bitmap>? image)
     {
         if (_videoReader != null)
         {

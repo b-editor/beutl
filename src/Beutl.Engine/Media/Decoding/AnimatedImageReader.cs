@@ -1,6 +1,7 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using Beutl.Graphics;
 using Beutl.Media.Music;
+using Beutl.Media.Source;
 using SkiaSharp;
 
 namespace Beutl.Media.Decoding;
@@ -39,7 +40,7 @@ public class AnimatedImageReader : MediaReader
 
     public override bool HasAudio => false;
 
-    public override bool ReadVideo(int frame, [NotNullWhen(true)] out Bitmap? image)
+    public override bool ReadVideo(int frame, [NotNullWhen(true)] out Ref<Bitmap>? image)
     {
         image = null;
         if (_codec == null)
@@ -80,7 +81,7 @@ public class AnimatedImageReader : MediaReader
 
         if (_lastFrame?.Index == detectedFrame)
         {
-            image = new Bitmap(_lastFrame.Bitmap.Copy());
+            image = Ref<Bitmap>.Create(new Bitmap(_lastFrame.Bitmap.Copy()));
             return true;
         }
 
@@ -96,7 +97,7 @@ public class AnimatedImageReader : MediaReader
             _lastFrame = null;
         }
 
-        image = new Bitmap(bitmap.Copy());
+        image = Ref<Bitmap>.Create(new Bitmap(bitmap.Copy()));
         return true;
     }
 
@@ -145,7 +146,7 @@ public class AnimatedImageReader : MediaReader
         return frameBitmap;
     }
 
-    public override bool ReadAudio(int start, int length, [NotNullWhen(true)] out IPcm? sound)
+    public override bool ReadAudio(int start, int length, [NotNullWhen(true)] out Ref<IPcm>? sound)
     {
         sound = null;
         return false;

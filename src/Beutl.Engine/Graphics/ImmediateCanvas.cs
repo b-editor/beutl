@@ -184,11 +184,11 @@ public partial class ImmediateCanvas : ICanvas
 
     public void DrawVideoSource(VideoSource.Resource source, int frame, Brush.Resource? fill, Pen.Resource? pen)
     {
-        if (source.Read(frame, out Bitmap? bitmap))
+        if (source.Read(frame, out var bitmapRef))
         {
-            using (bitmap)
+            using (bitmapRef)
             {
-                DrawBitmap(bitmap, fill, pen);
+                DrawBitmap(bitmapRef.Value, fill, pen);
             }
         }
     }

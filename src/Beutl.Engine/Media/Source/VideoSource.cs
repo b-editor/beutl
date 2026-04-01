@@ -44,7 +44,7 @@ public sealed class VideoSource : MediaSource
 
         public MediaReader? MediaReader => _counter?.Value;
 
-        public bool Read(TimeSpan frame, [NotNullWhen(true)] out Bitmap? bitmap)
+        public bool Read(TimeSpan frame, [NotNullWhen(true)] out Ref<Bitmap>? bitmap)
         {
             if (IsDisposed || _counter == null)
             {
@@ -57,7 +57,7 @@ public sealed class VideoSource : MediaSource
             return _counter.Value.ReadVideo((int)frameNum, out bitmap);
         }
 
-        public bool Read(int frame, [NotNullWhen(true)] out Bitmap? bitmap)
+        public bool Read(int frame, [NotNullWhen(true)] out Ref<Bitmap>? bitmap)
         {
             if (IsDisposed || _counter == null)
             {

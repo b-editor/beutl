@@ -240,7 +240,7 @@ internal sealed class DecodingHandler : IDisposable
             // キャッシュミス: プリフェッチ停止してデコード
             StopPrefetchUnderLock(state);
 
-            if (!state.Reader.ReadVideo(request.Frame, out var bitmap))
+            if (!state.Reader.ReadVideo(request.Frame, out var bitmapRef))
             {
                 state.LastRequestedFrame = request.Frame;
                 StartPrefetch(state);
@@ -248,8 +248,9 @@ internal sealed class DecodingHandler : IDisposable
                     new ReadVideoResponse { Success = false });
             }
 
-            using (bitmap)
+            using (bitmapRef)
             {
+                var bitmap = bitmapRef.Value;
                 int dataLen = bitmap.ByteCount;
 
                 // 共有メモリリサイズチェック
@@ -332,14 +333,15 @@ internal sealed class DecodingHandler : IDisposable
 
     private unsafe IpcMessage HandleReadVideoLegacy(int msgId, ReadVideoRequest request, ReaderState state)
     {
-        if (!state.Reader.ReadVideo(request.Frame, out var bitmap))
+        if (!state.Reader.ReadVideo(request.Frame, out var bitmapRef))
         {
             return IpcMessage.Create(msgId, MessageType.ReadVideoResult,
                 new ReadVideoResponse { Success = false });
         }
 
-        using (bitmap)
+        using (bitmapRef)
         {
+            var bitmap = bitmapRef.Value;
             int dataLen = bitmap.ByteCount;
 
             // 共有メモリが小さければリサイズ（一意な名前で再作成）
@@ -458,11 +460,12 @@ internal sealed class DecodingHandler : IDisposable
                         if (ct.IsCancellationRequested) break;
                         if (state.FindSlot(nextFrame) >= 0) continue;
 
-                        if (!state.Reader.ReadVideo(nextFrame, out var bitmap))
+                        if (!state.Reader.ReadVideo(nextFrame, out var bitmapRef))
                             continue;
 
-                        using (bitmap)
+                        using (bitmapRef)
                         {
+                            var bitmap = bitmapRef.Value;
                             int dataLen = bitmap.ByteCount;
                             if (dataLen > state.SlotSize)
                                 continue; // スロットに収まらない場合はスキップ
@@ -520,14 +523,15 @@ internal sealed class DecodingHandler : IDisposable
         if (!_readers.TryGetValue(request.ReaderId, out var state))
             return IpcMessage.CreateError(msg.Id, $"Unknown reader ID: {request.ReaderId}");
 
-        if (!state.Reader.ReadAudio(request.Start, request.Length, out var sound))
+        if (!state.Reader.ReadAudio(request.Start, request.Length, out var soundRef))
         {
             return IpcMessage.Create(msg.Id, MessageType.ReadAudioResult,
                 new ReadAudioResponse { Success = false });
         }
 
-        using (sound)
+        using (soundRef)
         {
+            var sound = soundRef.Value;
             int dataLen = sound.NumSamples * (int)sound.SampleSize;
 
             string? newShmName = null;

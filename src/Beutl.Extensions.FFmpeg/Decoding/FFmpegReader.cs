@@ -5,6 +5,7 @@ using Beutl.Media;
 using Beutl.Media.Decoding;
 using Beutl.Media.Music;
 using Beutl.Media.Music.Samples;
+using Beutl.Media.Source;
 using FFmpeg.AutoGen.Abstractions;
 using FFmpegSharp;
 using Microsoft.Extensions.Logging;
@@ -149,12 +150,12 @@ public sealed class FFmpegReader : MediaReader
 
     public override bool HasAudio => _hasAudio;
 
-    public override unsafe bool ReadAudio(int start, int length, [NotNullWhen(true)] out IPcm? result)
+    public override unsafe bool ReadAudio(int start, int length, [NotNullWhen(true)] out Ref<IPcm>? result)
     {
         // Decoder側でResampleされるかのチェックのため
         if (length == 0)
         {
-            result = new Pcm<Stereo32BitFloat>(AudioInfo.SampleRate, 0);
+            result = Ref<IPcm>.Create(new Pcm<Stereo32BitFloat>(AudioInfo.SampleRate, 0));
             return true;
         }
 
@@ -229,19 +230,19 @@ public sealed class FFmpegReader : MediaReader
 
                 if (decoded >= length || len <= 0)
                 {
-                    result = sound;
+                    result = Ref<IPcm>.Create(sound);
                     return true;
                 }
 
                 needGrab = skip + len >= _currentAudioFrame.NbSamples;
             }
 
-            result = sound;
+            result = Ref<IPcm>.Create(sound);
             return true;
         }
     }
 
-    public override unsafe bool ReadVideo(int frame, [NotNullWhen(true)] out Bitmap? image)
+    public override unsafe bool ReadVideo(int frame, [NotNullWhen(true)] out Ref<Bitmap>? image)
     {
         var videoFrame = ActiveVideoFrame;
         if (_videoStream == null || _videoDecoder == null || videoFrame == null)
@@ -317,7 +318,7 @@ public sealed class FFmpegReader : MediaReader
             _filterFrame.Unref();
         }
 
-        image = bmp;
+        image = Ref<Bitmap>.Create(bmp);
         return true;
     }
 

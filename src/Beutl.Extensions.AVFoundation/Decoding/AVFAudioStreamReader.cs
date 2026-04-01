@@ -3,6 +3,7 @@ using Beutl.Logging;
 using Beutl.Media.Decoding;
 using Beutl.Media.Music;
 using Beutl.Media.Music.Samples;
+using Beutl.Media.Source;
 using Microsoft.Extensions.Logging;
 using MonoMac.AudioToolbox;
 using MonoMac.AVFoundation;
@@ -105,7 +106,7 @@ public class AVFAudioStreamReader : IDisposable
         _assetAudioReader.StartReading();
     }
 
-    public bool ReadAudio(int start, int length, [NotNullWhen(true)] out IPcm? sound)
+    public bool ReadAudio(int start, int length, [NotNullWhen(true)] out Ref<IPcm>? sound)
     {
         start = (int)((long)AudioInfo.SampleRate * start / AudioInfo.SampleRate);
         length = (int)((long)AudioInfo.SampleRate * length / AudioInfo.SampleRate);
@@ -113,7 +114,7 @@ public class AVFAudioStreamReader : IDisposable
         bool hitCache = _sampleCache.SearchAudioSampleAndCopyBuffer(start, length, buffer.Data);
         if (hitCache)
         {
-            sound = buffer;
+            sound = Ref<IPcm>.Create(buffer);
             return true;
         }
 
@@ -141,7 +142,7 @@ public class AVFAudioStreamReader : IDisposable
                 {
                     if (_sampleCache.SearchAudioSampleAndCopyBuffer(start, length, buffer.Data))
                     {
-                        sound = buffer;
+                        sound = Ref<IPcm>.Create(buffer);
                         return true;
                     }
                 }
@@ -154,7 +155,7 @@ public class AVFAudioStreamReader : IDisposable
             }
         }
 
-        sound = buffer;
+        sound = Ref<IPcm>.Create(buffer);
         return true;
     }
 
