@@ -98,9 +98,9 @@ public sealed class LoadPrimitiveExtensionTask : StartupTask
                     };
                     try
                     {
-                        var decoding = new Embedding.FFmpeg.Decoding.FFmpegDecodingExtension();
-                        var encoding = new Embedding.FFmpeg.Encoding.FFmpegControlledEncodingExtension();
-                        var propertyEditor = new Embedding.FFmpeg.PropertyEditors.FFmpegEncoderSpecializedPropertyExtension();
+                        var decoding = new Extensions.FFmpeg.Decoding.FFmpegDecodingExtension();
+                        var encoding = new Extensions.FFmpeg.Encoding.FFmpegControlledEncodingExtension();
+                        var propertyEditor = new Extensions.FFmpeg.PropertyEditors.FFmpegEncoderSpecializedPropertyExtension();
                         _manager.SetupExtensionSettings(decoding);
                         _manager.SetupExtensionSettings(encoding);
                         _manager.SetupExtensionSettings(propertyEditor);

@@ -5,8 +5,8 @@ using FFmpeg.AutoGen.Abstractions;
 using FFmpegSharp;
 using Microsoft.Extensions.Logging;
 
-#if FFMPEG_BUILD_IN
-namespace Beutl.Embedding.FFmpeg.Encoding;
+#if BEUTL_FFMPEG_WORKER
+namespace Beutl.FFmpegWorker.Encoding;
 #else
 namespace Beutl.Extensions.FFmpeg.Encoding;
 #endif
@@ -207,10 +207,14 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
             codecContext.GopSize = VideoSettings.KeyframeRate;
             codecContext.ThreadCount = Math.Min(Environment.ProcessorCount, 16);
 
-            codecContext.ColorPrimaries = VideoSettings.ColorPrimaries;
-            codecContext.ColorTrc = VideoSettings.ColorTrc;
-            codecContext.Colorspace = VideoSettings.ColorSpace;
-            codecContext.ColorRange = VideoSettings.ColorRange;
+            codecContext.ColorPrimaries = (AVColorPrimaries)(int)VideoSettings.ColorPrimaries;
+            codecContext.ColorTrc = (AVColorTransferCharacteristic)(int)VideoSettings.ColorTrc;
+            codecContext.Colorspace = (AVColorSpace)(int)VideoSettings.ColorSpace;
+            codecContext.ColorRange = (AVColorRange)(int)VideoSettings.ColorRange;
+            Console.Error.WriteLine($"ColorPrimitive: {codecContext.ColorPrimaries}");
+            Console.Error.WriteLine($"ColorTrc: {codecContext.ColorTrc}");
+            Console.Error.WriteLine($"Colorspace: {codecContext.Colorspace}");
+            Console.Error.WriteLine($"ColorRange: {codecContext.ColorRange}");
 
             var hwType = GetAVHWDeviceType();
             codecContext.InitHWDeviceContext(hwType);
@@ -229,9 +233,9 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
             stream.Codecpar->codec_tag = 0x31637668;
         }
 
-        _isHdr = ColorSpaceHelper.IsHdrTransfer(VideoSettings.ColorTrc);
+        _isHdr = ColorSpaceHelper.IsHdrTransfer((AVColorTransferCharacteristic)(int)VideoSettings.ColorTrc);
         _targetColorSpace = _isHdr
-            ? ColorSpaceHelper.BuildHdrColorSpace(VideoSettings.ColorTrc, VideoSettings.ColorPrimaries)
+            ? ColorSpaceHelper.BuildHdrColorSpace((AVColorTransferCharacteristic)(int)VideoSettings.ColorTrc, (AVColorPrimaries)(int)VideoSettings.ColorPrimaries)
             : null;
 
         InitEncodeFilterGraph(encoder);
@@ -241,16 +245,18 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
         videoFrame.Format = _isHdr
             ? (int)AVPixelFormat.AV_PIX_FMT_RGBA64LE
             : (int)AVPixelFormat.AV_PIX_FMT_BGRA;
-        videoFrame.ColorPrimaries = VideoSettings.ColorPrimaries;
-        videoFrame.ColorTrc = VideoSettings.ColorTrc;
-        videoFrame.Colorspace = VideoSettings.ColorSpace;
-        videoFrame.ColorRange = VideoSettings.ColorRange;
+        videoFrame.ColorPrimaries = (AVColorPrimaries)(int)VideoSettings.ColorPrimaries;
+        videoFrame.ColorTrc = (AVColorTransferCharacteristic)(int)VideoSettings.ColorTrc;
+        videoFrame.Colorspace = (AVColorSpace)(int)VideoSettings.ColorSpace;
+        videoFrame.ColorRange = (AVColorRange)(int)VideoSettings.ColorRange;
         videoFrame.AllocateBuffer();
     }
 
     public override async ValueTask Encode(IFrameProvider frameProvider, ISampleProvider sampleProvider,
         CancellationToken cancellationToken)
     {
+        Console.Error.WriteLine($"PixelFormat: {(AVPixelFormat)VideoSettings.Format}");
+
         bool encodeVideo = false, encodeAudio = false;
         using (var fs = File.OpenWrite(OutputFile))
         using (var muxer = MediaMuxer.Create(fs, OutputFormat.GuessFormat(null, OutputFile, null)))

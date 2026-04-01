@@ -1,5 +1,5 @@
-﻿#if FFMPEG_BUILD_IN
-namespace Beutl.Embedding.FFmpeg.Encoding;
+﻿#if BEUTL_FFMPEG_WORKER
+namespace Beutl.FFmpegWorker.Encoding;
 #else
 namespace Beutl.Extensions.FFmpeg.Encoding;
 #endif

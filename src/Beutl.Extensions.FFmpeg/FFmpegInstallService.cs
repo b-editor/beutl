@@ -5,11 +5,15 @@ using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
-using Beutl.Extensions.FFmpeg.Properties;
 using Beutl.Logging;
+using Microsoft.Extensions.Logging;
+
+using Beutl.Extensions.FFmpeg.Properties;
+
+#if !FFMPEG_OUT_OF_PROCESS
 using FFmpeg.AutoGen.Abstractions;
 using FFmpeg.AutoGen.Bindings.DynamicallyLoaded;
-using Microsoft.Extensions.Logging;
+#endif
 
 namespace Beutl.Extensions.FFmpeg;
 
@@ -675,17 +679,29 @@ public class FFmpegInstallService
         ProgressTextChanged?.Invoke(Strings.Verifying_FFmpeg_installation);
         IndeterminateChanged?.Invoke(true);
 
-        // Run verification in a background thread to avoid blocking
-        bool verified = await Task.Run(() =>
+        bool verified = false;
+#if FFMPEG_OUT_OF_PROCESS
+        // Workerプロセスを起動してFFmpegの初期化が成功するか確認
+        try
+        {
+            var connection = await FFmpegWorkerProcess.DecodingInstance.EnsureStartedAsync();
+            verified = connection.IsConnected;
+            _logger.LogInformation("FFmpeg verification via worker process: {Result}", verified ? "success" : "failed");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "FFmpeg verification failed");
+        }
+#else
+        // In-process: 直接FFmpegライブラリを読み込んで検証
+        verified = await Task.Run(() =>
         {
             try
             {
-                // Perform the same initialization as FFmpegLoader.Initialize()
                 DynamicallyLoadedBindings.LibrariesPath = FFmpegLoader.GetRootPath();
                 DynamicallyLoadedBindings.Initialize();
                 FFmpegLoader.SetupLogging();
 
-                // Try to call a basic FFmpeg function to verify it works
                 _ = ffmpeg.avcodec_version();
                 _ = ffmpeg.avformat_version();
                 _ = ffmpeg.avutil_version();
@@ -699,6 +715,7 @@ public class FFmpegInstallService
                 return false;
             }
         });
+#endif
 
         IndeterminateChanged?.Invoke(false);
 

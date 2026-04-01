@@ -1,10 +1,10 @@
-﻿using Beutl.Media.Decoding;
-
-#if FFMPEG_BUILD_IN
-namespace Beutl.Embedding.FFmpeg.Decoding;
-#else
-namespace Beutl.Extensions.FFmpeg.Decoding;
+#if FFMPEG_OUT_OF_PROCESS
+using Beutl.FFmpegIpc.Protocol;
+using Beutl.FFmpegIpc.Protocol.Messages;
 #endif
+using Beutl.Media.Decoding;
+
+namespace Beutl.Extensions.FFmpeg.Decoding;
 
 public sealed class FFmpegDecoderInfo(FFmpegDecodingSettings settings) : IDecoderInfo
 {
@@ -26,7 +26,26 @@ public sealed class FFmpegDecoderInfo(FFmpegDecodingSettings settings) : IDecode
     {
         try
         {
+#if FFMPEG_OUT_OF_PROCESS
+            var worker = FFmpegWorkerProcess.DecodingInstance;
+            var connection = worker.EnsureStarted();
+
+            var request = new OpenFileRequest
+            {
+                FilePath = file,
+                StreamsToLoad = (int)options.StreamsToLoad,
+                ThreadCount = settings.ThreadCount,
+                Acceleration = (int)settings.Acceleration,
+                ForceSrgbGamma = settings.ForceSrgbGamma,
+            };
+
+            var response = connection.RequestAsync<OpenFileRequest, OpenFileResponse>(
+                MessageType.OpenFile, MessageType.OpenFileResult, request).GetAwaiter().GetResult();
+
+            return new FFmpegReaderProxy(connection, response.ReaderId, response);
+#else
             return new FFmpegReader(file, options, settings);
+#endif
         }
         catch
         {

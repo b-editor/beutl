@@ -1,12 +1,11 @@
-﻿using System.ComponentModel;
+using System.ComponentModel;
 using Beutl.Collections;
+using Beutl.FFmpegIpc;
 using Beutl.Media.Encoding;
 using Beutl.Serialization;
-using FFmpeg.AutoGen.Abstractions;
-using FFmpegSharp;
 
-#if FFMPEG_BUILD_IN
-namespace Beutl.Embedding.FFmpeg.Encoding;
+#if BEUTL_FFMPEG_WORKER
+namespace Beutl.FFmpegWorker.Encoding;
 #else
 namespace Beutl.Extensions.FFmpeg.Encoding;
 #endif
@@ -53,38 +52,38 @@ public sealed class AdditionalOption : CoreObject
 
 public sealed class FFmpegVideoEncoderSettings : VideoEncoderSettings
 {
-    public static readonly CoreProperty<AVPixelFormat> FormatProperty;
+    public static readonly CoreProperty<int> FormatProperty;
     public static readonly CoreProperty<CodecRecord> CodecProperty;
-    public static readonly CoreProperty<AVColorPrimaries> ColorPrimariesProperty;
-    public static readonly CoreProperty<AVColorTransferCharacteristic> ColorTrcProperty;
-    public static readonly CoreProperty<AVColorSpace> ColorSpaceProperty;
-    public static readonly CoreProperty<AVColorRange> ColorRangeProperty;
+    public static readonly CoreProperty<FFColorPrimaries> ColorPrimariesProperty;
+    public static readonly CoreProperty<FFColorTransfer> ColorTrcProperty;
+    public static readonly CoreProperty<FFColorSpace> ColorSpaceProperty;
+    public static readonly CoreProperty<FFColorRange> ColorRangeProperty;
     public static readonly CoreProperty<CoreList<AdditionalOption>> OptionsProperty;
 
     static FFmpegVideoEncoderSettings()
     {
-        FormatProperty = ConfigureProperty<AVPixelFormat, FFmpegVideoEncoderSettings>(nameof(Format))
-            .DefaultValue(AVPixelFormat.AV_PIX_FMT_NONE)
+        FormatProperty = ConfigureProperty<int, FFmpegVideoEncoderSettings>(nameof(Format))
+            .DefaultValue(FFPixelFormat.None)
             .Register();
 
         CodecProperty = ConfigureProperty<CodecRecord, FFmpegVideoEncoderSettings>(nameof(Codec))
             .DefaultValue(CodecRecord.Default)
             .Register();
 
-        ColorPrimariesProperty = ConfigureProperty<AVColorPrimaries, FFmpegVideoEncoderSettings>(nameof(ColorPrimaries))
-            .DefaultValue(AVColorPrimaries.AVCOL_PRI_UNSPECIFIED)
+        ColorPrimariesProperty = ConfigureProperty<FFColorPrimaries, FFmpegVideoEncoderSettings>(nameof(ColorPrimaries))
+            .DefaultValue(FFColorPrimaries.UNSPECIFIED)
             .Register();
 
-        ColorTrcProperty = ConfigureProperty<AVColorTransferCharacteristic, FFmpegVideoEncoderSettings>(nameof(ColorTrc))
-            .DefaultValue(AVColorTransferCharacteristic.AVCOL_TRC_UNSPECIFIED)
+        ColorTrcProperty = ConfigureProperty<FFColorTransfer, FFmpegVideoEncoderSettings>(nameof(ColorTrc))
+            .DefaultValue(FFColorTransfer.UNSPECIFIED)
             .Register();
 
-        ColorSpaceProperty = ConfigureProperty<AVColorSpace, FFmpegVideoEncoderSettings>(nameof(ColorSpace))
-            .DefaultValue(AVColorSpace.AVCOL_SPC_UNSPECIFIED)
+        ColorSpaceProperty = ConfigureProperty<FFColorSpace, FFmpegVideoEncoderSettings>(nameof(ColorSpace))
+            .DefaultValue(FFColorSpace.UNSPECIFIED)
             .Register();
 
-        ColorRangeProperty = ConfigureProperty<AVColorRange, FFmpegVideoEncoderSettings>(nameof(ColorRange))
-            .DefaultValue(AVColorRange.AVCOL_RANGE_UNSPECIFIED)
+        ColorRangeProperty = ConfigureProperty<FFColorRange, FFmpegVideoEncoderSettings>(nameof(ColorRange))
+            .DefaultValue(FFColorRange.UNSPECIFIED)
             .Register();
 
         OptionsProperty = ConfigureProperty<CoreList<AdditionalOption>, FFmpegVideoEncoderSettings>(nameof(Options))
@@ -104,7 +103,7 @@ public sealed class FFmpegVideoEncoderSettings : VideoEncoderSettings
 
     public string? OutputFile { get; set; }
 
-    public AVPixelFormat Format
+    public int Format
     {
         get => GetValue(FormatProperty);
         set => SetValue(FormatProperty, value);
@@ -118,25 +117,25 @@ public sealed class FFmpegVideoEncoderSettings : VideoEncoderSettings
         set => SetValue(CodecProperty, value);
     }
 
-    public AVColorPrimaries ColorPrimaries
+    public FFColorPrimaries ColorPrimaries
     {
         get => GetValue(ColorPrimariesProperty);
         set => SetValue(ColorPrimariesProperty, value);
     }
 
-    public AVColorTransferCharacteristic ColorTrc
+    public FFColorTransfer ColorTrc
     {
         get => GetValue(ColorTrcProperty);
         set => SetValue(ColorTrcProperty, value);
     }
 
-    public AVColorSpace ColorSpace
+    public FFColorSpace ColorSpace
     {
         get => GetValue(ColorSpaceProperty);
         set => SetValue(ColorSpaceProperty, value);
     }
 
-    public AVColorRange ColorRange
+    public FFColorRange ColorRange
     {
         get => GetValue(ColorRangeProperty);
         set => SetValue(ColorRangeProperty, value);
@@ -203,10 +202,14 @@ public class VideoCodecChoicesProvider : IChoicesProvider
 {
     public static IReadOnlyList<object> GetChoices()
     {
-        return MediaCodec.GetCodecs()
-            .Where(i => i.IsEncoder && i.Type == AVMediaType.AVMEDIA_TYPE_VIDEO)
-            .Select(i => new CodecRecord(i.Name, i.LongName))
+#if FFMPEG_OUT_OF_PROCESS
+        return FFmpegWorkerCodecCache.GetVideoCodecs();
+#else
+        return FFmpegSharp.MediaCodec.GetCodecs()
+            .Where(i => i.IsEncoder && i.Type == global::FFmpeg.AutoGen.Abstractions.AVMediaType.AVMEDIA_TYPE_VIDEO)
+            .Select(i => (object)new CodecRecord(i.Name, i.LongName))
             .Prepend(CodecRecord.Default)
             .ToArray();
+#endif
     }
 }

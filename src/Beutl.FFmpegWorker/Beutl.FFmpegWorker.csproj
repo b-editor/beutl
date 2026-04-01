@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+    <DefineConstants>$(DefineConstants);FFMPEG_BUILD_IN;BEUTL_FFMPEG_WORKER</DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Beutl.FFmpegIpc\Beutl.FFmpegIpc.csproj" />
+    <ProjectReference Include="..\Beutl.Engine\Beutl.Engine.csproj" />
+    <ProjectReference Include="..\Beutl.Extensibility\Beutl.Extensibility.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="FFmpeg.AutoGen.Bindings.DynamicallyLoaded" />
+    <PackageReference Include="FFmpeg4Sharp" />
+  </ItemGroup>
+
+  <!-- FFmpeg直接使用ファイルをリンク (Beutl.Extensions.FFmpegから) -->
+  <ItemGroup>
+    <Compile Include="..\Beutl.Extensions.FFmpeg\Decoding\FFmpegReader.cs" Link="Linked\FFmpegReader.cs" />
+    <Compile Include="..\Beutl.Extensions.FFmpeg\Encoding\FFmpegEncodingController.cs" Link="Linked\FFmpegEncodingController.cs" />
+    <Compile Include="..\Beutl.Extensions.FFmpeg\ColorSpaceHelper.cs" Link="Linked\ColorSpaceHelper.cs" />
+    <Compile Include="..\Beutl.Extensions.FFmpeg\FFmpegError.cs" Link="Linked\FFmpegError.cs" />
+    <Compile Include="..\Beutl.Extensions.FFmpeg\Encoding\CodecRecord.cs" Link="Linked\CodecRecord.cs" />
+    <Compile Include="..\Beutl.Extensions.FFmpeg\Encoding\FFmpegEncodingSettings.cs" Link="Linked\FFmpegEncodingSettings.cs" />
+    <Compile Include="..\Beutl.Extensions.FFmpeg\Encoding\FFmpegVideoEncoderSettings.cs" Link="Linked\FFmpegVideoEncoderSettings.cs" />
+    <Compile Include="..\Beutl.Extensions.FFmpeg\Encoding\FFmpegAudioEncoderSettings.cs" Link="Linked\FFmpegAudioEncoderSettings.cs" />
+    <Compile Include="..\Beutl.Extensions.FFmpeg\Decoding\FFmpegDecodingSettings.cs" Link="Linked\FFmpegDecodingSettings.cs" />
+  </ItemGroup>
+
+</Project>

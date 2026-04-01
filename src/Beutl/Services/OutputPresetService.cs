@@ -1,11 +1,11 @@
 ﻿using System.Text.Json;
 using System.Text.Json.Nodes;
-using Beutl.Embedding.FFmpeg.Encoding;
+using Beutl.Extensions.FFmpeg.Encoding;
 using Beutl.Helpers;
 using Beutl.Logging;
 using Beutl.Serialization;
 using Beutl.Services.PrimitiveImpls;
-using FFmpeg.AutoGen.Abstractions;
+using Beutl.FFmpegIpc;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 
@@ -188,7 +188,7 @@ public sealed class OutputPresetService
     private void CreateDefaultPresets()
     {
         var vid = new FFmpegVideoEncoderSettings();
-        vid.Format = AVPixelFormat.AV_PIX_FMT_YUV420P;
+        vid.Format = FFPixelFormat.YUV420P;
         vid.Bitrate = 15000000;
         vid.KeyframeRate = 12;
         vid.Codec = VideoCodecChoicesProvider.GetChoices()
@@ -260,16 +260,16 @@ public sealed class OutputPresetService
         ObjectRegenerator.Regenerate<FFmpegVideoEncoderSettings>(vid, out vid);
         ObjectRegenerator.Regenerate<FFmpegAudioEncoderSettings>(aud, out aud);
 
-        vid.Format = AVPixelFormat.AV_PIX_FMT_YUV420P10LE;
+        vid.Format = FFPixelFormat.YUV420P10LE;
         vid.Bitrate = 20000000;
         vid.KeyframeRate = 24;
         vid.Codec = VideoCodecChoicesProvider.GetChoices()
             .Cast<CodecRecord>()
             .FirstOrDefault(i => i.Name == "libx265") ?? CodecRecord.Default;
-        vid.ColorPrimaries = AVColorPrimaries.AVCOL_PRI_BT2020;
-        vid.ColorTrc = AVColorTransferCharacteristic.AVCOL_TRC_SMPTE2084;
-        vid.ColorSpace = AVColorSpace.AVCOL_SPC_BT2020_NCL;
-        vid.ColorRange = AVColorRange.AVCOL_RANGE_MPEG;
+        vid.ColorPrimaries = FFColorPrimaries.BT2020;
+        vid.ColorTrc = FFColorTransfer.SMPTE2084;
+        vid.ColorSpace = FFColorSpace.BT2020_NCL;
+        vid.ColorRange = FFColorRange.MPEG;
         vid.Options.Clear();
         vid.Options.AddRange(
         [
@@ -299,16 +299,16 @@ public sealed class OutputPresetService
         ObjectRegenerator.Regenerate<FFmpegVideoEncoderSettings>(vid, out vid);
         ObjectRegenerator.Regenerate<FFmpegAudioEncoderSettings>(aud, out aud);
 
-        vid.Format = AVPixelFormat.AV_PIX_FMT_YUV420P10LE;
+        vid.Format = FFPixelFormat.YUV420P10LE;
         vid.Bitrate = 20000000;
         vid.KeyframeRate = 24;
         vid.Codec = VideoCodecChoicesProvider.GetChoices()
             .Cast<CodecRecord>()
             .FirstOrDefault(i => i.Name == "libx265") ?? CodecRecord.Default;
-        vid.ColorPrimaries = AVColorPrimaries.AVCOL_PRI_BT2020;
-        vid.ColorTrc = AVColorTransferCharacteristic.AVCOL_TRC_ARIB_STD_B67;
-        vid.ColorSpace = AVColorSpace.AVCOL_SPC_BT2020_NCL;
-        vid.ColorRange = AVColorRange.AVCOL_RANGE_MPEG;
+        vid.ColorPrimaries = FFColorPrimaries.BT2020;
+        vid.ColorTrc = FFColorTransfer.ARIB_STD_B67;
+        vid.ColorSpace = FFColorSpace.BT2020_NCL;
+        vid.ColorRange = FFColorRange.MPEG;
         vid.Options.Clear();
         vid.Options.AddRange(
         [

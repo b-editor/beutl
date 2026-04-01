@@ -1,7 +1,7 @@
 ﻿using Beutl.Extensibility;
 
-#if FFMPEG_BUILD_IN
-namespace Beutl.Embedding.FFmpeg.Decoding;
+#if BEUTL_FFMPEG_WORKER
+namespace Beutl.FFmpegWorker.Decoding;
 #else
 namespace Beutl.Extensions.FFmpeg.Decoding;
 #endif

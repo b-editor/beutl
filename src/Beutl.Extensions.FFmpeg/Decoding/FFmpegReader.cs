@@ -9,8 +9,8 @@ using FFmpeg.AutoGen.Abstractions;
 using FFmpegSharp;
 using Microsoft.Extensions.Logging;
 
-#if FFMPEG_BUILD_IN
-namespace Beutl.Embedding.FFmpeg.Decoding;
+#if BEUTL_FFMPEG_WORKER
+namespace Beutl.FFmpegWorker.Decoding;
 #else
 namespace Beutl.Extensions.FFmpeg.Decoding;
 #endif
@@ -29,7 +29,6 @@ public sealed class FFmpegReader : MediaReader
         u = new AVChannelLayout_u { mask = ffmpeg.AV_CH_LAYOUT_STEREO }
     };
 
-    private readonly FFmpegDecodingSettings _settings;
     private readonly MediaStream? _audioStream;
     private readonly MediaStream? _videoStream;
     private MediaDemuxer? _demuxer;
@@ -62,7 +61,7 @@ public sealed class FFmpegReader : MediaReader
 
     public FFmpegReader(string file, MediaOptions options, FFmpegDecodingSettings settings)
     {
-        _settings = settings;
+        Settings = settings;
         try
         {
             // MediaDemuxerでファイルを開く
@@ -137,6 +136,8 @@ public sealed class FFmpegReader : MediaReader
             throw;
         }
     }
+
+    public FFmpegDecodingSettings Settings { get; }
 
     private MediaFrame? ActiveVideoFrame => _isHWDecoding ? _swVideoFrame : _currentVideoFrame;
 
@@ -294,7 +295,7 @@ public sealed class FFmpegReader : MediaReader
         }
 
         // フレームの色空間を取得
-        var colorSpace = (!_settings.ForceSrgbGamma || _isHdr) ? GetFrameColorSpace(_filterFrame) : BitmapColorSpace.Srgb;
+        var colorSpace = (!Settings.ForceSrgbGamma || _isHdr) ? GetFrameColorSpace(_filterFrame) : BitmapColorSpace.Srgb;
 
         // ビットマップにコピー
         var colorType = _isHdr ? BitmapColorType.Rgba16161616 : BitmapColorType.Bgra8888;
@@ -555,18 +556,18 @@ public sealed class FFmpegReader : MediaReader
                 _videoStream.CodecparRef,
                 ctx =>
                 {
-                    if (_settings.ThreadCount != 0)
+                    if (Settings.ThreadCount != 0)
                     {
                         ctx.ThreadCount = Math.Min(
                             Environment.ProcessorCount,
-                            _settings.ThreadCount > 0 ? _settings.ThreadCount : 16);
+                            Settings.ThreadCount > 0 ? Settings.ThreadCount : 16);
                     }
                     else
                     {
                         ctx.ThreadCount = 0;
                     }
 
-                    if (_settings.Acceleration != FFmpegDecodingSettings.AccelerationOptions.Software)
+                    if (Settings.Acceleration != FFmpegDecodingSettings.AccelerationOptions.Software)
                     {
                         try
                         {
@@ -610,7 +611,7 @@ public sealed class FFmpegReader : MediaReader
 
     private AVHWDeviceType? GetAVHWDeviceType()
     {
-        return _settings.Acceleration switch
+        return Settings.Acceleration switch
         {
             FFmpegDecodingSettings.AccelerationOptions.Software => AVHWDeviceType.AV_HWDEVICE_TYPE_NONE,
             FFmpegDecodingSettings.AccelerationOptions.VDPAU => AVHWDeviceType.AV_HWDEVICE_TYPE_VDPAU,
@@ -639,11 +640,11 @@ public sealed class FFmpegReader : MediaReader
                 _audioStream.CodecparRef,
                 ctx =>
                 {
-                    if (_settings.ThreadCount != 0)
+                    if (Settings.ThreadCount != 0)
                     {
                         ctx.ThreadCount = Math.Min(
                             Environment.ProcessorCount,
-                            _settings.ThreadCount > 0 ? _settings.ThreadCount : 16);
+                            Settings.ThreadCount > 0 ? Settings.ThreadCount : 16);
                     }
                     else
                     {
@@ -731,7 +732,7 @@ public sealed class FFmpegReader : MediaReader
             _logger.LogWarning("Failed to determine video color space.");
         }
 
-        if (_settings.ForceSrgbGamma && _colorspace != BitmapColorSpace.Srgb)
+        if (Settings.ForceSrgbGamma && _colorspace != BitmapColorSpace.Srgb)
         {
             if (_isHdr)
             {

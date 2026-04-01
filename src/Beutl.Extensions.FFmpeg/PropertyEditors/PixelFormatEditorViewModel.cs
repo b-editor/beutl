@@ -1,4 +1,4 @@
-﻿using System.Reactive.Disposables;
+using System.Reactive.Disposables;
 using System.Text.Json.Nodes;
 
 using Avalonia;
@@ -6,36 +6,34 @@ using Avalonia.Interactivity;
 
 using Beutl.Controls.PropertyEditors;
 using Beutl.Extensibility;
+using Beutl.FFmpegIpc;
+using Beutl.FFmpegIpc.Protocol.Messages;
+#if FFMPEG_OUT_OF_PROCESS
+using Beutl.FFmpegIpc.Protocol;
+#else
+using FFmpeg.AutoGen.Abstractions;
+using FFmpegSharp;
+#endif
 using Beutl.PropertyAdapters;
 using Beutl.Reactive;
-
-using FFmpeg.AutoGen.Abstractions;
-
-using FFmpegSharp;
-
 using Reactive.Bindings;
-
-#if FFMPEG_BUILD_IN
-using Beutl.Embedding.FFmpeg.Encoding;
-namespace Beutl.Embedding.FFmpeg.PropertyEditors;
-#else
 using Beutl.Extensions.FFmpeg.Encoding;
+
 namespace Beutl.Extensions.FFmpeg.PropertyEditors;
-#endif
 
 internal sealed class PixelFormatEditorViewModel : IPropertyEditorContext
 {
-    private readonly IPropertyAdapter<AVPixelFormat> _property;
+    private readonly IPropertyAdapter<int> _property;
     private readonly CompositeDisposable _disposables = [];
     private readonly ReactivePropertySlim<int> _selectedIndex;
 
     private FFmpegVideoEncoderSettings? _settings;
-    private AVPixelFormat[] _currentFormats = [];
+    private int[] _currentFormats = [];
     private IReadOnlyList<EnumItem> _currentItems = [];
     private WeakReference<EnumEditor>? _editorRef;
 
     public PixelFormatEditorViewModel(
-        IPropertyAdapter<AVPixelFormat> property,
+        IPropertyAdapter<int> property,
         PropertyEditorExtension extension)
     {
         _property = property;
@@ -43,7 +41,7 @@ internal sealed class PixelFormatEditorViewModel : IPropertyEditorContext
         _selectedIndex = new ReactivePropertySlim<int>(-1).DisposeWith(_disposables);
 
         // CorePropertyAdapterからFFmpegVideoEncoderSettingsを取得
-        if (property is CorePropertyAdapter<AVPixelFormat> cpa)
+        if (property is CorePropertyAdapter<int> cpa)
         {
             _settings = cpa.Object as FFmpegVideoEncoderSettings;
         }
@@ -95,17 +93,12 @@ internal sealed class PixelFormatEditorViewModel : IPropertyEditorContext
     {
         try
         {
-            AVPixelFormat[] supportedFmts = _settings != null
-                ? GetCodecFormats(_settings)
-                : GetAllFormats();
+            PixelFormatInfo[] formatInfos = GetCodecFormatInfos(_settings);
 
-            // AV_PIX_FMT_NONE ("Auto") を先頭に追加
-            _currentFormats = [AVPixelFormat.AV_PIX_FMT_NONE, .. supportedFmts];
-            _currentItems = _currentFormats
-                .Select(f => new EnumItem(
-                    f == AVPixelFormat.AV_PIX_FMT_NONE ? "Auto" : ffmpeg.av_get_pix_fmt_name(f),
-                    null,
-                    f))
+            // FFPixelFormat.None ("Auto") を先頭に追加
+            _currentFormats = [FFPixelFormat.None, .. formatInfos.Select(f => f.Value)];
+            _currentItems = new EnumItem[] { new("Auto", null, FFPixelFormat.None) }
+                .Concat(formatInfos.Select(f => new EnumItem(f.Name, null, f.Value)))
                 .ToArray();
 
             // エディタのアイテムを更新
@@ -118,10 +111,10 @@ internal sealed class PixelFormatEditorViewModel : IPropertyEditorContext
             var currentValue = _property.GetValue();
             int index = Array.IndexOf(_currentFormats, currentValue);
             _selectedIndex.Value = -1; // 一旦リセット
-            if (index < 0 && currentValue != AVPixelFormat.AV_PIX_FMT_NONE)
+            if (index < 0 && currentValue != FFPixelFormat.None)
             {
                 // 非対応フォーマットが選択されていたらAutoにリセット
-                _property.SetValue(AVPixelFormat.AV_PIX_FMT_NONE);
+                _property.SetValue(FFPixelFormat.None);
                 _selectedIndex.Value = 0;
             }
             else
@@ -132,8 +125,8 @@ internal sealed class PixelFormatEditorViewModel : IPropertyEditorContext
         catch
         {
             // エラー時はAutoのみ表示
-            _currentFormats = [AVPixelFormat.AV_PIX_FMT_NONE];
-            _currentItems = [new EnumItem("Auto", null, AVPixelFormat.AV_PIX_FMT_NONE)];
+            _currentFormats = [FFPixelFormat.None];
+            _currentItems = [new EnumItem("Auto", null, FFPixelFormat.None)];
             _selectedIndex.Value = 0;
 
             if (_editorRef?.TryGetTarget(out var editor) == true)
@@ -143,39 +136,48 @@ internal sealed class PixelFormatEditorViewModel : IPropertyEditorContext
         }
     }
 
-    private static AVPixelFormat[] GetCodecFormats(FFmpegVideoEncoderSettings settings)
+    private static PixelFormatInfo[] GetCodecFormatInfos(FFmpegVideoEncoderSettings? settings)
     {
-        MediaCodec codec;
-        if (settings.Codec.Equals(CodecRecord.Default))
+        if (settings == null) return [];
+
+        try
         {
-            string? outputFile = settings.OutputFile;
-            if (string.IsNullOrEmpty(outputFile))
+#if FFMPEG_OUT_OF_PROCESS
+            var connection = FFmpegWorkerProcess.DecodingInstance.EnsureStartedAsync().GetAwaiter().GetResult();
+            var response = connection.RequestAsync<QueryPixelFormatsRequest, QueryPixelFormatsResponse>(
+                MessageType.QueryPixelFormats, MessageType.QueryPixelFormatsResult,
+                new QueryPixelFormatsRequest
+                {
+                    CodecName = settings.Codec.Equals(CodecRecord.Default) ? null : settings.Codec.Name,
+                    OutputFile = settings.OutputFile
+                }).AsTask().GetAwaiter().GetResult();
+            return response.Formats;
+#else
+            MediaCodec codec;
+            if (settings.Codec.Equals(CodecRecord.Default))
             {
-                return GetAllFormats();
+                string? outputFile = settings.OutputFile;
+                if (string.IsNullOrEmpty(outputFile))
+                    return [];
+
+                var outFormat = OutputFormat.GuessFormat(null, outputFile, null);
+                codec = MediaCodec.FindEncoder(outFormat.VideoCodec);
+            }
+            else
+            {
+                codec = MediaCodec.FindEncoder(settings.Codec.Name);
             }
 
-            var outFormat = OutputFormat.GuessFormat(null, outputFile, null);
-            codec = MediaCodec.FindEncoder(outFormat.VideoCodec);
+            return codec.GetPixelFmts()
+                .Where(f => ffmpeg.sws_isSupportedOutput(f) != 0)
+                .Select(f => new PixelFormatInfo { Value = (int)f, Name = ffmpeg.av_get_pix_fmt_name(f) })
+                .ToArray();
+#endif
         }
-        else
+        catch
         {
-            codec = MediaCodec.FindEncoder(settings.Codec.Name);
+            return [];
         }
-
-        var fmts = codec.GetPixelFmts()
-            .Where(f => ffmpeg.sws_isSupportedOutput(f) != 0)
-            .ToArray();
-
-        return fmts.Length > 0 ? fmts : GetAllFormats();
-    }
-
-    private static AVPixelFormat[] GetAllFormats()
-    {
-        return Enum.GetValues<AVPixelFormat>()
-            .Where(f => f != AVPixelFormat.AV_PIX_FMT_NONE
-                        && f >= 0
-                        && ffmpeg.sws_isSupportedOutput(f) != 0)
-            .ToArray();
     }
 
     private void OnValueConfirmed(object? sender, PropertyEditorValueChangedEventArgs e)

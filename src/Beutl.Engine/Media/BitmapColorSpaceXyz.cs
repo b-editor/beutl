@@ -82,6 +82,13 @@ public readonly struct BitmapColorSpaceXyz : IEquatable<BitmapColorSpaceXyz>
         0.150, 0.060,
         0.3127, 0.3290);
 
+    public static BitmapColorSpaceXyz Create(ReadOnlySpan<float> values)
+    {
+        if (values.Length < 9)
+            throw new ArgumentException("values must have at least 9 elements", nameof(values));
+        return new BitmapColorSpaceXyz(values[..9].ToArray());
+    }
+
     internal SKColorSpaceXyz ToSKXyz()
     {
         var v = _values;

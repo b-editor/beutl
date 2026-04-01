@@ -51,6 +51,8 @@
   <Project Path="src\Beutl.Extensibility\Beutl.Extensibility.csproj" />
   <Project Path="src\Beutl.Extensions.AVFoundation\Beutl.Extensions.AVFoundation.csproj" />
   <Project Path="src\Beutl.Extensions.FFmpeg\Beutl.Extensions.FFmpeg.csproj" />
+  <Project Path="src\Beutl.FFmpegIpc\Beutl.FFmpegIpc.csproj" />
+  <Project Path="src\Beutl.FFmpegWorker\Beutl.FFmpegWorker.csproj" />
   <Project Path="src\Beutl.Extensions.MediaFoundation\Beutl.Extensions.MediaFoundation.csproj" />
   <Project Path="src\Beutl.Language\Beutl.Language.csproj" />
   <Project Path="src\Beutl.PackageTools.UI\Beutl.PackageTools.UI.csproj" />

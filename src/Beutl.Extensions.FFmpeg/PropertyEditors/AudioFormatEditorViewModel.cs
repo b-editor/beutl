@@ -1,24 +1,22 @@
-﻿using System.Reactive.Disposables;
+using System.Reactive.Disposables;
 using System.Text.Json.Nodes;
 using Avalonia;
 using Avalonia.Interactivity;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Extensibility;
+#if FFMPEG_OUT_OF_PROCESS
+using Beutl.FFmpegIpc.Protocol;
+using Beutl.FFmpegIpc.Protocol.Messages;
+#else
+using FFmpegSharp;
+#endif
 using Beutl.PropertyAdapters;
 using Beutl.Reactive;
-using FFmpegSharp;
 using Reactive.Bindings;
-
-#if FFMPEG_BUILD_IN
-using Beutl.Embedding.FFmpeg.Encoding;
-using AudioFormat = Beutl.Embedding.FFmpeg.Encoding.FFmpegAudioEncoderSettings.AudioFormat;
-
-namespace Beutl.Embedding.FFmpeg.PropertyEditors;
-#else
 using Beutl.Extensions.FFmpeg.Encoding;
 using AudioFormat = Beutl.Extensions.FFmpeg.Encoding.FFmpegAudioEncoderSettings.AudioFormat;
+
 namespace Beutl.Extensions.FFmpeg.PropertyEditors;
-#endif
 
 internal sealed class AudioFormatEditorViewModel : IPropertyEditorContext
 {
@@ -96,7 +94,7 @@ internal sealed class AudioFormatEditorViewModel : IPropertyEditorContext
                 ? GetCodecFormats(_settings)
                 : GetAllFormats();
 
-            // AV_PIX_FMT_NONE ("Auto") を先頭に追加
+            // Default ("Auto") を先頭に追加
             _currentFormats = [AudioFormat.Default, .. supportedFmts];
             _currentItems = _currentFormats
                 .Select(f => new EnumItem(
@@ -142,32 +140,47 @@ internal sealed class AudioFormatEditorViewModel : IPropertyEditorContext
 
     private static AudioFormat[] GetCodecFormats(FFmpegAudioEncoderSettings settings)
     {
-        MediaCodec codec;
-        if (settings.Codec.Equals(CodecRecord.Default))
+        try
         {
-            string? outputFile = settings.OutputFile;
-            if (string.IsNullOrEmpty(outputFile))
+#if FFMPEG_OUT_OF_PROCESS
+            var connection = FFmpegWorkerProcess.DecodingInstance.EnsureStartedAsync().GetAwaiter().GetResult();
+            var response = connection.RequestAsync<QueryAudioFormatsRequest, QueryAudioFormatsResponse>(
+                MessageType.QueryAudioFormats, MessageType.QueryAudioFormatsResult,
+                new QueryAudioFormatsRequest
+                {
+                    CodecName = settings.Codec.Equals(CodecRecord.Default) ? null : settings.Codec.Name,
+                    OutputFile = settings.OutputFile
+                }).AsTask().GetAwaiter().GetResult();
+            return response.Formats.Select(f => (AudioFormat)f).ToArray();
+#else
+            MediaCodec codec;
+            if (settings.Codec.Equals(CodecRecord.Default))
             {
-                return GetAllFormats();
+                string? outputFile = settings.OutputFile;
+                if (string.IsNullOrEmpty(outputFile))
+                    return GetAllFormats();
+
+                var outFormat = OutputFormat.GuessFormat(null, outputFile, null);
+                codec = MediaCodec.FindEncoder(outFormat.AudioCodec);
+            }
+            else
+            {
+                codec = MediaCodec.FindEncoder(settings.Codec.Name);
             }
 
-            var outFormat = OutputFormat.GuessFormat(null, outputFile, null);
-            codec = MediaCodec.FindEncoder(outFormat.AudioCodec);
+            var fmts = codec.GetSampelFmts().Select(f => (AudioFormat)f).ToArray();
+            return fmts.Length > 0 ? fmts : GetAllFormats();
+#endif
         }
-        else
+        catch
         {
-            codec = MediaCodec.FindEncoder(settings.Codec.Name);
+            return Enum.GetValues<AudioFormat>();
         }
-
-        var fmts = codec.GetSampelFmts().Select(f => (AudioFormat)f).ToArray();
-
-        return fmts.Length > 0 ? fmts : GetAllFormats();
     }
 
     private static AudioFormat[] GetAllFormats()
     {
-        return Enum.GetValues<AudioFormat>()
-            .ToArray();
+        return Enum.GetValues<AudioFormat>();
     }
 
     private void OnValueConfirmed(object? sender, PropertyEditorValueChangedEventArgs e)
