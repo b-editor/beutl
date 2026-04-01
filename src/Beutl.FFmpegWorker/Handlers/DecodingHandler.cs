@@ -178,7 +178,7 @@ internal sealed class DecodingHandler : IDisposable
         return IpcMessage.Create(msg.Id, MessageType.OpenFileResult, response);
     }
 
-    public unsafe IpcMessage HandleReadVideo(IpcMessage msg)
+    public IpcMessage HandleReadVideo(IpcMessage msg)
     {
         var request = msg.GetPayload<ReadVideoRequest>()!;
         if (!_readers.TryGetValue(request.ReaderId, out var state))
@@ -190,7 +190,7 @@ internal sealed class DecodingHandler : IDisposable
         return HandleReadVideoLegacy(msg.Id, request, state);
     }
 
-    private unsafe IpcMessage HandleReadVideoRingBuffer(int msgId, ReadVideoRequest request, ReaderState state)
+    private IpcMessage HandleReadVideoRingBuffer(int msgId, ReadVideoRequest request, ReaderState state)
     {
         // キャッシュヒットチェック（ロック不要: SlotFrameNumbers は HandleReadVideo の
         // 呼び出しスレッドとプリフェッチスレッドでのみ書き込まれ、
@@ -207,12 +207,12 @@ internal sealed class DecodingHandler : IDisposable
                 state.LastServedSlot = hitSlot;
 
                 // 色空間差分チェック
-                bool colorSpaceChanged = false;
+                bool hitCsChanged = false;
                 if (slotMeta.TransferFn != null && slotMeta.ToXyzD50 != null)
                 {
-                    colorSpaceChanged = !slotMeta.TransferFn.AsSpan().SequenceEqual(state.LastTransferFn)
-                                        || !slotMeta.ToXyzD50.AsSpan().SequenceEqual(state.LastToXyzD50);
-                    if (colorSpaceChanged)
+                    hitCsChanged = !slotMeta.TransferFn.AsSpan().SequenceEqual(state.LastTransferFn)
+                                   || !slotMeta.ToXyzD50.AsSpan().SequenceEqual(state.LastToXyzD50);
+                    if (hitCsChanged)
                     {
                         state.LastTransferFn = slotMeta.TransferFn;
                         state.LastToXyzD50 = slotMeta.ToXyzD50;
@@ -232,98 +232,78 @@ internal sealed class DecodingHandler : IDisposable
                     IsHdr = slotMeta.IsHdr,
                     SlotIndex = hitSlot,
                     SlotDataOffset = hitSlot * state.SlotSize,
-                    TransferFn = colorSpaceChanged ? slotMeta.TransferFn : null,
-                    ToXyzD50 = colorSpaceChanged ? slotMeta.ToXyzD50 : null,
+                    TransferFn = hitCsChanged ? slotMeta.TransferFn : null,
+                    ToXyzD50 = hitCsChanged ? slotMeta.ToXyzD50 : null,
                 });
             }
 
             // キャッシュミス: プリフェッチ停止してデコード
             StopPrefetchUnderLock(state);
 
-            if (!state.Reader.ReadVideo(request.Frame, out var bitmapRef))
+            // 共有メモリに直接デコード
+            string? newShmName = null;
+            var frameInfo = DecodeVideoToSharedMemory(state, request.Frame, request.ReaderId, ref newShmName, out int writeSlot, out long offset);
+            if (frameInfo == null)
             {
                 state.LastRequestedFrame = request.Frame;
                 StartPrefetch(state);
                 return IpcMessage.Create(msgId, MessageType.ReadVideoResult,
-                    new ReadVideoResponse { Success = false });
+                    new ReadVideoResponse { Success = false, SharedMemoryName = newShmName });
             }
 
-            using (bitmapRef)
+            var fi = frameInfo.Value;
+
+            // 色空間情報
+            var cs = fi.ColorSpace;
+            var transferFn = cs.GetNumericalTransferFunction();
+            var xyz = cs.ToColorSpaceXyz();
+
+            float[] currentTransferFn = [transferFn.G, transferFn.A, transferFn.B, transferFn.C, transferFn.D, transferFn.E, transferFn.F];
+            float[] currentToXyzD50 = xyz.Values.ToArray();
+
+            bool colorSpaceChanged = !currentTransferFn.AsSpan().SequenceEqual(state.LastTransferFn)
+                                     || !currentToXyzD50.AsSpan().SequenceEqual(state.LastToXyzD50);
+
+            if (colorSpaceChanged)
             {
-                var bitmap = bitmapRef.Value;
-                int dataLen = bitmap.ByteCount;
-
-                // 共有メモリリサイズチェック
-                string? newShmName = null;
-                if (dataLen > state.SlotSize)
-                {
-                    // スロットサイズを超えた場合、リングバッファを再作成
-                    state.VideoBuffer?.Dispose();
-                    state.SlotSize = dataLen + 64;
-                    long totalSize = state.SlotSize * state.SlotCount;
-                    int gen = Interlocked.Increment(ref _shmGeneration);
-                    newShmName = $"beutl-ffmpeg-video-{Environment.ProcessId}-{request.ReaderId}-{gen}";
-                    state.VideoBuffer = SharedMemoryBuffer.Create(newShmName, totalSize);
-                    state.InvalidateAllSlots();
-                }
-
-                // スロットに書き込み
-                int writeSlot = state.NextWriteSlot;
-                long offset = writeSlot * state.SlotSize;
-                state.VideoBuffer!.Write(new ReadOnlySpan<byte>((void*)bitmap.Data, dataLen), offset);
-
-                // 色空間情報
-                var cs = bitmap.ColorSpace;
-                var transferFn = cs.GetNumericalTransferFunction();
-                var xyz = cs.ToColorSpaceXyz();
-
-                float[] currentTransferFn = [transferFn.G, transferFn.A, transferFn.B, transferFn.C, transferFn.D, transferFn.E, transferFn.F];
-                float[] currentToXyzD50 = xyz.Values.ToArray();
-
-                bool colorSpaceChanged = !currentTransferFn.AsSpan().SequenceEqual(state.LastTransferFn)
-                                         || !currentToXyzD50.AsSpan().SequenceEqual(state.LastToXyzD50);
-
-                if (colorSpaceChanged)
-                {
-                    state.LastTransferFn = currentTransferFn;
-                    state.LastToXyzD50 = currentToXyzD50;
-                }
-
-                // スロットメタデータ更新
-                state.Slots[writeSlot] = new SlotMetadata
-                {
-                    FrameNumber = request.Frame,
-                    Width = bitmap.Width,
-                    Height = bitmap.Height,
-                    BytesPerPixel = bitmap.BytesPerPixel,
-                    DataLength = dataLen,
-                    IsHdr = bitmap.BytesPerPixel == 8,
-                    TransferFn = currentTransferFn,
-                    ToXyzD50 = currentToXyzD50,
-                };
-                state.SlotFrameNumbers[writeSlot] = request.Frame;
-                state.NextWriteSlot = (writeSlot + 1) % state.SlotCount;
-                state.LastRequestedFrame = request.Frame;
-                state.LastServedSlot = writeSlot;
-
-                // プリフェッチ開始
-                StartPrefetch(state);
-
-                return IpcMessage.Create(msgId, MessageType.ReadVideoResult, new ReadVideoResponse
-                {
-                    Success = true,
-                    Width = bitmap.Width,
-                    Height = bitmap.Height,
-                    BytesPerPixel = bitmap.BytesPerPixel,
-                    DataLength = dataLen,
-                    IsHdr = bitmap.BytesPerPixel == 8,
-                    SharedMemoryName = newShmName,
-                    SlotIndex = writeSlot,
-                    SlotDataOffset = offset,
-                    TransferFn = colorSpaceChanged ? currentTransferFn : null,
-                    ToXyzD50 = colorSpaceChanged ? currentToXyzD50 : null,
-                });
+                state.LastTransferFn = currentTransferFn;
+                state.LastToXyzD50 = currentToXyzD50;
             }
+
+            // スロットメタデータ更新
+            state.Slots[writeSlot] = new SlotMetadata
+            {
+                FrameNumber = request.Frame,
+                Width = fi.Width,
+                Height = fi.Height,
+                BytesPerPixel = fi.BytesPerPixel,
+                DataLength = fi.DataLength,
+                IsHdr = fi.IsHdr,
+                TransferFn = currentTransferFn,
+                ToXyzD50 = currentToXyzD50,
+            };
+            state.SlotFrameNumbers[writeSlot] = request.Frame;
+            state.NextWriteSlot = (writeSlot + 1) % state.SlotCount;
+            state.LastRequestedFrame = request.Frame;
+            state.LastServedSlot = writeSlot;
+
+            // プリフェッチ開始
+            StartPrefetch(state);
+
+            return IpcMessage.Create(msgId, MessageType.ReadVideoResult, new ReadVideoResponse
+            {
+                Success = true,
+                Width = fi.Width,
+                Height = fi.Height,
+                BytesPerPixel = fi.BytesPerPixel,
+                DataLength = fi.DataLength,
+                IsHdr = fi.IsHdr,
+                SharedMemoryName = newShmName,
+                SlotIndex = writeSlot,
+                SlotDataOffset = offset,
+                TransferFn = colorSpaceChanged ? currentTransferFn : null,
+                ToXyzD50 = colorSpaceChanged ? currentToXyzD50 : null,
+            });
         }
         finally
         {
@@ -333,32 +313,55 @@ internal sealed class DecodingHandler : IDisposable
 
     private unsafe IpcMessage HandleReadVideoLegacy(int msgId, ReadVideoRequest request, ReaderState state)
     {
-        if (!state.Reader.ReadVideo(request.Frame, out var bitmapRef))
+        // 共有メモリが未作成の場合、まず確保
+        string? newShmName = null;
+        if (state.VideoBuffer == null)
         {
-            return IpcMessage.Create(msgId, MessageType.ReadVideoResult,
-                new ReadVideoResponse { Success = false });
+            int videoWidth = state.Reader.VideoInfo.FrameSize.Width;
+            int videoHeight = state.Reader.VideoInfo.FrameSize.Height;
+            long newSize = (long)videoWidth * videoHeight * 8 + 64;
+            int gen = Interlocked.Increment(ref _shmGeneration);
+            newShmName = $"beutl-ffmpeg-video-{Environment.ProcessId}-{request.ReaderId}-{gen}";
+            state.VideoBuffer = SharedMemoryBuffer.Create(newShmName, newSize);
         }
 
-        using (bitmapRef)
+        // 共有メモリに直接デコード
+        byte* ptr = state.VideoBuffer.AcquirePointer();
+        try
         {
-            var bitmap = bitmapRef.Value;
-            int dataLen = bitmap.ByteCount;
+            var destination = new Span<byte>(ptr, (int)state.VideoBuffer.Capacity);
 
-            // 共有メモリが小さければリサイズ（一意な名前で再作成）
-            string? newShmName = null;
-            if (state.VideoBuffer == null || state.VideoBuffer.Capacity < dataLen)
+            if (!state.Reader.ReadVideo(request.Frame, destination, out var frameInfo))
             {
-                state.VideoBuffer?.Dispose();
-                long newSize = dataLen + 64;
-                int gen = Interlocked.Increment(ref _shmGeneration);
-                newShmName = $"beutl-ffmpeg-video-{Environment.ProcessId}-{request.ReaderId}-{gen}";
-                state.VideoBuffer = SharedMemoryBuffer.Create(newShmName, newSize);
+                // バッファが小さい場合リサイズして再試行
+                if (frameInfo.DataLength > 0 && frameInfo.DataLength > state.VideoBuffer.Capacity)
+                {
+                    state.VideoBuffer.ReleasePointer();
+                    ptr = null;
+                    state.VideoBuffer.Dispose();
+                    long newSize = frameInfo.DataLength + 64;
+                    int gen = Interlocked.Increment(ref _shmGeneration);
+                    newShmName = $"beutl-ffmpeg-video-{Environment.ProcessId}-{request.ReaderId}-{gen}";
+                    state.VideoBuffer = SharedMemoryBuffer.Create(newShmName, newSize);
+
+                    ptr = state.VideoBuffer.AcquirePointer();
+                    destination = new Span<byte>(ptr, (int)state.VideoBuffer.Capacity);
+
+                    if (!state.Reader.ReadVideo(request.Frame, destination, out frameInfo))
+                    {
+                        return IpcMessage.Create(msgId, MessageType.ReadVideoResult,
+                            new ReadVideoResponse { Success = false, SharedMemoryName = newShmName });
+                    }
+                }
+                else
+                {
+                    return IpcMessage.Create(msgId, MessageType.ReadVideoResult,
+                        new ReadVideoResponse { Success = false });
+                }
             }
 
-            state.VideoBuffer.Write(new ReadOnlySpan<byte>((void*)bitmap.Data, dataLen));
-
             // 色空間情報: 前フレームと異なる場合のみ送信
-            var cs = bitmap.ColorSpace;
+            var cs = frameInfo.ColorSpace;
             var transferFn = cs.GetNumericalTransferFunction();
             var xyz = cs.ToColorSpaceXyz();
 
@@ -377,15 +380,70 @@ internal sealed class DecodingHandler : IDisposable
             return IpcMessage.Create(msgId, MessageType.ReadVideoResult, new ReadVideoResponse
             {
                 Success = true,
-                Width = bitmap.Width,
-                Height = bitmap.Height,
-                BytesPerPixel = bitmap.BytesPerPixel,
-                DataLength = dataLen,
-                IsHdr = bitmap.BytesPerPixel == 8,
+                Width = frameInfo.Width,
+                Height = frameInfo.Height,
+                BytesPerPixel = frameInfo.BytesPerPixel,
+                DataLength = frameInfo.DataLength,
+                IsHdr = frameInfo.IsHdr,
                 SharedMemoryName = newShmName,
                 TransferFn = colorSpaceChanged ? currentTransferFn : null,
                 ToXyzD50 = colorSpaceChanged ? currentToXyzD50 : null,
             });
+        }
+        finally
+        {
+            if (ptr != null)
+                state.VideoBuffer!.ReleasePointer();
+        }
+    }
+
+    /// <summary>
+    /// 共有メモリのスロットに直接デコードする。リサイズが必要な場合はリサイズして再試行する。
+    /// </summary>
+    private unsafe VideoFrameInfo? DecodeVideoToSharedMemory(
+        ReaderState state, int frame, int readerId,
+        ref string? newShmName, out int writeSlot, out long offset)
+    {
+        writeSlot = state.NextWriteSlot;
+        offset = writeSlot * state.SlotSize;
+
+        byte* ptr = state.VideoBuffer!.AcquirePointer();
+        try
+        {
+            var destination = new Span<byte>(ptr + offset, (int)state.SlotSize);
+
+            if (state.Reader.ReadVideo(frame, destination, out var frameInfo))
+                return frameInfo;
+
+            // バッファが小さい場合リサイズして再試行
+            if (frameInfo.DataLength > 0 && frameInfo.DataLength > state.SlotSize)
+            {
+                state.VideoBuffer.ReleasePointer();
+                ptr = null;
+                state.VideoBuffer.Dispose();
+                state.SlotSize = frameInfo.DataLength + 64;
+                long totalSize = state.SlotSize * state.SlotCount;
+                int gen = Interlocked.Increment(ref _shmGeneration);
+                newShmName = $"beutl-ffmpeg-video-{Environment.ProcessId}-{readerId}-{gen}";
+                state.VideoBuffer = SharedMemoryBuffer.Create(newShmName, totalSize);
+                state.InvalidateAllSlots();
+
+                writeSlot = 0;
+                offset = 0;
+
+                ptr = state.VideoBuffer.AcquirePointer();
+                destination = new Span<byte>(ptr + offset, (int)state.SlotSize);
+
+                if (state.Reader.ReadVideo(frame, destination, out frameInfo))
+                    return frameInfo;
+            }
+
+            return null;
+        }
+        finally
+        {
+            if (ptr != null)
+                state.VideoBuffer!.ReleasePointer();
         }
     }
 
@@ -460,47 +518,49 @@ internal sealed class DecodingHandler : IDisposable
                         if (ct.IsCancellationRequested) break;
                         if (state.FindSlot(nextFrame) >= 0) continue;
 
-                        if (!state.Reader.ReadVideo(nextFrame, out var bitmapRef))
-                            continue;
-
-                        using (bitmapRef)
+                        // LastServedSlotを上書きしないようにする
+                        int writeSlot = state.NextWriteSlot;
+                        if (writeSlot == state.LastServedSlot)
                         {
-                            var bitmap = bitmapRef.Value;
-                            int dataLen = bitmap.ByteCount;
-                            if (dataLen > state.SlotSize)
+                            writeSlot = (writeSlot + 1) % state.SlotCount;
+                        }
+
+                        long slotOffset = writeSlot * state.SlotSize;
+                        byte* pfPtr = state.VideoBuffer!.AcquirePointer();
+                        try
+                        {
+                            var destination = new Span<byte>(pfPtr + slotOffset, (int)state.SlotSize);
+
+                            if (!state.Reader.ReadVideo(nextFrame, destination, out var pfInfo))
+                                continue;
+
+                            if (pfInfo.DataLength > state.SlotSize)
                                 continue; // スロットに収まらない場合はスキップ
 
-                            // LastServedSlotを上書きしないようにする
-                            int writeSlot = state.NextWriteSlot;
-                            if (writeSlot == state.LastServedSlot)
-                            {
-                                writeSlot = (writeSlot + 1) % state.SlotCount;
-                            }
+                            var pfCs = pfInfo.ColorSpace;
+                            var pfTransferFn = pfCs.GetNumericalTransferFunction();
+                            var pfXyz = pfCs.ToColorSpaceXyz();
 
-                            long offset = writeSlot * state.SlotSize;
-                            state.VideoBuffer!.Write(
-                                new ReadOnlySpan<byte>((void*)bitmap.Data, dataLen), offset);
-
-                            var cs = bitmap.ColorSpace;
-                            var transferFn = cs.GetNumericalTransferFunction();
-                            var xyz = cs.ToColorSpaceXyz();
-
-                            float[] tfn = [transferFn.G, transferFn.A, transferFn.B, transferFn.C, transferFn.D, transferFn.E, transferFn.F];
-                            float[] xyzArr = xyz.Values.ToArray();
+                            float[] tfn = [pfTransferFn.G, pfTransferFn.A, pfTransferFn.B, pfTransferFn.C, pfTransferFn.D, pfTransferFn.E, pfTransferFn.F];
+                            float[] xyzArr = pfXyz.Values.ToArray();
 
                             state.Slots[writeSlot] = new SlotMetadata
                             {
                                 FrameNumber = nextFrame,
-                                Width = bitmap.Width,
-                                Height = bitmap.Height,
-                                BytesPerPixel = bitmap.BytesPerPixel,
-                                DataLength = dataLen,
-                                IsHdr = bitmap.BytesPerPixel == 8,
+                                Width = pfInfo.Width,
+                                Height = pfInfo.Height,
+                                BytesPerPixel = pfInfo.BytesPerPixel,
+                                DataLength = pfInfo.DataLength,
+                                IsHdr = pfInfo.IsHdr,
                                 TransferFn = tfn,
                                 ToXyzD50 = xyzArr,
                             };
                             state.SlotFrameNumbers[writeSlot] = nextFrame;
                             state.NextWriteSlot = (writeSlot + 1) % state.SlotCount;
+                        }
+                        finally
+                        {
+                            state.VideoBuffer!.ReleasePointer();
                         }
                     }
                     finally
@@ -523,37 +583,42 @@ internal sealed class DecodingHandler : IDisposable
         if (!_readers.TryGetValue(request.ReaderId, out var state))
             return IpcMessage.CreateError(msg.Id, $"Unknown reader ID: {request.ReaderId}");
 
-        if (!state.Reader.ReadAudio(request.Start, request.Length, out var soundRef))
+        // 共有メモリに直接デコード
+        // 必要なバッファサイズを推定（Stereo32BitFloat = 8 bytes per sample）
+        long estimatedSize = (long)request.Length * 8 + 64;
+        string? newShmName = null;
+
+        if (state.AudioBuffer == null || state.AudioBuffer.Capacity < estimatedSize)
         {
-            return IpcMessage.Create(msg.Id, MessageType.ReadAudioResult,
-                new ReadAudioResponse { Success = false });
+            state.AudioBuffer?.Dispose();
+            int gen = Interlocked.Increment(ref _shmGeneration);
+            newShmName = $"beutl-ffmpeg-audio-{Environment.ProcessId}-{request.ReaderId}-{gen}";
+            state.AudioBuffer = SharedMemoryBuffer.Create(newShmName, estimatedSize);
         }
 
-        using (soundRef)
+        byte* ptr = state.AudioBuffer.AcquirePointer();
+        try
         {
-            var sound = soundRef.Value;
-            int dataLen = sound.NumSamples * (int)sound.SampleSize;
+            var destination = new Span<byte>(ptr, (int)state.AudioBuffer.Capacity);
 
-            string? newShmName = null;
-            if (state.AudioBuffer == null || state.AudioBuffer.Capacity < dataLen)
+            if (!state.Reader.ReadAudio(request.Start, request.Length, destination, out var audioInfo))
             {
-                state.AudioBuffer?.Dispose();
-                long newSize = dataLen + 64;
-                int gen = Interlocked.Increment(ref _shmGeneration);
-                newShmName = $"beutl-ffmpeg-audio-{Environment.ProcessId}-{request.ReaderId}-{gen}";
-                state.AudioBuffer = SharedMemoryBuffer.Create(newShmName, newSize);
+                return IpcMessage.Create(msg.Id, MessageType.ReadAudioResult,
+                    new ReadAudioResponse { Success = false });
             }
-
-            state.AudioBuffer.Write(new ReadOnlySpan<byte>((void*)sound.Data, dataLen));
 
             return IpcMessage.Create(msg.Id, MessageType.ReadAudioResult, new ReadAudioResponse
             {
                 Success = true,
-                SampleRate = sound.SampleRate,
-                NumSamples = sound.NumSamples,
-                DataLength = dataLen,
+                SampleRate = audioInfo.SampleRate,
+                NumSamples = audioInfo.NumSamples,
+                DataLength = audioInfo.DataLength,
                 SharedMemoryName = newShmName,
             });
+        }
+        finally
+        {
+            state.AudioBuffer!.ReleasePointer();
         }
     }
 
