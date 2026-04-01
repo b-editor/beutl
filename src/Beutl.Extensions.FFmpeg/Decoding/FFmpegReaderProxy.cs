@@ -98,7 +98,20 @@ public sealed class FFmpegReaderProxy : MediaReader
         }
     }
 
-    public override unsafe bool ReadAudio(int start, int length, [NotNullWhen(true)] out IPcm? sound)
+    public override bool ReadAudio(int start, int length, [NotNullWhen(true)] out IPcm? sound)
+    {
+        int sampleRate = AudioInfo.SampleRate;
+
+        // SampleRate(1秒分)を超える場合はリクエストを分割
+        if (length > sampleRate)
+        {
+            return ReadAudioChunked(start, length, sampleRate, out sound);
+        }
+
+        return ReadAudioCore(start, length, out sound);
+    }
+
+    private unsafe bool ReadAudioCore(int start, int length, [NotNullWhen(true)] out IPcm? sound)
     {
         var request = new ReadAudioRequest { ReaderId = _readerId, Start = start, Length = length };
         var response = _connection.RequestAsync<ReadAudioRequest, ReadAudioResponse>(
@@ -122,6 +135,40 @@ public sealed class FFmpegReaderProxy : MediaReader
         catch
         {
             pcm.Dispose();
+            throw;
+        }
+    }
+
+    private bool ReadAudioChunked(int start, int length, int chunkSize, [NotNullWhen(true)] out IPcm? sound)
+    {
+        var result = new Pcm<Stereo32BitFloat>(AudioInfo.SampleRate, length);
+        try
+        {
+            int offset = 0;
+            while (offset < length)
+            {
+                int currentChunk = Math.Min(chunkSize, length - offset);
+
+                if (!ReadAudioCore(start + offset, currentChunk, out IPcm? chunkSound))
+                {
+                    result.Dispose();
+                    sound = null;
+                    return false;
+                }
+
+                using var chunk = (Pcm<Stereo32BitFloat>)chunkSound;
+
+                // チャンクデータをコピー
+                chunk.DataSpan.CopyTo(result.DataSpan.Slice(offset, chunk.NumSamples));
+                offset += chunk.NumSamples;
+            }
+
+            sound = result;
+            return true;
+        }
+        catch
+        {
+            result?.Dispose();
             throw;
         }
     }

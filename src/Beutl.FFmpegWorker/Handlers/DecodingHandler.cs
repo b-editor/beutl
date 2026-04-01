@@ -52,7 +52,7 @@ internal sealed class DecodingHandler : IDisposable
 
         if (reader.HasAudio)
         {
-            long audioBufferSize = 48000L * 8 + 64; // 1 second stereo float
+            long audioBufferSize = reader.AudioInfo.SampleRate * 8 + 64; // 1 second stereo float
             string audioShmName = $"beutl-ffmpeg-audio-{Environment.ProcessId}-{id}";
             state.AudioBuffer = SharedMemoryBuffer.Create(audioShmName, audioBufferSize);
         }
