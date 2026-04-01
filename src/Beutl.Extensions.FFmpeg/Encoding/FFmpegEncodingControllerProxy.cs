@@ -55,11 +55,7 @@ public class FFmpegEncodingControllerProxy(string outputFile, FFmpegEncodingSett
 
         // StartEncode送信
         var startMsg = IpcMessage.Create(connection.NextId(), MessageType.StartEncode, startRequest);
-        var ack = await connection.SendAndReceiveAsync(startMsg, cancellationToken)
-                  ?? throw new IOException("Connection closed waiting for StartEncodeAck");
-
-        if (ack.Error != null)
-            throw new FFmpegWorkerException(ack.Error);
+        var ack = await connection.SendAndReceiveAsync(startMsg, cancellationToken);
 
         var ackPayload = ack.GetPayload<EncodeStartAckMessage>()
             ?? throw new InvalidOperationException("StartEncodeAck missing payload");
