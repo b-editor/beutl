@@ -7,6 +7,7 @@ using Beutl.Media;
 using Beutl.Media.Decoding;
 using Beutl.Media.Music;
 using Beutl.Media.Music.Samples;
+using Beutl.Media.Source;
 
 namespace Beutl.Extensions.FFmpeg.Decoding;
 
@@ -66,7 +67,7 @@ public sealed class FFmpegReaderProxy : MediaReader
 
     public override bool HasAudio => _openResponse.HasAudio;
 
-    public override unsafe bool ReadVideo(int frame, [NotNullWhen(true)] out Bitmap? image)
+    public override unsafe bool ReadVideo(int frame, [NotNullWhen(true)] out Ref<Bitmap>? image)
     {
         var request = new ReadVideoRequest { ReaderId = _readerId, Frame = frame };
         var response = _connection.RequestAsync<ReadVideoRequest, ReadVideoResponse>(
@@ -90,24 +91,28 @@ public sealed class FFmpegReaderProxy : MediaReader
 
         bool isHdr = response.BytesPerPixel == 8;
         var colorType = isHdr ? BitmapColorType.Rgba16161616 : BitmapColorType.Bgra8888;
-        var bmp = new Bitmap(response.Width, response.Height, colorType, BitmapAlphaType.Unpremul, colorSpace);
+        int rowBytes = response.Width * response.BytesPerPixel;
 
+        // ゼロコピー: 共有メモリを直接ポインタで参照するBitmapを作成
+        byte* ptr = _videoBuffer!.AcquirePointer();
         try
         {
-            // リングバッファ: SlotDataOffset からの読み取り
             long readOffset = response.SlotDataOffset;
-            _videoBuffer!.Read(new Span<byte>((void*)bmp.Data, response.DataLength), readOffset);
-            image = bmp;
+            var bmp = new Bitmap(
+                (IntPtr)(ptr + readOffset), response.Width, response.Height, rowBytes,
+                colorType, BitmapAlphaType.Unpremul, colorSpace);
+
+            image = Ref<Bitmap>.Create(bmp, onRelease: () => _videoBuffer.ReleasePointer());
             return true;
         }
         catch
         {
-            bmp.Dispose();
+            _videoBuffer.ReleasePointer();
             throw;
         }
     }
 
-    public override bool ReadAudio(int start, int length, [NotNullWhen(true)] out IPcm? sound)
+    public override bool ReadAudio(int start, int length, [NotNullWhen(true)] out Ref<IPcm>? sound)
     {
         int sampleRate = AudioInfo.SampleRate;
 
@@ -120,7 +125,7 @@ public sealed class FFmpegReaderProxy : MediaReader
         return ReadAudioCore(start, length, out sound);
     }
 
-    private unsafe bool ReadAudioCore(int start, int length, [NotNullWhen(true)] out IPcm? sound)
+    private unsafe bool ReadAudioCore(int start, int length, [NotNullWhen(true)] out Ref<IPcm>? sound)
     {
         var request = new ReadAudioRequest { ReaderId = _readerId, Start = start, Length = length };
         var response = _connection.RequestAsync<ReadAudioRequest, ReadAudioResponse>(
@@ -134,21 +139,22 @@ public sealed class FFmpegReaderProxy : MediaReader
 
         EnsureAudioBuffer(response.DataLength, response.SharedMemoryName);
 
-        var pcm = new Pcm<Stereo32BitFloat>(response.SampleRate, response.NumSamples);
+        // ゼロコピー: 共有メモリを直接ポインタで参照するPcmを作成
+        byte* ptr = _audioBuffer!.AcquirePointer();
         try
         {
-            _audioBuffer!.Read(new Span<byte>((void*)pcm.Data, response.DataLength));
-            sound = pcm;
+            var pcm = new Pcm<Stereo32BitFloat>(response.SampleRate, response.NumSamples, (IntPtr)ptr);
+            sound = Ref<IPcm>.Create(pcm, onRelease: () => _audioBuffer.ReleasePointer());
             return true;
         }
         catch
         {
-            pcm.Dispose();
+            _audioBuffer.ReleasePointer();
             throw;
         }
     }
 
-    private bool ReadAudioChunked(int start, int length, int chunkSize, [NotNullWhen(true)] out IPcm? sound)
+    private bool ReadAudioChunked(int start, int length, int chunkSize, [NotNullWhen(true)] out Ref<IPcm>? sound)
     {
         var result = new Pcm<Stereo32BitFloat>(AudioInfo.SampleRate, length);
         try
@@ -158,21 +164,23 @@ public sealed class FFmpegReaderProxy : MediaReader
             {
                 int currentChunk = Math.Min(chunkSize, length - offset);
 
-                if (!ReadAudioCore(start + offset, currentChunk, out IPcm? chunkSound))
+                if (!ReadAudioCore(start + offset, currentChunk, out Ref<IPcm>? chunkRef))
                 {
                     result.Dispose();
                     sound = null;
                     return false;
                 }
 
-                using var chunk = (Pcm<Stereo32BitFloat>)chunkSound;
-
-                // チャンクデータをコピー
-                chunk.DataSpan.CopyTo(result.DataSpan.Slice(offset, chunk.NumSamples));
-                offset += chunk.NumSamples;
+                using (chunkRef)
+                {
+                    var chunk = (Pcm<Stereo32BitFloat>)chunkRef.Value;
+                    // チャンクデータをコピー
+                    chunk.DataSpan.CopyTo(result.DataSpan.Slice(offset, chunk.NumSamples));
+                    offset += chunk.NumSamples;
+                }
             }
 
-            sound = result;
+            sound = Ref<IPcm>.Create(result);
             return true;
         }
         catch

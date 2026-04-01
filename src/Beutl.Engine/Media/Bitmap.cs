@@ -41,6 +41,19 @@ public sealed class Bitmap : ICloneable, IDisposable
         _ownsData = ownsData;
     }
 
+    internal Bitmap(IntPtr data, int width, int height, int rowBytes,
+        BitmapColorType colorType, BitmapAlphaType alphaType, BitmapColorSpace? colorSpace)
+    {
+        ThrowOutOfRange(width, height);
+        _colorSpace = colorSpace ?? BitmapColorSpace.Srgb;
+        var info = new SKImageInfo(width, height, colorType.ToSKColorType(),
+            alphaType.ToSKAlphaType(), _colorSpace.SKColorSpace);
+        _skBitmap = new SKBitmap();
+        if (!_skBitmap.InstallPixels(info, data, rowBytes))
+            throw new InvalidOperationException("Failed to install external pixels into SKBitmap.");
+        _ownsData = true;
+    }
+
     ~Bitmap()
     {
         Dispose();
