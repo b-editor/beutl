@@ -1,4 +1,5 @@
 
+using System.Collections.Concurrent;
 using Beutl.FFmpegIpc.Protocol;
 using Beutl.FFmpegIpc.Protocol.Messages;
 using Beutl.FFmpegIpc.SharedMemory;
@@ -9,7 +10,7 @@ namespace Beutl.FFmpegWorker.Handlers;
 
 internal sealed class DecodingHandler : IDisposable
 {
-    private readonly Dictionary<int, ReaderState> _readers = [];
+    private readonly ConcurrentDictionary<int, ReaderState> _readers = [];
     private int _nextReaderId;
     private int _shmGeneration;
 
@@ -202,7 +203,7 @@ internal sealed class DecodingHandler : IDisposable
     public IpcMessage HandleClose(IpcMessage msg)
     {
         var request = msg.GetPayload<CloseReaderRequest>()!;
-        if (_readers.Remove(request.ReaderId, out var state))
+        if (_readers.TryRemove(request.ReaderId, out var state))
         {
             state.Dispose();
         }

@@ -21,7 +21,7 @@ internal sealed class WorkerHost(IpcConnection connection) : IDisposable
             }
             catch (IOException)
             {
-                break; // パイプ切断
+                break;
             }
             catch (OperationCanceledException)
             {
@@ -29,50 +29,94 @@ internal sealed class WorkerHost(IpcConnection connection) : IDisposable
             }
 
             if (message == null)
-                break; // 接続終了
+                break;
 
-            IpcMessage response;
+            // デコード系メッセージは並行処理可能（fire-and-forget で送信）
+            if (IsParallelizable(message.Type))
+            {
+                var msg = message;
+                _ = Task.Run(async () =>
+                {
+                    IpcMessage response;
+                    try
+                    {
+                        response = HandleMessage(msg);
+                    }
+                    catch (Exception ex)
+                    {
+                        response = IpcMessage.CreateError(msg.Id, ex.Message, ex.StackTrace);
+                    }
+
+                    try
+                    {
+                        await connection.SendAsync(response, ct);
+                    }
+                    catch (IOException) { }
+                }, ct);
+                continue;
+            }
+
+            // エンコード系・ライフサイクル系は逐次処理
+            IpcMessage seqResponse;
             try
             {
-                response = message.Type switch
+                seqResponse = message.Type switch
                 {
-                    MessageType.OpenFile => _decodingHandler.HandleOpen(message),
-                    MessageType.ReadVideo => _decodingHandler.HandleReadVideo(message),
-                    MessageType.ReadAudio => _decodingHandler.HandleReadAudio(message),
-                    MessageType.CloseReader => _decodingHandler.HandleClose(message),
-                    MessageType.UpdateDecoderSettings => _decodingHandler.HandleUpdateDecoderSettings(message),
-
                     MessageType.StartEncode => await _encodingHandler.HandleStartAsync(message, connection, ct),
                     MessageType.CancelEncode => _encodingHandler.HandleCancel(message),
-
-                    MessageType.QueryCodecs => _codecQueryHandler.HandleQueryCodecs(message),
-                    MessageType.QueryPixelFormats => _codecQueryHandler.HandleQueryPixelFormats(message),
-                    MessageType.QuerySampleRates => _codecQueryHandler.HandleQuerySampleRates(message),
-                    MessageType.QueryAudioFormats => _codecQueryHandler.HandleQueryAudioFormats(message),
-                    MessageType.QueryDefaultCodec => _codecQueryHandler.HandleQueryDefaultCodec(message),
-
                     MessageType.Shutdown => HandleShutdown(message),
-
                     _ => IpcMessage.CreateError(message.Id, $"Unknown message type: {message.Type}"),
                 };
             }
             catch (Exception ex)
             {
-                response = IpcMessage.CreateError(message.Id, ex.Message, ex.StackTrace);
+                seqResponse = IpcMessage.CreateError(message.Id, ex.Message, ex.StackTrace);
             }
 
-            if (response.Type == MessageType.Shutdown)
+            if (seqResponse.Type == MessageType.Shutdown)
                 break;
 
             try
             {
-                await connection.SendAsync(response, ct);
+                await connection.SendAsync(seqResponse, ct);
             }
             catch (IOException)
             {
                 break;
             }
         }
+    }
+
+    private IpcMessage HandleMessage(IpcMessage message)
+    {
+        return message.Type switch
+        {
+            MessageType.OpenFile => _decodingHandler.HandleOpen(message),
+            MessageType.ReadVideo => _decodingHandler.HandleReadVideo(message),
+            MessageType.ReadAudio => _decodingHandler.HandleReadAudio(message),
+            MessageType.CloseReader => _decodingHandler.HandleClose(message),
+            MessageType.UpdateDecoderSettings => _decodingHandler.HandleUpdateDecoderSettings(message),
+            MessageType.QueryCodecs => _codecQueryHandler.HandleQueryCodecs(message),
+            MessageType.QueryPixelFormats => _codecQueryHandler.HandleQueryPixelFormats(message),
+            MessageType.QuerySampleRates => _codecQueryHandler.HandleQuerySampleRates(message),
+            MessageType.QueryAudioFormats => _codecQueryHandler.HandleQueryAudioFormats(message),
+            MessageType.QueryDefaultCodec => _codecQueryHandler.HandleQueryDefaultCodec(message),
+            _ => IpcMessage.CreateError(message.Id, $"Unknown message type: {message.Type}"),
+        };
+    }
+
+    private static bool IsParallelizable(MessageType type)
+    {
+        return type is MessageType.ReadVideo
+            or MessageType.ReadAudio
+            or MessageType.OpenFile
+            or MessageType.CloseReader
+            or MessageType.UpdateDecoderSettings
+            or MessageType.QueryCodecs
+            or MessageType.QueryPixelFormats
+            or MessageType.QuerySampleRates
+            or MessageType.QueryAudioFormats
+            or MessageType.QueryDefaultCodec;
     }
 
     private static IpcMessage HandleShutdown(IpcMessage message)

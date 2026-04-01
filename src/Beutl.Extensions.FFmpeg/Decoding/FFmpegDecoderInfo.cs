@@ -47,8 +47,9 @@ public sealed class FFmpegDecoderInfo(FFmpegDecodingSettings settings) : IDecode
             return new FFmpegReader(file, options, settings);
 #endif
         }
-        catch
+        catch (Exception ex)
         {
+            Console.WriteLine(ex);
             return null;
         }
     }

@@ -8,15 +8,21 @@ namespace Beutl.Extensions.FFmpeg;
 
 public sealed class FFmpegWorkerProcess : IDisposable
 {
-    private static readonly Lazy<FFmpegWorkerProcess> s_decodingInstance = new();
-    private static readonly Lazy<FFmpegWorkerProcess> s_encodingInstance = new();
+    private static readonly Lazy<FFmpegWorkerProcess> s_decodingInstance = new(() => new FFmpegWorkerProcess(multiplexed: true));
+    private static readonly Lazy<FFmpegWorkerProcess> s_encodingInstance = new(() => new FFmpegWorkerProcess(multiplexed: false));
     public static FFmpegWorkerProcess DecodingInstance => s_decodingInstance.Value;
     public static FFmpegWorkerProcess EncodingInstance => s_encodingInstance.Value;
 
     private readonly SemaphoreSlim _startLock = new(1, 1);
+    private readonly bool _multiplexed;
     private Process? _process;
     private IpcConnection? _connection;
     private string? _pipeName;
+
+    public FFmpegWorkerProcess(bool multiplexed = false)
+    {
+        _multiplexed = multiplexed;
+    }
 
     public bool IsRunning => _process is { HasExited: false } && _connection?.IsConnected == true;
 
@@ -138,6 +144,10 @@ public sealed class FFmpegWorkerProcess : IDisposable
         if (handshakePayload != null && handshakePayload.ProtocolVersion != ProtocolConstants.CurrentVersion)
             throw new InvalidOperationException(
                 $"Protocol version mismatch: host={ProtocolConstants.CurrentVersion}, worker={handshakePayload.ProtocolVersion}");
+
+        // デコード用接続は多重化モードで起動（複数リーダーからの並行リクエスト対応）
+        if (_multiplexed)
+            _connection.StartMultiplexedReceive(ct);
     }
 
     private void StartWorker()
@@ -213,6 +223,9 @@ public sealed class FFmpegWorkerProcess : IDisposable
         if (handshakePayload != null && handshakePayload.ProtocolVersion != ProtocolConstants.CurrentVersion)
             throw new InvalidOperationException(
                 $"Protocol version mismatch: host={ProtocolConstants.CurrentVersion}, worker={handshakePayload.ProtocolVersion}");
+
+        if (_multiplexed)
+            _connection.StartMultiplexedReceive();
     }
 
     private static void ConfigureWorkerProcess(ProcessStartInfo startInfo)
