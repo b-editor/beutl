@@ -88,8 +88,7 @@ internal sealed class EncodingHandler : IDisposable
                 }));
 
             var frameProvider = new IpcFrameProvider(connection, videoBuffers,
-                request.FrameCount, new Rational(request.FrameRateNum, request.FrameRateDen),
-                request.IsHdr);
+                request.FrameCount, new Rational(request.FrameRateNum, request.FrameRateDen));
             var sampleProvider = new IpcSampleProvider(connection, audioBuffers,
                 request.SampleCount, request.ProviderSampleRate);
 

@@ -11,7 +11,6 @@ internal sealed class IpcFrameProvider : IFrameProvider
 {
     private readonly IpcConnection _connection;
     private readonly SharedMemoryBuffer[] _videoBuffers;
-    private readonly bool _isHdr;
     private int _bufferIndex;
 
     // 先行リクエスト: 次フレームのレンダリングを事前に要求
@@ -19,11 +18,10 @@ internal sealed class IpcFrameProvider : IFrameProvider
     private int _prefetchBufferIndex;
 
     public IpcFrameProvider(IpcConnection connection, SharedMemoryBuffer[] videoBuffers,
-        long frameCount, Rational frameRate, bool isHdr)
+        long frameCount, Rational frameRate)
     {
         _connection = connection;
         _videoBuffers = videoBuffers;
-        _isHdr = isHdr;
         FrameCount = frameCount;
         FrameRate = frameRate;
     }
@@ -49,7 +47,7 @@ internal sealed class IpcFrameProvider : IFrameProvider
             // 初回フレーム: 通常リクエスト
             readBufferIndex = _bufferIndex;
             var request = IpcMessage.Create(_connection.NextId(), MessageType.RequestFrame,
-                new RequestFrameMessage { FrameIndex = frame, IsHdr = _isHdr, BufferIndex = readBufferIndex });
+                new RequestFrameMessage { FrameIndex = frame, BufferIndex = readBufferIndex });
             response = await _connection.SendAndReceiveAsync(request)
                        ?? throw new IOException("Connection closed while waiting for frame");
         }
@@ -65,14 +63,13 @@ internal sealed class IpcFrameProvider : IFrameProvider
         {
             _prefetchBufferIndex = 1 - readBufferIndex;
             var nextRequest = IpcMessage.Create(_connection.NextId(), MessageType.RequestFrame,
-                new RequestFrameMessage { FrameIndex = nextFrame, IsHdr = _isHdr, BufferIndex = _prefetchBufferIndex });
+                new RequestFrameMessage { FrameIndex = nextFrame, BufferIndex = _prefetchBufferIndex });
             _prefetchTask = _connection.SendAndReceiveAsync(nextRequest).AsTask();
         }
 
         // 共有メモリからBitmap構築 (readBufferIndex側のバッファから読む)
-        var colorType = _isHdr ? BitmapColorType.Rgba16161616 : BitmapColorType.Bgra8888;
         var alphaType = frameInfo.Premul ? BitmapAlphaType.Premul : BitmapAlphaType.Unpremul;
-        var bmp = new Bitmap(frameInfo.Width, frameInfo.Height, colorType, alphaType, BitmapColorSpace.LinearSrgb);
+        var bmp = new Bitmap(frameInfo.Width, frameInfo.Height, BitmapColorType.RgbaF16, alphaType, BitmapColorSpace.LinearSrgb);
 
         unsafe
         {
