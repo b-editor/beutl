@@ -34,12 +34,22 @@ public sealed class SharedMemoryBuffer : IDisposable
     /// </summary>
     public static SharedMemoryBuffer Create(string name, long capacity)
     {
-        string filePath = GetSharedMemoryPath(name);
-        var stream = new FileStream(filePath, FileMode.Create, FileAccess.ReadWrite, FileShare.ReadWrite);
-        stream.SetLength(capacity);
-        var mmf = MemoryMappedFile.CreateFromFile(stream, null, capacity, MemoryMappedFileAccess.ReadWrite, HandleInheritability.None, leaveOpen: false);
-        var accessor = mmf.CreateViewAccessor(0, capacity);
-        return new SharedMemoryBuffer(mmf, accessor, name, capacity, filePath, ownsFile: true);
+        if (OperatingSystem.IsWindows())
+        {
+            var mmf = MemoryMappedFile.CreateNew(name, capacity, MemoryMappedFileAccess.ReadWrite, MemoryMappedFileOptions.None, HandleInheritability.None);
+            var accessor = mmf.CreateViewAccessor(0, capacity);
+            return new SharedMemoryBuffer(mmf, accessor, name, capacity, null, ownsFile: true);
+        }
+        else
+        {
+            string filePath = GetSharedMemoryPath(name);
+            var stream = new FileStream(filePath, FileMode.Create, FileAccess.ReadWrite, FileShare.ReadWrite);
+            stream.SetLength(capacity);
+            var mmf = MemoryMappedFile.CreateFromFile(stream, null, capacity, MemoryMappedFileAccess.ReadWrite,
+                HandleInheritability.None, leaveOpen: false);
+            var accessor = mmf.CreateViewAccessor(0, capacity);
+            return new SharedMemoryBuffer(mmf, accessor, name, capacity, filePath, ownsFile: true);
+        }
     }
 
     /// <summary>
@@ -47,11 +57,21 @@ public sealed class SharedMemoryBuffer : IDisposable
     /// </summary>
     public static SharedMemoryBuffer Open(string name, long capacity)
     {
-        string filePath = GetSharedMemoryPath(name);
-        var stream = new FileStream(filePath, FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite);
-        var mmf = MemoryMappedFile.CreateFromFile(stream, null, 0, MemoryMappedFileAccess.ReadWrite, HandleInheritability.None, leaveOpen: false);
-        var accessor = mmf.CreateViewAccessor(0, capacity);
-        return new SharedMemoryBuffer(mmf, accessor, name, capacity, filePath, ownsFile: false);
+        if (OperatingSystem.IsWindows())
+        {
+            var mmf = MemoryMappedFile.OpenExisting(name, MemoryMappedFileRights.ReadWrite, HandleInheritability.None);
+            var accessor = mmf.CreateViewAccessor(0, capacity);
+            return new SharedMemoryBuffer(mmf, accessor, name, capacity, null, ownsFile: false);
+        }
+        else
+        {
+            string filePath = GetSharedMemoryPath(name);
+            var stream = new FileStream(filePath, FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite);
+            var mmf = MemoryMappedFile.CreateFromFile(stream, null, 0, MemoryMappedFileAccess.ReadWrite,
+                HandleInheritability.None, leaveOpen: false);
+            var accessor = mmf.CreateViewAccessor(0, capacity);
+            return new SharedMemoryBuffer(mmf, accessor, name, capacity, filePath, ownsFile: false);
+        }
     }
 
     public unsafe byte* AcquirePointer()
