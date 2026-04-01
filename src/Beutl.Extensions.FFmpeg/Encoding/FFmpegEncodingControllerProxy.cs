@@ -60,9 +60,14 @@ public class FFmpegEncodingControllerProxy(string outputFile, FFmpegEncodingSett
         var ackPayload = ack.GetPayload<EncodeStartAckMessage>()
             ?? throw new InvalidOperationException("StartEncodeAck missing payload");
 
-        // 共有メモリオープン (Worker側で作成済み、名前はACKから取得)
-        using var videoBuffer = SharedMemoryBuffer.Open(ackPayload.VideoSharedMemoryName, ackPayload.VideoBufferSize);
-        using var audioBuffer = SharedMemoryBuffer.Open(ackPayload.AudioSharedMemoryName, ackPayload.AudioBufferSize);
+        // 共有メモリオープン (ダブルバッファリング: Worker側で作成済み、名前はACKから取得)
+        using var videoBuffer0 = SharedMemoryBuffer.Open(ackPayload.VideoSharedMemoryName, ackPayload.VideoBufferSize);
+        using var videoBuffer1 = SharedMemoryBuffer.Open(ackPayload.VideoSharedMemoryName2, ackPayload.VideoBufferSize);
+        using var audioBuffer0 = SharedMemoryBuffer.Open(ackPayload.AudioSharedMemoryName, ackPayload.AudioBufferSize);
+        using var audioBuffer1 = SharedMemoryBuffer.Open(ackPayload.AudioSharedMemoryName2, ackPayload.AudioBufferSize);
+
+        SharedMemoryBuffer[] videoBuffers = [videoBuffer0, videoBuffer1];
+        SharedMemoryBuffer[] audioBuffers = [audioBuffer0, audioBuffer1];
 
         // メッセージループ: Workerからの要求に応答
         try
@@ -80,10 +85,11 @@ public class FFmpegEncodingControllerProxy(string outputFile, FFmpegEncodingSett
                         var frameReq = msg.GetPayload<RequestFrameMessage>()!;
                         using var bitmap = await frameProvider.RenderFrame(frameReq.FrameIndex);
 
-                        // Linear sRGBのまま渡す (色空間変換はWorker側で行う)
+                        // BufferIndex で指定されたバッファに書き込み (ダブルバッファリング)
+                        var targetVideoBuffer = videoBuffers[frameReq.BufferIndex];
                         unsafe
                         {
-                            videoBuffer.Write(new ReadOnlySpan<byte>((void*)bitmap.Data, bitmap.ByteCount));
+                            targetVideoBuffer.Write(new ReadOnlySpan<byte>((void*)bitmap.Data, bitmap.ByteCount));
                         }
 
                         await connection.SendAsync(IpcMessage.Create(msg.Id, MessageType.ProvideFrame,
@@ -103,11 +109,13 @@ public class FFmpegEncodingControllerProxy(string outputFile, FFmpegEncodingSett
                         var sampleReq = msg.GetPayload<RequestSampleMessage>()!;
                         using var pcm = await sampleProvider.Sample(sampleReq.Offset, sampleReq.Length);
 
+                        // BufferIndex で指定されたバッファに書き込み (ダブルバッファリング)
+                        var targetAudioBuffer = audioBuffers[sampleReq.BufferIndex];
                         int dataLen;
                         unsafe
                         {
                             dataLen = pcm.NumSamples * (int)pcm.SampleSize;
-                            audioBuffer.Write(new ReadOnlySpan<byte>((void*)pcm.Data, dataLen));
+                            targetAudioBuffer.Write(new ReadOnlySpan<byte>((void*)pcm.Data, dataLen));
                         }
 
                         await connection.SendAsync(IpcMessage.Create(msg.Id, MessageType.ProvideSample,

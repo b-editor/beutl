@@ -11,13 +11,14 @@ namespace Beutl.FFmpegWorker.Providers;
 internal sealed class IpcSampleProvider : ISampleProvider
 {
     private readonly IpcConnection _connection;
-    private readonly SharedMemoryBuffer _audioBuffer;
+    private readonly SharedMemoryBuffer[] _audioBuffers;
+    private int _bufferIndex;
 
-    public IpcSampleProvider(IpcConnection connection, SharedMemoryBuffer audioBuffer,
+    public IpcSampleProvider(IpcConnection connection, SharedMemoryBuffer[] audioBuffers,
         long sampleCount, long sampleRate)
     {
         _connection = connection;
-        _audioBuffer = audioBuffer;
+        _audioBuffers = audioBuffers;
         SampleCount = sampleCount;
         SampleRate = sampleRate;
     }
@@ -28,8 +29,11 @@ internal sealed class IpcSampleProvider : ISampleProvider
 
     public async ValueTask<Pcm<Stereo32BitFloat>> Sample(long offset, long length)
     {
+        int currentBuffer = _bufferIndex;
+        _bufferIndex = 1 - _bufferIndex;
+
         var request = IpcMessage.Create(_connection.NextId(), MessageType.RequestSample,
-            new RequestSampleMessage { Offset = offset, Length = length });
+            new RequestSampleMessage { Offset = offset, Length = length, BufferIndex = currentBuffer });
         var response = await _connection.SendAndReceiveAsync(request)
                        ?? throw new IOException("Connection closed while waiting for audio samples");
 
@@ -41,7 +45,7 @@ internal sealed class IpcSampleProvider : ISampleProvider
         var pcm = new Pcm<Stereo32BitFloat>((int)SampleRate, sampleInfo.NumSamples);
         unsafe
         {
-            _audioBuffer.Read(new Span<byte>((void*)pcm.Data, sampleInfo.DataLength));
+            _audioBuffers[currentBuffer].Read(new Span<byte>((void*)pcm.Data, sampleInfo.DataLength));
         }
 
         SamplesProvided += sampleInfo.NumSamples;

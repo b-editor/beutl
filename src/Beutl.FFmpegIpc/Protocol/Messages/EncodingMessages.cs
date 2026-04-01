@@ -47,12 +47,18 @@ public sealed class EncodeStartAckMessage
     public string AudioSharedMemoryName { get; set; } = "";
     public long VideoBufferSize { get; set; }
     public long AudioBufferSize { get; set; }
+
+    // ダブルバッファリング用の2番目のバッファ
+    public string VideoSharedMemoryName2 { get; set; } = "";
+    public string AudioSharedMemoryName2 { get; set; } = "";
 }
 
 public sealed class RequestFrameMessage
 {
     public long FrameIndex { get; set; }
     public bool IsHdr { get; set; }
+    // ダブルバッファリング: 書き込み先バッファのインデックス (0 or 1)
+    public int BufferIndex { get; set; }
 }
 
 public sealed class ProvideFrameMessage
@@ -68,6 +74,8 @@ public sealed class RequestSampleMessage
 {
     public long Offset { get; set; }
     public long Length { get; set; }
+    // ダブルバッファリング: 書き込み先バッファのインデックス (0 or 1)
+    public int BufferIndex { get; set; }
 }
 
 public sealed class ProvideSampleMessage

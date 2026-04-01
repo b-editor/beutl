@@ -58,30 +58,39 @@ internal sealed class EncodingHandler : IDisposable
                 ? CodecRecord.Default
                 : new CodecRecord(request.AudioCodecName, request.AudioCodecName);
 
-            // 共有メモリ作成
+            // 共有メモリ作成 (ダブルバッファリング)
             long videoBufferSize = (long)request.SourceWidth * request.SourceHeight * 8 + 64;
             long audioBufferSize = request.ProviderSampleRate * 8 + 64;
 
-            string videoShmName = $"beutl-ffmpeg-encode-video-{Environment.ProcessId}-{msg.Id}";
-            string audioShmName = $"beutl-ffmpeg-encode-audio-{Environment.ProcessId}-{msg.Id}";
+            string videoShmName0 = $"beutl-ffmpeg-encode-video-{Environment.ProcessId}-{msg.Id}-0";
+            string videoShmName1 = $"beutl-ffmpeg-encode-video-{Environment.ProcessId}-{msg.Id}-1";
+            string audioShmName0 = $"beutl-ffmpeg-encode-audio-{Environment.ProcessId}-{msg.Id}-0";
+            string audioShmName1 = $"beutl-ffmpeg-encode-audio-{Environment.ProcessId}-{msg.Id}-1";
 
-            using var videoBuffer = SharedMemoryBuffer.Create(videoShmName, videoBufferSize);
-            using var audioBuffer = SharedMemoryBuffer.Create(audioShmName, audioBufferSize);
+            using var videoBuffer0 = SharedMemoryBuffer.Create(videoShmName0, videoBufferSize);
+            using var videoBuffer1 = SharedMemoryBuffer.Create(videoShmName1, videoBufferSize);
+            using var audioBuffer0 = SharedMemoryBuffer.Create(audioShmName0, audioBufferSize);
+            using var audioBuffer1 = SharedMemoryBuffer.Create(audioShmName1, audioBufferSize);
+
+            SharedMemoryBuffer[] videoBuffers = [videoBuffer0, videoBuffer1];
+            SharedMemoryBuffer[] audioBuffers = [audioBuffer0, audioBuffer1];
 
             // 共有メモリ作成完了後にACK送信（名前とサイズを含む）
             await connection.SendAsync(IpcMessage.Create(msg.Id, MessageType.StartEncodeAck,
                 new EncodeStartAckMessage
                 {
-                    VideoSharedMemoryName = videoShmName,
-                    AudioSharedMemoryName = audioShmName,
+                    VideoSharedMemoryName = videoShmName0,
+                    AudioSharedMemoryName = audioShmName0,
                     VideoBufferSize = videoBufferSize,
                     AudioBufferSize = audioBufferSize,
+                    VideoSharedMemoryName2 = videoShmName1,
+                    AudioSharedMemoryName2 = audioShmName1,
                 }));
 
-            var frameProvider = new IpcFrameProvider(connection, videoBuffer,
+            var frameProvider = new IpcFrameProvider(connection, videoBuffers,
                 request.FrameCount, new Rational(request.FrameRateNum, request.FrameRateDen),
                 request.IsHdr);
-            var sampleProvider = new IpcSampleProvider(connection, audioBuffer,
+            var sampleProvider = new IpcSampleProvider(connection, audioBuffers,
                 request.SampleCount, request.ProviderSampleRate);
 
             await controller.Encode(frameProvider, sampleProvider, _encodeCts.Token);
