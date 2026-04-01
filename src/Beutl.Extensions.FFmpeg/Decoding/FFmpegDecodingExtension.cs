@@ -60,7 +60,7 @@ public class FFmpegDecodingExtension : DecodingExtension
                     Acceleration = (int)Settings.Acceleration,
                 };
 
-                await connection.SendAndReceiveAsync(IpcMessage.Create(connection.NextId(), MessageType.CloseReader, request));
+                await connection.SendAndReceiveAsync(IpcMessage.Create(connection.NextId(), MessageType.UpdateDecoderSettings, request));
             }
         });
     }
