@@ -18,6 +18,8 @@ public sealed class FFmpegReaderProxy : MediaReader
     private SharedMemoryBuffer? _videoBuffer;
     private SharedMemoryBuffer? _audioBuffer;
     private BitmapColorSpace? _colorSpace;
+    private readonly int _ringSlotCount;
+    private readonly long _ringSlotSize;
 
     internal FFmpegReaderProxy(IpcConnection connection, int readerId, OpenFileResponse openResponse)
     {
@@ -39,6 +41,10 @@ public sealed class FFmpegReaderProxy : MediaReader
 
             // 色空間復元
             _colorSpace = BuildColorSpace(openResponse);
+
+            // リングバッファ情報
+            _ringSlotCount = openResponse.VideoRingBufferSlotCount;
+            _ringSlotSize = openResponse.VideoRingBufferSlotSize;
         }
 
         if (openResponse.HasAudio)
@@ -73,7 +79,7 @@ public sealed class FFmpegReaderProxy : MediaReader
         }
 
         // 共有メモリから読み取り（Worker側でリサイズされた場合は名前が変わる）
-        EnsureVideoBuffer(response.DataLength, response.SharedMemoryName);
+        EnsureVideoBuffer(response, response.SharedMemoryName);
 
         // 色空間情報は差分送信: Worker側から送られた場合のみキャッシュを更新
         if (response.TransferFn != null && response.ToXyzD50 != null)
@@ -88,7 +94,9 @@ public sealed class FFmpegReaderProxy : MediaReader
 
         try
         {
-            _videoBuffer!.Read(new Span<byte>((void*)bmp.Data, response.DataLength));
+            // リングバッファ: SlotDataOffset からの読み取り
+            long readOffset = response.SlotDataOffset;
+            _videoBuffer!.Read(new Span<byte>((void*)bmp.Data, response.DataLength), readOffset);
             image = bmp;
             return true;
         }
@@ -205,17 +213,23 @@ public sealed class FFmpegReaderProxy : MediaReader
         base.Dispose(disposing);
     }
 
-    private void EnsureVideoBuffer(int requiredSize, string? newShmName)
+    private void EnsureVideoBuffer(ReadVideoResponse response, string? newShmName)
     {
         bool nameChanged = newShmName != null;
-        if (!nameChanged && _videoBuffer != null && _videoBuffer.Capacity >= requiredSize)
+
+        // リングバッファの場合: 全体サイズで確保
+        long requiredCapacity = _ringSlotCount > 0
+            ? _ringSlotSize * _ringSlotCount
+            : response.DataLength;
+
+        if (!nameChanged && _videoBuffer != null && _videoBuffer.Capacity >= requiredCapacity)
             return;
 
         _videoBuffer?.Dispose();
         string shmName = newShmName
             ?? _openResponse.VideoSharedMemoryName
             ?? throw new InvalidOperationException("Video shared memory name not provided");
-        _videoBuffer = SharedMemoryBuffer.Open(shmName, requiredSize);
+        _videoBuffer = SharedMemoryBuffer.Open(shmName, requiredCapacity);
     }
 
     private void EnsureAudioBuffer(int requiredSize, string? newShmName)

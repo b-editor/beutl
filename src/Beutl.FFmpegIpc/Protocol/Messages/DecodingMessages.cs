@@ -41,6 +41,10 @@ public sealed class OpenFileResponse
     public float[]? TransferFn { get; set; } // G,A,B,C,D,E,F
     public float[]? ToXyzD50 { get; set; }   // 3x3 matrix (row-major)
     public byte[]? IccProfile { get; set; }
+
+    // リングバッファ情報
+    public int VideoRingBufferSlotCount { get; set; } // 0 = リングバッファ無効
+    public long VideoRingBufferSlotSize { get; set; }
 }
 
 public sealed class ReadVideoRequest
@@ -62,6 +66,9 @@ public sealed class ReadVideoResponse
     // Color space can change per frame in some cases
     public float[]? TransferFn { get; set; }
     public float[]? ToXyzD50 { get; set; }
+    // リングバッファ: フレームデータの読み取り位置
+    public int? SlotIndex { get; set; }
+    public long SlotDataOffset { get; set; }
 }
 
 public sealed class ReadAudioRequest
