@@ -72,18 +72,35 @@ public sealed class IpcConnection : IDisposable
         await _requestLock.WaitAsync(ct).ConfigureAwait(false);
         try
         {
-            await MessageSerializer.WriteMessageAsync(_pipe, request, ct).ConfigureAwait(false);
-            var response = await MessageSerializer.ReadMessageAsync(_pipe, ct).ConfigureAwait(false)
-                ?? throw new IOException("Connection closed while waiting for response.");
+            await _writeLock.WaitAsync(ct).ConfigureAwait(false);
+            try
+            {
+                await MessageSerializer.WriteMessageAsync(_pipe, request, ct).ConfigureAwait(false);
+            }
+            finally
+            {
+                _writeLock.Release();
+            }
 
-            if (response.Error != null)
-                throw new FFmpegWorkerException(response.Error, response.ErrorStackTrace);
+            await _readLock.WaitAsync(ct).ConfigureAwait(false);
+            try
+            {
+                var response = await MessageSerializer.ReadMessageAsync(_pipe, ct).ConfigureAwait(false)
+                    ?? throw new IOException("Connection closed while waiting for response.");
 
-            if (response.Id != request.Id)
-                throw new InvalidOperationException(
-                    $"Response ID mismatch: expected {request.Id}, got {response.Id}");
+                if (response.Error != null)
+                    throw new FFmpegWorkerException(response.Error, response.ErrorStackTrace);
 
-            return response;
+                if (response.Id != request.Id)
+                    throw new InvalidOperationException(
+                        $"Response ID mismatch: expected {request.Id}, got {response.Id}");
+
+                return response;
+            }
+            finally
+            {
+                _readLock.Release();
+            }
         }
         finally
         {
