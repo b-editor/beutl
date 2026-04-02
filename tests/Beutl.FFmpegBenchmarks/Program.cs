@@ -264,15 +264,15 @@ internal static class Program
 
     static void PrintComparison(BenchmarkResults direct, BenchmarkResults ipc)
     {
-        Console.WriteLine("=== 比較結果 (IPC / Direct) ===");
+        Console.WriteLine("=== Comparison Results (IPC / Direct) ===");
         Console.WriteLine();
-        Console.WriteLine($"{"項目",-24} {"Direct 平均",12} {"IPC 平均",12} {"倍率",8} {"差分",12}");
+        Console.WriteLine($"{"Item",-24} {"Direct Avg",12} {"IPC Avg",12} {"Ratio",8} {"Diff",12}");
         Console.WriteLine(new string('-', 72));
 
-        CompareOne("連続フレーム読み取り", direct.SequentialVideo, ipc.SequentialVideo);
-        CompareOne("ランダムアクセス", direct.RandomVideo, ipc.RandomVideo);
-        CompareOne("フレーム0 読み取り", direct.FirstFrame, ipc.FirstFrame);
-        CompareOne("音声読み取り", direct.Audio, ipc.Audio);
+        CompareOne("Sequential frame read", direct.SequentialVideo, ipc.SequentialVideo);
+        CompareOne("Random access", direct.RandomVideo, ipc.RandomVideo);
+        CompareOne("Frame 0 read", direct.FirstFrame, ipc.FirstFrame);
+        CompareOne("Audio read", direct.Audio, ipc.Audio);
     }
 
     static void CompareOne(string name, TimingResult? direct, TimingResult? ipc)
