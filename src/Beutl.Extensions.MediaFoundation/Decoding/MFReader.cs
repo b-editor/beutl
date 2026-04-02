@@ -128,7 +128,7 @@ public class MFReader : MediaReader
                 var result = new Bitmap(w, h);
                 fixed (byte* srcPtr = yuy2Buffer)
                 {
-                    YuvConversion.Yuy2ToBgra(srcPtr, (byte*)result.Data, w, h);
+                    YuvConversion.Yuy2ToBgra(srcPtr, (byte*)result.Data, result.RowBytes, w, h);
                 }
 
                 image = result;

@@ -6,7 +6,7 @@ public static class YuvConversion
 {
     // BT.601 coefficients (same as OpenCV)
 
-    public static unsafe void BgraToI420(byte* src, byte* dst, int width, int height)
+    public static unsafe void BgraToI420(byte* src, int srcStride, byte* dst, int width, int height)
     {
         int yPlaneSize = width * height;
         int uvWidth = (width + 1) / 2;
@@ -20,7 +20,7 @@ public static class YuvConversion
         // Y plane
         Parallel.For(0, height, y =>
         {
-            byte* srcRow = (byte*)srcAddr + y * width * 4;
+            byte* srcRow = (byte*)srcAddr + (long)y * srcStride;
             byte* yRow = (byte*)dstAddr + y * width;
             for (int x = 0; x < width; x++)
             {
@@ -36,8 +36,8 @@ public static class YuvConversion
         {
             int srcY = uvY * 2;
             int srcY1 = Math.Min(srcY + 1, height - 1);
-            byte* srcRow0 = (byte*)srcAddr + srcY * width * 4;
-            byte* srcRow1 = (byte*)srcAddr + srcY1 * width * 4;
+            byte* srcRow0 = (byte*)srcAddr + (long)srcY * srcStride;
+            byte* srcRow1 = (byte*)srcAddr + (long)srcY1 * srcStride;
             byte* uRow = (byte*)dstAddr + uPlaneOffset + uvY * uvWidth;
             byte* vRow = (byte*)dstAddr + vPlaneOffset + uvY * uvWidth;
 
@@ -63,7 +63,7 @@ public static class YuvConversion
         });
     }
 
-    public static unsafe void I420ToBgra(byte* src, byte* dst, int width, int height)
+    public static unsafe void I420ToBgra(byte* src, byte* dst, int dstStride, int width, int height)
     {
         int yPlaneSize = width * height;
         int uvWidth = (width + 1) / 2;
@@ -78,7 +78,7 @@ public static class YuvConversion
             byte* yRow = (byte*)srcAddr + y * width;
             byte* uRow = (byte*)srcAddr + uPlaneOffset + (y / 2) * uvWidth;
             byte* vRow = (byte*)srcAddr + vPlaneOffset + (y / 2) * uvWidth;
-            byte* dstRow = (byte*)dstAddr + y * width * 4;
+            byte* dstRow = (byte*)dstAddr + (long)y * dstStride;
 
             for (int x = 0; x < width; x++)
             {
@@ -94,7 +94,7 @@ public static class YuvConversion
         });
     }
 
-    public static unsafe void Yuy2ToBgra(byte* src, byte* dst, int width, int height)
+    public static unsafe void Yuy2ToBgra(byte* src, byte* dst, int dstStride, int width, int height)
     {
         nint srcAddr = (nint)src;
         nint dstAddr = (nint)dst;
@@ -102,7 +102,7 @@ public static class YuvConversion
         Parallel.For(0, height, y =>
         {
             byte* srcRow = (byte*)srcAddr + y * width * 2;
-            byte* dstRow = (byte*)dstAddr + y * width * 4;
+            byte* dstRow = (byte*)dstAddr + (long)y * dstStride;
             int pairs = width / 2;
 
             for (int i = 0; i < pairs; i++)

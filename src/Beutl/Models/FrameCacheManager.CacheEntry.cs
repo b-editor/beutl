@@ -105,7 +105,7 @@ public partial class FrameCacheManager
 
                     fixed (byte* yuvPtr = yuvData)
                     {
-                        YuvConversion.BgraToI420((byte*)current.Data, yuvPtr, w, h);
+                        YuvConversion.BgraToI420((byte*)current.Data, current.RowBytes, yuvPtr, w, h);
                     }
 
                     return (yuvData, yuvSize, w, h, true, bottom, right);
@@ -114,9 +114,30 @@ public partial class FrameCacheManager
                 {
                     int w = current.Width;
                     int h = current.Height;
-                    int bgraSize = w * h * 4;
+                    int dstStride = w * 4;
+                    int bgraSize = dstStride * h;
                     byte[] bgraData = ArrayPool<byte>.Shared.Rent(bgraSize);
-                    Marshal.Copy(current.Data, bgraData, 0, bgraSize);
+                    int srcStride = current.RowBytes;
+
+                    if (srcStride == dstStride)
+                    {
+                        Marshal.Copy(current.Data, bgraData, 0, bgraSize);
+                    }
+                    else
+                    {
+                        byte* srcBase = (byte*)current.Data;
+                        fixed (byte* dstBase = bgraData)
+                        {
+                            for (int y = 0; y < h; y++)
+                            {
+                                Buffer.MemoryCopy(
+                                    srcBase + (long)y * srcStride,
+                                    dstBase + (long)y * dstStride,
+                                    dstStride, dstStride);
+                            }
+                        }
+                    }
+
                     return (bgraData, bgraSize, w, h, false, 0, 0);
                 }
             }
@@ -131,7 +152,28 @@ public partial class FrameCacheManager
             if (!_isYuv)
             {
                 var bitmap = new Bitmap(_width, _height);
-                Marshal.Copy(_data, 0, bitmap.Data, _dataLength);
+                int srcStride = _width * 4;
+                int dstStride = bitmap.RowBytes;
+
+                if (srcStride == dstStride)
+                {
+                    Marshal.Copy(_data, 0, bitmap.Data, _dataLength);
+                }
+                else
+                {
+                    fixed (byte* srcBase = _data)
+                    {
+                        byte* dstBase = (byte*)bitmap.Data;
+                        for (int y = 0; y < _height; y++)
+                        {
+                            Buffer.MemoryCopy(
+                                srcBase + (long)y * srcStride,
+                                dstBase + (long)y * dstStride,
+                                srcStride, srcStride);
+                        }
+                    }
+                }
+
                 return bitmap;
             }
             else
@@ -139,7 +181,7 @@ public partial class FrameCacheManager
                 var bitmap = new Bitmap(_width, _height);
                 fixed (byte* yuvPtr = _data)
                 {
-                    YuvConversion.I420ToBgra(yuvPtr, (byte*)bitmap.Data, _width, _height);
+                    YuvConversion.I420ToBgra(yuvPtr, (byte*)bitmap.Data, bitmap.RowBytes, _width, _height);
                 }
 
                 if (_bottom != 0 || _right != 0)
