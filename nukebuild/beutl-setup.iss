@@ -5,6 +5,7 @@
 ; #define MyAppVersion "1.0.0"
 ; #define MyOutputDir D:\Source\b-editor\beutl-builds\inno-output
 ; #define MyLicenseFile D:\Source\b-editor\beutl\LICENSE
+; #define MyGPLLicenseFile D:\Source\b-editor\beutl\LICENSE.GPL
 ; #define MySetupIconFile :\Source\b-editor\beutl\src\Beutl\Assets\logo.ico
 ; #define MySource D:\Source\b-editor\beutl-builds\beutl-win-x64-main-1.0.0-preview.3
 #define MyAppPublisher "b-editor"
@@ -53,6 +54,7 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 Source: "{#MySource}\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#MySource}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 ; NOTE: Don't use "Flags: ignoreversion" on any shared system files
+Source: "{#MyGPLLicenseFile}"; Flags: dontcopy
 
 [Registry]
 Root: HKA; Subkey: "Software\Classes\{#MyAppAssocExt}\OpenWithProgids"; ValueType: string; ValueName: "{#MyAppAssocKey}"; ValueData: ""; Flags: uninsdeletevalue
@@ -67,4 +69,61 @@ Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: de
 
 [Run]
 Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent
+
+[Code]
+var
+  GPLLicensePage: TOutputMsgMemoWizardPage;
+  GPLAcceptedRadio: TRadioButton;
+  GPLNotAcceptedRadio: TRadioButton;
+
+procedure CheckGPLAccepted(Sender: TObject);
+begin
+  WizardForm.NextButton.Enabled := GPLAcceptedRadio.Checked;
+end;
+
+function CloneLicenseRadioButton(Source: TRadioButton): TRadioButton;
+begin
+  Result := TRadioButton.Create(WizardForm);
+  Result.Parent := GPLLicensePage.Surface;
+  Result.Caption := Source.Caption;
+  Result.Left := Source.Left;
+  Result.Top := Source.Top;
+  Result.Width := Source.Width;
+  Result.Height := Source.Height;
+  Result.Anchors := Source.Anchors;
+  Result.OnClick := @CheckGPLAccepted;
+end;
+
+procedure InitializeWizard();
+var
+  GPLLicenseFileName: string;
+  GPLLicenseFilePath: string;
+begin
+  GPLLicensePage := CreateOutputMsgMemoPage(
+    wpLicense,
+    SetupMessage(msgWizardLicense),
+    'Beutl.FFmpegWorker - GNU General Public License v3',
+    SetupMessage(msgLicenseLabel3),
+    '');
+
+  GPLLicensePage.RichEditViewer.Height := WizardForm.LicenseMemo.Height;
+
+  GPLLicenseFileName := ExtractFileName('{#MyGPLLicenseFile}');
+  ExtractTemporaryFile(GPLLicenseFileName);
+  GPLLicenseFilePath := ExpandConstant('{tmp}\' + GPLLicenseFileName);
+  GPLLicensePage.RichEditViewer.Lines.LoadFromFile(GPLLicenseFilePath);
+  DeleteFile(GPLLicenseFilePath);
+
+  GPLAcceptedRadio := CloneLicenseRadioButton(WizardForm.LicenseAcceptedRadio);
+  GPLNotAcceptedRadio := CloneLicenseRadioButton(WizardForm.LicenseNotAcceptedRadio);
+  GPLNotAcceptedRadio.Checked := True;
+end;
+
+procedure CurPageChanged(CurPageID: Integer);
+begin
+  if CurPageID = GPLLicensePage.ID then
+  begin
+    CheckGPLAccepted(nil);
+  end;
+end;
 

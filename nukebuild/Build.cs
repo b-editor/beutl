@@ -151,6 +151,7 @@ class Build : NukeBuild
                 .SetKeyValueDefinition("MyAppVersion", AssemblyVersion)
                 .SetKeyValueDefinition("MyOutputDir", ArtifactsDirectory)
                 .SetKeyValueDefinition("MyLicenseFile", RootDirectory / "LICENSE")
+                .SetKeyValueDefinition("MyGPLLicenseFile", RootDirectory / "LICENSE.GPL")
                 .SetKeyValueDefinition("MySetupIconFile", RootDirectory / "assets/logos/logo.ico")
                 .SetKeyValueDefinition("MySource", OutputDirectory / "Beutl")
                 .SetKeyValueDefinition("MyOutputBaseFilename", $"beutl{(SelfContained ? "-standalone" : "")}-setup")
