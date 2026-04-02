@@ -4,7 +4,6 @@
     <RepositoryUrl>https://github.com/b-editor/beutl</RepositoryUrl>
     <Description>FFmpeg for beutl</Description>
     <PackageTags>ffmpeg;decoder;decoding;encoder;encoding;video;audio</PackageTags>
-    <PackageLicenseExpression>LGPL-3.0-or-letter</PackageLicenseExpression>
     <Authors>b-editor</Authors>
 
     <FFmpegBuildIn Condition="'$(FFmpegBuildIn)' == ''">True</FFmpegBuildIn>
@@ -12,6 +11,12 @@
 
     <FFmpegOutOfProcess Condition="'$(FFmpegOutOfProcess)' == ''">True</FFmpegOutOfProcess>
     <DefineConstants Condition="'$(FFmpegOutOfProcess)'=='True'">$(DefineConstants);FFMPEG_OUT_OF_PROCESS</DefineConstants>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(FFmpegOutOfProcess)'=='True'">
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(FFmpegOutOfProcess)'!='True'">
+    <PackageLicenseExpression>GPL-3.0-or-letter</PackageLicenseExpression>
   </PropertyGroup>
 
   <!-- Out-of-process: FFmpeg直接使用ファイルを除外 (Worker側でリンクする) -->

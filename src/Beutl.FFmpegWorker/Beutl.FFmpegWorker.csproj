@@ -3,6 +3,7 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <IsPackable>false</IsPackable>
+    <PackageLicenseExpression>GPL-3.0-or-later</PackageLicenseExpression>
     <DefineConstants>$(DefineConstants);FFMPEG_BUILD_IN;BEUTL_FFMPEG_WORKER</DefineConstants>
     <SelfContained>false</SelfContained>
     <RuntimeIdentifiers>win-x64;linux-x64;osx-x64;osx-arm64</RuntimeIdentifiers>

@@ -227,7 +227,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-## FFmpeg.AutoGen
+## FFmpeg.AutoGen (Beutl.FFmpegWorker only)
 https://github.com/Ruslan-B/FFmpeg.AutoGen
 
 ```
@@ -398,7 +398,7 @@ permanent authorization for you to choose that version for the
 Library.
 ```
 
-## FFmpeg
+## FFmpeg (Beutl.FFmpegWorker only)
 https://www.ffmpeg.org/
 
 ```
