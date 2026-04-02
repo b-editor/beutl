@@ -28,7 +28,7 @@ internal struct PresentPushConstants
     public float DstH;
     public float Exposure;
     public int TmOperator; // 0=None, 1=Reinhard, 2=ACES, 3=Hable
-    public int IsHdr;      // 1 = HDR swapchain, 0 = SDR
+    public int LinearToSrgb;      // 1 = LinearからGammaへの変換が必要
     public int IsSourceLinear; // 1 = Linear, 0 = Gamma
 }
 
@@ -61,7 +61,7 @@ internal sealed unsafe class VulkanPresentPipeline : IDisposable
             vec4 dstRect;
             float exposure;
             int tmOperator;
-            int isHdr;
+            int linearToSrgb;
             int isSourceLinear;
         } pc;
 
@@ -116,8 +116,7 @@ internal sealed unsafe class VulkanPresentPipeline : IDisposable
             else if (pc.tmOperator == 2) rgb = aces(max(rgb, vec3(0.0)));
             else if (pc.tmOperator == 3) rgb = hable(max(rgb, vec3(0.0)));
 
-            if (pc.isHdr == 0) {
-                rgb = clamp(rgb, 0.0, 1.0);
+            if (pc.linearToSrgb == 1) {
                 rgb = linearToSrgb(rgb);
             }
 

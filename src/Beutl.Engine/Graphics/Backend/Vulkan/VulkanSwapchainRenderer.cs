@@ -313,15 +313,9 @@ internal sealed unsafe class VulkanSwapchainRenderer : IDisposable
 
         // Calculate viewport rects for stretch mode
         ComputeStretchRects(renderParams, extent, out var pushConstants);
-        // HACK: Windowsだと、なぜかLinearでもうまく動くので強制的に0になるようにする
-        if (OperatingSystem.IsWindows())
-        {
-            pushConstants.IsHdr = !_swapchain.IsHdr ? 1 : 0;
-        }
-        else
-        {
-            pushConstants.IsHdr = _swapchain.IsHdr ? 1 : 0;
-        }
+
+        // Srgbフォーマットなら変換は不要。Unorm系は必要
+        pushConstants.LinearToSrgb = !_swapchain.SrgbFormat ? 1 : 0;
         pushConstants.IsSourceLinear = renderParams.IsSourceLinear ? 1 : 0;
 
         // Begin render pass
