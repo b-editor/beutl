@@ -18,8 +18,6 @@ public partial class FrameCacheManager
         private int _width;
         private int _height;
         private bool _isYuv;
-        private int _bottom;
-        private int _right;
 
         public CacheEntry(Ref<Bitmap> bitmap, FrameCacheOptions options)
         {
@@ -38,7 +36,7 @@ public partial class FrameCacheManager
         {
             ReturnBuffer();
             using Ref<Bitmap> t = bitmap.Clone();
-            (_data, _dataLength, _width, _height, _isYuv, _bottom, _right) = ToCacheData(t, options);
+            (_data, _dataLength, _width, _height, _isYuv) = ToCacheData(t, options);
 
             LastAccessTime = DateTime.UtcNow;
         }
@@ -49,7 +47,7 @@ public partial class FrameCacheManager
             return Ref<Bitmap>.Create(ToBitmap());
         }
 
-        private static unsafe (byte[] Data, int DataLength, int Width, int Height, bool IsYuv, int Bottom, int Right) ToCacheData(
+        private static unsafe (byte[] Data, int DataLength, int Width, int Height, bool IsYuv) ToCacheData(
             Ref<Bitmap> bitmapRef, FrameCacheOptions options)
         {
             var bitmap = bitmapRef.Value;
@@ -80,22 +78,8 @@ public partial class FrameCacheManager
                     }
                 }
 
-                int bottom = 0;
-                int right = 0;
-
                 if (options.ColorType == FrameCacheColorType.YUV)
                 {
-                    if (current.Width % 2 == 1) right = 1;
-                    if (current.Height % 2 == 1) bottom = 1;
-
-                    if (right != 0 || bottom != 0)
-                    {
-                        var padded = current.MakeBorder(0, bottom, 0, right);
-                        if (ownsCurrentBitmap) current.Dispose();
-                        current = padded;
-                        ownsCurrentBitmap = true;
-                    }
-
                     int w = current.Width;
                     int h = current.Height;
                     int yuvSize = YuvConversion.GetI420BufferSize(w, h);
@@ -106,7 +90,7 @@ public partial class FrameCacheManager
                         YuvConversion.BgraToI420((byte*)current.Data, current.RowBytes, yuvPtr, w, h);
                     }
 
-                    return (yuvData, yuvSize, w, h, true, bottom, right);
+                    return (yuvData, yuvSize, w, h, true);
                 }
                 else
                 {
@@ -136,7 +120,7 @@ public partial class FrameCacheManager
                         }
                     }
 
-                    return (bgraData, bgraSize, w, h, false, 0, 0);
+                    return (bgraData, bgraSize, w, h, false);
                 }
             }
             finally
@@ -180,13 +164,6 @@ public partial class FrameCacheManager
                 fixed (byte* yuvPtr = _data)
                 {
                     YuvConversion.I420ToBgra(yuvPtr, (byte*)bitmap.Data, bitmap.RowBytes, _width, _height);
-                }
-
-                if (_bottom != 0 || _right != 0)
-                {
-                    Bitmap tmp = bitmap.ExtractSubset(new PixelRect(0, 0, _width - _right, _height - _bottom));
-                    bitmap.Dispose();
-                    return tmp;
                 }
 
                 return bitmap;
