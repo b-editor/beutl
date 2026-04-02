@@ -38,9 +38,9 @@ public partial class FrameCacheManager
         {
             ReturnBuffer();
             using Ref<Bitmap> t = bitmap.Clone();
-            if (t.Value.ColorType != BitmapColorType.Bgra8888)
+            if (t.Value.ColorType != BitmapColorType.Bgra8888 || t.Value.ColorSpace != BitmapColorSpace.Srgb)
             {
-                using var converted = t.Value.Convert(BitmapColorType.Bgra8888);
+                using var converted = t.Value.Convert(BitmapColorType.Bgra8888, colorSpace: BitmapColorSpace.Srgb);
                 (_data, _dataLength, _width, _height, _isYuv, _bottom, _right) = ToCacheData(converted, options);
             }
             else
