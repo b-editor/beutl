@@ -29,7 +29,7 @@ internal struct PresentPushConstants
     public float Exposure;
     public int TmOperator; // 0=None, 1=Reinhard, 2=ACES, 3=Hable
     public int IsHdr;      // 1 = HDR swapchain, 0 = SDR
-    private int _padding;
+    public int IsSourceLinear; // 1 = Linear, 0 = Gamma
 }
 
 /// <summary>
@@ -62,6 +62,7 @@ internal sealed unsafe class VulkanPresentPipeline : IDisposable
             float exposure;
             int tmOperator;
             int isHdr;
+            int isSourceLinear;
         } pc;
 
         vec3 reinhard(vec3 c) { return c / (1.0 + c); }
@@ -86,6 +87,12 @@ internal sealed unsafe class VulkanPresentPipeline : IDisposable
             return mix(lo, hi, step(vec3(0.0031308), c));
         }
 
+        vec3 srgbToLinear(vec3 c) {
+            vec3 lo = c / 12.92;
+            vec3 hi = pow((c + 0.055) / 1.055, vec3(2.4));
+            return mix(lo, hi, step(vec3(0.04045), c));
+        }
+
         void main() {
             // Map UV through stretch viewport
             vec2 srcUV = (uv - pc.dstRect.xy) / pc.dstRect.zw * pc.srcRect.zw + pc.srcRect.xy;
@@ -100,6 +107,9 @@ internal sealed unsafe class VulkanPresentPipeline : IDisposable
             if (alpha <= 0.0001) { outColor = vec4(0.0); return; }
 
             vec3 rgb = c.rgb / alpha;
+            if (pc.isSourceLinear == 0) {
+                rgb = srgbToLinear(rgb);
+            }
             rgb *= exp2(pc.exposure);
 
             if (pc.tmOperator == 1) rgb = reinhard(max(rgb, vec3(0.0)));
