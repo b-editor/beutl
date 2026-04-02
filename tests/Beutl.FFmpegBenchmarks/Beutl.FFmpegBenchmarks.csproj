@@ -42,15 +42,15 @@
     <Compile Include="..\..\src\Beutl.FFmpegWorker\FFmpegLoaderWorker.cs" Link="Linked\FFmpegLoaderWorker.cs" />
   </ItemGroup>
 
-  <!-- IPC テスト用: ビルド済みワーカーを出力ディレクトリにコピー -->
+  <!-- IPC テスト用: ビルド済みワーカーとその依存DLLを出力ディレクトリにコピー -->
   <Target Name="CopyWorkerBinary" AfterTargets="Build">
     <PropertyGroup>
       <WorkerOutputDir>..\..\src\Beutl.FFmpegWorker\bin\$(Configuration)\$(TargetFramework)\</WorkerOutputDir>
     </PropertyGroup>
     <ItemGroup>
-      <WorkerFiles Include="$(WorkerOutputDir)Beutl.FFmpegWorker*" />
+      <WorkerFiles Include="$(WorkerOutputDir)**\*" Exclude="$(WorkerOutputDir)**\*.dev.runtimeconfig.json" />
     </ItemGroup>
-    <Copy SourceFiles="@(WorkerFiles)" DestinationFolder="$(OutputPath)" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(WorkerFiles)" DestinationFiles="@(WorkerFiles->'$(OutputPath)%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
   </Target>
 
 </Project>
