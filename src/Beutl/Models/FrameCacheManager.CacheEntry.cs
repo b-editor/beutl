@@ -38,15 +38,7 @@ public partial class FrameCacheManager
         {
             ReturnBuffer();
             using Ref<Bitmap> t = bitmap.Clone();
-            if (t.Value.ColorType != BitmapColorType.Bgra8888 || t.Value.ColorSpace != BitmapColorSpace.Srgb)
-            {
-                using var converted = t.Value.Convert(BitmapColorType.Bgra8888, colorSpace: BitmapColorSpace.Srgb);
-                (_data, _dataLength, _width, _height, _isYuv, _bottom, _right) = ToCacheData(converted, options);
-            }
-            else
-            {
-                (_data, _dataLength, _width, _height, _isYuv, _bottom, _right) = ToCacheData(t.Value, options);
-            }
+            (_data, _dataLength, _width, _height, _isYuv, _bottom, _right) = ToCacheData(t, options);
 
             LastAccessTime = DateTime.UtcNow;
         }
@@ -58,8 +50,9 @@ public partial class FrameCacheManager
         }
 
         private static unsafe (byte[] Data, int DataLength, int Width, int Height, bool IsYuv, int Bottom, int Right) ToCacheData(
-            Bitmap bitmap, FrameCacheOptions options)
+            Ref<Bitmap> bitmapRef, FrameCacheOptions options)
         {
+            var bitmap = bitmapRef.Value;
             PixelSize size = new(bitmap.Width, bitmap.Height);
             PixelSize newSize = options.GetSize(size);
             Bitmap current = bitmap;
@@ -68,15 +61,20 @@ public partial class FrameCacheManager
             try
             {
                 // Resize if needed
-                if (newSize.Width < size.Width || newSize.Height < size.Height)
+                if (newSize.Width < size.Width ||
+                    newSize.Height < size.Height ||
+                    bitmap.ColorType != BitmapColorType.Bgra8888 ||
+                    bitmap.ColorSpace != BitmapColorSpace.Srgb)
                 {
+                    var newWidth = Math.Min(size.Width, newSize.Width);
+                    var newHeight = Math.Min(size.Height, newSize.Height);
                     var resized = current.SKBitmap.Resize(
-                        new SKImageInfo(newSize.Width, newSize.Height, SKColorType.Bgra8888, SKAlphaType.Premul),
+                        new SKImageInfo(newWidth, newHeight, SKColorType.Bgra8888, SKAlphaType.Premul, SKColorSpace.CreateSrgb()),
                         new SKSamplingOptions(SKFilterMode.Linear));
                     if (resized != null)
                     {
                         var resizedBitmap = new Bitmap(resized);
-                        if (ownsCurrentBitmap) current.Dispose();
+                        if (ownsCurrentBitmap) bitmapRef.Dispose();
                         current = resizedBitmap;
                         ownsCurrentBitmap = true;
                     }
