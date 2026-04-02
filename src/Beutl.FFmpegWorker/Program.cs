@@ -1,6 +1,8 @@
 using System.Diagnostics;
 using System.IO.Pipes;
 using Beutl.FFmpegIpc.Transport;
+using Beutl.Logging;
+using Microsoft.Extensions.Logging;
 
 namespace Beutl.FFmpegWorker;
 
@@ -35,6 +37,21 @@ internal static class Program
             Console.Error.WriteLine("Usage: Beutl.FFmpegWorker --pipe <name> --parent <pid>");
             return 1;
         }
+
+        // ロギング初期化
+        Log.LoggerFactory = LoggerFactory.Create(builder =>
+        {
+            builder.AddSimpleConsole(options =>
+            {
+                options.SingleLine = true;
+                options.TimestampFormat = "HH:mm:ss ";
+            });
+#if DEBUG
+            builder.SetMinimumLevel(LogLevel.Debug);
+#else
+            builder.SetMinimumLevel(LogLevel.Information);
+#endif
+        });
 
         // FFmpeg初期化
         try

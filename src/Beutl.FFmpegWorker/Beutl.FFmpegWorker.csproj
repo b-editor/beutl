@@ -4,6 +4,12 @@
     <OutputType>Exe</OutputType>
     <IsPackable>false</IsPackable>
     <DefineConstants>$(DefineConstants);FFMPEG_BUILD_IN;BEUTL_FFMPEG_WORKER</DefineConstants>
+    <SelfContained>false</SelfContained>
+    <RuntimeIdentifiers>win-x64;linux-x64;osx-x64;osx-arm64</RuntimeIdentifiers>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="$(TargetFramework.Contains('windows'))">
+    <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
   </PropertyGroup>
 
   <ItemGroup>
@@ -15,6 +21,7 @@
   <ItemGroup>
     <PackageReference Include="FFmpeg.AutoGen.Bindings.DynamicallyLoaded" />
     <PackageReference Include="FFmpeg4Sharp" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Console" />
   </ItemGroup>
 
   <!-- FFmpeg直接使用ファイルをリンク (Beutl.Extensions.FFmpegから) -->

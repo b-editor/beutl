@@ -98,7 +98,7 @@
     <ProjectReference Include="..\Beutl.Extensions.FFmpeg\Beutl.Extensions.FFmpeg.csproj" />
   </ItemGroup>
 
-  <ItemGroup Condition="'$(FFmpegOutOfProcess)'=='True'">
+  <ItemGroup Condition="'$(FFmpegOutOfProcess)'=='True' And '$(NukePublish)'!='True'">
     <ProjectReference Include="..\Beutl.FFmpegWorker\Beutl.FFmpegWorker.csproj" />
   </ItemGroup>
 
