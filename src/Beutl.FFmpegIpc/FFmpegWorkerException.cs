@@ -1,4 +1,4 @@
-namespace Beutl.FFmpegIpc;
+﻿namespace Beutl.FFmpegIpc;
 
 public sealed class FFmpegWorkerException : Exception
 {

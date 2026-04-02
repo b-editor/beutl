@@ -1,6 +1,6 @@
+﻿using Beutl.Extensions.FFmpeg.Encoding;
 using Beutl.FFmpegIpc.Protocol;
 using Beutl.FFmpegIpc.Protocol.Messages;
-using Beutl.Extensions.FFmpeg.Encoding;
 
 namespace Beutl.Extensions.FFmpeg;
 

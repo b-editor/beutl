@@ -1,11 +1,10 @@
-using System.Diagnostics.CodeAnalysis;
+﻿using System.Diagnostics.CodeAnalysis;
 using Avalonia.Controls;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Extensibility;
+using Beutl.Extensions.FFmpeg.Encoding;
 using Beutl.Media.Encoding;
 using Beutl.PropertyAdapters;
-
-using Beutl.Extensions.FFmpeg.Encoding;
 using AudioFormat = Beutl.Extensions.FFmpeg.Encoding.FFmpegAudioEncoderSettings.AudioFormat;
 namespace Beutl.Extensions.FFmpeg.PropertyEditors;
 

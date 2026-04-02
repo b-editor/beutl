@@ -1,4 +1,4 @@
-using Beutl.Extensibility;
+﻿using Beutl.Extensibility;
 using Beutl.FFmpegIpc;
 using Beutl.FFmpegIpc.Protocol;
 using Beutl.FFmpegIpc.Protocol.Messages;
@@ -81,61 +81,61 @@ public class FFmpegEncodingControllerProxy(string outputFile, FFmpegEncodingSett
                 switch (msg.Type)
                 {
                     case MessageType.RequestFrame:
-                    {
-                        var frameReq = msg.GetPayload<RequestFrameMessage>()!;
-                        using var bitmap = await frameProvider.RenderFrame(frameReq.FrameIndex);
-
-                        // BufferIndex で指定されたバッファに書き込み (ダブルバッファリング)
-                        var targetVideoBuffer = videoBuffers[frameReq.BufferIndex];
-                        unsafe
                         {
-                            targetVideoBuffer.Write(new ReadOnlySpan<byte>((void*)bitmap.Data, bitmap.ByteCount));
-                        }
+                            var frameReq = msg.GetPayload<RequestFrameMessage>()!;
+                            using var bitmap = await frameProvider.RenderFrame(frameReq.FrameIndex);
 
-                        await connection.SendAsync(IpcMessage.Create(msg.Id, MessageType.ProvideFrame,
-                            new ProvideFrameMessage
+                            // BufferIndex で指定されたバッファに書き込み (ダブルバッファリング)
+                            var targetVideoBuffer = videoBuffers[frameReq.BufferIndex];
+                            unsafe
                             {
-                                Width = bitmap.Width,
-                                Height = bitmap.Height,
-                                BytesPerPixel = bitmap.BytesPerPixel,
-                                DataLength = bitmap.ByteCount,
-                                Premul = bitmap.AlphaType == BitmapAlphaType.Premul
-                            }), cancellationToken);
-                        break;
-                    }
+                                targetVideoBuffer.Write(new ReadOnlySpan<byte>((void*)bitmap.Data, bitmap.ByteCount));
+                            }
+
+                            await connection.SendAsync(IpcMessage.Create(msg.Id, MessageType.ProvideFrame,
+                                new ProvideFrameMessage
+                                {
+                                    Width = bitmap.Width,
+                                    Height = bitmap.Height,
+                                    BytesPerPixel = bitmap.BytesPerPixel,
+                                    DataLength = bitmap.ByteCount,
+                                    Premul = bitmap.AlphaType == BitmapAlphaType.Premul
+                                }), cancellationToken);
+                            break;
+                        }
 
                     case MessageType.RequestSample:
-                    {
-                        var sampleReq = msg.GetPayload<RequestSampleMessage>()!;
-                        using var pcm = await sampleProvider.Sample(sampleReq.Offset, sampleReq.Length);
-
-                        // BufferIndex で指定されたバッファに書き込み (ダブルバッファリング)
-                        var targetAudioBuffer = audioBuffers[sampleReq.BufferIndex];
-                        int dataLen;
-                        unsafe
                         {
-                            dataLen = pcm.NumSamples * (int)pcm.SampleSize;
-                            targetAudioBuffer.Write(new ReadOnlySpan<byte>((void*)pcm.Data, dataLen));
-                        }
+                            var sampleReq = msg.GetPayload<RequestSampleMessage>()!;
+                            using var pcm = await sampleProvider.Sample(sampleReq.Offset, sampleReq.Length);
 
-                        await connection.SendAsync(IpcMessage.Create(msg.Id, MessageType.ProvideSample,
-                            new ProvideSampleMessage
+                            // BufferIndex で指定されたバッファに書き込み (ダブルバッファリング)
+                            var targetAudioBuffer = audioBuffers[sampleReq.BufferIndex];
+                            int dataLen;
+                            unsafe
                             {
-                                NumSamples = pcm.NumSamples,
-                                DataLength = dataLen,
-                            }), cancellationToken);
-                        break;
-                    }
+                                dataLen = pcm.NumSamples * (int)pcm.SampleSize;
+                                targetAudioBuffer.Write(new ReadOnlySpan<byte>((void*)pcm.Data, dataLen));
+                            }
+
+                            await connection.SendAsync(IpcMessage.Create(msg.Id, MessageType.ProvideSample,
+                                new ProvideSampleMessage
+                                {
+                                    NumSamples = pcm.NumSamples,
+                                    DataLength = dataLen,
+                                }), cancellationToken);
+                            break;
+                        }
 
                     case MessageType.EncodeComplete:
-                    {
-                        var complete = msg.GetPayload<EncodeCompleteMessage>();
-                        if (complete != null && !complete.Success)
                         {
-                            throw new FFmpegWorkerException(complete.Error ?? "Encoding failed");
+                            var complete = msg.GetPayload<EncodeCompleteMessage>();
+                            if (complete != null && !complete.Success)
+                            {
+                                throw new FFmpegWorkerException(complete.Error ?? "Encoding failed");
+                            }
+                            return;
                         }
-                        return;
-                    }
 
                     case MessageType.EncodeProgress:
                         break;

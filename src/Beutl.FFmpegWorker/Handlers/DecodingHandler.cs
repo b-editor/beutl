@@ -1,4 +1,4 @@
-
+﻿
 using System.Collections.Concurrent;
 using Beutl.FFmpegIpc.Protocol;
 using Beutl.FFmpegIpc.Protocol.Messages;

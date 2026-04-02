@@ -1,4 +1,4 @@
-#if FFMPEG_OUT_OF_PROCESS
+﻿#if FFMPEG_OUT_OF_PROCESS
 using Beutl.FFmpegIpc.Protocol;
 using Beutl.FFmpegIpc.Protocol.Messages;
 #endif

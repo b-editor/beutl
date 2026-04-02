@@ -1,4 +1,4 @@
-using System.Diagnostics.CodeAnalysis;
+﻿using System.Diagnostics.CodeAnalysis;
 using Beutl.FFmpegIpc.Protocol;
 using Beutl.FFmpegIpc.Protocol.Messages;
 using Beutl.FFmpegIpc.SharedMemory;
@@ -275,8 +275,13 @@ public sealed class FFmpegReaderProxy : MediaReader
 
         var fn = new BitmapColorSpaceTransferFn
         {
-            G = transferFn[0], A = transferFn[1], B = transferFn[2], C = transferFn[3],
-            D = transferFn[4], E = transferFn[5], F = transferFn[6]
+            G = transferFn[0],
+            A = transferFn[1],
+            B = transferFn[2],
+            C = transferFn[3],
+            D = transferFn[4],
+            E = transferFn[5],
+            F = transferFn[6]
         };
         var xyz = BitmapColorSpaceXyz.Create(toXyzD50);
 

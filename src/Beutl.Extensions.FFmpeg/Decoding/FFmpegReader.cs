@@ -253,7 +253,9 @@ public sealed class FFmpegReader : MediaReader
                 {
                     info = new AudioFrameInfo
                     {
-                        SampleRate = AudioInfo.SampleRate, NumSamples = decoded, DataLength = decoded * sampleSize,
+                        SampleRate = AudioInfo.SampleRate,
+                        NumSamples = decoded,
+                        DataLength = decoded * sampleSize,
                     };
                     return true;
                 }
@@ -263,7 +265,9 @@ public sealed class FFmpegReader : MediaReader
 
             info = new AudioFrameInfo
             {
-                SampleRate = AudioInfo.SampleRate, NumSamples = decoded, DataLength = decoded * sampleSize,
+                SampleRate = AudioInfo.SampleRate,
+                NumSamples = decoded,
+                DataLength = decoded * sampleSize,
             };
             return true;
         }

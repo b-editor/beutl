@@ -1,4 +1,4 @@
-using Beutl.FFmpegIpc.Protocol;
+﻿using Beutl.FFmpegIpc.Protocol;
 using Beutl.FFmpegIpc.Protocol.Messages;
 using Beutl.FFmpegIpc.SharedMemory;
 using Beutl.FFmpegIpc.Transport;

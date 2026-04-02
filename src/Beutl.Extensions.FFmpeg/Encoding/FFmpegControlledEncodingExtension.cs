@@ -1,4 +1,4 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using Beutl.Extensibility;
 using Beutl.Extensions.FFmpeg.Properties;
 

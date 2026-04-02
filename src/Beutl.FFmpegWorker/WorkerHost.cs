@@ -1,4 +1,4 @@
-using Beutl.FFmpegIpc.Protocol;
+﻿using Beutl.FFmpegIpc.Protocol;
 using Beutl.FFmpegIpc.Transport;
 using Beutl.FFmpegWorker.Handlers;
 

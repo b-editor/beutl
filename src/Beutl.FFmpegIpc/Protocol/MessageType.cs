@@ -1,4 +1,4 @@
-namespace Beutl.FFmpegIpc.Protocol;
+﻿namespace Beutl.FFmpegIpc.Protocol;
 
 public enum MessageType
 {

@@ -1,4 +1,4 @@
-using System.ComponentModel;
+﻿using System.ComponentModel;
 using Beutl.Collections;
 using Beutl.FFmpegIpc;
 using Beutl.Media.Encoding;

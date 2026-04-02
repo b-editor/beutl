@@ -1,4 +1,4 @@
-namespace Beutl.FFmpegIpc;
+﻿namespace Beutl.FFmpegIpc;
 
 /// <summary>
 /// よく使うAVPixelFormat値の定数。FFmpegVideoEncoderSettings.Formatで使用。

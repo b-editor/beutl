@@ -5,10 +5,9 @@ using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
+using Beutl.Extensions.FFmpeg.Properties;
 using Beutl.Logging;
 using Microsoft.Extensions.Logging;
-
-using Beutl.Extensions.FFmpeg.Properties;
 
 #if !FFMPEG_OUT_OF_PROCESS
 using FFmpeg.AutoGen.Abstractions;

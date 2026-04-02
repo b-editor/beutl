@@ -1,4 +1,4 @@
-using System.IO.MemoryMappedFiles;
+﻿using System.IO.MemoryMappedFiles;
 
 namespace Beutl.FFmpegIpc.SharedMemory;
 

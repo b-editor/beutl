@@ -1,4 +1,4 @@
-using Beutl.FFmpegWorker.Encoding;
+﻿using Beutl.FFmpegWorker.Encoding;
 
 namespace Beutl.FFmpegWorker;
 

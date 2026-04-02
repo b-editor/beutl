@@ -1,4 +1,4 @@
-namespace Beutl.FFmpegIpc.Protocol.Messages;
+﻿namespace Beutl.FFmpegIpc.Protocol.Messages;
 
 public sealed class EncodeStartRequest
 {

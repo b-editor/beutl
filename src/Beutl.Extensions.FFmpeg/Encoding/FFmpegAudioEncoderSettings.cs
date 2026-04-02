@@ -1,4 +1,4 @@
-using Beutl.Media.Encoding;
+﻿using Beutl.Media.Encoding;
 using Beutl.Serialization;
 
 #if BEUTL_FFMPEG_WORKER
