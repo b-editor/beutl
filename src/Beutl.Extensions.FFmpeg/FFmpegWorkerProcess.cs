@@ -39,7 +39,8 @@ public sealed class FFmpegWorkerProcess : IDisposable
             if (_connection != null && _process is { HasExited: false })
                 return _connection;
 
-            StartWorker();
+            // 同期コンテキストから非同期メソッドを呼び出す（タイムアウト付き）
+            StartWorkerAsync(CancellationToken.None).GetAwaiter().GetResult();
             return _connection!;
         }
         finally
@@ -152,84 +153,6 @@ public sealed class FFmpegWorkerProcess : IDisposable
         // デコード用接続は多重化モードで起動（複数リーダーからの並行リクエスト対応）
         if (_multiplexed)
             _connection.StartMultiplexedReceive(ct);
-    }
-
-    private void StartWorker()
-    {
-        Cleanup();
-
-        // macOSの場合、Unix Domain Socketが使われる。その際のパスの長さ制限を考慮して、パイプ名は短くする。
-        _pipeName = $"beutl-ff-{Guid.NewGuid():N}";
-
-        var pipeServer = new NamedPipeServerStream(
-            _pipeName,
-            PipeDirection.InOut,
-            1,
-            PipeTransmissionMode.Byte,
-            PipeOptions.Asynchronous);
-
-        try
-        {
-            // ワーカープロセス起動
-            var startInfo = new ProcessStartInfo();
-            ConfigureWorkerProcess(startInfo);
-            startInfo.ArgumentList.Add("--pipe");
-            startInfo.ArgumentList.Add(_pipeName);
-            startInfo.ArgumentList.Add("--parent");
-            startInfo.ArgumentList.Add(Environment.ProcessId.ToString());
-            startInfo.UseShellExecute = false;
-            startInfo.CreateNoWindow = true;
-            startInfo.RedirectStandardError = true;
-            startInfo.RedirectStandardOutput = true;
-
-            _process = Process.Start(startInfo)
-                ?? throw new InvalidOperationException("Failed to start FFmpeg worker process");
-
-            // stderrを非同期に消費してバッファ溢れによるデッドロックを防止
-            _process.ErrorDataReceived += (_, e) =>
-            {
-                if (e.Data != null)
-                    Console.WriteLine($"[FFmpegWorker] {e.Data}");
-            };
-            _process.OutputDataReceived += (_, e) =>
-            {
-                if (e.Data != null)
-                    Console.WriteLine($"[FFmpegWorker] {e.Data}");
-            };
-            _process.BeginErrorReadLine();
-            _process.BeginOutputReadLine();
-
-            // パイプ接続待機
-            pipeServer.WaitForConnection();
-        }
-        catch (OperationCanceledException)
-        {
-            if (_process != null) { try { _process.Kill(); } catch { } }
-            pipeServer.Dispose();
-            throw new TimeoutException("FFmpeg worker failed to connect within 30 seconds");
-        }
-        catch
-        {
-            pipeServer.Dispose();
-            throw;
-        }
-
-        _connection = new IpcConnection(pipeServer);
-
-        // ハンドシェイク待機（プロトコルバージョン検証）
-        var handshake = _connection.Receive()
-            ?? throw new InvalidOperationException("Worker closed connection during handshake");
-
-        if (handshake.Type != MessageType.HandshakeAck)
-            throw new InvalidOperationException($"Invalid handshake: expected HandshakeAck, got {handshake.Type}");
-
-        var handshakePayload = handshake.GetPayload<HandshakeMessage>();
-        if (handshakePayload != null && handshakePayload.ProtocolVersion != ProtocolConstants.CurrentVersion)
-            throw new InvalidOperationException(
-                $"Protocol version mismatch: host={ProtocolConstants.CurrentVersion}, worker={handshakePayload.ProtocolVersion}");
-
-        if (_multiplexed)
-            _connection.StartMultiplexedReceive();
     }
 
     private static void ConfigureWorkerProcess(ProcessStartInfo startInfo)
