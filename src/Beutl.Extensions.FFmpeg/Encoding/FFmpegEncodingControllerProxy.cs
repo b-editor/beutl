@@ -82,7 +82,10 @@ public class FFmpegEncodingControllerProxy(string outputFile, FFmpegEncodingSett
                 {
                     case MessageType.RequestFrame:
                         {
-                            var frameReq = msg.GetPayload<RequestFrameMessage>()!;
+                            var frameReq = msg.GetPayload<RequestFrameMessage>()
+                                ?? throw new InvalidOperationException("Missing payload for RequestFrame");
+                            if (frameReq.BufferIndex is not (0 or 1))
+                                throw new InvalidOperationException($"Invalid BufferIndex: {frameReq.BufferIndex}");
                             using var bitmap = await frameProvider.RenderFrame(frameReq.FrameIndex);
 
                             // BufferIndex で指定されたバッファに書き込み (ダブルバッファリング)
@@ -106,7 +109,10 @@ public class FFmpegEncodingControllerProxy(string outputFile, FFmpegEncodingSett
 
                     case MessageType.RequestSample:
                         {
-                            var sampleReq = msg.GetPayload<RequestSampleMessage>()!;
+                            var sampleReq = msg.GetPayload<RequestSampleMessage>()
+                                ?? throw new InvalidOperationException("Missing payload for RequestSample");
+                            if (sampleReq.BufferIndex is not (0 or 1))
+                                throw new InvalidOperationException($"Invalid BufferIndex: {sampleReq.BufferIndex}");
                             using var pcm = await sampleProvider.Sample(sampleReq.Offset, sampleReq.Length);
 
                             // BufferIndex で指定されたバッファに書き込み (ダブルバッファリング)

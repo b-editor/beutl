@@ -9,7 +9,8 @@ internal sealed class CodecQueryHandler
 {
     public IpcMessage HandleQueryCodecs(IpcMessage msg)
     {
-        var request = msg.GetPayload<QueryCodecsRequest>()!;
+        var request = msg.GetPayload<QueryCodecsRequest>()
+            ?? throw new InvalidOperationException("Missing payload for QueryCodecs");
         var mediaType = request.MediaType == "audio"
             ? AVMediaType.AVMEDIA_TYPE_AUDIO
             : AVMediaType.AVMEDIA_TYPE_VIDEO;
@@ -25,7 +26,8 @@ internal sealed class CodecQueryHandler
 
     public IpcMessage HandleQueryPixelFormats(IpcMessage msg)
     {
-        var request = msg.GetPayload<QueryPixelFormatsRequest>()!;
+        var request = msg.GetPayload<QueryPixelFormatsRequest>()
+            ?? throw new InvalidOperationException("Missing payload for QueryPixelFormats");
 
         try
         {
@@ -62,7 +64,8 @@ internal sealed class CodecQueryHandler
 
     public IpcMessage HandleQuerySampleRates(IpcMessage msg)
     {
-        var request = msg.GetPayload<QuerySampleRatesRequest>()!;
+        var request = msg.GetPayload<QuerySampleRatesRequest>()
+            ?? throw new InvalidOperationException("Missing payload for QuerySampleRates");
 
         try
         {
@@ -81,7 +84,8 @@ internal sealed class CodecQueryHandler
 
     public IpcMessage HandleQueryAudioFormats(IpcMessage msg)
     {
-        var request = msg.GetPayload<QueryAudioFormatsRequest>()!;
+        var request = msg.GetPayload<QueryAudioFormatsRequest>()
+            ?? throw new InvalidOperationException("Missing payload for QueryAudioFormats");
 
         try
         {
@@ -100,7 +104,8 @@ internal sealed class CodecQueryHandler
 
     public IpcMessage HandleQueryDefaultCodec(IpcMessage msg)
     {
-        var request = msg.GetPayload<QueryDefaultCodecRequest>()!;
+        var request = msg.GetPayload<QueryDefaultCodecRequest>()
+            ?? throw new InvalidOperationException("Missing payload for QueryDefaultCodec");
 
         try
         {

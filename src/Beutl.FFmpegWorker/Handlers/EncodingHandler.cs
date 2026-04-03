@@ -14,7 +14,8 @@ internal sealed class EncodingHandler : IDisposable
 
     public async Task<IpcMessage> HandleStartAsync(IpcMessage msg, IpcConnection connection, CancellationToken ct)
     {
-        var request = msg.GetPayload<EncodeStartRequest>()!;
+        var request = msg.GetPayload<EncodeStartRequest>()
+            ?? throw new InvalidOperationException("Missing payload for StartEncode");
 
         _encodeCts?.Dispose();
         _encodeCts = CancellationTokenSource.CreateLinkedTokenSource(ct);

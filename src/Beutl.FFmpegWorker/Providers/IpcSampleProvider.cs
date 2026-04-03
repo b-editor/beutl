@@ -117,7 +117,8 @@ internal sealed class IpcSampleProvider : ISampleProvider
         if (response.Error != null)
             throw new InvalidOperationException($"Sample failed: {response.Error}");
 
-        var sampleInfo = response.GetPayload<ProvideSampleMessage>()!;
+        var sampleInfo = response.GetPayload<ProvideSampleMessage>()
+            ?? throw new InvalidOperationException("Missing payload for ProvideSample");
 
         var pcm = new Pcm<Stereo32BitFloat>((int)SampleRate, sampleInfo.NumSamples);
         unsafe

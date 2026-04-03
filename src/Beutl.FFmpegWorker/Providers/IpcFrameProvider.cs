@@ -55,7 +55,8 @@ internal sealed class IpcFrameProvider : IFrameProvider
         if (response.Error != null)
             throw new InvalidOperationException($"Frame render failed: {response.Error}");
 
-        var frameInfo = response.GetPayload<ProvideFrameMessage>()!;
+        var frameInfo = response.GetPayload<ProvideFrameMessage>()
+            ?? throw new InvalidOperationException("Missing payload for ProvideFrame");
 
         // 次フレームを先行リクエスト (ダブルバッファリング)
         long nextFrame = frame + 1;

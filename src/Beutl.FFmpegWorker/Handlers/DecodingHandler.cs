@@ -18,7 +18,8 @@ internal sealed partial class DecodingHandler : IDisposable
 
     public IpcMessage HandleOpen(IpcMessage msg)
     {
-        var request = msg.GetPayload<OpenFileRequest>()!;
+        var request = msg.GetPayload<OpenFileRequest>()
+            ?? throw new InvalidOperationException("Missing payload for OpenFile");
         var settings = new FFmpegDecodingSettings();
         settings.ThreadCount = request.ThreadCount;
         settings.Acceleration = (FFmpegDecodingSettings.AccelerationOptions)request.Acceleration;
@@ -99,7 +100,8 @@ internal sealed partial class DecodingHandler : IDisposable
 
     public IpcMessage HandleReadVideo(IpcMessage msg)
     {
-        var request = msg.GetPayload<ReadVideoRequest>()!;
+        var request = msg.GetPayload<ReadVideoRequest>()
+            ?? throw new InvalidOperationException("Missing payload for ReadVideo");
         if (!_readers.TryGetValue(request.ReaderId, out var state))
             return IpcMessage.CreateError(msg.Id, $"Unknown reader ID: {request.ReaderId}");
 
@@ -216,7 +218,8 @@ internal sealed partial class DecodingHandler : IDisposable
 
     public unsafe IpcMessage HandleReadAudio(IpcMessage msg)
     {
-        var request = msg.GetPayload<ReadAudioRequest>()!;
+        var request = msg.GetPayload<ReadAudioRequest>()
+            ?? throw new InvalidOperationException("Missing payload for ReadAudio");
         if (!_readers.TryGetValue(request.ReaderId, out var state))
             return IpcMessage.CreateError(msg.Id, $"Unknown reader ID: {request.ReaderId}");
 
@@ -269,7 +272,8 @@ internal sealed partial class DecodingHandler : IDisposable
 
     public IpcMessage HandleClose(IpcMessage msg)
     {
-        var request = msg.GetPayload<CloseReaderRequest>()!;
+        var request = msg.GetPayload<CloseReaderRequest>()
+            ?? throw new InvalidOperationException("Missing payload for CloseReader");
         if (_readers.TryRemove(request.ReaderId, out var state))
         {
             state.Dispose();
@@ -280,7 +284,8 @@ internal sealed partial class DecodingHandler : IDisposable
 
     public IpcMessage HandleUpdateDecoderSettings(IpcMessage msg)
     {
-        var request = msg.GetPayload<UpdateDecoderSettingsRequest>()!;
+        var request = msg.GetPayload<UpdateDecoderSettingsRequest>()
+            ?? throw new InvalidOperationException("Missing payload for UpdateDecoderSettings");
 
         foreach (KeyValuePair<int, ReaderState> kvp in _readers)
         {
