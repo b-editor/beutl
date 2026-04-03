@@ -191,11 +191,6 @@ public static class LibraryRegistrar
                     .AddFilterEffect<SKSLScriptEffect>(GraphicsStrings.SKSLScriptEffect)
                     .AddFilterEffect<GLSLScriptEffect>(GraphicsStrings.GLSLScriptEffect)
                 )
-                .AddGroup("OpenCV", gg => gg
-                    .AddFilterEffect<Graphics.Effects.OpenCv.Blur>("CvBlur")
-                    .AddFilterEffect<Graphics.Effects.OpenCv.GaussianBlur>("CvGaussianBlur")
-                    .AddFilterEffect<Graphics.Effects.OpenCv.MedianBlur>("CvMedianBlur")
-                )
             );
 
         LibraryService.Current

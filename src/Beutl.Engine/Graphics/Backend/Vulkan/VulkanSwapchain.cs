@@ -58,6 +58,7 @@ internal sealed unsafe class VulkanSwapchain : IDisposable
     }
 
     public bool IsHdr => _isHdr;
+    public bool SrgbFormat { get; private set; }
     public Format Format => _format;
     public ColorSpaceKHR ColorSpace => _colorSpace;
     public Extent2D Extent => _extent;
@@ -112,6 +113,7 @@ internal sealed unsafe class VulkanSwapchain : IDisposable
 
         // Select format (prefer HDR)
         SelectFormat(out _format, out _colorSpace, out _isHdr);
+        SrgbFormat = _format != Format.B8G8R8A8Unorm && _format != Format.R8G8B8A8Unorm && _format != Format.B8G8R8A8Unorm && _format != Format.R8G8B8Unorm;
 
         // Select extent
         _extent = SelectExtent(capabilities, width, height);

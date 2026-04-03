@@ -1,4 +1,5 @@
-﻿using System.Diagnostics.CodeAnalysis;
+﻿using System.Buffers;
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;
 
 using Beutl.Media;
@@ -8,8 +9,6 @@ using Beutl.Media.Music.Samples;
 using Beutl.Media.Pixel;
 
 using NAudio.Wave;
-
-using OpenCvSharp;
 
 using static NAudio.Wave.MediaFoundationReader;
 
@@ -110,22 +109,39 @@ public class MFReader : MediaReader
             return false;
 
         MFMediaInfo info = _decoder.GetMediaInfo();
-        using var mat = new Mat(info.ImageFormat.Height, info.ImageFormat.Width, MatType.CV_8UC2);
+        int w = info.ImageFormat.Width;
+        int h = info.ImageFormat.Height;
 
-        int r = _decoder.ReadFrame(frame, mat.Data);
-        if (r != 0)
+        // YUY2: 2 bytes per pixel
+        int yuy2Size = w * h * 2;
+        byte[] yuy2Buffer = ArrayPool<byte>.Shared.Rent(yuy2Size);
+        try
         {
-            using var dst = new Mat(info.ImageFormat.Height, info.ImageFormat.Width, MatType.CV_8UC4);
-            Cv2.CvtColor(mat, dst, ColorConversionCodes.YUV2BGRA_YUY2);
-            var result = new Bitmap(info.ImageFormat.Width, info.ImageFormat.Height);
-            Buffer.MemoryCopy((void*)dst.Data, (void*)result.Data, result.ByteCount, result.ByteCount);
+            int r;
+            fixed (byte* ptr = yuy2Buffer)
+            {
+                r = _decoder.ReadFrame(frame, (nint)ptr);
+            }
 
-            image = result;
-            return true;
+            if (r != 0)
+            {
+                var result = new Bitmap(w, h);
+                fixed (byte* srcPtr = yuy2Buffer)
+                {
+                    YuvConversion.Yuy2ToBgra(srcPtr, (byte*)result.Data, result.RowBytes, w, h);
+                }
+
+                image = result;
+                return true;
+            }
+            else
+            {
+                return false;
+            }
         }
-        else
+        finally
         {
-            return false;
+            ArrayPool<byte>.Shared.Return(yuy2Buffer);
         }
     }
 

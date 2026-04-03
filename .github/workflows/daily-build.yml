@@ -37,13 +37,6 @@ jobs:
           --assembly-version ${{ needs.determine-version.outputs.asmVer }} \
           --informational-version ${{ needs.determine-version.outputs.infoVer }}
 
-    - if: ${{ matrix.rid == 'linux_x64' }}
-      name: Download libOpenCvSharpExtern.so
-      run: |
-        git clone https://github.com/b-editor/beutl-native-deps.git
-        cp beutl-native-deps/linux-x64/* output/Beutl
-        rm -rf beutl-native-deps
-
     - name: Zip
       run: |
         ./build.sh zip \

@@ -1,7 +1,6 @@
 ﻿using System.Collections.Frozen;
 using System.Collections.Immutable;
 using Beutl.Media;
-using OpenCvSharp;
 using SkiaSharp;
 
 namespace Beutl.Graphics;
@@ -48,18 +47,6 @@ public static partial class Image
             bitmap.RowBytes);
 
         return bitmap;
-    }
-
-    public static Mat ToMat(this Bitmap self)
-    {
-        if (self.ColorType != BitmapColorType.Bgra8888)
-        {
-            throw new InvalidOperationException(
-                $"AsMat requires Bgra8888 pixel format, but the bitmap is {self.ColorType}. " +
-                $"Use ToMat() which converts automatically, or convert the bitmap first with Bitmap.Convert().");
-        }
-
-        return Mat.FromPixelData(self.Height, self.Width, MatType.CV_8UC4, self.Data);
     }
 
     internal static EncodedImageFormat ToImageFormat(string filename)

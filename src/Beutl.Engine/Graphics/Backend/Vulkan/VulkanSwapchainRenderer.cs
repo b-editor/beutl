@@ -313,7 +313,10 @@ internal sealed unsafe class VulkanSwapchainRenderer : IDisposable
 
         // Calculate viewport rects for stretch mode
         ComputeStretchRects(renderParams, extent, out var pushConstants);
-        pushConstants.IsHdr = _swapchain.IsHdr && renderParams.IsSourceLinear ? 1 : 0;
+
+        // Srgbフォーマットなら変換は不要。Unorm系は必要
+        pushConstants.LinearToSrgb = !_swapchain.SrgbFormat ? 1 : 0;
+        pushConstants.IsSourceLinear = renderParams.IsSourceLinear ? 1 : 0;
 
         // Begin render pass
         var clearValue = new ClearValue { Color = new ClearColorValue(0f, 0f, 0f, 1f) };

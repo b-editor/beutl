@@ -1,9 +1,11 @@
-﻿using System.Diagnostics.CodeAnalysis;
+﻿using System.Buffers;
+using System.Diagnostics.CodeAnalysis;
+using System.Runtime.InteropServices;
 
 using Beutl.Media;
 using Beutl.Media.Source;
 
-using OpenCvSharp;
+using SkiaSharp;
 
 namespace Beutl.Models;
 
@@ -11,35 +13,30 @@ public partial class FrameCacheManager
 {
     private class CacheEntry : IDisposable
     {
-        private Mat _mat;
-        private int _bottom;
-        private int _right;
+        private byte[] _data;
+        private int _dataLength;
+        private int _width;
+        private int _height;
+        private bool _isYuv;
 
         public CacheEntry(Ref<Bitmap> bitmap, FrameCacheOptions options)
         {
+            _data = [];
             SetBitmap(bitmap, options);
         }
 
         public DateTime LastAccessTime { get; private set; }
 
-        public int ByteCount => (int)(_mat.DataEnd - _mat.DataStart);
+        public int ByteCount => _dataLength;
 
         public bool IsLocked { get; set; }
 
-        [MemberNotNull(nameof(_mat))]
+        [MemberNotNull(nameof(_data))]
         public void SetBitmap(Ref<Bitmap> bitmap, FrameCacheOptions options)
         {
-            _mat?.Dispose();
+            ReturnBuffer();
             using Ref<Bitmap> t = bitmap.Clone();
-            if (t.Value.ColorType != BitmapColorType.Bgra8888)
-            {
-                using var converted = t.Value.Convert(BitmapColorType.Bgra8888);
-                (_mat, _bottom, _right) = ToMat(converted, options);
-            }
-            else
-            {
-                (_mat, _bottom, _right) = ToMat(t.Value, options);
-            }
+            (_data, _dataLength, _width, _height, _isYuv) = ToCacheData(t, options);
 
             LastAccessTime = DateTime.UtcNow;
         }
@@ -47,82 +44,144 @@ public partial class FrameCacheManager
         public Ref<Bitmap> GetBitmap()
         {
             LastAccessTime = DateTime.UtcNow;
-            return Ref<Bitmap>.Create(ToBitmap(_mat, _bottom, _right));
+            return Ref<Bitmap>.Create(ToBitmap());
         }
 
-        private static unsafe (Mat, int Bottom, int Right) ToMat(Bitmap bitmap, FrameCacheOptions options)
+        private static unsafe (byte[] Data, int DataLength, int Width, int Height, bool IsYuv) ToCacheData(
+            Ref<Bitmap> bitmapRef, FrameCacheOptions options)
         {
-            var result = new Mat(bitmap.Height, bitmap.Width, MatType.CV_8UC4);
-            Buffer.MemoryCopy((void*)bitmap.Data, (void*)result.Data, bitmap.ByteCount, bitmap.ByteCount);
-
+            var bitmap = bitmapRef.Value;
             PixelSize size = new(bitmap.Width, bitmap.Height);
             PixelSize newSize = options.GetSize(size);
+            Bitmap current = bitmap;
+            bool ownsCurrentBitmap = false;
 
-            if (newSize.Width < size.Width || newSize.Height < size.Height)
+            try
             {
-                Mat tmp = result.Resize(new Size(newSize.Width, newSize.Height), interpolation: InterpolationFlags.Area);
-                result.Dispose();
-                result = tmp;
-            }
+                // Resize if needed
+                if (newSize.Width < size.Width ||
+                    newSize.Height < size.Height ||
+                    bitmap.ColorType != BitmapColorType.Bgra8888 ||
+                    bitmap.ColorSpace != BitmapColorSpace.Srgb)
+                {
+                    var newWidth = Math.Min(size.Width, newSize.Width);
+                    var newHeight = Math.Min(size.Height, newSize.Height);
+                    var resized = current.SKBitmap.Resize(
+                        new SKImageInfo(newWidth, newHeight, SKColorType.Bgra8888, SKAlphaType.Premul, SKColorSpace.CreateSrgb()),
+                        new SKSamplingOptions(SKFilterMode.Linear));
+                    if (resized != null)
+                    {
+                        var resizedBitmap = new Bitmap(resized);
+                        if (ownsCurrentBitmap) bitmapRef.Dispose();
+                        current = resizedBitmap;
+                        ownsCurrentBitmap = true;
+                    }
+                }
 
-            int bottom = 0;
-            int right = 0;
-            if (options.ColorType == FrameCacheColorType.YUV)
+                if (options.ColorType == FrameCacheColorType.YUV)
+                {
+                    int w = current.Width;
+                    int h = current.Height;
+                    int yuvSize = YuvConversion.GetI420BufferSize(w, h);
+                    byte[] yuvData = ArrayPool<byte>.Shared.Rent(yuvSize);
+
+                    fixed (byte* yuvPtr = yuvData)
+                    {
+                        YuvConversion.BgraToI420((byte*)current.Data, current.RowBytes, yuvPtr, w, h);
+                    }
+
+                    return (yuvData, yuvSize, w, h, true);
+                }
+                else
+                {
+                    int w = current.Width;
+                    int h = current.Height;
+                    int dstStride = w * 4;
+                    int bgraSize = dstStride * h;
+                    byte[] bgraData = ArrayPool<byte>.Shared.Rent(bgraSize);
+                    int srcStride = current.RowBytes;
+
+                    if (srcStride == dstStride)
+                    {
+                        Marshal.Copy(current.Data, bgraData, 0, bgraSize);
+                    }
+                    else
+                    {
+                        byte* srcBase = (byte*)current.Data;
+                        fixed (byte* dstBase = bgraData)
+                        {
+                            for (int y = 0; y < h; y++)
+                            {
+                                Buffer.MemoryCopy(
+                                    srcBase + (long)y * srcStride,
+                                    dstBase + (long)y * dstStride,
+                                    dstStride, dstStride);
+                            }
+                        }
+                    }
+
+                    return (bgraData, bgraSize, w, h, false);
+                }
+            }
+            finally
             {
-                if (result.Width % 2 == 1)
-                {
-                    right = 1;
-                }
-                if (result.Height % 2 == 1)
-                {
-                    bottom = 1;
-                }
-                if (right != 0 || bottom != 0)
-                {
-                    Mat tmp = result.CopyMakeBorder(0, bottom, 0, right, BorderTypes.Constant, Scalar.Black);
-                    result.Dispose();
-                    result = tmp;
-                }
-
-                var mat = new Mat((int)(result.Rows * 1.5), result.Cols, MatType.CV_8UC1);
-                Cv2.CvtColor(result, mat, ColorConversionCodes.BGRA2YUV_I420);
-                result.Dispose();
-                result = mat;
+                if (ownsCurrentBitmap) current.Dispose();
             }
-
-            return (result, bottom, right);
         }
 
-        private static unsafe Bitmap ToBitmap(Mat mat, int bottom, int right)
+        private unsafe Bitmap ToBitmap()
         {
-            Bitmap? bitmap;
-            if (mat.Type() == MatType.CV_8UC4)
+            if (!_isYuv)
             {
-                bitmap = new Bitmap(mat.Width, mat.Height);
-                Buffer.MemoryCopy((void*)mat.Data, (void*)bitmap.Data, bitmap.ByteCount, bitmap.ByteCount);
+                var bitmap = new Bitmap(_width, _height);
+                int srcStride = _width * 4;
+                int dstStride = bitmap.RowBytes;
+
+                if (srcStride == dstStride)
+                {
+                    Marshal.Copy(_data, 0, bitmap.Data, _dataLength);
+                }
+                else
+                {
+                    fixed (byte* srcBase = _data)
+                    {
+                        byte* dstBase = (byte*)bitmap.Data;
+                        for (int y = 0; y < _height; y++)
+                        {
+                            Buffer.MemoryCopy(
+                                srcBase + (long)y * srcStride,
+                                dstBase + (long)y * dstStride,
+                                srcStride, srcStride);
+                        }
+                    }
+                }
+
+                return bitmap;
             }
             else
             {
-                bitmap = new Bitmap(mat.Width, (int)(mat.Height / 1.5));
-                using var bgra = Mat.FromPixelData(bitmap.Height, bitmap.Width, MatType.CV_8UC4, bitmap.Data);
-
-                Cv2.CvtColor(mat, bgra, ColorConversionCodes.YUV2BGRA_I420);
-
-                if (bottom != 0 || right != 0)
+                var bitmap = new Bitmap(_width, _height);
+                fixed (byte* yuvPtr = _data)
                 {
-                    Bitmap tmp = bitmap.ExtractSubset(new PixelRect(0, 0, bitmap.Width - right, bitmap.Height - bottom));
-                    bitmap.Dispose();
-                    bitmap = tmp;
+                    YuvConversion.I420ToBgra(yuvPtr, (byte*)bitmap.Data, bitmap.RowBytes, _width, _height);
                 }
-            }
 
-            return bitmap;
+                return bitmap;
+            }
+        }
+
+        private void ReturnBuffer()
+        {
+            if (_data is { Length: > 0 })
+            {
+                ArrayPool<byte>.Shared.Return(_data);
+            }
         }
 
         public void Dispose()
         {
-            _mat?.Dispose();
-            _mat = null!;
+            ReturnBuffer();
+            _data = null!;
         }
     }
 }
