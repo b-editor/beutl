@@ -16,7 +16,7 @@
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
   </PropertyGroup>
   <PropertyGroup Condition="'$(FFmpegOutOfProcess)'!='True'">
-    <PackageLicenseExpression>GPL-3.0-or-letter</PackageLicenseExpression>
+    <PackageLicenseExpression>GPL-3.0-or-later</PackageLicenseExpression>
   </PropertyGroup>
 
   <!-- Out-of-process: FFmpeg直接使用ファイルを除外 (Worker側でリンクする) -->
