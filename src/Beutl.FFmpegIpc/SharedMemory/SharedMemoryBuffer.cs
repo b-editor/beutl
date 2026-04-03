@@ -127,7 +127,11 @@ public sealed class SharedMemoryBuffer : IDisposable
 
         if (_ownsFile && _filePath != null)
         {
-            try { File.Delete(_filePath); } catch { }
+            try { File.Delete(_filePath); }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"Warning: Failed to delete shared memory file '{_filePath}': {ex.Message}");
+            }
         }
     }
 

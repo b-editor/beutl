@@ -121,7 +121,11 @@ public sealed class FFmpegWorkerProcess : IDisposable
         }
         catch (OperationCanceledException)
         {
-            if (_process != null) { try { _process.Kill(); } catch { } }
+            if (_process != null)
+            {
+                try { _process.Kill(); }
+                catch (InvalidOperationException) { }
+            }
             pipeServer.Dispose();
             throw new TimeoutException("FFmpeg worker failed to connect within 30 seconds");
         }
@@ -264,7 +268,12 @@ public sealed class FFmpegWorkerProcess : IDisposable
         {
             if (!_process.HasExited)
             {
-                try { _process.Kill(); } catch { }
+                try { _process.Kill(); }
+                catch (InvalidOperationException) { /* プロセスが既に終了 */ }
+                catch (Exception ex)
+                {
+                    Console.Error.WriteLine($"Warning: Failed to kill worker process: {ex.Message}");
+                }
             }
             _process.Dispose();
             _process = null;
@@ -280,7 +289,10 @@ public sealed class FFmpegWorkerProcess : IDisposable
                 _connection.SendAsync(
                     IpcMessage.CreateSimple(0, MessageType.Shutdown)).AsTask().Wait(3000);
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"Warning: Graceful shutdown of FFmpeg worker failed: {ex.Message}");
+            }
         }
 
         Cleanup();

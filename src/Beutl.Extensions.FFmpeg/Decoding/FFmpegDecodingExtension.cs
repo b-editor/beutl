@@ -4,7 +4,9 @@ using Beutl.Extensibility;
 using Beutl.Extensions.FFmpeg.Properties;
 using Beutl.FFmpegIpc.Protocol;
 using Beutl.FFmpegIpc.Protocol.Messages;
+using Beutl.Logging;
 using Beutl.Media.Decoding;
+using Microsoft.Extensions.Logging;
 
 namespace Beutl.Extensions.FFmpeg.Decoding;
 
@@ -12,6 +14,8 @@ namespace Beutl.Extensions.FFmpeg.Decoding;
 [Display(Name = nameof(Strings.FFmpegDecoder), ResourceType = typeof(Strings))]
 public class FFmpegDecodingExtension : DecodingExtension
 {
+    private readonly ILogger _logger = Log.CreateLogger<FFmpegDecodingExtension>();
+
     public override FFmpegDecodingSettings Settings { get; } = new FFmpegDecodingSettings();
 
     public override IDecoderInfo GetDecoderInfo()
@@ -40,27 +44,34 @@ public class FFmpegDecodingExtension : DecodingExtension
 #if FFMPEG_OUT_OF_PROCESS
     private void OnSettingsPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        Task.Run(async () =>
+        _ = Task.Run(async () =>
         {
-            if (e.PropertyName is not (nameof(FFmpegDecodingSettings.ThreadCount)
-                or nameof(FFmpegDecodingSettings.Acceleration)
-                or nameof(FFmpegDecodingSettings.ForceSrgbGamma)))
+            try
             {
-                return;
-            }
-
-            var worker = FFmpegWorkerProcess.DecodingInstance;
-            if (worker.IsRunning)
-            {
-                var connection = await worker.EnsureStartedAsync();
-                var request = new UpdateDecoderSettingsRequest
+                if (e.PropertyName is not (nameof(FFmpegDecodingSettings.ThreadCount)
+                    or nameof(FFmpegDecodingSettings.Acceleration)
+                    or nameof(FFmpegDecodingSettings.ForceSrgbGamma)))
                 {
-                    ThreadCount = Settings.ThreadCount,
-                    ForceSrgbGamma = Settings.ForceSrgbGamma,
-                    Acceleration = (int)Settings.Acceleration,
-                };
+                    return;
+                }
 
-                await connection.SendAndReceiveAsync(IpcMessage.Create(connection.NextId(), MessageType.UpdateDecoderSettings, request));
+                var worker = FFmpegWorkerProcess.DecodingInstance;
+                if (worker.IsRunning)
+                {
+                    var connection = await worker.EnsureStartedAsync();
+                    var request = new UpdateDecoderSettingsRequest
+                    {
+                        ThreadCount = Settings.ThreadCount,
+                        ForceSrgbGamma = Settings.ForceSrgbGamma,
+                        Acceleration = (int)Settings.Acceleration,
+                    };
+
+                    await connection.SendAndReceiveAsync(IpcMessage.Create(connection.NextId(), MessageType.UpdateDecoderSettings, request));
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to update decoder settings on worker");
             }
         });
     }

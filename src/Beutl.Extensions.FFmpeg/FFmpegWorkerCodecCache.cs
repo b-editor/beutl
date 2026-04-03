@@ -1,6 +1,8 @@
 ﻿using Beutl.Extensions.FFmpeg.Encoding;
 using Beutl.FFmpegIpc.Protocol;
 using Beutl.FFmpegIpc.Protocol.Messages;
+using Beutl.Logging;
+using Microsoft.Extensions.Logging;
 
 namespace Beutl.Extensions.FFmpeg;
 
@@ -10,6 +12,7 @@ namespace Beutl.Extensions.FFmpeg;
 /// </summary>
 internal static class FFmpegWorkerCodecCache
 {
+    private static readonly ILogger s_logger = Log.CreateLogger(typeof(FFmpegWorkerCodecCache));
     private static readonly object s_lock = new();
     private static volatile IReadOnlyList<object>? _videoCodecs;
     private static volatile IReadOnlyList<object>? _audioCodecs;
@@ -55,8 +58,9 @@ internal static class FFmpegWorkerCodecCache
             _videoCodecs = result;
             return result;
         }
-        catch
+        catch (Exception ex)
         {
+            s_logger.LogError(ex, "Failed to query video codecs from worker");
             return [CodecRecord.Default];
         }
     }
@@ -76,8 +80,9 @@ internal static class FFmpegWorkerCodecCache
             _audioCodecs = result;
             return result;
         }
-        catch
+        catch (Exception ex)
         {
+            s_logger.LogError(ex, "Failed to query audio codecs from worker");
             return [CodecRecord.Default];
         }
     }

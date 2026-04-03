@@ -103,7 +103,9 @@ internal sealed class VideoRingBuffer : IDisposable
         if (_prefetchCts != null)
         {
             _prefetchCts.Cancel();
-            try { _prefetchTask?.Wait(); } catch { }
+            try { _prefetchTask?.Wait(); }
+            catch (AggregateException) { }
+            catch (OperationCanceledException) { }
             _prefetchCts.Dispose();
             _prefetchCts = null;
             _prefetchTask = null;
@@ -270,7 +272,9 @@ internal sealed class VideoRingBuffer : IDisposable
 
             // ロックを一時解放してプリフェッチスレッドの終了を待つ
             _readerLock.Release();
-            try { _prefetchTask?.Wait(); } catch { }
+            try { _prefetchTask?.Wait(); }
+            catch (AggregateException) { }
+            catch (OperationCanceledException) { }
             _readerLock.Wait();
 
             _prefetchCts.Dispose();

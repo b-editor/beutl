@@ -103,12 +103,17 @@ internal static class Program
             var parent = Process.GetProcessById(parentPid);
             parent.WaitForExit();
         }
-        catch
+        catch (ArgumentException)
         {
             // 親プロセスが存在しない
         }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Unexpected error monitoring parent process {parentPid}: {ex.Message}");
+        }
 
         // CancellationTokenでグレースフルにシャットダウン
-        try { s_shutdownCts.Cancel(); } catch { }
+        try { s_shutdownCts.Cancel(); }
+        catch (ObjectDisposedException) { }
     }
 }

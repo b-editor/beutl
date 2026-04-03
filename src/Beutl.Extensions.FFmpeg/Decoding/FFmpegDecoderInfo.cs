@@ -2,12 +2,16 @@
 using Beutl.FFmpegIpc.Protocol;
 using Beutl.FFmpegIpc.Protocol.Messages;
 #endif
+using Beutl.Logging;
 using Beutl.Media.Decoding;
+using Microsoft.Extensions.Logging;
 
 namespace Beutl.Extensions.FFmpeg.Decoding;
 
 public sealed class FFmpegDecoderInfo(FFmpegDecodingSettings settings) : IDecoderInfo
 {
+    private readonly ILogger _logger = Log.CreateLogger<FFmpegDecoderInfo>();
+
     public string Name => "FFmpeg Decoder";
 
     public IEnumerable<string> AudioExtensions()
@@ -49,7 +53,7 @@ public sealed class FFmpegDecoderInfo(FFmpegDecodingSettings settings) : IDecode
         }
         catch (Exception ex)
         {
-            Console.WriteLine(ex);
+            _logger.LogError(ex, "Failed to open media file '{File}'", file);
             return null;
         }
     }

@@ -65,6 +65,7 @@ public sealed class IpcConnection : IDisposable
                 }
             }
             catch (OperationCanceledException) { }
+            catch (ObjectDisposedException) { }
             catch (IOException) { }
             finally
             {

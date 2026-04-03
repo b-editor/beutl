@@ -3,16 +3,19 @@ using Beutl.FFmpegIpc.Protocol;
 using Beutl.FFmpegIpc.Protocol.Messages;
 using Beutl.FFmpegIpc.SharedMemory;
 using Beutl.FFmpegIpc.Transport;
+using Beutl.Logging;
 using Beutl.Media;
 using Beutl.Media.Decoding;
 using Beutl.Media.Music;
 using Beutl.Media.Music.Samples;
 using Beutl.Media.Source;
+using Microsoft.Extensions.Logging;
 
 namespace Beutl.Extensions.FFmpeg.Decoding;
 
 public sealed class FFmpegReaderProxy : MediaReader
 {
+    private readonly ILogger _logger = Log.CreateLogger<FFmpegReaderProxy>();
     private readonly IpcConnection _connection;
     private readonly int _readerId;
     private readonly OpenFileResponse _openResponse;
@@ -196,25 +199,21 @@ public sealed class FFmpegReaderProxy : MediaReader
     {
         if (disposing)
         {
-            try
+            // fire-and-forget: UIスレッドからの呼び出しでデッドロックしないよう
+            // 同期ブロックを避けて非同期で送信
+            _ = Task.Run(async () =>
             {
-                // fire-and-forget: UIスレッドからの呼び出しでデッドロックしないよう
-                // 同期ブロックを避けて非同期で送信
-                _ = Task.Run(async () =>
+                try
                 {
-                    try
-                    {
-                        await _connection.SendAndReceiveAsync(
-                            IpcMessage.Create(_connection.NextId(), MessageType.CloseReader,
-                                new CloseReaderRequest { ReaderId = _readerId }));
-                    }
-                    catch
-                    {
-
-                    }
-                });
-            }
-            catch { }
+                    await _connection.SendAndReceiveAsync(
+                        IpcMessage.Create(_connection.NextId(), MessageType.CloseReader,
+                            new CloseReaderRequest { ReaderId = _readerId }));
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to close FFmpeg reader {ReaderId} on worker", _readerId);
+                }
+            });
 
             _videoBuffer?.Dispose();
             _audioBuffer?.Dispose();

@@ -3,13 +3,17 @@ using Beutl.FFmpegIpc;
 using Beutl.FFmpegIpc.Protocol;
 using Beutl.FFmpegIpc.Protocol.Messages;
 using Beutl.FFmpegIpc.SharedMemory;
+using Beutl.Logging;
 using Beutl.Media;
+using Microsoft.Extensions.Logging;
 
 namespace Beutl.Extensions.FFmpeg.Encoding;
 
 public class FFmpegEncodingControllerProxy(string outputFile, FFmpegEncodingSettings settings)
     : EncodingController(outputFile)
 {
+    private readonly ILogger _logger = Log.CreateLogger<FFmpegEncodingControllerProxy>();
+
     public override FFmpegVideoEncoderSettings VideoSettings { get; } = new() { OutputFile = outputFile };
 
     public override FFmpegAudioEncoderSettings AudioSettings { get; } = new() { OutputFile = outputFile };
@@ -165,7 +169,10 @@ public class FFmpegEncodingControllerProxy(string outputFile, FFmpegEncodingSett
                     IpcMessage.CreateSimple(connection.NextId(), MessageType.CancelEncode),
                     CancellationToken.None);
             }
-            catch { }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to send cancel notification to FFmpeg worker");
+            }
 
             throw;
         }
