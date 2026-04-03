@@ -168,6 +168,11 @@ internal sealed class VideoRingBuffer : IDisposable
         // プリフェッチ停止
         StopPrefetchUnderLock();
 
+        // ロック一時解放中にプリフェッチがこのフレームをデコードした可能性があるため再確認
+        int hitSlot = FindSlot(frame);
+        if (hitSlot >= 0)
+            return HandleCacheHit(frame, hitSlot);
+
         // 共有メモリに直接デコード
         string? newShmName = null;
         var frameInfo = DecodeToSlot(frame, ref newShmName, out int writeSlot, out long offset);
