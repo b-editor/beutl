@@ -94,10 +94,7 @@ public sealed class FFmpegReaderProxy : MediaReader
         int rowBytes = response.Width * response.BytesPerPixel;
 
         // ゼロコピー: 共有メモリを直接ポインタで参照するBitmapを作成
-        // バッファインスタンスをローカル変数にキャプチャし、参照カウントを増やす。
-        // EnsureVideoBuffer でフィールドが差し替えられても、このバッファは生存し続ける。
         var buffer = _videoBuffer!;
-        buffer.AddRef();
         byte* ptr = buffer.AcquirePointer();
         try
         {
@@ -106,17 +103,12 @@ public sealed class FFmpegReaderProxy : MediaReader
                 (IntPtr)(ptr + readOffset), response.Width, response.Height, rowBytes,
                 colorType, BitmapAlphaType.Unpremul, colorSpace);
 
-            image = Ref<Bitmap>.Create(bmp, onRelease: () =>
-            {
-                buffer.ReleasePointer();
-                buffer.Release();
-            });
+            image = Ref<Bitmap>.Create(bmp, onRelease: buffer.ReleasePointer);
             return true;
         }
         catch
         {
             buffer.ReleasePointer();
-            buffer.Release();
             throw;
         }
     }
@@ -150,22 +142,16 @@ public sealed class FFmpegReaderProxy : MediaReader
 
         // ゼロコピー: 共有メモリを直接ポインタで参照するPcmを作成
         var buffer = _audioBuffer!;
-        buffer.AddRef();
         byte* ptr = buffer.AcquirePointer();
         try
         {
             var pcm = new Pcm<Stereo32BitFloat>(response.SampleRate, response.NumSamples, (IntPtr)ptr);
-            sound = Ref<IPcm>.Create(pcm, onRelease: () =>
-            {
-                buffer.ReleasePointer();
-                buffer.Release();
-            });
+            sound = Ref<IPcm>.Create(pcm, onRelease: buffer.ReleasePointer);
             return true;
         }
         catch
         {
             buffer.ReleasePointer();
-            buffer.Release();
             throw;
         }
     }
