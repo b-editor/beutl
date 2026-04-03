@@ -313,87 +313,95 @@ internal sealed class DecodingHandler : IDisposable
 
     private unsafe IpcMessage HandleReadVideoLegacy(int msgId, ReadVideoRequest request, ReaderState state)
     {
-        // 共有メモリが未作成の場合、まず確保
-        string? newShmName = null;
-        if (state.VideoBuffer == null)
-        {
-            int videoWidth = state.Reader.VideoInfo.FrameSize.Width;
-            int videoHeight = state.Reader.VideoInfo.FrameSize.Height;
-            long newSize = (long)videoWidth * videoHeight * 8 + 64;
-            int gen = Interlocked.Increment(ref _shmGeneration);
-            newShmName = $"beutl-ffmpeg-video-{Environment.ProcessId}-{request.ReaderId}-{gen}";
-            state.VideoBuffer = SharedMemoryBuffer.Create(newShmName, newSize);
-        }
-
-        // 共有メモリに直接デコード
-        byte* ptr = state.VideoBuffer.AcquirePointer();
+        state.ReaderLock.Wait();
         try
         {
-            var destination = new Span<byte>(ptr, (int)state.VideoBuffer.Capacity);
-
-            if (!state.Reader.ReadVideo(request.Frame, destination, out var frameInfo))
+            // 共有メモリが未作成の場合、まず確保
+            string? newShmName = null;
+            if (state.VideoBuffer == null)
             {
-                // バッファが小さい場合リサイズして再試行
-                if (frameInfo.DataLength > 0 && frameInfo.DataLength > state.VideoBuffer.Capacity)
+                int videoWidth = state.Reader.VideoInfo.FrameSize.Width;
+                int videoHeight = state.Reader.VideoInfo.FrameSize.Height;
+                long newSize = (long)videoWidth * videoHeight * 8 + 64;
+                int gen = Interlocked.Increment(ref _shmGeneration);
+                newShmName = $"beutl-ffmpeg-video-{Environment.ProcessId}-{request.ReaderId}-{gen}";
+                state.VideoBuffer = SharedMemoryBuffer.Create(newShmName, newSize);
+            }
+
+            // 共有メモリに直接デコード
+            byte* ptr = state.VideoBuffer.AcquirePointer();
+            try
+            {
+                var destination = new Span<byte>(ptr, (int)state.VideoBuffer.Capacity);
+
+                if (!state.Reader.ReadVideo(request.Frame, destination, out var frameInfo))
                 {
-                    state.VideoBuffer.ReleasePointer();
-                    ptr = null;
-                    state.VideoBuffer.Dispose();
-                    long newSize = frameInfo.DataLength + 64;
-                    int gen = Interlocked.Increment(ref _shmGeneration);
-                    newShmName = $"beutl-ffmpeg-video-{Environment.ProcessId}-{request.ReaderId}-{gen}";
-                    state.VideoBuffer = SharedMemoryBuffer.Create(newShmName, newSize);
+                    // バッファが小さい場合リサイズして再試行
+                    if (frameInfo.DataLength > 0 && frameInfo.DataLength > state.VideoBuffer.Capacity)
+                    {
+                        state.VideoBuffer.ReleasePointer();
+                        ptr = null;
+                        state.VideoBuffer.Dispose();
+                        long newSize = frameInfo.DataLength + 64;
+                        int gen = Interlocked.Increment(ref _shmGeneration);
+                        newShmName = $"beutl-ffmpeg-video-{Environment.ProcessId}-{request.ReaderId}-{gen}";
+                        state.VideoBuffer = SharedMemoryBuffer.Create(newShmName, newSize);
 
-                    ptr = state.VideoBuffer.AcquirePointer();
-                    destination = new Span<byte>(ptr, (int)state.VideoBuffer.Capacity);
+                        ptr = state.VideoBuffer.AcquirePointer();
+                        destination = new Span<byte>(ptr, (int)state.VideoBuffer.Capacity);
 
-                    if (!state.Reader.ReadVideo(request.Frame, destination, out frameInfo))
+                        if (!state.Reader.ReadVideo(request.Frame, destination, out frameInfo))
+                        {
+                            return IpcMessage.Create(msgId, MessageType.ReadVideoResult,
+                                new ReadVideoResponse { Success = false, SharedMemoryName = newShmName });
+                        }
+                    }
+                    else
                     {
                         return IpcMessage.Create(msgId, MessageType.ReadVideoResult,
-                            new ReadVideoResponse { Success = false, SharedMemoryName = newShmName });
+                            new ReadVideoResponse { Success = false });
                     }
                 }
-                else
+
+                // 色空間情報: 前フレームと異なる場合のみ送信
+                var cs = frameInfo.ColorSpace;
+                var transferFn = cs.GetNumericalTransferFunction();
+                var xyz = cs.ToColorSpaceXyz();
+
+                float[] currentTransferFn = [transferFn.G, transferFn.A, transferFn.B, transferFn.C, transferFn.D, transferFn.E, transferFn.F];
+                float[] currentToXyzD50 = xyz.Values.ToArray();
+
+                bool colorSpaceChanged = !currentTransferFn.AsSpan().SequenceEqual(state.LastTransferFn)
+                                         || !currentToXyzD50.AsSpan().SequenceEqual(state.LastToXyzD50);
+
+                if (colorSpaceChanged)
                 {
-                    return IpcMessage.Create(msgId, MessageType.ReadVideoResult,
-                        new ReadVideoResponse { Success = false });
+                    state.LastTransferFn = currentTransferFn;
+                    state.LastToXyzD50 = currentToXyzD50;
                 }
+
+                return IpcMessage.Create(msgId, MessageType.ReadVideoResult, new ReadVideoResponse
+                {
+                    Success = true,
+                    Width = frameInfo.Width,
+                    Height = frameInfo.Height,
+                    BytesPerPixel = frameInfo.BytesPerPixel,
+                    DataLength = frameInfo.DataLength,
+                    IsHdr = frameInfo.IsHdr,
+                    SharedMemoryName = newShmName,
+                    TransferFn = colorSpaceChanged ? currentTransferFn : null,
+                    ToXyzD50 = colorSpaceChanged ? currentToXyzD50 : null,
+                });
             }
-
-            // 色空間情報: 前フレームと異なる場合のみ送信
-            var cs = frameInfo.ColorSpace;
-            var transferFn = cs.GetNumericalTransferFunction();
-            var xyz = cs.ToColorSpaceXyz();
-
-            float[] currentTransferFn = [transferFn.G, transferFn.A, transferFn.B, transferFn.C, transferFn.D, transferFn.E, transferFn.F];
-            float[] currentToXyzD50 = xyz.Values.ToArray();
-
-            bool colorSpaceChanged = !currentTransferFn.AsSpan().SequenceEqual(state.LastTransferFn)
-                                     || !currentToXyzD50.AsSpan().SequenceEqual(state.LastToXyzD50);
-
-            if (colorSpaceChanged)
+            finally
             {
-                state.LastTransferFn = currentTransferFn;
-                state.LastToXyzD50 = currentToXyzD50;
+                if (ptr != null)
+                    state.VideoBuffer!.ReleasePointer();
             }
-
-            return IpcMessage.Create(msgId, MessageType.ReadVideoResult, new ReadVideoResponse
-            {
-                Success = true,
-                Width = frameInfo.Width,
-                Height = frameInfo.Height,
-                BytesPerPixel = frameInfo.BytesPerPixel,
-                DataLength = frameInfo.DataLength,
-                IsHdr = frameInfo.IsHdr,
-                SharedMemoryName = newShmName,
-                TransferFn = colorSpaceChanged ? currentTransferFn : null,
-                ToXyzD50 = colorSpaceChanged ? currentToXyzD50 : null,
-            });
         }
         finally
         {
-            if (ptr != null)
-                state.VideoBuffer!.ReleasePointer();
+            state.ReaderLock.Release();
         }
     }
 
@@ -583,42 +591,50 @@ internal sealed class DecodingHandler : IDisposable
         if (!_readers.TryGetValue(request.ReaderId, out var state))
             return IpcMessage.CreateError(msg.Id, $"Unknown reader ID: {request.ReaderId}");
 
-        // 共有メモリに直接デコード
-        // 必要なバッファサイズを推定（Stereo32BitFloat = 8 bytes per sample）
-        long estimatedSize = (long)request.Length * 8 + 64;
-        string? newShmName = null;
-
-        if (state.AudioBuffer == null || state.AudioBuffer.Capacity < estimatedSize)
-        {
-            state.AudioBuffer?.Dispose();
-            int gen = Interlocked.Increment(ref _shmGeneration);
-            newShmName = $"beutl-ffmpeg-audio-{Environment.ProcessId}-{request.ReaderId}-{gen}";
-            state.AudioBuffer = SharedMemoryBuffer.Create(newShmName, estimatedSize);
-        }
-
-        byte* ptr = state.AudioBuffer.AcquirePointer();
+        state.ReaderLock.Wait();
         try
         {
-            var destination = new Span<byte>(ptr, (int)state.AudioBuffer.Capacity);
+            // 共有メモリに直接デコード
+            // 必要なバッファサイズを推定（Stereo32BitFloat = 8 bytes per sample）
+            long estimatedSize = (long)request.Length * 8 + 64;
+            string? newShmName = null;
 
-            if (!state.Reader.ReadAudio(request.Start, request.Length, destination, out var audioInfo))
+            if (state.AudioBuffer == null || state.AudioBuffer.Capacity < estimatedSize)
             {
-                return IpcMessage.Create(msg.Id, MessageType.ReadAudioResult,
-                    new ReadAudioResponse { Success = false });
+                state.AudioBuffer?.Dispose();
+                int gen = Interlocked.Increment(ref _shmGeneration);
+                newShmName = $"beutl-ffmpeg-audio-{Environment.ProcessId}-{request.ReaderId}-{gen}";
+                state.AudioBuffer = SharedMemoryBuffer.Create(newShmName, estimatedSize);
             }
 
-            return IpcMessage.Create(msg.Id, MessageType.ReadAudioResult, new ReadAudioResponse
+            byte* ptr = state.AudioBuffer.AcquirePointer();
+            try
             {
-                Success = true,
-                SampleRate = audioInfo.SampleRate,
-                NumSamples = audioInfo.NumSamples,
-                DataLength = audioInfo.DataLength,
-                SharedMemoryName = newShmName,
-            });
+                var destination = new Span<byte>(ptr, (int)state.AudioBuffer.Capacity);
+
+                if (!state.Reader.ReadAudio(request.Start, request.Length, destination, out var audioInfo))
+                {
+                    return IpcMessage.Create(msg.Id, MessageType.ReadAudioResult,
+                        new ReadAudioResponse { Success = false });
+                }
+
+                return IpcMessage.Create(msg.Id, MessageType.ReadAudioResult, new ReadAudioResponse
+                {
+                    Success = true,
+                    SampleRate = audioInfo.SampleRate,
+                    NumSamples = audioInfo.NumSamples,
+                    DataLength = audioInfo.DataLength,
+                    SharedMemoryName = newShmName,
+                });
+            }
+            finally
+            {
+                state.AudioBuffer!.ReleasePointer();
+            }
         }
         finally
         {
-            state.AudioBuffer!.ReleasePointer();
+            state.ReaderLock.Release();
         }
     }
 

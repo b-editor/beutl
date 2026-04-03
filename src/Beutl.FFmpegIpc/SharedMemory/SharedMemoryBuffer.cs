@@ -14,6 +14,8 @@ public sealed class SharedMemoryBuffer : IDisposable
     private readonly MemoryMappedViewAccessor _accessor;
     private readonly string? _filePath;
     private readonly bool _ownsFile;
+    private volatile int _refCount = 1;
+    private int _disposed;
 
     private SharedMemoryBuffer(MemoryMappedFile mmf, MemoryMappedViewAccessor accessor, string name, long capacity, string? filePath, bool ownsFile)
     {
@@ -120,7 +122,43 @@ public sealed class SharedMemoryBuffer : IDisposable
         }
     }
 
+    // 参照カウントをインクリメントする。
+    // ゼロコピーで共有メモリポインタを外部に渡す場合に使用する。
+    public void AddRef()
+    {
+        int old = _refCount;
+        while (true)
+        {
+            ObjectDisposedException.ThrowIf(old == 0, this);
+            int current = Interlocked.CompareExchange(ref _refCount, old + 1, old);
+            if (current == old) break;
+            old = current;
+        }
+    }
+
+    // 参照カウントをデクリメントし、0になったらリソースを解放する。
+    public void Release()
+    {
+        int old = _refCount;
+        while (true)
+        {
+            int current = Interlocked.CompareExchange(ref _refCount, old - 1, old);
+            if (current == old)
+            {
+                if (old == 1) DisposeCore();
+                break;
+            }
+            old = current;
+        }
+    }
+
     public void Dispose()
+    {
+        if (Interlocked.Exchange(ref _disposed, 1) == 0)
+            Release();
+    }
+
+    private void DisposeCore()
     {
         _accessor.Dispose();
         _mmf.Dispose();
