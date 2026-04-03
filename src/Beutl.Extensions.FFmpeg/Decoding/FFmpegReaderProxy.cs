@@ -22,8 +22,8 @@ public sealed class FFmpegReaderProxy : MediaReader
     private SharedMemoryBuffer? _videoBuffer;
     private SharedMemoryBuffer? _audioBuffer;
     private BitmapColorSpace? _colorSpace;
-    private readonly int _ringSlotCount;
-    private readonly long _ringSlotSize;
+    private int _ringSlotCount;
+    private long _ringSlotSize;
 
     internal FFmpegReaderProxy(IpcConnection connection, int readerId, OpenFileResponse openResponse)
     {
@@ -81,6 +81,12 @@ public sealed class FFmpegReaderProxy : MediaReader
             image = null;
             return false;
         }
+
+        // リサイズによりスロットサイズが変更された場合は更新
+        if (response.RingBufferSlotSize.HasValue)
+            _ringSlotSize = response.RingBufferSlotSize.Value;
+        if (response.RingBufferSlotCount.HasValue)
+            _ringSlotCount = response.RingBufferSlotCount.Value;
 
         // 共有メモリから読み取り（Worker側でリサイズされた場合は名前が変わる）
         EnsureVideoBuffer(response, response.SharedMemoryName);

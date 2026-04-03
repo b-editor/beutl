@@ -69,6 +69,9 @@ public sealed class ReadVideoResponse
     // リングバッファ: フレームデータの読み取り位置
     public int? SlotIndex { get; set; }
     public long SlotDataOffset { get; set; }
+    // リサイズ時に更新されたリングバッファのサイズ情報
+    public long? RingBufferSlotSize { get; set; }
+    public int? RingBufferSlotCount { get; set; }
 }
 
 public sealed class ReadAudioRequest

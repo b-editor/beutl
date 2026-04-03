@@ -15,6 +15,8 @@ internal struct RingBufferReadResult
     public int DataLength;
     public bool IsHdr;
     public string? NewSharedMemoryName;
+    public long NewSlotSize;
+    public int NewSlotCount;
     public bool ColorSpaceChanged;
     public float[]? TransferFn;
     public float[]? ToXyzD50;
@@ -214,6 +216,8 @@ internal sealed class VideoRingBuffer : IDisposable
             DataLength = fi.DataLength,
             IsHdr = fi.IsHdr,
             NewSharedMemoryName = newShmName,
+            NewSlotSize = newShmName != null ? _slotSize : 0,
+            NewSlotCount = newShmName != null ? _slotCount : 0,
             ColorSpaceChanged = colorSpaceChanged,
             TransferFn = colorSpaceChanged ? _lastTransferFn : null,
             ToXyzD50 = colorSpaceChanged ? _lastToXyzD50 : null,

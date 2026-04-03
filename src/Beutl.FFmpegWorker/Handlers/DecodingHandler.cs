@@ -124,6 +124,8 @@ internal sealed partial class DecodingHandler : IDisposable
             DataLength = result.DataLength,
             IsHdr = result.IsHdr,
             SharedMemoryName = result.NewSharedMemoryName,
+            RingBufferSlotSize = result.NewSharedMemoryName != null ? result.NewSlotSize : null,
+            RingBufferSlotCount = result.NewSharedMemoryName != null ? result.NewSlotCount : null,
             SlotIndex = result.Success ? result.SlotIndex : null,
             SlotDataOffset = result.SlotDataOffset,
             TransferFn = result.TransferFn,
