@@ -18,6 +18,8 @@ public static class MessageSerializer
     {
         // JSONをArrayPoolバッファにシリアライズ
         byte[] jsonBuf = JsonSerializer.SerializeToUtf8Bytes(message, IpcJsonContext.Default.Options);
+        if (jsonBuf.Length > MaxMessageSize)
+            throw new InvalidOperationException($"Message too large to send: {jsonBuf.Length} bytes (max {MaxMessageSize})");
         int totalLength = LengthPrefixSize + jsonBuf.Length;
 
         // 長さプレフィックス + JSONを単一バッファに結合して1回のWriteで送信
