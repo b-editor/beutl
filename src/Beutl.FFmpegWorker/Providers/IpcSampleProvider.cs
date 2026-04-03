@@ -135,6 +135,9 @@ internal sealed class IpcSampleProvider : ISampleProvider
         var response = await _connection.SendAndReceiveAsync(request)
                        ?? throw new IOException("Connection closed while waiting for audio samples");
 
+        if (response.Type == MessageType.CancelEncode)
+            throw new OperationCanceledException();
+
         if (response.Error != null)
             throw new InvalidOperationException($"Sample failed: {response.Error}");
 

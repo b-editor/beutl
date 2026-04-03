@@ -52,6 +52,9 @@ internal sealed class IpcFrameProvider : IFrameProvider
                        ?? throw new IOException("Connection closed while waiting for frame");
         }
 
+        if (response.Type == MessageType.CancelEncode)
+            throw new OperationCanceledException();
+
         if (response.Error != null)
             throw new InvalidOperationException($"Frame render failed: {response.Error}");
 

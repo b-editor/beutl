@@ -9,9 +9,9 @@ namespace Beutl.Extensions.FFmpeg;
 public sealed class FFmpegWorkerProcess : IDisposable
 {
     private static readonly Lazy<FFmpegWorkerProcess> s_decodingInstance = new(() => new FFmpegWorkerProcess(multiplexed: true));
-    private static readonly Lazy<FFmpegWorkerProcess> s_encodingInstance = new(() => new FFmpegWorkerProcess(multiplexed: false));
     public static FFmpegWorkerProcess DecodingInstance => s_decodingInstance.Value;
-    public static FFmpegWorkerProcess EncodingInstance => s_encodingInstance.Value;
+
+    public static FFmpegWorkerProcess CreateForEncoding() => new(multiplexed: false);
 
     private readonly SemaphoreSlim _startLock = new(1, 1);
     private readonly bool _multiplexed;

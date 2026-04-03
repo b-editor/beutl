@@ -280,30 +280,35 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
 
             var videoState = new EncodeState();
             var audioState = new EncodeState();
-            while ((encodeVideo || encodeAudio) && !cancellationToken.IsCancellationRequested)
+            try
             {
-                if (encodeVideo &&
-                    (!encodeAudio || ffmpeg.av_compare_ts(videoState.NextPts,
-                        encoders[1].Item1.TimeBase,
-                        audioState.NextPts, encoders[0].Item1.TimeBase) <= 0))
+                while ((encodeVideo || encodeAudio) && !cancellationToken.IsCancellationRequested)
                 {
-                    encodeVideo = await WriteVideoFrame(
-                        muxer, encoders[1].Item1, encoders[1].Item2, videoFrame, videoState, frameProvider);
-                }
-                else
-                {
-                    encodeAudio = await WriteAudioFrame(
-                        muxer, swr!, encoders[0].Item1, encoders[0].Item2, audioFrame, audioState, sampleProvider);
+                    if (encodeVideo &&
+                        (!encodeAudio || ffmpeg.av_compare_ts(videoState.NextPts,
+                            encoders[1].Item1.TimeBase,
+                            audioState.NextPts, encoders[0].Item1.TimeBase) <= 0))
+                    {
+                        encodeVideo = await WriteVideoFrame(
+                            muxer, encoders[1].Item1, encoders[1].Item2, videoFrame, videoState, frameProvider);
+                    }
+                    else
+                    {
+                        encodeAudio = await WriteAudioFrame(
+                            muxer, swr!, encoders[0].Item1, encoders[0].Item2, audioFrame, audioState, sampleProvider);
+                    }
                 }
             }
-
-            muxer.FlushCodecs(encoders.Select(i => i.Item1));
-            muxer.WriteTrailer();
-            encoders.ForEach(t => t.Item1.Dispose());
-            _filterGraph?.Dispose();
-            _filterGraph = null;
-            _bufferSrcCtx = null;
-            _bufferSinkCtx = null;
+            finally
+            {
+                muxer.FlushCodecs(encoders.Select(i => i.Item1));
+                muxer.WriteTrailer();
+                encoders.ForEach(t => t.Item1.Dispose());
+                _filterGraph?.Dispose();
+                _filterGraph = null;
+                _bufferSrcCtx = null;
+                _bufferSinkCtx = null;
+            }
         }
     }
 
@@ -354,19 +359,23 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
         if (_isHdr && _targetColorSpace != null)
         {
             // Skia: LinearSrgb → ターゲット色空間（例: BT.2020/PQ）
-            using var converted = bitmap.Convert(BitmapColorType.Rgba16161616, BitmapAlphaType.Unpremul, _targetColorSpace);
+            using var converted =
+                bitmap.Convert(BitmapColorType.Rgba16161616, BitmapAlphaType.Unpremul, _targetColorSpace);
             unsafe
             {
-                Buffer.MemoryCopy((void*)converted.Data, (void*)srcFrame.Data[0], converted.ByteCount, converted.ByteCount);
+                Buffer.MemoryCopy((void*)converted.Data, (void*)srcFrame.Data[0], converted.ByteCount,
+                    converted.ByteCount);
             }
         }
         else
         {
             // Skia: LinearSrgb → Bgra8888/Srgb
-            using var converted = bitmap.Convert(BitmapColorType.Bgra8888, BitmapAlphaType.Premul, BitmapColorSpace.Srgb);
+            using var converted =
+                bitmap.Convert(BitmapColorType.Bgra8888, BitmapAlphaType.Premul, BitmapColorSpace.Srgb);
             unsafe
             {
-                Buffer.MemoryCopy((void*)converted.Data, (void*)srcFrame.Data[0], converted.ByteCount, converted.ByteCount);
+                Buffer.MemoryCopy((void*)converted.Data, (void*)srcFrame.Data[0], converted.ByteCount,
+                    converted.ByteCount);
             }
         }
 

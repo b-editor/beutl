@@ -21,7 +21,8 @@ public class FFmpegEncodingControllerProxy(string outputFile, FFmpegEncodingSett
     public override async ValueTask Encode(
         IFrameProvider frameProvider, ISampleProvider sampleProvider, CancellationToken cancellationToken)
     {
-        var connection = await FFmpegWorkerProcess.EncodingInstance.EnsureStartedAsync(cancellationToken);
+        using var worker = FFmpegWorkerProcess.CreateForEncoding();
+        var connection = await worker.EnsureStartedAsync(cancellationToken);
 
         // エンコード設定をシリアライズ
         var startRequest = new EncodeStartRequest
