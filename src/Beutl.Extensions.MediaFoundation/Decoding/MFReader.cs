@@ -132,7 +132,7 @@ public class MFReader : MediaReader
                     YuvConversion.Yuy2ToBgra(srcPtr, (byte*)result.Data, result.RowBytes, w, h);
                 }
 
-                image = image = Ref<Bitmap>.Create(result);
+                image = Ref<Bitmap>.Create(result);
                 return true;
             }
             else
