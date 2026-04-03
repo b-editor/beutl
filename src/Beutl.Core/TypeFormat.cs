@@ -9,6 +9,7 @@ namespace Beutl
     {
         public static Type? ToType(string fullName)
         {
+            fullName = fullName.Replace("Beutl.Embedding.FFmpeg", "Beutl.Extensions.FFmpeg");
             List<Token> tokens = new TypeNameTokenizer(fullName).Tokenize();
             return new TypeNameParser(tokens).Parse();
         }
