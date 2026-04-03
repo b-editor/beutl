@@ -278,6 +278,11 @@ internal sealed partial class DecodingHandler : IDisposable
             ?? throw new InvalidOperationException("Missing payload for CloseReader");
         if (_readers.TryRemove(request.ReaderId, out var state))
         {
+            // プリフェッチ停止（ReaderLock の外で行う — プリフェッチタスクがロックを取得するためデッドロック防止）
+            state.RingBuffer?.StopPrefetch();
+            // 進行中の ReadVideo/ReadAudio が完了するのを待ってから Dispose する
+            state.ReaderLock.Wait();
+            // TryRemove 済みなので新規操作は来ない。Dispose で ReaderLock も破棄されるため Release 不要。
             state.Dispose();
         }
 
@@ -293,16 +298,25 @@ internal sealed partial class DecodingHandler : IDisposable
         {
             var state = kvp.Value;
 
-            // プリフェッチ停止、リングバッファ無効化
-            if (state.RingBuffer != null)
-            {
-                state.RingBuffer.StopPrefetch();
-                state.RingBuffer.InvalidateAllSlots();
-            }
+            // プリフェッチ停止（ReaderLock の外で行う — StopPrefetch 内部でロック取得する場合のデッドロック防止）
+            state.RingBuffer?.StopPrefetch();
 
-            state.Reader.Settings.ThreadCount = request.ThreadCount;
-            state.Reader.Settings.Acceleration = (FFmpegDecodingSettings.AccelerationOptions)request.Acceleration;
-            state.Reader.Settings.ForceSrgbGamma = request.ForceSrgbGamma;
+            state.ReaderLock.Wait();
+            try
+            {
+                if (state.RingBuffer != null)
+                {
+                    state.RingBuffer.InvalidateAllSlots();
+                }
+
+                state.Reader.Settings.ThreadCount = request.ThreadCount;
+                state.Reader.Settings.Acceleration = (FFmpegDecodingSettings.AccelerationOptions)request.Acceleration;
+                state.Reader.Settings.ForceSrgbGamma = request.ForceSrgbGamma;
+            }
+            finally
+            {
+                state.ReaderLock.Release();
+            }
         }
 
         return IpcMessage.CreateSimple(msg.Id, MessageType.UpdateDecoderSettingsResult);
