@@ -39,6 +39,7 @@ public class FFmpegDecodingExtension : DecodingExtension
 #if FFMPEG_OUT_OF_PROCESS
         Settings.PropertyChanged -= OnSettingsPropertyChanged;
 #endif
+        base.Unload();
     }
 
 #if FFMPEG_OUT_OF_PROCESS
