@@ -98,7 +98,6 @@ public sealed class CloseReaderRequest
 
 public sealed class UpdateDecoderSettingsRequest
 {
-    public int ReaderId { get; set; }
     public int ThreadCount { get; set; } = -1;
     public int Acceleration { get; set; }
     public bool ForceSrgbGamma { get; set; } = true;
