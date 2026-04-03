@@ -38,7 +38,7 @@ internal sealed class IpcSampleProvider : ISampleProvider
 
     public async ValueTask<Pcm<Stereo32BitFloat>> Sample(long offset, long length)
     {
-        // キャッシュヒット: 要求範囲がキャッシュ内に収まる
+        // キャッシュヒット: 要求範囲がキャッシュ内に完全に収まる
         if (_currentChunk != null
             && offset >= _currentChunkOffset
             && offset + length <= _currentChunkOffset + _currentChunk.NumSamples)
@@ -48,12 +48,33 @@ internal sealed class IpcSampleProvider : ISampleProvider
             return result;
         }
 
-        // キャッシュミス → チャンクをロード
+        // キャッシュに前半が含まれているか確認
         await EnsureChunkLoaded(offset);
 
-        var pcm = CopyFromCache(offset, length);
+        long cacheEnd = _currentChunkOffset + _currentChunk!.NumSamples;
+        if (offset + length <= cacheEnd)
+        {
+            // チャンクロード後に完全に収まる場合
+            var pcm = CopyFromCache(offset, length);
+            StartPrefetchIfNeeded();
+            return pcm;
+        }
+
+        // チャンク境界をまたぐ場合: 前半を現在のチャンクからコピー
+        long firstPartLength = cacheEnd - offset;
+        var result2 = new Pcm<Stereo32BitFloat>((int)SampleRate, (int)length);
+        int start = (int)(offset - _currentChunkOffset);
+        _currentChunk.DataSpan.Slice(start, (int)firstPartLength).CopyTo(result2.DataSpan);
+
+        // 後半を次のチャンクからコピー
+        long remainingOffset = cacheEnd;
+        long remainingLength = length - firstPartLength;
+        await EnsureChunkLoaded(remainingOffset);
+        _currentChunk!.DataSpan[..(int)remainingLength].CopyTo(result2.DataSpan[(int)firstPartLength..]);
+
+        SamplesProvided += result2.NumSamples;
         StartPrefetchIfNeeded();
-        return pcm;
+        return result2;
     }
 
     private Pcm<Stereo32BitFloat> CopyFromCache(long offset, long length)
