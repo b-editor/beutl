@@ -71,6 +71,10 @@
                                 Command="{Binding ShowLog}"
                                 Content="{x:Static lang:Resources.ShowLog}"
                                 Theme="{StaticResource TaskDialogMoreDetailsButton}" />
+                        <Button Classes="TaskDialog_MoreDetails"
+                                Command="{Binding SendFeedback}"
+                                Content="{x:Static lang:Resources.SendFeedback}"
+                                Theme="{StaticResource TaskDialogMoreDetailsButton}" />
                     </StackPanel>
                     <SelectableTextBlock Name="FooterHost"
                                          HorizontalAlignment="Stretch"

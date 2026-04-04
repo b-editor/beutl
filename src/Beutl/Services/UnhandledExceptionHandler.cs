@@ -51,6 +51,8 @@ public static class UnhandledExceptionHandler
                 UseShellExecute = true
             };
             DotNetProcess.Configure(startInfo, exePath);
+            startInfo.ArgumentList.Add("--session-id");
+            startInfo.ArgumentList.Add(Telemetry.Instance._sessionId);
             Process.Start(startInfo);
         }
         catch

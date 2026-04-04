@@ -375,6 +375,9 @@
   <data name="Favorites" xml:space="preserve">
     <value>お気に入り</value>
   </data>
+  <data name="Feedback" xml:space="preserve">
+    <value>フィードバック</value>
+  </data>
   <data name="AddToFavorites" xml:space="preserve">
     <value>お気に入りに追加</value>
   </data>

@@ -7,10 +7,14 @@ public partial class MainWindow : Window
 {
     private readonly MainWindowViewModel _viewModel;
 
-    public MainWindow()
+    public MainWindow() : this(null)
+    {
+    }
+
+    public MainWindow(string? sessionId)
     {
         InitializeComponent();
-        _viewModel = new MainWindowViewModel();
+        _viewModel = new MainWindowViewModel(sessionId);
         DataContext = _viewModel;
     }
 
