@@ -1,9 +1,13 @@
-﻿using Beutl.Media.Decoding;
+﻿using Beutl.Logging;
+using Beutl.Media.Decoding;
+using Microsoft.Extensions.Logging;
 
 namespace Beutl.Extensions.AVFoundation.Decoding;
 
 public sealed class AVFDecoderInfo(AVFDecodingExtension extension) : IDecoderInfo
 {
+    private readonly ILogger _logger = Log.CreateLogger<AVFDecoderInfo>();
+
     public string Name => "AVFoundation";
 
     //https://learn.microsoft.com/ja-jp/windows/win32/medfound/supported-media-formats-in-media-foundation
@@ -34,8 +38,9 @@ public sealed class AVFDecoderInfo(AVFDecodingExtension extension) : IDecoderInf
         {
             return new AVFReader(file, options, extension);
         }
-        catch
+        catch (Exception ex)
         {
+            _logger.LogError(ex, "Failed to open media file: {File}", file);
             return null;
         }
     }

@@ -10,7 +10,7 @@ namespace Beutl.Extensions.AVFoundation.Decoding;
 
 public sealed class AVFReader : MediaReader
 {
-    private readonly AVAsset _asset;
+    private readonly AVAsset? _asset;
 
     private AVFVideoStreamReader? _videoReader;
     private AVFAudioStreamReader? _audioReader;
@@ -67,7 +67,7 @@ public sealed class AVFReader : MediaReader
         base.Dispose(disposing);
         _audioReader?.Dispose();
         _videoReader?.Dispose();
-        _asset.Dispose();
+        _asset?.Dispose();
 
         _audioReader = null;
         _videoReader = null;
