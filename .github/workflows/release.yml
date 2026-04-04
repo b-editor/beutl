@@ -70,7 +70,7 @@ jobs:
       infoVer: ${{ needs.determine-version.outputs.infoVer }}
 
   create-release:
-    if: ${{ !inputs.dry-run }}
+    if: ${{ github.event_name == 'push' || github.event.inputs['dry-run'] != 'true' }}
     needs: [ build-executable, build-windows-installer, build-debian-package, build-nuget, build-app-bundle ]
     runs-on: ubuntu-latest
     steps:
