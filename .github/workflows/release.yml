@@ -4,6 +4,13 @@ on:
   push:
     tags:
       - "v*"
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: "Dry run (build and upload artifacts only, skip GitHub Release creation)"
+        required: false
+        type: boolean
+        default: true
 
 permissions:
   contents: write
@@ -63,6 +70,7 @@ jobs:
       infoVer: ${{ needs.determine-version.outputs.infoVer }}
 
   create-release:
+    if: ${{ github.event_name == 'push' || github.event.inputs['dry-run'] != 'true' }}
     needs: [ build-executable, build-windows-installer, build-debian-package, build-nuget, build-app-bundle ]
     runs-on: ubuntu-latest
     steps:
