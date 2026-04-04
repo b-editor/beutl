@@ -236,6 +236,14 @@
                                   IsVisible="{Binding IsRunningStartupTasks.Value}" />
                 </Border>
 
+                <Button x:Name="OpenFeedbackButton"
+                        wnd:AppWindow.AllowInteractionInTitleBar="True"
+                        Click="OpenFeedbackClick"
+                        ToolTip.Tip="{x:Static lang:Strings.Feedback}"
+                        Theme="{StaticResource TitleBarButtonStyle}">
+                    <icons:SymbolIcon Symbol="Chat" Margin="0,0,0,2" />
+                </Button>
+
                 <Button x:Name="OpenNotificationsButton"
                         HorizontalContentAlignment="Stretch"
                         VerticalContentAlignment="Stretch"

@@ -380,6 +380,9 @@
   <data name="Favorites" xml:space="preserve">
     <value>Favorites</value>
   </data>
+  <data name="Feedback" xml:space="preserve">
+    <value>Feedback</value>
+  </data>
   <data name="AddToFavorites" xml:space="preserve">
     <value>Add to Favorites</value>
   </data>

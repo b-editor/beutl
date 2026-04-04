@@ -138,4 +138,7 @@ Beutlで正常に処理されないエラーが発生しました。
   <data name="ShowLog" xml:space="preserve">
     <value>ログを表示</value>
   </data>
+  <data name="SendFeedback" xml:space="preserve">
+    <value>フィードバックを送信</value>
+  </data>
 </root>

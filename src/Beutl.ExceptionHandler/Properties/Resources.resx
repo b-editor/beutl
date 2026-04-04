@@ -138,4 +138,7 @@ If telemetry collection is enabled, logs are collected automatically.</value>
   <data name="ShowLog" xml:space="preserve">
     <value>Show Log</value>
   </data>
+  <data name="SendFeedback" xml:space="preserve">
+    <value>Send Feedback</value>
+  </data>
 </root>

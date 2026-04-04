@@ -372,6 +372,12 @@ public sealed partial class MainView : UserControl
         }
     }
 
+    private void OpenFeedbackClick(object? sender, RoutedEventArgs e)
+    {//FluentIcons.Common.Symbol.Chat
+        string url = $"https://beutl.beditor.net/feedback?traceId={Telemetry.Instance._sessionId}";
+        Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
+    }
+
     private void OpenNotificationsClick(object? sender, RoutedEventArgs e)
     {
         if (HiddenNotificationPanel.Children.Count > 0

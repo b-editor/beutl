@@ -9,9 +9,11 @@ namespace Beutl.ExceptionHandler;
 public class MainWindowViewModel
 {
     private readonly string? _logFile;
+    private readonly string? _sessionId;
 
-    public MainWindowViewModel()
+    public MainWindowViewModel(string? sessionId = null)
     {
+        _sessionId = sessionId;
         Header = Resources.ErrorOccurred;
         Content.Value = Resources.Content;
 
@@ -47,6 +49,22 @@ public class MainWindowViewModel
             {
             }
         });
+
+        SendFeedback.Subscribe(() =>
+        {
+            try
+            {
+                string url = "https://beutl.beditor.net/feedback";
+                if (!string.IsNullOrEmpty(_sessionId))
+                {
+                    url = $"{url}?traceId={_sessionId}";
+                }
+                Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
+            }
+            catch
+            {
+            }
+        });
     }
 
     public string Header { get; }
@@ -56,6 +74,8 @@ public class MainWindowViewModel
     public string Footer { get; }
 
     public ReactiveCommand ShowLog { get; } = new();
+
+    public ReactiveCommand SendFeedback { get; } = new();
 
     public ReactiveCommand Cancel { get; } = new();
 }
