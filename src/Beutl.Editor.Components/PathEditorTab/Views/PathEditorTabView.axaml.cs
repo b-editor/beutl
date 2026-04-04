@@ -466,7 +466,10 @@ public partial class PathEditorTabView : UserControl, IPathEditorView
 
     private Thumb CreateThumb()
     {
-        var thumb = new Thumb() { Theme = this.FindResource("PathEditorControlPointThumbTheme") as ControlTheme };
+        var thumb = new Thumb()
+        {
+            [!ThemeProperty] = new DynamicResourceExtension("PathEditorControlPointThumbTheme")
+        };
         var flyout = new FAMenuFlyout();
         var delete = new MenuFlyoutItem
         {

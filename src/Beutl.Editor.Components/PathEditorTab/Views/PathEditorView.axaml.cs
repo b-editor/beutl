@@ -4,6 +4,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Markup.Xaml.MarkupExtensions;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.Xaml.Interactivity;
@@ -210,7 +211,7 @@ public partial class PathEditorView : UserControl, IPathEditorView
     {
         var thumb = new Thumb()
         {
-            Theme = this.FindResource("PathEditorControlPointThumbTheme") as ControlTheme
+            [!ThemeProperty] = new DynamicResourceExtension("PathEditorControlPointThumbTheme")
         };
         var flyout = new FAMenuFlyout();
         var delete = new MenuFlyoutItem
