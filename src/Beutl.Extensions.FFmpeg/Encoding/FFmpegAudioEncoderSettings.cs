@@ -1,10 +1,8 @@
 ﻿using Beutl.Media.Encoding;
 using Beutl.Serialization;
-using FFmpeg.AutoGen.Abstractions;
-using FFmpegSharp;
 
-#if FFMPEG_BUILD_IN
-namespace Beutl.Embedding.FFmpeg.Encoding;
+#if BEUTL_FFMPEG_WORKER
+namespace Beutl.FFmpegWorker.Encoding;
 #else
 namespace Beutl.Extensions.FFmpeg.Encoding;
 #endif
@@ -61,17 +59,19 @@ public sealed class FFmpegAudioEncoderSettings : AudioEncoderSettings
 
     public enum AudioFormat
     {
-        Default = AVSampleFormat.AV_SAMPLE_FMT_NONE,
-        S16 = AVSampleFormat.AV_SAMPLE_FMT_S16,
-        S32 = AVSampleFormat.AV_SAMPLE_FMT_S32,
-        S64 = AVSampleFormat.AV_SAMPLE_FMT_S64,
-        Flt = AVSampleFormat.AV_SAMPLE_FMT_FLT,
-        Dbl = AVSampleFormat.AV_SAMPLE_FMT_DBL,
-        S16p = AVSampleFormat.AV_SAMPLE_FMT_S16P,
-        S32p = AVSampleFormat.AV_SAMPLE_FMT_S32P,
-        S64p = AVSampleFormat.AV_SAMPLE_FMT_S64P,
-        Fltp = AVSampleFormat.AV_SAMPLE_FMT_FLTP,
-        Dblp = AVSampleFormat.AV_SAMPLE_FMT_DBLP,
+        Default = -1,
+        U8 = 0,
+        S16 = 1,
+        S32 = 2,
+        Flt = 3,
+        Dbl = 4,
+        U8p = 5,
+        S16p = 6,
+        S32p = 7,
+        Fltp = 8,
+        Dblp = 9,
+        S64 = 10,
+        S64p = 11
     }
 }
 
@@ -79,10 +79,14 @@ public class AudioCodecChoicesProvider : IChoicesProvider
 {
     public static IReadOnlyList<object> GetChoices()
     {
-        return MediaCodec.GetCodecs()
-            .Where(i => i.IsEncoder && i.Type == AVMediaType.AVMEDIA_TYPE_AUDIO)
-            .Select(i => new CodecRecord(i.Name, i.LongName))
+#if FFMPEG_OUT_OF_PROCESS
+        return FFmpegWorkerCodecCache.GetAudioCodecs();
+#else
+        return FFmpegSharp.MediaCodec.GetCodecs()
+            .Where(i => i.IsEncoder && i.Type == global::FFmpeg.AutoGen.Abstractions.AVMediaType.AVMEDIA_TYPE_AUDIO)
+            .Select(i => (object)new CodecRecord(i.Name, i.LongName))
             .Prepend(CodecRecord.Default)
             .ToArray();
+#endif
     }
 }

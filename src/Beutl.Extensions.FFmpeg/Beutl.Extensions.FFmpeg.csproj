@@ -4,28 +4,58 @@
     <RepositoryUrl>https://github.com/b-editor/beutl</RepositoryUrl>
     <Description>FFmpeg for beutl</Description>
     <PackageTags>ffmpeg;decoder;decoding;encoder;encoding;video;audio</PackageTags>
-    <PackageLicenseExpression>LGPL-3.0-or-letter</PackageLicenseExpression>
     <Authors>b-editor</Authors>
 
     <FFmpegBuildIn Condition="'$(FFmpegBuildIn)' == ''">True</FFmpegBuildIn>
     <DefineConstants Condition="'$(FFmpegBuildIn)'=='True'">$(DefineConstants);FFMPEG_BUILD_IN</DefineConstants>
+
+    <FFmpegOutOfProcess Condition="'$(FFmpegOutOfProcess)' == ''">True</FFmpegOutOfProcess>
+    <DefineConstants Condition="'$(FFmpegOutOfProcess)'=='True'">$(DefineConstants);FFMPEG_OUT_OF_PROCESS</DefineConstants>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(FFmpegOutOfProcess)'=='True'">
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(FFmpegOutOfProcess)'!='True'">
+    <PackageLicenseExpression>GPL-3.0-or-later</PackageLicenseExpression>
+  </PropertyGroup>
+
+  <!-- Out-of-process: FFmpeg直接使用ファイルを除外 (Worker側でリンクする) -->
+  <ItemGroup Condition="'$(FFmpegOutOfProcess)'=='True'">
+    <Compile Remove="Decoding\FFmpegReader.cs" />
+    <Compile Remove="Encoding\FFmpegEncodingController.cs" />
+    <Compile Remove="ColorSpaceHelper.cs" />
+    <Compile Remove="FFmpegError.cs" />
+    <Compile Remove="FFmpegPath.cs" />
+  </ItemGroup>
+
+  <!-- In-process: Proxyファイルを除外 -->
+  <ItemGroup Condition="'$(FFmpegOutOfProcess)'!='True'">
+    <Compile Remove="Decoding\FFmpegReaderProxy.cs" />
+    <Compile Remove="Encoding\FFmpegEncodingControllerProxy.cs" />
+    <Compile Remove="FFmpegWorkerProcess.cs" />
+    <Compile Remove="FFmpegWorkerCodecCache.cs" />
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Aigamo.ResXGenerator">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
-    <PackageReference Include="FFmpeg.AutoGen.Bindings.DynamicallyLoaded" />
-    <PackageReference Include="FFmpeg4Sharp" />
     <PackageReference Include="FluentAvaloniaUI" />
     <PackageReference Include="ReactiveProperty" />
+  </ItemGroup>
+
+  <!-- In-process: FFmpegパッケージが必要 -->
+  <ItemGroup Condition="'$(FFmpegOutOfProcess)'!='True'">
+    <PackageReference Include="FFmpeg.AutoGen.Bindings.DynamicallyLoaded" />
+    <PackageReference Include="FFmpeg4Sharp" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Beutl.Extensibility\Beutl.Extensibility.csproj" />
     <ProjectReference Include="..\..\src\Beutl.Controls\Beutl.Controls.csproj" />
     <ProjectReference Include="..\..\src\Beutl.ProjectSystem\Beutl.ProjectSystem.csproj" />
+    <ProjectReference Include="..\..\src\Beutl.FFmpegIpc\Beutl.FFmpegIpc.csproj" />
   </ItemGroup>
 
   <ItemGroup>
@@ -35,28 +65,11 @@
     </EmbeddedResource>
   </ItemGroup>
 
-  <Choose>
-    <When Condition="'$(FFmpegBuildIn)'=='True'">
-      <PropertyGroup>
-        <AssemblyName>Beutl.Embedding.FFmpeg</AssemblyName>
-        <PackageId>Beutl.Embedding.FFmpeg</PackageId>
-        <Title>Beutl.Embedding.FFmpeg</Title>
-      </PropertyGroup>
-    </When>
-    <Otherwise>
-      <PropertyGroup>
-        <AssemblyName>Beutl.Extensions.FFmpeg</AssemblyName>
-        <PackageId>Beutl.Extensions.FFmpeg</PackageId>
-        <Title>Beutl.Extensions.FFmpeg</Title>
-      </PropertyGroup>
-
-      <PropertyGroup Condition="'$(Configuration)'=='Debug' And '$(CI)'!='true'">
-        <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
-        <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
-        <EnableDynamicLoading>true</EnableDynamicLoading>
-        <OutputPath>$([System.Environment]::GetFolderPath(SpecialFolder.UserProfile))\.beutl\sideloads\$(AssemblyName)</OutputPath>
-      </PropertyGroup>
-    </Otherwise>
-  </Choose>
+  <PropertyGroup Condition="'$(FFmpegBuildIn)'!='True' And '$(Configuration)'=='Debug' And '$(CI)'!='true'">
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
+    <EnableDynamicLoading>true</EnableDynamicLoading>
+    <OutputPath>$([System.Environment]::GetFolderPath(SpecialFolder.UserProfile))\.beutl\sideloads\$(AssemblyName)</OutputPath>
+  </PropertyGroup>
 
 </Project>

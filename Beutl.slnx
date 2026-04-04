@@ -27,6 +27,7 @@
   <Folder Name="/Tests/">
     <Project Path="tests/Beutl.Graphics3DTests/Beutl.Graphics3DTests.csproj" />
     <Project Path="tests\Beutl.Benchmarks\Beutl.Benchmarks.csproj" />
+    <Project Path="tests\Beutl.FFmpegBenchmarks\Beutl.FFmpegBenchmarks.csproj" />
     <Project Path="tests\Beutl.UnitTests\Beutl.UnitTests.csproj" />
     <Project Path="tests\DirectoryViewTest\DirectoryViewTest.csproj" />
     <Project Path="tests\EnumerateFontFamilies\EnumerateFontFamilies.csproj" />
@@ -51,6 +52,8 @@
   <Project Path="src\Beutl.Extensibility\Beutl.Extensibility.csproj" />
   <Project Path="src\Beutl.Extensions.AVFoundation\Beutl.Extensions.AVFoundation.csproj" />
   <Project Path="src\Beutl.Extensions.FFmpeg\Beutl.Extensions.FFmpeg.csproj" />
+  <Project Path="src\Beutl.FFmpegIpc\Beutl.FFmpegIpc.csproj" />
+  <Project Path="src\Beutl.FFmpegWorker\Beutl.FFmpegWorker.csproj" />
   <Project Path="src\Beutl.Extensions.MediaFoundation\Beutl.Extensions.MediaFoundation.csproj" />
   <Project Path="src\Beutl.Language\Beutl.Language.csproj" />
   <Project Path="src\Beutl.PackageTools.UI\Beutl.PackageTools.UI.csproj" />

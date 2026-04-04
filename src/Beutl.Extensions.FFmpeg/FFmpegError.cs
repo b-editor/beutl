@@ -2,11 +2,7 @@
 using System.Runtime.InteropServices;
 using FFmpeg.AutoGen.Abstractions;
 
-#if FFMPEG_BUILD_IN
-namespace Beutl.Embedding.FFmpeg;
-#else
 namespace Beutl.Extensions.FFmpeg;
-#endif
 
 public static class FFmpegError
 {

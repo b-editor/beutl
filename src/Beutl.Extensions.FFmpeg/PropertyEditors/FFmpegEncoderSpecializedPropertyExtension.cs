@@ -2,19 +2,11 @@
 using Avalonia.Controls;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Extensibility;
+using Beutl.Extensions.FFmpeg.Encoding;
 using Beutl.Media.Encoding;
 using Beutl.PropertyAdapters;
-using FFmpeg.AutoGen.Abstractions;
-
-#if FFMPEG_BUILD_IN
-using Beutl.Embedding.FFmpeg.Encoding;
-using AudioFormat = Beutl.Embedding.FFmpeg.Encoding.FFmpegAudioEncoderSettings.AudioFormat;
-namespace Beutl.Embedding.FFmpeg.PropertyEditors;
-#else
-using Beutl.Extensions.FFmpeg.Encoding;
 using AudioFormat = Beutl.Extensions.FFmpeg.Encoding.FFmpegAudioEncoderSettings.AudioFormat;
 namespace Beutl.Extensions.FFmpeg.PropertyEditors;
-#endif
 
 public sealed class FFmpegEncoderSpecializedPropertyExtension : PropertyEditorExtension
 {
@@ -27,14 +19,14 @@ public sealed class FFmpegEncoderSpecializedPropertyExtension : PropertyEditorEx
 
     private static bool IsPixelFormatProperty(IPropertyAdapter prop)
     {
-        return prop is CorePropertyAdapter<AVPixelFormat> cpa
+        return prop is CorePropertyAdapter<int> cpa
                && cpa.Property.Id == FFmpegVideoEncoderSettings.FormatProperty.Id
                && cpa.Object is FFmpegVideoEncoderSettings;
     }
 
     private static bool IsAudioFormatProperty(IPropertyAdapter prop)
     {
-        return prop is CorePropertyAdapter<FFmpegAudioEncoderSettings.AudioFormat> cpa
+        return prop is CorePropertyAdapter<AudioFormat> cpa
                && cpa.Property.Id == FFmpegAudioEncoderSettings.FormatProperty.Id
                && cpa.Object is FFmpegAudioEncoderSettings;
     }
@@ -74,7 +66,7 @@ public sealed class FFmpegEncoderSpecializedPropertyExtension : PropertyEditorEx
         }
         else if (IsPixelFormatProperty(prop))
         {
-            context = new PixelFormatEditorViewModel((IPropertyAdapter<AVPixelFormat>)prop, this);
+            context = new PixelFormatEditorViewModel((IPropertyAdapter<int>)prop, this);
         }
 
         return context != null;

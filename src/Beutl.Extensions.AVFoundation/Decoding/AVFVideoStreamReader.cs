@@ -2,6 +2,7 @@
 using Beutl.Logging;
 using Beutl.Media;
 using Beutl.Media.Decoding;
+using Beutl.Media.Source;
 using Microsoft.Extensions.Logging;
 using MonoMac.AVFoundation;
 using MonoMac.CoreMedia;
@@ -113,14 +114,17 @@ public class AVFVideoStreamReader : IDisposable
         _reader.StartReading();
     }
 
-    public bool ReadVideo(int frame, [NotNullWhen(true)] out Bitmap? image)
+    public bool ReadVideo(int frame, [NotNullWhen(true)] out Ref<Bitmap>? image)
     {
         CMSampleBuffer? sample = _sampleCache.SearchSample(frame);
         if (sample != null)
         {
-            image = AVFSampleUtilities.ConvertToBgra(sample);
-            if (image != null)
+            var bmp = AVFSampleUtilities.ConvertToBgra(sample);
+            if (bmp != null)
+            {
+                image = Ref<Bitmap>.Create(bmp);
                 return true;
+            }
         }
 
         int currentFrame = _sampleCache.LastFrameNumber();
@@ -156,9 +160,12 @@ public class AVFVideoStreamReader : IDisposable
                             currentFrame, frame, readSampleFrame, readSampleFrame - frame);
                     }
 
-                    image = AVFSampleUtilities.ConvertToBgra(sample);
-                    if (image != null)
+                    var bmp2 = AVFSampleUtilities.ConvertToBgra(sample);
+                    if (bmp2 != null)
+                    {
+                        image = Ref<Bitmap>.Create(bmp2);
                         return true;
+                    }
                 }
 
                 sample = ReadSample();

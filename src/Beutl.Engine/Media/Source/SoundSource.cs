@@ -45,7 +45,7 @@ public sealed class SoundSource : MediaSource
 
         public MediaReader? MediaReader => _counter?.Value;
 
-        public bool Read(int start, int length, [NotNullWhen(true)] out IPcm? sound)
+        public bool Read(int start, int length, [NotNullWhen(true)] out Ref<IPcm>? sound)
         {
             if (IsDisposed || _counter == null)
             {
@@ -56,7 +56,7 @@ public sealed class SoundSource : MediaSource
             return _counter.Value.ReadAudio(start, length, out sound);
         }
 
-        public bool Read(TimeSpan start, TimeSpan length, [NotNullWhen(true)] out IPcm? sound)
+        public bool Read(TimeSpan start, TimeSpan length, [NotNullWhen(true)] out Ref<IPcm>? sound)
         {
             if (IsDisposed || _counter == null)
             {
@@ -67,7 +67,7 @@ public sealed class SoundSource : MediaSource
             return _counter.Value.ReadAudio(ToSamples(start), ToSamples(length), out sound);
         }
 
-        public bool Read(TimeSpan start, int length, [NotNullWhen(true)] out IPcm? sound)
+        public bool Read(TimeSpan start, int length, [NotNullWhen(true)] out Ref<IPcm>? sound)
         {
             if (IsDisposed || _counter == null)
             {
@@ -78,7 +78,7 @@ public sealed class SoundSource : MediaSource
             return _counter.Value.ReadAudio(ToSamples(start), length, out sound);
         }
 
-        public bool Read(int start, TimeSpan length, [NotNullWhen(true)] out IPcm? sound)
+        public bool Read(int start, TimeSpan length, [NotNullWhen(true)] out Ref<IPcm>? sound)
         {
             if (IsDisposed || _counter == null)
             {

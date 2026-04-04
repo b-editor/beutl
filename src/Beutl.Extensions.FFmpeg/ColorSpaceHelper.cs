@@ -1,8 +1,8 @@
 ﻿using Beutl.Media;
 using FFmpeg.AutoGen.Abstractions;
 
-#if FFMPEG_BUILD_IN
-namespace Beutl.Embedding.FFmpeg;
+#if BEUTL_FFMPEG_WORKER
+namespace Beutl.FFmpegWorker;
 #else
 namespace Beutl.Extensions.FFmpeg;
 #endif

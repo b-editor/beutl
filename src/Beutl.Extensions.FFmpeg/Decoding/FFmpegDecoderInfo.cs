@@ -1,13 +1,17 @@
-﻿using Beutl.Media.Decoding;
-
-#if FFMPEG_BUILD_IN
-namespace Beutl.Embedding.FFmpeg.Decoding;
-#else
-namespace Beutl.Extensions.FFmpeg.Decoding;
+﻿#if FFMPEG_OUT_OF_PROCESS
+using Beutl.FFmpegIpc.Protocol;
+using Beutl.FFmpegIpc.Protocol.Messages;
 #endif
+using Beutl.Logging;
+using Beutl.Media.Decoding;
+using Microsoft.Extensions.Logging;
+
+namespace Beutl.Extensions.FFmpeg.Decoding;
 
 public sealed class FFmpegDecoderInfo(FFmpegDecodingSettings settings) : IDecoderInfo
 {
+    private readonly ILogger _logger = Log.CreateLogger<FFmpegDecoderInfo>();
+
     public string Name => "FFmpeg Decoder";
 
     public IEnumerable<string> AudioExtensions()
@@ -26,10 +30,30 @@ public sealed class FFmpegDecoderInfo(FFmpegDecodingSettings settings) : IDecode
     {
         try
         {
+#if FFMPEG_OUT_OF_PROCESS
+            var worker = FFmpegWorkerProcess.DecodingInstance;
+            var connection = worker.EnsureStarted();
+
+            var request = new OpenFileRequest
+            {
+                FilePath = file,
+                StreamsToLoad = (int)options.StreamsToLoad,
+                ThreadCount = settings.ThreadCount,
+                Acceleration = (int)settings.Acceleration,
+                ForceSrgbGamma = settings.ForceSrgbGamma,
+            };
+
+            var response = connection.RequestAsync<OpenFileRequest, OpenFileResponse>(
+                MessageType.OpenFile, MessageType.OpenFileResult, request).GetAwaiter().GetResult();
+
+            return new FFmpegReaderProxy(connection, response.ReaderId, response);
+#else
             return new FFmpegReader(file, options, settings);
+#endif
         }
-        catch
+        catch (Exception ex)
         {
+            _logger.LogError(ex, "Failed to open media file '{File}'", file);
             return null;
         }
     }

@@ -1,0 +1,56 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <DefineConstants>$(DefineConstants);BEUTL_FFMPEG_WORKER;FFMPEG_BUILD_IN</DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Remove="$(MSBuildThisFileDirectory)\..\ArtifactProvider.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="FFmpeg.AutoGen.Bindings.DynamicallyLoaded" />
+    <PackageReference Include="FFmpeg4Sharp" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Beutl.Core\Beutl.Core.csproj" />
+    <ProjectReference Include="..\..\src\Beutl.Engine\Beutl.Engine.csproj" />
+    <ProjectReference Include="..\..\src\Beutl.Extensibility\Beutl.Extensibility.csproj" />
+    <ProjectReference Include="..\..\src\Beutl.FFmpegIpc\Beutl.FFmpegIpc.csproj" />
+  </ItemGroup>
+
+  <!-- FFmpegReader (直接呼び出し) 用のソースファイルをリンク -->
+  <ItemGroup>
+    <Compile Include="..\..\src\Beutl.Extensions.FFmpeg\Decoding\FFmpegReader.cs" Link="Linked\FFmpegReader.cs" />
+    <Compile Include="..\..\src\Beutl.Extensions.FFmpeg\Decoding\FFmpegDecodingSettings.cs" Link="Linked\FFmpegDecodingSettings.cs" />
+    <Compile Include="..\..\src\Beutl.Extensions.FFmpeg\ColorSpaceHelper.cs" Link="Linked\ColorSpaceHelper.cs" />
+    <Compile Include="..\..\src\Beutl.Extensions.FFmpeg\FFmpegError.cs" Link="Linked\FFmpegError.cs" />
+  </ItemGroup>
+
+  <!-- FFmpegReaderProxy (IPC経由) 用のソースファイルをリンク -->
+  <ItemGroup>
+    <Compile Include="..\..\src\Beutl.Extensions.FFmpeg\Decoding\FFmpegReaderProxy.cs" Link="Linked\FFmpegReaderProxy.cs" />
+    <Compile Include="..\..\src\Beutl.Extensions.FFmpeg\FFmpegWorkerProcess.cs" Link="Linked\FFmpegWorkerProcess.cs" />
+  </ItemGroup>
+
+  <!-- Worker側のFFmpegローダーをリンク -->
+  <ItemGroup>
+    <Compile Include="..\..\src\Beutl.FFmpegWorker\FFmpegLoaderWorker.cs" Link="Linked\FFmpegLoaderWorker.cs" />
+  </ItemGroup>
+
+  <!-- IPC テスト用: ビルド済みワーカーとその依存DLLを出力ディレクトリにコピー -->
+  <Target Name="CopyWorkerBinary" AfterTargets="Build">
+    <PropertyGroup>
+      <WorkerOutputDir>..\..\src\Beutl.FFmpegWorker\bin\$(Configuration)\$(TargetFramework)\</WorkerOutputDir>
+    </PropertyGroup>
+    <ItemGroup>
+      <WorkerFiles Include="$(WorkerOutputDir)**\*" Exclude="$(WorkerOutputDir)**\*.dev.runtimeconfig.json" />
+    </ItemGroup>
+    <Copy SourceFiles="@(WorkerFiles)" DestinationFiles="@(WorkerFiles->'$(OutputPath)%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
+  </Target>
+
+</Project>

@@ -93,6 +93,7 @@ class Build : NukeBuild
                 "Beutl.ExceptionHandler",
                 "Beutl.PackageTools.UI",
                 "Beutl.WaitingDialog",
+                "Beutl.FFmpegWorker",
             ];
             foreach (string item in subProjects)
             {
@@ -150,6 +151,7 @@ class Build : NukeBuild
                 .SetKeyValueDefinition("MyAppVersion", AssemblyVersion)
                 .SetKeyValueDefinition("MyOutputDir", ArtifactsDirectory)
                 .SetKeyValueDefinition("MyLicenseFile", RootDirectory / "LICENSE")
+                .SetKeyValueDefinition("MyGPLLicenseFile", RootDirectory / "LICENSE.GPL")
                 .SetKeyValueDefinition("MySetupIconFile", RootDirectory / "assets/logos/logo.ico")
                 .SetKeyValueDefinition("MySource", OutputDirectory / "Beutl")
                 .SetKeyValueDefinition("MyOutputBaseFilename", $"beutl{(SelfContained ? "-standalone" : "")}-setup")

@@ -5,12 +5,14 @@
     <RuntimeIdentifiers>win-x64;linux-x64;osx-x64;osx-arm64</RuntimeIdentifiers>
     <FFmpegBuildIn Condition="'$(FFmpegBuildIn)' == ''">True</FFmpegBuildIn>
     <MFBuildIn Condition="'$(MFBuildIn)' == '' And $(TargetFramework.Contains('windows'))">True</MFBuildIn>
+    <FFmpegOutOfProcess Condition="'$(FFmpegOutOfProcess)' == ''">True</FFmpegOutOfProcess>
     <DefineConstants Condition="'$(FFmpegBuildIn)'=='True'">$(DefineConstants);FFMPEG_BUILD_IN</DefineConstants>
     <DefineConstants Condition="'$(MFBuildIn)'=='True'">$(DefineConstants);MF_BUILD_IN</DefineConstants>
+    <DefineConstants Condition="'$(FFmpegOutOfProcess)'=='True'">$(DefineConstants);FFMPEG_OUT_OF_PROCESS</DefineConstants>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>..\Beutl.Controls\Assets\logo.ico</ApplicationIcon>
   </PropertyGroup>
-  
+
   <PropertyGroup Condition="$(TargetFramework.Contains('windows'))">
     <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
     <UseWindowsForms>true</UseWindowsForms>
@@ -94,6 +96,10 @@
 
   <ItemGroup Condition="'$(FFmpegBuildIn)'=='True'">
     <ProjectReference Include="..\Beutl.Extensions.FFmpeg\Beutl.Extensions.FFmpeg.csproj" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(FFmpegOutOfProcess)'=='True' And '$(NukePublish)'!='True'">
+    <ProjectReference Include="..\Beutl.FFmpegWorker\Beutl.FFmpegWorker.csproj" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(MFBuildIn)'=='True'">

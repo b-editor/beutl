@@ -4,6 +4,7 @@ using System.Runtime.InteropServices;
 using Beutl.Media.Decoding;
 using Beutl.Media.Music;
 using Beutl.Media.Music.Samples;
+using Beutl.Media.Source;
 
 using NAudio.Wave;
 
@@ -36,7 +37,7 @@ public sealed class WaveReader : MediaReader
 
     public override bool HasAudio => true;
 
-    public override bool ReadAudio(int start, int length, [NotNullWhen(true)] out IPcm? sound)
+    public override bool ReadAudio(int start, int length, [NotNullWhen(true)] out Ref<IPcm>? sound)
     {
         sound = null;
         if (IsDisposed)
@@ -52,7 +53,7 @@ public sealed class WaveReader : MediaReader
         {
             buffer.CopyTo(MemoryMarshal.Cast<Stereo32BitFloat, float>(tmp.DataSpan));
 
-            sound = tmp;
+            sound = Ref<IPcm>.Create(tmp);
             return true;
         }
         else
@@ -61,7 +62,7 @@ public sealed class WaveReader : MediaReader
         }
     }
 
-    public override bool ReadVideo(int frame, [NotNullWhen(true)] out Bitmap? image)
+    public override bool ReadVideo(int frame, [NotNullWhen(true)] out Ref<Bitmap>? image)
     {
         image = null;
         return false;

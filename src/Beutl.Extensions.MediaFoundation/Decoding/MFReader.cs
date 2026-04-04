@@ -7,6 +7,7 @@ using Beutl.Media.Decoding;
 using Beutl.Media.Music;
 using Beutl.Media.Music.Samples;
 using Beutl.Media.Pixel;
+using Beutl.Media.Source;
 
 using NAudio.Wave;
 
@@ -80,7 +81,7 @@ public class MFReader : MediaReader
 
     public override bool HasAudio { get; }
 
-    public override unsafe bool ReadVideo(int frame, [NotNullWhen(true)] out Bitmap? image)
+    public override unsafe bool ReadVideo(int frame, [NotNullWhen(true)] out Ref<Bitmap>? image)
     {
         if (MFThread.Dispatcher.CheckAccess())
         {
@@ -92,9 +93,9 @@ public class MFReader : MediaReader
             if (!HasVideo || _decoder == null || IsDisposed)
                 return false;
 
-            (bool result, Bitmap? image1) = MFThread.Dispatcher.Invoke(() =>
+            (bool result, Ref<Bitmap>? image1) = MFThread.Dispatcher.Invoke(() =>
             {
-                bool ret = ReadVideoCore(frame, out Bitmap? image1);
+                bool ret = ReadVideoCore(frame, out Ref<Bitmap>? image1);
                 return (ret, image1);
             });
             image = image1!;
@@ -102,7 +103,7 @@ public class MFReader : MediaReader
         }
     }
 
-    private unsafe bool ReadVideoCore(int frame, [NotNullWhen(true)] out Bitmap? image)
+    private unsafe bool ReadVideoCore(int frame, [NotNullWhen(true)] out Ref<Bitmap>? image)
     {
         image = null;
         if (!HasVideo || _decoder == null || IsDisposed)
@@ -131,7 +132,7 @@ public class MFReader : MediaReader
                     YuvConversion.Yuy2ToBgra(srcPtr, (byte*)result.Data, result.RowBytes, w, h);
                 }
 
-                image = result;
+                image = Ref<Bitmap>.Create(result);
                 return true;
             }
             else
@@ -145,7 +146,7 @@ public class MFReader : MediaReader
         }
     }
 
-    public override bool ReadAudio(int start, int length, [NotNullWhen(true)] out IPcm? sound)
+    public override bool ReadAudio(int start, int length, [NotNullWhen(true)] out Ref<IPcm>? sound)
     {
         if (MFThread.Dispatcher.CheckAccess())
         {
@@ -157,9 +158,9 @@ public class MFReader : MediaReader
             if (IsDisposed || _audioReader == null || _waveFormat == null || _provider == null)
                 return false;
 
-            (bool result, IPcm? sound1) = MFThread.Dispatcher.Invoke(() =>
+            (bool result, Ref<IPcm>? sound1) = MFThread.Dispatcher.Invoke(() =>
             {
-                bool ret = ReadAudioCore(start, length, out IPcm? sound1);
+                bool ret = ReadAudioCore(start, length, out Ref<IPcm>? sound1);
                 return (ret, sound1);
             });
             sound = sound1!;
@@ -167,7 +168,7 @@ public class MFReader : MediaReader
         }
     }
 
-    private bool ReadAudioCore(int start, int length, [NotNullWhen(true)] out IPcm? sound)
+    private bool ReadAudioCore(int start, int length, [NotNullWhen(true)] out Ref<IPcm>? sound)
     {
         sound = null;
         if (IsDisposed || _audioReader == null || _waveFormat == null || _provider == null)
@@ -182,7 +183,7 @@ public class MFReader : MediaReader
         {
             buffer.CopyTo(MemoryMarshal.Cast<Stereo32BitFloat, float>(tmp.DataSpan));
 
-            sound = tmp;
+            sound = Ref<IPcm>.Create(tmp);
             return true;
         }
         else

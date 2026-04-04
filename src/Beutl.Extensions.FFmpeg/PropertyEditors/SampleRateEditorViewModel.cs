@@ -4,19 +4,18 @@ using Avalonia;
 using Avalonia.Interactivity;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Extensibility;
+#if FFMPEG_OUT_OF_PROCESS
+using Beutl.FFmpegIpc.Protocol;
+using Beutl.FFmpegIpc.Protocol.Messages;
+#else
+using FFmpegSharp;
+#endif
 using Beutl.PropertyAdapters;
 using Beutl.Reactive;
-using FFmpegSharp;
 using Reactive.Bindings;
-
-#if FFMPEG_BUILD_IN
-using Beutl.Embedding.FFmpeg.Encoding;
-
-namespace Beutl.Embedding.FFmpeg.PropertyEditors;
-#else
 using Beutl.Extensions.FFmpeg.Encoding;
+
 namespace Beutl.Extensions.FFmpeg.PropertyEditors;
-#endif
 
 internal sealed class SampleRateEditorViewModel : IPropertyEditorContext
 {
@@ -89,9 +88,7 @@ internal sealed class SampleRateEditorViewModel : IPropertyEditorContext
     {
         try
         {
-            int[] supportedRates = _settings != null
-                ? GetCodecSampleRates(_settings)
-                : [];
+            int[] supportedRates = GetCodecSampleRates(_settings);
 
             _currentSuggestions = supportedRates
                 .Select(r => r.ToString())
@@ -115,26 +112,45 @@ internal sealed class SampleRateEditorViewModel : IPropertyEditorContext
         }
     }
 
-    private static int[] GetCodecSampleRates(FFmpegAudioEncoderSettings settings)
+    private static int[] GetCodecSampleRates(FFmpegAudioEncoderSettings? settings)
     {
-        MediaCodec codec;
-        if (settings.Codec.Equals(CodecRecord.Default))
+        if (settings == null) return [];
+
+        try
         {
-            string? outputFile = settings.OutputFile;
-            if (string.IsNullOrEmpty(outputFile))
+#if FFMPEG_OUT_OF_PROCESS
+            var connection = FFmpegWorkerProcess.DecodingInstance.EnsureStartedAsync().GetAwaiter().GetResult();
+            var response = connection.RequestAsync<QuerySampleRatesRequest, QuerySampleRatesResponse>(
+                MessageType.QuerySampleRates, MessageType.QuerySampleRatesResult,
+                new QuerySampleRatesRequest
+                {
+                    CodecName = settings.Codec.Equals(CodecRecord.Default) ? null : settings.Codec.Name,
+                    OutputFile = settings.OutputFile
+                }).AsTask().GetAwaiter().GetResult();
+            return response.SampleRates;
+#else
+            MediaCodec codec;
+            if (settings.Codec.Equals(CodecRecord.Default))
             {
-                return [];
+                string? outputFile = settings.OutputFile;
+                if (string.IsNullOrEmpty(outputFile))
+                    return [];
+
+                var outFormat = OutputFormat.GuessFormat(null, outputFile, null);
+                codec = MediaCodec.FindEncoder(outFormat.AudioCodec);
+            }
+            else
+            {
+                codec = MediaCodec.FindEncoder(settings.Codec.Name);
             }
 
-            var outFormat = OutputFormat.GuessFormat(null, outputFile, null);
-            codec = MediaCodec.FindEncoder(outFormat.AudioCodec);
+            return codec.GetSupportedSamplerates().ToArray();
+#endif
         }
-        else
+        catch
         {
-            codec = MediaCodec.FindEncoder(settings.Codec.Name);
+            return [];
         }
-
-        return codec.GetSupportedSamplerates().ToArray();
     }
 
     private void OnValueConfirmed(object? sender, PropertyEditorValueChangedEventArgs e)

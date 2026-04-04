@@ -22,10 +22,11 @@ public sealed class SourceNode : AudioNode
         var length = (int)Math.Ceiling(context.TimeRange.Duration.TotalSeconds * resource.SampleRate);
 
         // Read PCM data from source
-        if (resource.Read(start, length, out var pcm))
+        if (resource.Read(start, length, out var pcmRef))
         {
-            using (pcm)
+            using (pcmRef)
             {
+                var pcm = pcmRef.Value;
                 // Convert to stereo float if needed
                 if (pcm is Pcm<Stereo32BitFloat> stereoPcm)
                 {
