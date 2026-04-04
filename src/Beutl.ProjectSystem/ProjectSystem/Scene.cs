@@ -637,9 +637,9 @@ public class Scene : ProjectItem, INotifyEdited
             element.ZIndex = _zIndex;
             scene.Children.Add(element);
 
-            if (_adjustSceneDuration && scene.Duration < _range.End)
+            if (_adjustSceneDuration && scene.Duration + scene.Start < _range.End)
             {
-                scene.Duration = _range.End;
+                scene.Duration = _range.End - scene.Start;
             }
         }
     }
@@ -739,9 +739,9 @@ public class Scene : ProjectItem, INotifyEdited
             }
 
             TimeRange range = element.Range;
-            if (_adjustSceneDuration && scene.Duration < range.End)
+            if (_adjustSceneDuration && scene.Duration + scene.Start < range.End)
             {
-                scene.Duration = range.End;
+                scene.Duration = range.End - scene.Start;
             }
         }
 
@@ -804,9 +804,9 @@ public class Scene : ProjectItem, INotifyEdited
                 _oldSceneDuration = _newSceneDuration = scene.Duration;
 
                 TimeSpan maxEndingTime = elements.Max(i => i.Range.End + _deltaTime);
-                if (_oldSceneDuration < maxEndingTime)
+                if (_oldSceneDuration + scene.Start < maxEndingTime)
                 {
-                    _newSceneDuration = maxEndingTime;
+                    _newSceneDuration = maxEndingTime - scene.Start;
                 }
             }
         }
