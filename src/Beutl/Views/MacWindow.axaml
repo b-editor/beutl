@@ -13,6 +13,7 @@
         d:DesignHeight="720"
         d:DesignWidth="1280"
         x:DataType="vm:MainViewModel"
+        Background="{DynamicResource MainWindowBackground}"
         Icon="avares://Beutl.Controls/Assets/logo.png"
         mc:Ignorable="d">
     <NativeMenu.Menu>

@@ -1,11 +1,11 @@
 <Styles xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:b="using:Beutl.Controls.Behaviors"
-        xmlns:ui="using:FluentAvalonia.UI.Controls"
         xmlns:i="using:Avalonia.Xaml.Interactivity"
         xmlns:lang="using:Beutl.Language"
         xmlns:local="using:Beutl.Controls"
-        xmlns:sys="clr-namespace:System;assembly=mscorlib">
+        xmlns:sys="clr-namespace:System;assembly=mscorlib"
+        xmlns:ui="using:FluentAvalonia.UI.Controls">
 
     <Styles.Resources>
         <ResourceDictionary>
@@ -61,15 +61,17 @@
                 <ResourceInclude Source="/Styling/PropertyEditors/ReferenceEditor.axaml" />
                 <ResourceInclude Source="/ColorPicker/ColorPickerStyles.axaml" />
                 <ResourceInclude Source="/ColorPicker/ColorPickerButtonStyles.axaml" />
+                <ResourceInclude Source="/Styling/Dock/DockFluent.axaml" />
             </ResourceDictionary.MergedDictionaries>
             <ResourceDictionary.ThemeDictionaries>
                 <ResourceDictionary x:Key="Default">
-                    <SolidColorBrush x:Key="MainViewBackground" Color="Transparent" />
-                    <SolidColorBrush x:Key="MacMainViewBackground" Color="Transparent" />
+                    <StaticResource x:Key="MainWindowBackground" ResourceKey="ApplicationPageBackgroundThemeBrush" />
                 </ResourceDictionary>
                 <ResourceDictionary x:Key="Dark">
-                    <SolidColorBrush x:Key="MainViewBackground" Color="#4D000000" />
-                    <SolidColorBrush x:Key="MacMainViewBackground" Color="#FF111111" />
+                    <ResourceDictionary.MergedDictionaries>
+                        <ResourceInclude Source="/Styling/BeutlDarkColors.axaml" />
+                    </ResourceDictionary.MergedDictionaries>
+                    <SolidColorBrush x:Key="MainWindowBackground" Color="#FF111111" />
                 </ResourceDictionary>
             </ResourceDictionary.ThemeDictionaries>
 

@@ -1,17 +1,13 @@
-﻿using System.Text.Json.Nodes;
+using System.Text.Json.Nodes;
 using Beutl.Api.Services;
 using Beutl.Editor.Components.ElementPropertyTab;
 using Beutl.Editor.Components.FileBrowserTab;
 using Beutl.Editor.Components.LibraryTab;
 using Beutl.Logging;
 using Beutl.Services.PrimitiveImpls;
+using Beutl.ViewModels.Dock;
+using Dock.Model.Controls;
 using Microsoft.Extensions.Logging;
-using Nito.Disposables;
-using Reactive.Bindings;
-using Reactive.Bindings.Extensions;
-using ListAndPlacement =
-    (Reactive.Bindings.ReactiveCollection<Beutl.ViewModels.ToolTabViewModel> List,
-    Beutl.Extensibility.ToolTabExtension.TabPlacement Placement);
 
 namespace Beutl.ViewModels;
 
@@ -20,159 +16,29 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
     private readonly string _sceneId;
     private readonly EditViewModel _editViewModel;
     private readonly ILogger _logger = Log.CreateLogger<DockHostViewModel>();
-    private readonly CompositeDisposable _disposables = [];
 
     public DockHostViewModel(string sceneId, EditViewModel editViewModel)
     {
         _sceneId = sceneId;
         _editViewModel = editViewModel;
-
-        void ConfigureToolsList(ReactiveCollection<ToolTabViewModel> list,
-            ReactiveProperty<ToolTabViewModel?> selected)
-        {
-            var disposables = new List<(ToolTabViewModel, IDisposable)>();
-
-            selected.Subscribe(x =>
-                    list.ToObservable()
-                        .Where(y => y != x && y.Context.DisplayMode.Value == ToolTabExtension.TabDisplayMode.Docked)
-                        .Subscribe(y => y.Context.IsSelected.Value = false))
-                .DisposeWith(_disposables);
-
-            list.ObserveAddChanged()
-                .Subscribe(x =>
-                {
-                    var disposable = x.Context.IsSelected.Subscribe(w =>
-                    {
-                        if (w && x.Context.DisplayMode.Value == ToolTabExtension.TabDisplayMode.Docked)
-                        {
-                            selected.Value = x;
-                        }
-                        else
-                        {
-                            selected.Value = list.FirstOrDefault(xx =>
-                                xx.Context.IsSelected.Value && xx.Context.DisplayMode.Value ==
-                                ToolTabExtension.TabDisplayMode.Docked);
-                        }
-                    });
-                    disposables.Add((x, disposable));
-                })
-                .DisposeWith(_disposables);
-
-            list.ObserveRemoveChanged()
-                .Subscribe(i =>
-                {
-                    int index = disposables.FindIndex(x => x.Item1 == i);
-                    if (0 > index) return;
-
-                    disposables[index].Item2.Dispose();
-                    disposables.RemoveAt(index);
-                })
-                .DisposeWith(_disposables);
-
-            _disposables.Add(new AnonymousDisposable(() =>
-                disposables.ForEach(x => x.Item2.Dispose())));
-        }
-
-        ConfigureToolsList(LeftUpperTopTools, SelectedLeftUpperTopTool);
-        ConfigureToolsList(LeftUpperBottomTools, SelectedLeftUpperBottomTool);
-        ConfigureToolsList(LeftLowerTopTools, SelectedLeftLowerTopTool);
-        ConfigureToolsList(LeftLowerBottomTools, SelectedLeftLowerBottomTool);
-        ConfigureToolsList(RightUpperTopTools, SelectedRightUpperTopTool);
-        ConfigureToolsList(RightUpperBottomTools, SelectedRightUpperBottomTool);
-        ConfigureToolsList(RightLowerTopTools, SelectedRightLowerTopTool);
-        ConfigureToolsList(RightLowerBottomTools, SelectedRightLowerBottomTool);
+        Factory = new BeutlDockFactory(editViewModel);
+        Layout = Factory.CreateLayout();
+        Factory.InitLayout(Layout);
     }
 
-    public ReactiveCollection<ToolTabViewModel> LeftUpperTopTools { get; } = [];
+    public BeutlDockFactory Factory { get; }
 
-    public ReactiveProperty<ToolTabViewModel?> SelectedLeftUpperTopTool { get; } = new();
+    public IRootDock Layout { get; private set; }
 
-    public ReactiveCollection<ToolTabViewModel> LeftUpperBottomTools { get; } = [];
-
-    public ReactiveProperty<ToolTabViewModel?> SelectedLeftUpperBottomTool { get; } = new();
-
-    public ReactiveCollection<ToolTabViewModel> LeftLowerTopTools { get; } = [];
-
-    public ReactiveProperty<ToolTabViewModel?> SelectedLeftLowerTopTool { get; } = new();
-
-    public ReactiveCollection<ToolTabViewModel> LeftLowerBottomTools { get; } = [];
-
-    public ReactiveProperty<ToolTabViewModel?> SelectedLeftLowerBottomTool { get; } = new();
-
-    public ReactiveCollection<ToolTabViewModel> RightUpperTopTools { get; } = [];
-
-    public ReactiveProperty<ToolTabViewModel?> SelectedRightUpperTopTool { get; } = new();
-
-    public ReactiveCollection<ToolTabViewModel> RightUpperBottomTools { get; } = [];
-
-    public ReactiveProperty<ToolTabViewModel?> SelectedRightUpperBottomTool { get; } = new();
-
-    public ReactiveCollection<ToolTabViewModel> RightLowerTopTools { get; } = [];
-
-    public ReactiveProperty<ToolTabViewModel?> SelectedRightLowerTopTool { get; } = new();
-
-    public ReactiveCollection<ToolTabViewModel> RightLowerBottomTools { get; } = [];
-
-    public ReactiveProperty<ToolTabViewModel?> SelectedRightLowerBottomTool { get; } = new();
-
-    public ReDockSizeProportionViewModel LeftRightProportion { get; } = new();
-
-    public ReDockSizeProportionViewModel TopLeftRightProportion { get; } = new();
-
-    public SplittedViewSizeProportionViewModel LeftTopBottomProportion { get; } = new();
-
-    public SplittedViewSizeProportionViewModel CenterTopBottomProportion { get; } = new();
-
-    public SplittedViewSizeProportionViewModel RightTopBottomProportion { get; } = new();
-
-    public SplittedViewSizeProportionViewModel BottomLeftRightProportion { get; } = new();
-
-    public ReactiveCollection<ToolTabViewModel>[] GetNestedTools()
+    public T? FindToolTab<T>(Func<T, bool> condition) where T : IToolContext
     {
-        return
-        [
-            LeftUpperTopTools,
-            LeftUpperBottomTools,
-            LeftLowerTopTools,
-            LeftLowerBottomTools,
-            RightUpperTopTools,
-            RightUpperBottomTools,
-            RightLowerTopTools,
-            RightLowerBottomTools
-        ];
-    }
-
-    public ListAndPlacement[] GetNestedToolsWithPlacement()
-    {
-        return
-        [
-            (LeftUpperTopTools, ToolTabExtension.TabPlacement.LeftUpperTop),
-            (LeftUpperBottomTools, ToolTabExtension.TabPlacement.LeftUpperBottom),
-            (LeftLowerTopTools, ToolTabExtension.TabPlacement.LeftLowerTop),
-            (LeftLowerBottomTools, ToolTabExtension.TabPlacement.LeftLowerBottom),
-            (RightUpperTopTools, ToolTabExtension.TabPlacement.RightUpperTop),
-            (RightUpperBottomTools, ToolTabExtension.TabPlacement.RightUpperBottom),
-            (RightLowerTopTools, ToolTabExtension.TabPlacement.RightLowerTop),
-            (RightLowerBottomTools, ToolTabExtension.TabPlacement.RightLowerBottom)
-        ];
-    }
-
-    public IEnumerable<ToolTabViewModel> GetAllTools()
-    {
-        return GetNestedTools().SelectMany(i => i);
-    }
-
-    public T? FindToolTab<T>(Func<T, bool> condition)
-        where T : IToolContext
-    {
-        return GetAllTools()
-            .Select(i => i.Context)
+        return Factory.EnumerateTools()
+            .Select(t => t.ToolContext)
             .OfType<T>()
             .FirstOrDefault(condition);
     }
 
-    public T? FindToolTab<T>()
-        where T : IToolContext
+    public T? FindToolTab<T>() where T : IToolContext
     {
         return FindToolTab<T>(_ => true);
     }
@@ -182,36 +48,29 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
         _logger.LogInformation("Attempting to open tool tab '{ToolTabName}' ({SceneId})", item.Extension.Name, _sceneId);
         try
         {
-            var tools = GetAllTools();
-            // ReSharper disable PossibleMultipleEnumeration
-            if (tools.Any(x => x.Context == item))
+            var existing = Factory.EnumerateTools().FirstOrDefault(t => t.ToolContext == item);
+            if (existing is not null)
             {
                 item.IsSelected.Value = true;
-                _logger.LogInformation("Tool tab '{ToolTabName}' is already open. ({SceneId})", item.Extension.Name, _sceneId);
+                Factory.SetActiveDockable(existing);
                 return true;
             }
-            else if (!item.Extension.CanMultiple
-                     && tools.Any(x => x.Context.Extension == item.Extension))
+
+            if (!item.Extension.CanMultiple &&
+                Factory.EnumerateTools().Any(t => t.ToolContext.Extension == item.Extension))
             {
                 _logger.LogWarning("Tool tab '{ToolTabName}' cannot be opened multiple times. ({SceneId})", item.Extension.Name, _sceneId);
                 return false;
             }
-            else
-            {
-                var list = GetNestedToolsWithPlacement()
-                    .FirstOrDefault(i => i.Placement == item.Placement.Value)
-                    .List;
-                if (list == null)
-                {
-                    _logger.LogWarning("Invalid placement for tool tab '{ToolTabName}'. ({Placement}, {SceneId})", item.Extension.Name, item.Placement.Value, _sceneId);
-                    return false;
-                }
 
-                item.IsSelected.Value = true;
-                list.Add(new ToolTabViewModel(item, _editViewModel));
-                _logger.LogInformation("Tool tab '{ToolTabName}' opened successfully. ({SceneId})", item.Extension.Name, _sceneId);
-                return true;
+            var dockable = Factory.AddTool(item);
+            if (dockable is null)
+            {
+                _logger.LogWarning("No dock zone found for tool '{ToolTabName}'. ({SceneId})", item.Extension.Name, _sceneId);
+                return false;
             }
+            _logger.LogInformation("Tool tab '{ToolTabName}' opened successfully. ({SceneId})", item.Extension.Name, _sceneId);
+            return true;
         }
         catch (Exception ex)
         {
@@ -225,157 +84,17 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
         _logger.LogInformation("Attempting to close tool tab '{ToolName}' ({SceneId})", item.Extension.Name, _sceneId);
         try
         {
-            item.IsSelected.Value = false;
-            foreach (ReactiveCollection<ToolTabViewModel> tools in GetNestedTools())
+            var dockable = Factory.EnumerateTools().FirstOrDefault(t => t.ToolContext == item);
+            if (dockable is null)
             {
-                if (tools.FirstOrDefault(x => x.Context == item) is { } found)
-                {
-                    int index = tools.IndexOf(found);
-                    tools.Remove(found);
-                    index = Math.Min(index, tools.Count - 1);
-                    if (0 <= index && index < tools.Count)
-                    {
-                        tools[index].Context.IsSelected.Value = true;
-                    }
-
-                    break;
-                }
+                item.Dispose();
+                return;
             }
-
-            item.Dispose();
-            _logger.LogInformation("Tool tab '{ToolName}' closed successfully. ({SceneId})", item.Extension.Name, _sceneId);
+            Factory.CloseDockable(dockable);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to close tool tab '{ToolName}'. ({SceneId})", item.Extension.Name, _sceneId);
-        }
-    }
-
-    public void Dispose()
-    {
-        _logger.LogInformation("Disposing DockHostViewModel ({SceneId})", _sceneId);
-        foreach (var tools in GetNestedTools())
-        {
-            foreach (ToolTabViewModel item in tools)
-            {
-                item.Dispose();
-            }
-
-            tools.Clear();
-        }
-
-        _disposables.Dispose();
-        _logger.LogInformation("DockHostViewModel disposed successfully ({SceneId})", _sceneId);
-    }
-
-    public void WriteToJson(JsonObject json)
-    {
-        _logger.LogInformation("Writing DockHostViewModel to JSON ({SceneId})", _sceneId);
-        foreach (var (list, placement) in GetNestedToolsWithPlacement())
-        {
-            var jsonObject = new JsonObject();
-            var jsonArray = new JsonArray();
-            int selectedIndex = 0;
-
-            foreach (ToolTabViewModel? item in list)
-            {
-                var itemJson = new JsonObject();
-                item.Context.WriteToJson(itemJson);
-
-                itemJson.WriteDiscriminator(item.Context.Extension.GetType());
-                jsonArray.Add(itemJson);
-
-                if (item.Context.IsSelected.Value &&
-                    item.Context.DisplayMode.Value == ToolTabExtension.TabDisplayMode.Docked)
-                {
-                    jsonObject["SelectedIndex"] = selectedIndex;
-                }
-                else
-                {
-                    selectedIndex++;
-                }
-            }
-
-            jsonObject["Items"] = jsonArray;
-            json[placement.ToString()] = jsonObject;
-        }
-
-        json[nameof(LeftRightProportion)] = CreateJson(LeftRightProportion);
-        json[nameof(TopLeftRightProportion)] = CreateJson(TopLeftRightProportion);
-        json[nameof(LeftTopBottomProportion)] = CreateJson(LeftTopBottomProportion);
-        json[nameof(CenterTopBottomProportion)] = CreateJson(CenterTopBottomProportion);
-        json[nameof(RightTopBottomProportion)] = CreateJson(RightTopBottomProportion);
-        json[nameof(BottomLeftRightProportion)] = CreateJson(BottomLeftRightProportion);
-        _logger.LogInformation("DockHostViewModel written to JSON successfully ({SceneId})", _sceneId);
-        return;
-
-        static JsonObject CreateJson(IJsonSerializable serializable)
-        {
-            var obj = new JsonObject();
-            serializable.WriteToJson(obj);
-            return obj;
-        }
-    }
-
-    public void ReadFromJson(JsonObject json)
-    {
-        _logger.LogInformation("Reading DockHostViewModel from JSON ({SceneId})", _sceneId);
-        foreach (var (list, placement) in GetNestedToolsWithPlacement())
-        {
-            if (!json.TryGetPropertyValue(placement.ToString(), out JsonNode? node)) continue;
-            if (node is not JsonObject tabObject) continue;
-            if (!tabObject.TryGetPropertyValue("Items", out JsonNode? itemsNode)) continue;
-            if (itemsNode is not JsonArray listItems) continue;
-
-            RestoreTabItems(listItems, list);
-
-            if (tabObject.TryGetPropertyValueAsJsonValue("SelectedIndex", out int index)
-                && 0 <= index && index < list.Count)
-            {
-                list[index].Context.IsSelected.Value = true;
-            }
-        }
-
-        RestoreProportion(LeftRightProportion, nameof(LeftRightProportion));
-        RestoreProportion(TopLeftRightProportion, nameof(TopLeftRightProportion));
-        RestoreProportion(LeftTopBottomProportion, nameof(LeftTopBottomProportion));
-        RestoreProportion(CenterTopBottomProportion, nameof(CenterTopBottomProportion));
-        RestoreProportion(RightTopBottomProportion, nameof(RightTopBottomProportion));
-        RestoreProportion(BottomLeftRightProportion, nameof(BottomLeftRightProportion));
-
-        // 何もタブを開いていない場合、デフォルトのタブを開く
-        if (!GetAllTools().Any())
-        {
-            OpenDefaultTabs();
-        }
-
-        _logger.LogInformation("DockHostViewModel read from JSON successfully ({SceneId})", _sceneId);
-        return;
-
-        void RestoreTabItems(JsonArray source, ReactiveCollection<ToolTabViewModel> destination)
-        {
-            destination.Clear();
-            foreach (JsonNode? item in source)
-            {
-                if (item is JsonObject itemObject
-                    && itemObject.TryGetDiscriminator(out Type? type)
-                    && ExtensionProvider.Current.AllExtensions.FirstOrDefault(x => x.GetType() == type) is
-                        ToolTabExtension extension
-                    && extension.TryCreateContext(_editViewModel, out IToolContext? context))
-                {
-                    context.ReadFromJson(itemObject);
-                    destination.Add(new ToolTabViewModel(context, _editViewModel));
-                }
-            }
-        }
-
-        void RestoreProportion(IJsonSerializable serializable, string name)
-        {
-            if (json.TryGetPropertyValue(name, out JsonNode? proportionNode)
-                && proportionNode is JsonObject proportion)
-            {
-                serializable.ReadFromJson(proportion);
-            }
         }
     }
 
@@ -395,6 +114,183 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
             if (ext.TryCreateContext(_editViewModel, out IToolContext? tab))
                 OpenToolTab(tab);
         }
-        _logger.LogInformation("Default tabs opened successfully ({SceneId})", _sceneId);
+    }
+
+    public void Dispose()
+    {
+        _logger.LogInformation("Disposing DockHostViewModel ({SceneId})", _sceneId);
+        foreach (var dockable in Factory.EnumerateTools().ToList())
+        {
+            dockable.Dispose();
+        }
+    }
+
+    public void WriteToJson(JsonObject json)
+    {
+        _logger.LogInformation("Writing DockHostViewModel to JSON ({SceneId})", _sceneId);
+
+        // Persist which tool contexts are open (Extension type + per-tool json).
+        var toolsArray = new JsonArray();
+        foreach (var dockable in Factory.EnumerateTools())
+        {
+            var ctx = dockable.ToolContext;
+            var itemJson = new JsonObject();
+            ctx.WriteToJson(itemJson);
+            itemJson.WriteDiscriminator(ctx.Extension.GetType());
+            itemJson["_zone"] = DockZoneIds.FromPlacement(ctx.Placement.Value);
+            itemJson["_isActive"] = dockable.IsActive;
+            toolsArray.Add(itemJson);
+        }
+        json["DockTools"] = toolsArray;
+
+        // Persist proportional split sizes keyed by dock Id.
+        var proportions = new JsonObject();
+        foreach (var dock in Factory.EnumerateIdentifiedDocks())
+        {
+            if (!double.IsNaN(dock.Proportion))
+                proportions[dock.Id] = dock.Proportion;
+        }
+        json["DockProportions"] = proportions;
+    }
+
+    public void ReadFromJson(JsonObject json)
+    {
+        _logger.LogInformation("Reading DockHostViewModel from JSON ({SceneId})", _sceneId);
+
+        // Legacy format: keys LeftUpperTop, LeftUpperBottom, ... (from ReDocking era).
+        var isLegacy = DockZoneIds.AllToolZones.Any(zoneId =>
+        {
+            var name = DockZoneIds.ToPlacement(zoneId)?.ToString();
+            return name is not null && json.ContainsKey(name);
+        });
+
+        if (isLegacy)
+        {
+            MigrateLegacyLayout(json);
+        }
+        else if (json.TryGetPropertyValue("DockTools", out var toolsNode) && toolsNode is JsonArray toolsArray)
+        {
+            RestoreTools(toolsArray);
+        }
+
+        if (json.TryGetPropertyValue("DockProportions", out var propNode) && propNode is JsonObject props)
+        {
+            RestoreProportions(props);
+        }
+        else if (isLegacy)
+        {
+            // Legacy had separate Proportion objects; try to infer reasonable splits from them.
+            RestoreLegacyProportions(json);
+        }
+
+        if (!Factory.EnumerateTools().Any())
+        {
+            OpenDefaultTabs();
+        }
+    }
+
+    private void RestoreProportions(JsonObject props)
+    {
+        foreach (var kvp in props)
+        {
+            if (kvp.Value is JsonValue v && v.TryGetValue(out double proportion))
+            {
+                if (Factory.FindById(kvp.Key) is { } dock)
+                    dock.Proportion = proportion;
+            }
+        }
+    }
+
+    private void RestoreLegacyProportions(JsonObject json)
+    {
+        // Legacy keys (approximate mapping):
+        //  - LeftRightProportion { Left, Center, Right }    → LeftColumn / CenterColumn / RightColumn
+        //  - CenterTopBottomProportion { First, Second }    → CenterTopRow / CenterBottomRow
+        if (json["LeftRightProportion"] is JsonObject lrp)
+        {
+            SetDockProp(DockZoneIds.LeftColumn, lrp, "Left");
+            SetDockProp(DockZoneIds.CenterColumn, lrp, "Center");
+            SetDockProp(DockZoneIds.RightColumn, lrp, "Right");
+        }
+        if (json["CenterTopBottomProportion"] is JsonObject ctbp)
+        {
+            SetDockProp(DockZoneIds.CenterTopRow, ctbp, "First");
+            SetDockProp(DockZoneIds.CenterBottomRow, ctbp, "Second");
+        }
+
+        void SetDockProp(string id, JsonObject obj, string key)
+        {
+            if (obj[key] is JsonValue v && v.TryGetValue(out double d) &&
+                Factory.FindById(id) is { } dock)
+            {
+                dock.Proportion = d;
+            }
+        }
+    }
+
+    private void MigrateLegacyLayout(JsonObject json)
+    {
+        _logger.LogInformation("Migrating legacy dock layout ({SceneId})", _sceneId);
+        foreach (var zoneId in DockZoneIds.AllToolZones)
+        {
+            var placement = DockZoneIds.ToPlacement(zoneId)!.Value;
+            if (!json.TryGetPropertyValue(placement.ToString(), out var zoneNode) ||
+                zoneNode is not JsonObject zoneObj ||
+                !zoneObj.TryGetPropertyValue("Items", out var itemsNode) ||
+                itemsNode is not JsonArray items)
+                continue;
+
+            int? selectedIndex = null;
+            if (zoneObj.TryGetPropertyValueAsJsonValue("SelectedIndex", out int si))
+                selectedIndex = si;
+
+            int i = 0;
+            foreach (var node in items)
+            {
+                if (node is not JsonObject itemObj) { i++; continue; }
+                if (!itemObj.TryGetDiscriminator(out Type? extType)) { i++; continue; }
+                var extension = ExtensionProvider.Current.AllExtensions
+                    .FirstOrDefault(x => x.GetType() == extType) as ToolTabExtension;
+                if (extension is null) { i++; continue; }
+                if (!extension.TryCreateContext(_editViewModel, out IToolContext? ctx)) { i++; continue; }
+
+                try { ctx.ReadFromJson(itemObj); } catch { /* ignored */ }
+                ctx.Placement.Value = placement;
+                var dockable = Factory.AddTool(ctx, activate: selectedIndex == i);
+                if (dockable is not null && selectedIndex == i)
+                {
+                    ctx.IsSelected.Value = true;
+                }
+                i++;
+            }
+        }
+    }
+
+    private void RestoreTools(JsonArray toolsArray)
+    {
+        foreach (var node in toolsArray)
+        {
+            if (node is not JsonObject itemObj) continue;
+            if (!itemObj.TryGetDiscriminator(out Type? extType)) continue;
+            var extension = ExtensionProvider.Current.AllExtensions
+                .FirstOrDefault(x => x.GetType() == extType) as ToolTabExtension;
+            if (extension is null) continue;
+            if (!extension.TryCreateContext(_editViewModel, out IToolContext? ctx)) continue;
+
+            try { ctx.ReadFromJson(itemObj); } catch { /* ignored */ }
+
+            if (itemObj.TryGetPropertyValueAsJsonValue("_zone", out string? zoneId) &&
+                DockZoneIds.ToPlacement(zoneId) is { } p)
+            {
+                ctx.Placement.Value = p;
+            }
+
+            var active = false;
+            if (itemObj["_isActive"] is JsonValue activeValue)
+                activeValue.TryGetValue(out active);
+
+            Factory.AddTool(ctx, activate: active);
+            if (active) ctx.IsSelected.Value = true;
+        }
     }
 }

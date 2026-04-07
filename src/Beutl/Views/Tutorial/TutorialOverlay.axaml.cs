@@ -10,6 +10,7 @@ using Beutl.Language;
 using Beutl.Services;
 using Beutl.Services.Tutorials;
 using Beutl.ViewModels;
+using Beutl.ViewModels.Dock;
 
 namespace Beutl.Views.Tutorial;
 
@@ -133,8 +134,8 @@ public partial class TutorialOverlay : UserControl
         return topLevel.GetVisualDescendants()
             .OfType<ToolTabContent>()
             .FirstOrDefault(ttc =>
-                ttc.DataContext is ToolTabViewModel vm &&
-                extensionType.IsInstanceOfType(vm.Context.Extension));
+                ttc.DataContext is BeutlToolDockable dockable &&
+                extensionType.IsInstanceOfType(dockable.ToolContext.Extension));
     }
 
     private void PositionHighlights()

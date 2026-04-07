@@ -273,7 +273,7 @@
         </Grid>
         <Border Grid.Row="1"
                 HorizontalAlignment="Stretch"
-                Background="{DynamicResource ReDockingDividerBrush}" />
+                Background="{DynamicResource ControlStrokeColorDefaultBrush}" />
 
         <views:EditorHostView Name="EditorHost"
                               Grid.Row="2"

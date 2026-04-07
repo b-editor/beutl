@@ -5,6 +5,9 @@
              xmlns:asyncImageLoader="using:AsyncImageLoader"
              xmlns:lang="using:Beutl.Language"
              xmlns:sty="using:FluentAvalonia.Styling"
+             xmlns:dockFluent="using:Dock.Avalonia.Themes.Fluent"
+             xmlns:dockVm="using:Beutl.ViewModels.Dock"
+             xmlns:views="using:Beutl.Views"
              Name="Beutl">
     <Application.Resources>
         <ResourceDictionary>
@@ -22,12 +25,21 @@
             <FontFamily x:Key="NotoSansJP">avares://Beutl/Resources/Fonts#Noto Sans JP</FontFamily>
         </ResourceDictionary>
     </Application.Resources>
+    <Application.DataTemplates>
+        <DataTemplate DataType="dockVm:BeutlToolDockable">
+            <views:ToolTabContent />
+        </DataTemplate>
+        <DataTemplate DataType="dockVm:PlayerToolDockable">
+            <views:PlayerView DataContext="{Binding Player}" />
+        </DataTemplate>
+    </Application.DataTemplates>
     <Application.Styles>
         <sty:FluentAvaloniaTheme PreferUserAccentColor="True" TextVerticalAlignmentOverrideBehavior="Disabled" />
+        <dockFluent:DockFluentTheme />
         <StyleInclude Source="avares://Beutl.Controls/Styles.axaml" />
         <StyleInclude Source="avares://AsyncImageLoader.Avalonia/AdvancedImage.axaml" />
-        <StyleInclude Source="avares://ReDocking/Styles.axaml" />
         <StyleInclude Source="avares://Beutl.Editor.Components/Styles.axaml" />
+        <StyleInclude Source="/Views/Dock/DockStyles.axaml" />
 
         <Style Selector="asyncImageLoader|AdvancedImage">
             <Setter Property="Template">
