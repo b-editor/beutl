@@ -55,23 +55,6 @@ public class BeutlToolDockable : Tool, IDisposable
         }
     }
 
-    public void SyncPlacementFromOwner()
-    {
-        if (_isDisposed) return;
-
-        var owner = Owner;
-        while (owner is not null)
-        {
-            var placement = DockZoneIds.ToPlacement(owner.Id);
-            if (placement.HasValue)
-            {
-                ToolContext.Placement.Value = placement.Value;
-                return;
-            }
-            owner = owner.Owner;
-        }
-    }
-
     public void Dispose()
     {
         if (_isDisposed) return;

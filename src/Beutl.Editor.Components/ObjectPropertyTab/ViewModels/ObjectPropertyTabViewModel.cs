@@ -40,12 +40,6 @@ public sealed class ObjectPropertyTabViewModel : IToolContext
 
     public string Header => Strings.Properties;
 
-    public IReactiveProperty<ToolTabExtension.TabPlacement> Placement { get; } =
-        new ReactivePropertySlim<ToolTabExtension.TabPlacement>(ToolTabExtension.TabPlacement.RightUpperBottom);
-
-    public IReactiveProperty<ToolTabExtension.TabDisplayMode> DisplayMode { get; } =
-        new ReactivePropertySlim<ToolTabExtension.TabDisplayMode>();
-
     public void Back()
     {
         for (int i = _backStack.Count - 2; i >= 0; i--)

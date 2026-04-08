@@ -8,101 +8,89 @@ namespace Beutl.ViewModels.Dock;
 
 public class BeutlDockFactory(EditViewModel editViewModel) : Factory
 {
-    private readonly Dictionary<string, IToolDock> _zoneLookup = new();
     private IRootDock? _rootDock;
     private PlayerToolDockable? _playerDockable;
 
+    public IToolDock? LeftDock { get; private set; }
+
+    public IToolDock? RightDock { get; private set; }
+
+    public IToolDock? BottomDock { get; private set; }
+
     public override IRootDock CreateLayout()
     {
-        _zoneLookup.Clear();
+        // Left sidebar
+        var leftDock = CreateToolDock();
+        leftDock.Id = "Dock.Left";
+        leftDock.Proportion = 0.25;
+        leftDock.Alignment = Alignment.Left;
+        leftDock.GripMode = GripMode.Hidden;
+        leftDock.AutoHide = false;
+        leftDock.VisibleDockables = CreateList<IDockable>();
+        leftDock.MinWidth = 100;
+        leftDock.MinHeight = 100;
+        LeftDock = leftDock;
 
-        // Left sidebar column
-        var leftColumn = CreateProportionalDock();
-        leftColumn.Id = DockZoneIds.LeftColumn;
-        leftColumn.Proportion = 0.18;
-        leftColumn.Orientation = Orientation.Vertical;
-        var leftUpperBottom = CreateZone(DockZoneIds.LeftUpperBottom, Alignment.Left);
-        leftUpperBottom.Proportion = 0.5;
-        var leftLowerTop = CreateZone(DockZoneIds.LeftLowerTop, Alignment.Left);
-        leftLowerTop.Proportion = 0.5;
-        leftColumn.VisibleDockables = CreateList<IDockable>(
-            leftUpperBottom,
-            CreateProportionalDockSplitter(),
-            leftLowerTop);
-
-        // Center top row (two side tool docks + player)
-        var centerTopRow = CreateProportionalDock();
-        centerTopRow.Id = DockZoneIds.CenterTopRow;
-        centerTopRow.Orientation = Orientation.Horizontal;
-        centerTopRow.Proportion = 0.7;
+        // Player
         _playerDockable = new PlayerToolDockable(editViewModel.Player, "Preview");
-        var playerZone = CreateZone(DockZoneIds.Player, Alignment.Unset);
-        playerZone.Proportion = 0.6;
-        playerZone.VisibleDockables = CreateList<IDockable>(_playerDockable);
-        playerZone.ActiveDockable = _playerDockable;
-        var leftUpperTop = CreateZone(DockZoneIds.LeftUpperTop, Alignment.Left);
-        leftUpperTop.Proportion = 0.2;
-        var rightUpperTop = CreateZone(DockZoneIds.RightUpperTop, Alignment.Right);
-        rightUpperTop.Proportion = 0.2;
-        centerTopRow.VisibleDockables = CreateList<IDockable>(
-            leftUpperTop,
-            CreateProportionalDockSplitter(),
-            playerZone,
-            CreateProportionalDockSplitter(),
-            rightUpperTop);
+        var playerDock = CreateToolDock();
+        playerDock.Id = "Dock.Player";
+        playerDock.Proportion = 0.5;
+        playerDock.Alignment = Alignment.Unset;
+        playerDock.GripMode = GripMode.Hidden;
+        playerDock.AutoHide = false;
+        playerDock.VisibleDockables = CreateList<IDockable>(_playerDockable);
+        playerDock.ActiveDockable = _playerDockable;
+        playerDock.MinWidth = 100;
+        playerDock.MinHeight = 100;
 
-        // Center bottom row (timeline / horizontal tools)
-        var centerBottomRow = CreateProportionalDock();
-        centerBottomRow.Id = DockZoneIds.CenterBottomRow;
-        centerBottomRow.Orientation = Orientation.Horizontal;
-        centerBottomRow.Proportion = 0.3;
-        var leftLowerBottom = CreateZone(DockZoneIds.LeftLowerBottom, Alignment.Bottom);
-        leftLowerBottom.Proportion = 0.5;
-        var rightLowerBottom = CreateZone(DockZoneIds.RightLowerBottom, Alignment.Bottom);
-        rightLowerBottom.Proportion = 0.5;
-        centerBottomRow.VisibleDockables = CreateList<IDockable>(
-            leftLowerBottom,
-            CreateProportionalDockSplitter(),
-            rightLowerBottom);
+        // Right sidebar
+        var rightDock = CreateToolDock();
+        rightDock.Id = "Dock.Right";
+        rightDock.Proportion = 0.25;
+        rightDock.Alignment = Alignment.Right;
+        rightDock.GripMode = GripMode.Hidden;
+        rightDock.AutoHide = false;
+        rightDock.VisibleDockables = CreateList<IDockable>();
+        rightDock.MinWidth = 100;
+        rightDock.MinHeight = 100;
+        RightDock = rightDock;
 
-        // Center column
-        var centerColumn = CreateProportionalDock();
-        centerColumn.Id = DockZoneIds.CenterColumn;
-        centerColumn.Proportion = 0.64;
-        centerColumn.Orientation = Orientation.Vertical;
-        centerColumn.VisibleDockables = CreateList<IDockable>(
-            centerTopRow,
+        var topDock = CreateProportionalDock();
+        topDock.Id = "Dock.Top";
+        topDock.Proportion = 0.5;
+        topDock.Orientation = Orientation.Horizontal;
+        topDock.VisibleDockables = CreateList<IDockable>(
+            leftDock,
             CreateProportionalDockSplitter(),
-            centerBottomRow);
+            playerDock,
+            CreateProportionalDockSplitter(),
+            rightDock);
 
-        // Right sidebar column
-        var rightColumn = CreateProportionalDock();
-        rightColumn.Id = DockZoneIds.RightColumn;
-        rightColumn.Proportion = 0.18;
-        rightColumn.Orientation = Orientation.Vertical;
-        var rightUpperBottom = CreateZone(DockZoneIds.RightUpperBottom, Alignment.Right);
-        rightUpperBottom.Proportion = 0.5;
-        var rightLowerTop = CreateZone(DockZoneIds.RightLowerTop, Alignment.Right);
-        rightLowerTop.Proportion = 0.5;
-        rightColumn.VisibleDockables = CreateList<IDockable>(
-            rightUpperBottom,
-            CreateProportionalDockSplitter(),
-            rightLowerTop);
+        // Bottom tool dock (for timeline etc.)
+        var bottomDock = CreateToolDock();
+        bottomDock.Id = "Dock.Bottom";
+        bottomDock.Proportion = 0.5;
+        bottomDock.Alignment = Alignment.Bottom;
+        bottomDock.GripMode = GripMode.Hidden;
+        bottomDock.AutoHide = false;
+        bottomDock.VisibleDockables = CreateList<IDockable>();
+        bottomDock.MinWidth = 100;
+        bottomDock.MinHeight = 100;
+        BottomDock = bottomDock;
 
         // Top-level horizontal split
         var root = CreateProportionalDock();
-        root.Id = DockZoneIds.TopHorizontal;
-        root.Orientation = Orientation.Horizontal;
+        root.Id = "Dock.Root";
+        root.Orientation = Orientation.Vertical;
         root.IsCollapsable = false;
         root.VisibleDockables = CreateList<IDockable>(
-            leftColumn,
+            topDock,
             CreateProportionalDockSplitter(),
-            centerColumn,
-            CreateProportionalDockSplitter(),
-            rightColumn);
+            bottomDock);
 
         var rootDock = CreateRootDock();
-        rootDock.Id = DockZoneIds.Root;
+        rootDock.Id = "Root";
         rootDock.Title = "Editor";
         rootDock.IsCollapsable = false;
         rootDock.VisibleDockables = CreateList<IDockable>(root);
@@ -116,14 +104,18 @@ public class BeutlDockFactory(EditViewModel editViewModel) : Factory
     public override void InitLayout(IDockable layout)
     {
         ContextLocator = new Dictionary<string, Func<object?>>();
-        DockableLocator = new Dictionary<string, Func<IDockable?>>
+        DockableLocator = new Dictionary<string, Func<IDockable?>>();
+
+        if (_rootDock is not null)
         {
-            [DockZoneIds.Root] = () => _rootDock,
-        };
-        foreach (var (zoneId, zoneDock) in _zoneLookup)
-        {
-            var captured = zoneDock;
-            DockableLocator[zoneId] = () => captured;
+            foreach (var d in Traverse(_rootDock))
+            {
+                if (!string.IsNullOrEmpty(d.Id))
+                {
+                    var captured = d;
+                    DockableLocator[d.Id] = () => captured;
+                }
+            }
         }
 
         HostWindowLocator = new Dictionary<string, Func<IHostWindow?>>
@@ -136,41 +128,18 @@ public class BeutlDockFactory(EditViewModel editViewModel) : Factory
         DockableClosed += OnDockableClosed;
     }
 
-    private IToolDock CreateZone(string id, Alignment alignment)
+    public BeutlToolDockable? AddTool(IToolContext context, IToolDock? target = null, bool activate = true)
     {
-        var dock = CreateToolDock();
-        dock.Id = id;
-        dock.Alignment = alignment;
-        // Hide the separate ToolChrome title bar; tabs act as the header (Unity style).
-        dock.GripMode = GripMode.Hidden;
-        // Disable auto-hide: tools should only collapse when the user explicitly pins them.
-        dock.AutoHide = false;
-        dock.VisibleDockables = CreateList<IDockable>();
-        // Prevent zones from becoming too small when proportionally split.
-        dock.MinWidth = 100;
-        dock.MinHeight = 100;
-        _zoneLookup[id] = dock;
-        return dock;
-    }
-
-    public IToolDock? GetZone(string zoneId)
-    {
-        return _zoneLookup.TryGetValue(zoneId, out var dock) ? dock : null;
-    }
-
-    public BeutlToolDockable? AddTool(IToolContext context, bool activate = true)
-    {
-        var zoneId = DockZoneIds.FromPlacement(context.Placement.Value);
-        var zone = GetZone(zoneId) ?? _zoneLookup.Values.FirstOrDefault();
+        var zone = target ?? FindFocusedToolDock() ?? FindFirstToolDock();
         if (zone is null) return null;
 
         var dockable = new BeutlToolDockable(context, editViewModel);
         AddDockable(zone, dockable);
-        dockable.SyncPlacementFromOwner();
         if (activate)
         {
             SetActiveDockable(dockable);
-            SetFocusedDockable(_rootDock!, dockable);
+            if (_rootDock is not null)
+                SetFocusedDockable(_rootDock, dockable);
         }
         return dockable;
     }
@@ -184,7 +153,59 @@ public class BeutlDockFactory(EditViewModel editViewModel) : Factory
         }
     }
 
-    private static IEnumerable<IDockable> Traverse(IDockable node)
+    public IEnumerable<IDockable> EnumerateIdentifiedDocks()
+    {
+        if (_rootDock is null) yield break;
+        foreach (var d in Traverse(_rootDock))
+        {
+            if (!string.IsNullOrEmpty(d.Id) && (d is IProportionalDock || d is IToolDock))
+                yield return d;
+        }
+    }
+
+    public IDockable? FindById(string id)
+    {
+        if (_rootDock is null) return null;
+        return Traverse(_rootDock).FirstOrDefault(d => d.Id == id);
+    }
+
+    public IRootDock? RootDock => _rootDock;
+
+    public PlayerToolDockable? PlayerDockable => _playerDockable;
+
+    internal void SetRootDock(IRootDock rootDock)
+    {
+        _rootDock = rootDock;
+        // Try to locate named docks from the restored layout
+        LeftDock = FindById("Dock.Left") as IToolDock;
+        RightDock = FindById("Dock.Right") as IToolDock;
+        BottomDock = FindById("Dock.Bottom") as IToolDock;
+        _playerDockable = Traverse(rootDock).OfType<PlayerToolDockable>().FirstOrDefault();
+    }
+
+    private IToolDock? FindFocusedToolDock()
+    {
+        if (_rootDock is null) return null;
+        foreach (var d in Traverse(_rootDock))
+        {
+            if (d is IToolDock toolDock && toolDock.ActiveDockable is BeutlToolDockable { ToolContext.IsSelected.Value: true })
+                return toolDock;
+        }
+        return null;
+    }
+
+    internal IToolDock? FindFirstToolDock()
+    {
+        if (_rootDock is null) return null;
+        foreach (var d in Traverse(_rootDock))
+        {
+            if (d is IToolDock toolDock && toolDock.Id != "Dock.Player")
+                return toolDock;
+        }
+        return null;
+    }
+
+    internal static IEnumerable<IDockable> Traverse(IDockable node)
     {
         yield return node;
         if (node is IDock dock && dock.VisibleDockables is { } list)
@@ -211,21 +232,5 @@ public class BeutlDockFactory(EditViewModel editViewModel) : Factory
         {
             dockable.Dispose();
         }
-    }
-
-    public IEnumerable<IDockable> EnumerateIdentifiedDocks()
-    {
-        if (_rootDock is null) yield break;
-        foreach (var d in Traverse(_rootDock))
-        {
-            if (!string.IsNullOrEmpty(d.Id) && (d is IProportionalDock || d is IToolDock))
-                yield return d;
-        }
-    }
-
-    public IDockable? FindById(string id)
-    {
-        if (_rootDock is null) return null;
-        return Traverse(_rootDock).FirstOrDefault(d => d.Id == id);
     }
 }

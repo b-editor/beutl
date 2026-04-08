@@ -6,7 +6,7 @@ public class PlayerToolDockable : Tool
 {
     public PlayerToolDockable(PlayerViewModel player, string title)
     {
-        Id = DockZoneIds.Player + ".Item";
+        Id = "Player";
         Title = title;
         Context = player;
         Player = player;

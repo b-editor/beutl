@@ -370,12 +370,6 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler
 
     public IReactiveProperty<bool> IsSelected { get; } = new ReactivePropertySlim<bool>();
 
-    public IReactiveProperty<ToolTabExtension.TabPlacement> Placement { get; } =
-        new ReactivePropertySlim<ToolTabExtension.TabPlacement>(ToolTabExtension.TabPlacement.LeftLowerBottom);
-
-    public IReactiveProperty<ToolTabExtension.TabDisplayMode> DisplayMode { get; } =
-        new ReactivePropertySlim<ToolTabExtension.TabDisplayMode>();
-
     public IObservable<LayerHeaderViewModel> LayerHeightChanged => _layerHeightChanged;
 
     public string Header => Strings.Timeline;

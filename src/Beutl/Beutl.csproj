@@ -70,7 +70,6 @@
     <PackageReference Include="Dock.Avalonia" />
     <PackageReference Include="Dock.Model.Inpc" />
     <PackageReference Include="Dock.Avalonia.Themes.Fluent" />
-    <PackageReference Include="Dock.Serializer.SystemTextJson" />
     <PackageReference Include="Serilog.Extensions.Logging" />
     <PackageReference Include="Serilog.Sinks.Async" />
     <PackageReference Include="Serilog.Sinks.File" />

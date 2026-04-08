@@ -55,12 +55,6 @@ public sealed class SSETExtenison : ToolTabExtension
 
         public string Header => "Sample tab";
 
-        public IReactiveProperty<TabPlacement> Placement { get; } =
-            new ReactivePropertySlim<TabPlacement>(TabPlacement.LeftLowerBottom);
-
-        public IReactiveProperty<TabDisplayMode> DisplayMode { get; } =
-            new ReactivePropertySlim<TabDisplayMode>();
-
         public void Dispose()
         {
         }
