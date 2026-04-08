@@ -22,4 +22,5 @@ public static class BeutlDataFormats
     public static readonly DataFormat<string> Brush = DataFormat.CreateStringApplicationFormat(KnownLibraryItemFormats.Brush);
     public static readonly DataFormat<string> Easing = DataFormat.CreateStringApplicationFormat(KnownLibraryItemFormats.Easing);
     public static readonly DataFormat<string> Geometry = DataFormat.CreateStringApplicationFormat(KnownLibraryItemFormats.Geometry);
+    public static readonly DataFormat<string> Pen = DataFormat.CreateStringApplicationFormat("Beutl.Media.Pen");
 }

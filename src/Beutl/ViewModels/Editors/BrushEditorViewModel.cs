@@ -193,6 +193,34 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel, IFallbackObjectV
         }
     }
 
+    public override bool CanCopy => Value.Value is Brush and not FallbackBrush;
+
+    public override bool CanPaste => true;
+
+    public override async ValueTask<bool> CopyAsync()
+    {
+        if (Value.Value is not Brush brush || brush is FallbackBrush) return false;
+        return await CoreObjectClipboard.CopyAsync(brush, BeutlDataFormats.Brush);
+    }
+
+    public override async ValueTask<bool> PasteAsync()
+    {
+        var clipboard = ClipboardHelper.GetClipboard();
+        if (clipboard == null) return false;
+        string? json = await CoreObjectClipboard.TryGetJsonAsync(clipboard, BeutlDataFormats.Brush);
+        return json != null && TryPasteJson(json);
+    }
+
+    public bool TryPasteJson(string? json)
+    {
+        if (!CoreObjectClipboard.TryDeserializeJson<Brush>(json, out var pasted)) return false;
+
+        IsExpanded.Value = true;
+        PropertyAdapter.SetValue(pasted);
+        Commit(CommandNames.PasteObject);
+        return true;
+    }
+
     public void SetColor(Color oldValue, Color newValue)
     {
         if (Value.Value is SolidColorBrush solid)

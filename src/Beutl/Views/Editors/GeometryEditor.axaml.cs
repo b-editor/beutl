@@ -143,4 +143,32 @@ public partial class GeometryEditor : UserControl
         _logger.LogInformation("Initializing geometry type.");
         viewModel.ChangeGeometryType(typeof(PathGeometry));
     }
+
+    private async void CopyClick(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not GeometryEditorViewModel { IsDisposed: false } viewModel) return;
+        try
+        {
+            await viewModel.CopyAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "An exception occurred while copying the geometry.");
+            NotificationService.ShowError(Strings.Error, ex.Message);
+        }
+    }
+
+    private async void PasteClick(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not GeometryEditorViewModel { IsDisposed: false } viewModel) return;
+        try
+        {
+            await viewModel.PasteAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "An exception occurred while pasting the geometry.");
+            NotificationService.ShowError(Strings.Error, ex.Message);
+        }
+    }
 }

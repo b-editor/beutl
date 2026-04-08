@@ -4,6 +4,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.Views;
 using Beutl.Graphics.Transformation;
 using Beutl.Models;
@@ -82,9 +83,19 @@ public partial class TransformEditor : UserControl
                 return KnownTransformType.Unknown;
         }
 
-        if (e.DataTransfer.TryGetValue(BeutlDataFormats.Transform) is { } typeName
-            && TypeFormat.ToType(typeName) is { } type
-            && DataContext is TransformEditorViewModel { IsDisposed: false } viewModel)
+        if (DataContext is not TransformEditorViewModel { IsDisposed: false } viewModel) return;
+        if (e.DataTransfer.TryGetValue(BeutlDataFormats.Transform) is not { } data) return;
+
+        if (CoreObjectClipboard.IsJsonData(data))
+        {
+            if (viewModel.TryPasteJson(data))
+            {
+                e.Handled = true;
+            }
+            return;
+        }
+
+        if (TypeFormat.ToType(data) is { } type)
         {
             KnownTransformType knownType = ToKnownType(type);
             if (knownType == KnownTransformType.Unknown)
@@ -205,6 +216,32 @@ public partial class TransformEditor : UserControl
         if (DataContext is TransformEditorViewModel { IsDisposed: false } viewModel)
         {
             viewModel.SetNull();
+        }
+    }
+
+    private async void CopyClick(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not TransformEditorViewModel { IsDisposed: false } viewModel) return;
+        try
+        {
+            await viewModel.CopyAsync();
+        }
+        catch (Exception ex)
+        {
+            NotificationService.ShowError(Strings.Error, ex.Message);
+        }
+    }
+
+    private async void PasteClick(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not TransformEditorViewModel { IsDisposed: false } viewModel) return;
+        try
+        {
+            await viewModel.PasteAsync();
+        }
+        catch (Exception ex)
+        {
+            NotificationService.ShowError(Strings.Error, ex.Message);
         }
     }
 

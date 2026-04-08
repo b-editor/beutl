@@ -86,6 +86,13 @@
                                                         IsChecked="{Binding !Value.Value, Mode=OneWay}"
                                                         Tag="Null"
                                                         Text="{x:Static lang:Strings.Null}" />
+                                <ui:MenuFlyoutSeparator />
+                                <ui:MenuFlyoutItem Click="CopyClick"
+                                                   FontWeight="Normal"
+                                                   Text="{x:Static lang:Strings.Copy}" />
+                                <ui:MenuFlyoutItem Click="PasteClick"
+                                                   FontWeight="Normal"
+                                                   Text="{x:Static lang:Strings.Paste}" />
                             </ui:FAMenuFlyout>
                         </Button.ContextFlyout>
                         <icons:SymbolIcon Symbol="Compose" />
@@ -138,6 +145,13 @@
                                                     IsChecked="{Binding !Value.Value, Mode=OneWay}"
                                                     Tag="Null"
                                                     Text="{x:Static lang:Strings.Null}" />
+                            <ui:MenuFlyoutSeparator />
+                            <ui:MenuFlyoutItem Click="CopyClick"
+                                               FontWeight="Normal"
+                                               Text="{x:Static lang:Strings.Copy}" />
+                            <ui:MenuFlyoutItem Click="PasteClick"
+                                               FontWeight="Normal"
+                                               Text="{x:Static lang:Strings.Paste}" />
                         </ui:FAMenuFlyout>
                     </Button.Flyout>
                     <icons:SymbolIcon Symbol="MoreVertical" />

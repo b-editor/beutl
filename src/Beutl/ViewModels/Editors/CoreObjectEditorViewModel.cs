@@ -180,6 +180,41 @@ public sealed class CoreObjectEditorViewModel<T> : BaseEditorViewModel<T>, ICore
         }
     }
 
+    public override bool CanCopy => Value.Value is T and not IFallback;
+
+    public override bool CanPaste => true;
+
+    public override async ValueTask<bool> CopyAsync()
+    {
+        if (Value.Value is not T obj || obj is IFallback) return false;
+        return await CoreObjectClipboard.CopyAsync(obj, BeutlDataFormats.EngineObject);
+    }
+
+    public override async ValueTask<bool> PasteAsync()
+    {
+        var clipboard = ClipboardHelper.GetClipboard();
+        if (clipboard == null) return false;
+        string? json = await CoreObjectClipboard.TryGetJsonAsync(clipboard, BeutlDataFormats.EngineObject);
+        return json != null && TryPasteJson(json);
+    }
+
+    public bool TryPasteJson(string? json)
+    {
+        if (!CoreObjectClipboard.TryDeserializeJson<T>(json, out var pasted)) return false;
+
+        IsExpanded.Value = true;
+        if (EditingKeyFrame.Value is { } kf)
+        {
+            kf.Value = pasted;
+        }
+        else
+        {
+            PropertyAdapter.SetValue(pasted);
+        }
+        Commit(CommandNames.PasteObject);
+        return true;
+    }
+
     public void SetTarget(CoreObject? target)
     {
         if (Value.Value is not IPresenter<T> presenter)

@@ -35,6 +35,9 @@
                         <ui:FAMenuFlyout>
                             <ui:MenuFlyoutItem Click="InitializeClick" Text="{x:Static lang:Strings.Initialize}" />
                             <ui:MenuFlyoutItem Click="DeleteClick" Text="{x:Static lang:Strings.Remove}" />
+                            <ui:MenuFlyoutSeparator />
+                            <ui:MenuFlyoutItem Click="CopyClick" Text="{x:Static lang:Strings.Copy}" />
+                            <ui:MenuFlyoutItem Click="PasteClick" Text="{x:Static lang:Strings.Paste}" />
                         </ui:FAMenuFlyout>
                     </Button.ContextFlyout>
                     <icons:SymbolIcon Symbol="Compose" />

@@ -167,6 +167,45 @@ public sealed class AudioEffectEditorViewModel : ValueEditorViewModel<AudioEffec
         }
     }
 
+    public override bool CanCopy => Value.Value is AudioEffect and not FallbackAudioEffect;
+
+    public override bool CanPaste => true;
+
+    public override async ValueTask<bool> CopyAsync()
+    {
+        if (Value.Value is not AudioEffect ae || ae is FallbackAudioEffect) return false;
+        return await CoreObjectClipboard.CopyAsync(ae, BeutlDataFormats.AudioEffect);
+    }
+
+    public override async ValueTask<bool> PasteAsync()
+    {
+        var clipboard = ClipboardHelper.GetClipboard();
+        if (clipboard == null) return false;
+        string? json = await CoreObjectClipboard.TryGetJsonAsync(clipboard, BeutlDataFormats.AudioEffect);
+        return json != null && TryPasteJson(json);
+    }
+
+    public bool TryPasteJson(string? json)
+    {
+        if (!CoreObjectClipboard.TryDeserializeJson<AudioEffect>(json, out var pasted)) return false;
+
+        IsExpanded.Value = true;
+        if (Value.Value is AudioEffectGroup group)
+        {
+            group.Children.Add(pasted);
+        }
+        else if (EditingKeyFrame.Value is { } kf)
+        {
+            kf.Value = pasted;
+        }
+        else
+        {
+            PropertyAdapter.SetValue(pasted);
+        }
+        Commit(CommandNames.PasteObject);
+        return true;
+    }
+
     public void AddItem(Type type)
     {
         if (Value.Value is AudioEffectGroup group

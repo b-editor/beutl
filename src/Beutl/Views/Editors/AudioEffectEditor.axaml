@@ -29,6 +29,13 @@
                     <ui:MenuFlyoutItem Click="SetNullClick"
                                        FontWeight="Normal"
                                        Text="{x:Static lang:Strings.Null}" />
+                    <ui:MenuFlyoutSeparator />
+                    <ui:MenuFlyoutItem Click="CopyClick"
+                                       FontWeight="Normal"
+                                       Text="{x:Static lang:Strings.Copy}" />
+                    <ui:MenuFlyoutItem Click="PasteClick"
+                                       FontWeight="Normal"
+                                       Text="{x:Static lang:Strings.Paste}" />
                 </ui:FAMenuFlyout>
             </ToggleButton.ContextFlyout>
             <ToggleButton.Tag>

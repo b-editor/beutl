@@ -326,6 +326,15 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
         return null;
     }
 
+    // 任意のICoreSerializableオブジェクトのクリップボードコピー&ペースト対応
+    public virtual bool CanCopy => false;
+
+    public virtual bool CanPaste => false;
+
+    public virtual ValueTask<bool> CopyAsync() => ValueTask.FromResult(false);
+
+    public virtual ValueTask<bool> PasteAsync() => ValueTask.FromResult(false);
+
     public virtual object? GetService(Type serviceType)
     {
         if (serviceType.IsAssignableTo(typeof(IPropertyAdapter)))

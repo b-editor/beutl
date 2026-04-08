@@ -145,6 +145,41 @@ public sealed class GeometryEditorViewModel : ValueEditorViewModel<Geometry?>, I
         }
     }
 
+    public override bool CanCopy => Value.Value is Geometry and not FallbackGeometry;
+
+    public override bool CanPaste => true;
+
+    public override async ValueTask<bool> CopyAsync()
+    {
+        if (Value.Value is not Geometry geom || geom is FallbackGeometry) return false;
+        return await CoreObjectClipboard.CopyAsync(geom, BeutlDataFormats.Geometry);
+    }
+
+    public override async ValueTask<bool> PasteAsync()
+    {
+        var clipboard = ClipboardHelper.GetClipboard();
+        if (clipboard == null) return false;
+        string? json = await CoreObjectClipboard.TryGetJsonAsync(clipboard, BeutlDataFormats.Geometry);
+        return json != null && TryPasteJson(json);
+    }
+
+    public bool TryPasteJson(string? json)
+    {
+        if (!CoreObjectClipboard.TryDeserializeJson<Geometry>(json, out var pasted)) return false;
+
+        IsExpanded.Value = true;
+        if (EditingKeyFrame.Value is { } kf)
+        {
+            kf.Value = pasted;
+        }
+        else
+        {
+            PropertyAdapter.SetValue(pasted);
+        }
+        Commit(CommandNames.PasteObject);
+        return true;
+    }
+
     public void AddItem()
     {
         if (Value.Value is PathGeometry group)

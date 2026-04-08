@@ -3,6 +3,7 @@ using Avalonia.Animation;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Interactivity;
+using Beutl.Services;
 using Beutl.ViewModels.Editors;
 using FluentAvalonia.UI.Controls;
 
@@ -60,6 +61,32 @@ public partial class DisplacementMapTransformEditor : UserControl
         if (DataContext is DisplacementMapTransformEditorViewModel { IsDisposed: false } viewModel)
         {
             viewModel.SetNull();
+        }
+    }
+
+    private async void CopyClick(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not DisplacementMapTransformEditorViewModel { IsDisposed: false } viewModel) return;
+        try
+        {
+            await viewModel.CopyAsync();
+        }
+        catch (Exception ex)
+        {
+            NotificationService.ShowError(Strings.Error, ex.Message);
+        }
+    }
+
+    private async void PasteClick(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not DisplacementMapTransformEditorViewModel { IsDisposed: false } viewModel) return;
+        try
+        {
+            await viewModel.PasteAsync();
+        }
+        catch (Exception ex)
+        {
+            NotificationService.ShowError(Strings.Error, ex.Message);
         }
     }
 }

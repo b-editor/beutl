@@ -108,6 +108,32 @@ public partial class CoreObjectEditor : UserControl
         viewModel.SetNull();
     }
 
+    private async void CopyClick(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not BaseEditorViewModel vm || vm.IsDisposed) return;
+        try
+        {
+            await vm.CopyAsync();
+        }
+        catch (Exception ex)
+        {
+            NotificationService.ShowError(Strings.Error, ex.Message);
+        }
+    }
+
+    private async void PasteClick(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not BaseEditorViewModel vm || vm.IsDisposed) return;
+        try
+        {
+            await vm.PasteAsync();
+        }
+        catch (Exception ex)
+        {
+            NotificationService.ShowError(Strings.Error, ex.Message);
+        }
+    }
+
     private void SelectTarget_Requested(object? sender, RoutedEventArgs e)
     {
         OnSelectTargetRequested();

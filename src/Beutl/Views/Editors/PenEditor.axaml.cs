@@ -5,6 +5,7 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Interactivity;
 
 using Beutl.Media;
+using Beutl.Services;
 using Beutl.ViewModels.Editors;
 
 using static Beutl.Views.Editors.PropertiesEditor;
@@ -79,6 +80,32 @@ public sealed partial class PenEditor : UserControl
         if (sender is Button button)
         {
             button.ContextFlyout?.ShowAt(button);
+        }
+    }
+
+    private async void CopyClick(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not PenEditorViewModel { IsDisposed: false } viewModel) return;
+        try
+        {
+            await viewModel.CopyAsync();
+        }
+        catch (Exception ex)
+        {
+            NotificationService.ShowError(Strings.Error, ex.Message);
+        }
+    }
+
+    private async void PasteClick(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not PenEditorViewModel { IsDisposed: false } viewModel) return;
+        try
+        {
+            await viewModel.PasteAsync();
+        }
+        catch (Exception ex)
+        {
+            NotificationService.ShowError(Strings.Error, ex.Message);
         }
     }
 }

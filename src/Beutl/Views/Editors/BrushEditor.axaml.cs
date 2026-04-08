@@ -6,6 +6,7 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Beutl.Controls;
 using Beutl.Controls.PropertyEditors;
+using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.ObjectPropertyTab.ViewModels;
 using Beutl.Editor.Components.Views;
 using Beutl.Engine;
@@ -366,6 +367,32 @@ public sealed partial class BrushEditor : UserControl
         if (sender is Button button)
         {
             button.ContextFlyout?.ShowAt(button);
+        }
+    }
+
+    private async void CopyClick(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not BrushEditorViewModel { IsDisposed: false } viewModel) return;
+        try
+        {
+            await viewModel.CopyAsync();
+        }
+        catch (Exception ex)
+        {
+            NotificationService.ShowError(Strings.Error, ex.Message);
+        }
+    }
+
+    private async void PasteClick(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not BrushEditorViewModel { IsDisposed: false } viewModel) return;
+        try
+        {
+            await viewModel.PasteAsync();
+        }
+        catch (Exception ex)
+        {
+            NotificationService.ShowError(Strings.Error, ex.Message);
         }
     }
 

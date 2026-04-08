@@ -278,6 +278,45 @@ public sealed class TransformEditorViewModel : ValueEditorViewModel<Transform?>,
         }
     }
 
+    public override bool CanCopy => Value.Value is Transform and not FallbackTransform;
+
+    public override bool CanPaste => true;
+
+    public override async ValueTask<bool> CopyAsync()
+    {
+        if (Value.Value is not Transform tf || tf is FallbackTransform) return false;
+        return await CoreObjectClipboard.CopyAsync(tf, BeutlDataFormats.Transform);
+    }
+
+    public override async ValueTask<bool> PasteAsync()
+    {
+        var clipboard = ClipboardHelper.GetClipboard();
+        if (clipboard == null) return false;
+        string? json = await CoreObjectClipboard.TryGetJsonAsync(clipboard, BeutlDataFormats.Transform);
+        return json != null && TryPasteJson(json);
+    }
+
+    public bool TryPasteJson(string? json)
+    {
+        if (!CoreObjectClipboard.TryDeserializeJson<Transform>(json, out var pasted)) return false;
+
+        IsExpanded.Value = true;
+        if (Value.Value is TransformGroup group)
+        {
+            group.Children.Add(pasted);
+        }
+        else if (EditingKeyFrame.Value is { } kf)
+        {
+            kf.Value = pasted;
+        }
+        else
+        {
+            PropertyAdapter.SetValue(pasted);
+        }
+        Commit(CommandNames.PasteObject);
+        return true;
+    }
+
     public void SetNull()
     {
         SetValue(Value.Value, null);

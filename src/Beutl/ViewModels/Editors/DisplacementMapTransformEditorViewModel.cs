@@ -1,4 +1,5 @@
 ﻿using System.Text.Json.Nodes;
+using Beutl.Editor.Components.Helpers;
 using Beutl.Graphics.Effects;
 using Reactive.Bindings;
 
@@ -137,6 +138,41 @@ public sealed class DisplacementMapTransformEditorViewModel : ValueEditorViewMod
     public void SetNull()
     {
         SetValue(Value.Value, null);
+    }
+
+    public override bool CanCopy => Value.Value is DisplacementMapTransform;
+
+    public override bool CanPaste => true;
+
+    public override async ValueTask<bool> CopyAsync()
+    {
+        if (Value.Value is not DisplacementMapTransform obj) return false;
+        return await CoreObjectClipboard.CopyAsync(obj, BeutlDataFormats.EngineObject);
+    }
+
+    public override async ValueTask<bool> PasteAsync()
+    {
+        var clipboard = ClipboardHelper.GetClipboard();
+        if (clipboard == null) return false;
+        string? json = await CoreObjectClipboard.TryGetJsonAsync(clipboard, BeutlDataFormats.EngineObject);
+        return json != null && TryPasteJson(json);
+    }
+
+    public bool TryPasteJson(string? json)
+    {
+        if (!CoreObjectClipboard.TryDeserializeJson<DisplacementMapTransform>(json, out var pasted)) return false;
+
+        IsExpanded.Value = true;
+        if (EditingKeyFrame.Value is { } kf)
+        {
+            kf.Value = pasted;
+        }
+        else
+        {
+            PropertyAdapter.SetValue(pasted);
+        }
+        Commit(CommandNames.PasteObject);
+        return true;
     }
 
     public override void ReadFromJson(JsonObject json)

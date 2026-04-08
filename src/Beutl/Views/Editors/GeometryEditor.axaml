@@ -32,6 +32,13 @@
                     <ui:MenuFlyoutItem Click="ImportFromSvgPathClick"
                                        FontWeight="Normal"
                                        Text="{x:Static lang:Strings.ImportSvgPath}" />
+                    <ui:MenuFlyoutSeparator />
+                    <ui:MenuFlyoutItem Click="CopyClick"
+                                       FontWeight="Normal"
+                                       Text="{x:Static lang:Strings.Copy}" />
+                    <ui:MenuFlyoutItem Click="PasteClick"
+                                       FontWeight="Normal"
+                                       Text="{x:Static lang:Strings.Paste}" />
                 </ui:FAMenuFlyout>
             </ToggleButton.ContextFlyout>
             <ToggleButton.Tag>
