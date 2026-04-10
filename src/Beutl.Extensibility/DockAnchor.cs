@@ -6,6 +6,5 @@ public enum DockAnchor
     Left,
     Right,
     Bottom,
-    Top,
     Player,
 }

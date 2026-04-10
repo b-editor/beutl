@@ -14,14 +14,18 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
     private readonly string _sceneId;
     private readonly EditViewModel _editViewModel;
     private readonly ILogger _logger = Log.CreateLogger<DockHostViewModel>();
+    private bool _layoutInitialized;
 
     public DockHostViewModel(string sceneId, EditViewModel editViewModel)
     {
         _sceneId = sceneId;
         _editViewModel = editViewModel;
         Factory = new BeutlDockFactory(editViewModel);
-        Layout = Factory.CreateLayout();
-        Factory.InitLayout(Layout);
+
+        var placeholder = Factory.CreateRootDock();
+        placeholder.Id = DockIds.Root;
+        placeholder.IsCollapsable = false;
+        Layout = placeholder;
     }
 
     public BeutlDockFactory Factory { get; }
@@ -51,6 +55,8 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
         _logger.LogInformation("Attempting to open tool tab '{ToolTabName}' ({SceneId})", item.Extension.Name, _sceneId);
         try
         {
+            EnsureDefaultLayout();
+
             var existing = Factory.EnumerateTools().FirstOrDefault(t => t.ToolContext == item);
             if (existing is not null)
             {
@@ -104,6 +110,8 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
     {
         _logger.LogInformation("Opening default tabs ({SceneId})", _sceneId);
 
+        EnsureDefaultLayout();
+
         var fallback = Factory.GetAnchoredDock(DockAnchor.Left) ?? Factory.FindFirstToolDock();
 
         var extensions = ExtensionProvider.Current.AllExtensions
@@ -123,6 +131,14 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
     {
         if (ext.TryCreateContext(_editViewModel, out IToolContext? tab))
             OpenToolTab(tab, target);
+    }
+
+    private void EnsureDefaultLayout()
+    {
+        if (_layoutInitialized) return;
+        Layout = Factory.CreateLayout();
+        Factory.InitLayout(Layout);
+        _layoutInitialized = true;
     }
 
     public void Dispose()
@@ -165,6 +181,7 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
                     Layout = rootDock;
                     Factory.SetRootDock(rootDock);
                     Factory.InitLayout(rootDock);
+                    _layoutInitialized = true;
                 }
                 else
                 {
@@ -197,8 +214,8 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
         {
             try { tool.Dispose(); } catch { /* best-effort */ }
         }
-        Layout = Factory.CreateLayout();
-        Factory.InitLayout(Layout);
+        _layoutInitialized = false;
+        EnsureDefaultLayout();
     }
 
     // ── Save ─────────────────────────────────────────────────────
@@ -302,6 +319,8 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
             ["$type"] = "tool_dock",
             ["id"] = toolDock.Id,
             ["alignment"] = toolDock.Alignment.ToString().ToLowerInvariant(),
+            ["minWidth"] = toolDock.MinWidth,
+            ["minHeight"] = toolDock.MinHeight,
         };
         if (!double.IsNaN(toolDock.Proportion))
             obj["proportion"] = toolDock.Proportion;
@@ -331,7 +350,7 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
         var obj = new JsonObject
         {
             ["$type"] = "tool",
-            ["_isActive"] = dockable.IsActive,
+            ["id"] = dockable.Id,
         };
         var extObj = new JsonObject();
         extObj.WriteDiscriminator(ctx.Extension.GetType());
@@ -450,7 +469,9 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
             ? ParseAlignment(alignStr)
             : Alignment.Unset;
         var proportion = obj["proportion"] is JsonValue pv && pv.TryGetValue(out double p) ? p : double.NaN;
-        var dock = Factory.CreateStyledToolDock(id, alignment, proportion);
+        var minWidth = obj["minWidth"] is JsonValue mwVal && mwVal.TryGetValue(out double mw) ? mw : 0.0;
+        var minHeight = obj["minHeight"] is JsonValue mhVal && mhVal.TryGetValue(out double mh) ? mh : 0.0;
+        var dock = Factory.CreateStyledToolDock(id, alignment, proportion, minWidth, minHeight);
 
         var dockables = new List<IDockable>();
         int activeDockableIndex = -1;
@@ -470,9 +491,19 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
 
         dock.VisibleDockables = Factory.CreateList<IDockable>(dockables.ToArray());
         if (activeDockableIndex >= 0 && activeDockableIndex < dockables.Count)
-            dock.ActiveDockable = dockables[activeDockableIndex];
+        {
+            var active = dockables[activeDockableIndex];
+            dock.ActiveDockable = active;
+            if (active is BeutlToolDockable btd)
+            {
+                btd.IsActive = true;
+                btd.ToolContext.IsSelected.Value = true;
+            }
+        }
         else if (dockables.Count > 0)
+        {
             dock.ActiveDockable = dockables[0];
+        }
 
         return dock;
     }
@@ -501,16 +532,9 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
                 _sceneId);
         }
 
-        var active = false;
-        if (obj["_isActive"] is JsonValue activeValue)
-            activeValue.TryGetValue(out active);
-
         var dockable = new BeutlToolDockable(ctx, _editViewModel);
-        if (active)
-        {
-            dockable.IsActive = true;
-            ctx.IsSelected.Value = true;
-        }
+        if (obj["id"]?.GetValue<string>() is { Length: > 0 } savedId)
+            dockable.Id = savedId;
         return dockable;
     }
 

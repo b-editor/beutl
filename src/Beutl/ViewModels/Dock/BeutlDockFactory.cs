@@ -8,24 +8,38 @@ namespace Beutl.ViewModels.Dock;
 
 public class BeutlDockFactory(EditViewModel editViewModel) : Factory
 {
+    private readonly record struct AnchorDefinition(
+        string Id,
+        Alignment Alignment,
+        double Proportion,
+        double MinWidth,
+        double MinHeight);
+
+    private static readonly Dictionary<DockAnchor, AnchorDefinition> s_anchorDefinitions = new()
+    {
+        [DockAnchor.Left] = new(DockIds.Left, Alignment.Left, 0.25, 160.0, 0.0),
+        [DockAnchor.Right] = new(DockIds.Right, Alignment.Right, 0.25, 160.0, 0.0),
+        [DockAnchor.Bottom] = new(DockIds.Bottom, Alignment.Bottom, 0.5, 0.0, 120.0),
+        [DockAnchor.Player] = new(DockIds.Player, Alignment.Unset, 0.5, 0.0, 0.0),
+    };
+
     private readonly Dictionary<DockAnchor, IToolDock?> _anchorCache = new();
     private IRootDock? _rootDock;
-    private PlayerToolDockable? _playerDockable;
     private bool _anchorCacheDirty = true;
 
     public override IRootDock CreateLayout()
     {
         var leftDock = CreateAnchoredDock(DockAnchor.Left);
 
-        _playerDockable = new PlayerToolDockable(editViewModel.Player, "Preview");
+        var playerDockable = new PlayerToolDockable(editViewModel.Player, "Preview");
         var playerDock = CreateAnchoredDock(DockAnchor.Player);
-        playerDock.VisibleDockables = CreateList<IDockable>(_playerDockable);
-        playerDock.ActiveDockable = _playerDockable;
+        playerDock.VisibleDockables = CreateList<IDockable>(playerDockable);
+        playerDock.ActiveDockable = playerDockable;
 
         var rightDock = CreateAnchoredDock(DockAnchor.Right);
 
         var topDock = CreateProportionalDock();
-        topDock.Id = DockIds.Top;
+        topDock.Id = DockIds.TopSplit;
         topDock.Proportion = 0.5;
         topDock.Orientation = Orientation.Horizontal;
         topDock.VisibleDockables = CreateList<IDockable>(
@@ -61,23 +75,12 @@ public class BeutlDockFactory(EditViewModel editViewModel) : Factory
 
     public IToolDock CreateAnchoredDock(DockAnchor anchor)
     {
-        var (id, alignment, proportion, minWidth, minHeight) = anchor switch
-        {
-            DockAnchor.Left => (DockIds.Left, Alignment.Left, 0.25, 160.0, 0.0),
-            DockAnchor.Right => (DockIds.Right, Alignment.Right, 0.25, 160.0, 0.0),
-            DockAnchor.Bottom => (DockIds.Bottom, Alignment.Bottom, 0.5, 0.0, 120.0),
-            DockAnchor.Top => (DockIds.Top, Alignment.Top, 0.25, 0.0, 100.0),
-            DockAnchor.Player => (DockIds.Player, Alignment.Unset, 0.5, 0.0, 0.0),
-            _ => (string.Empty, Alignment.Unset, double.NaN, 0.0, 0.0),
-        };
-
-        return CreateStyledToolDock(id, alignment, proportion, minWidth, minHeight);
+        if (!s_anchorDefinitions.TryGetValue(anchor, out var def))
+            throw new ArgumentOutOfRangeException(nameof(anchor), anchor, "Unsupported DockAnchor.");
+        return CreateStyledToolDock(def.Id, def.Alignment, def.Proportion, def.MinWidth, def.MinHeight);
     }
 
-    internal IToolDock CreateStyledToolDock(string id, Alignment alignment, double proportion)
-        => CreateStyledToolDock(id, alignment, proportion, 100.0, 100.0);
-
-    private IToolDock CreateStyledToolDock(string id, Alignment alignment, double proportion, double minWidth, double minHeight)
+    internal IToolDock CreateStyledToolDock(string id, Alignment alignment, double proportion, double minWidth, double minHeight)
     {
         var dock = CreateToolDock();
         dock.Id = id;
@@ -93,7 +96,6 @@ public class BeutlDockFactory(EditViewModel editViewModel) : Factory
 
     public override void InitLayout(IDockable layout)
     {
-        ContextLocator = new Dictionary<string, Func<object?>>();
         DockableLocator = new Dictionary<string, Func<IDockable?>>();
 
         if (_rootDock is not null)
@@ -146,15 +148,15 @@ public class BeutlDockFactory(EditViewModel editViewModel) : Factory
         }
     }
 
-    private static DockAnchor AnchorFromId(string? id) => id switch
+    private static DockAnchor AnchorFromId(string? id)
     {
-        DockIds.Left => DockAnchor.Left,
-        DockIds.Right => DockAnchor.Right,
-        DockIds.Bottom => DockAnchor.Bottom,
-        DockIds.Top => DockAnchor.Top,
-        DockIds.Player => DockAnchor.Player,
-        _ => DockAnchor.None,
-    };
+        if (string.IsNullOrEmpty(id)) return DockAnchor.None;
+        foreach (var (anchor, def) in s_anchorDefinitions)
+        {
+            if (def.Id == id) return anchor;
+        }
+        return DockAnchor.None;
+    }
 
     public BeutlToolDockable? AddTool(IToolContext context, IToolDock? target = null, bool activate = true)
     {
@@ -185,7 +187,6 @@ public class BeutlDockFactory(EditViewModel editViewModel) : Factory
     internal void SetRootDock(IRootDock rootDock)
     {
         _rootDock = rootDock;
-        _playerDockable = Traverse(rootDock).OfType<PlayerToolDockable>().FirstOrDefault();
         _anchorCacheDirty = true;
     }
 
