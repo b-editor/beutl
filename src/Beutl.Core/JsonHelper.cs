@@ -24,6 +24,7 @@ public static class JsonHelper
         WriteIndented = true,
         Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
         TypeInfoResolver = null,
+        NumberHandling = JsonNumberHandling.AllowNamedFloatingPointLiterals | JsonNumberHandling.AllowReadingFromString,
         Converters =
         {
             new OptionalJsonConverter(),
