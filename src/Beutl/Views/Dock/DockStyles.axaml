@@ -81,28 +81,12 @@
         </ControlTheme>
     </Styles.Resources>
 
-    <!--
-        Force floating HostWindows to use the native OS window chrome.
-        Default Dock Fluent theme hides the native chrome for floating tool
-        windows (:toolchromecontrolswindow) and relies on ToolChromeControl to
-        paint the chrome, but we hide ToolChrome via GripMode.Hidden for
-        docked tools, which leaves floating windows without any chrome or
-        resize handles.
-    -->
     <Style Selector="HostWindow">
-        <Setter Property="ExtendClientAreaToDecorationsHint" Value="False" />
-        <Setter Property="ExtendClientAreaChromeHints" Value="PreferSystemChrome" />
-        <Setter Property="ExtendClientAreaTitleBarHeightHint" Value="-1" />
-        <Setter Property="SystemDecorations" Value="Full" />
+        <Setter Property="SystemDecorations" Value="BorderOnly" />
         <Setter Property="Background" Value="{DynamicResource DockSurfaceWorkbenchBrush}" />
     </Style>
     <Style Selector="HostWindow:toolwindow">
         <Setter Property="Background" Value="{DynamicResource DockSurfaceWorkbenchBrush}" />
-    </Style>
-    <Style Selector="HostWindow:toolchromecontrolswindow">
-        <Setter Property="ExtendClientAreaToDecorationsHint" Value="False" />
-        <Setter Property="ExtendClientAreaChromeHints" Value="PreferSystemChrome" />
-        <Setter Property="ExtendClientAreaTitleBarHeightHint" Value="-1" />
     </Style>
     <!--
         Force the ToolChrome grip bar hidden on docked (non-floating) tools.
