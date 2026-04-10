@@ -8,56 +8,24 @@ namespace Beutl.ViewModels.Dock;
 
 public class BeutlDockFactory(EditViewModel editViewModel) : Factory
 {
+    private readonly Dictionary<DockAnchor, IToolDock?> _anchorCache = new();
     private IRootDock? _rootDock;
     private PlayerToolDockable? _playerDockable;
-
-    public IToolDock? LeftDock { get; private set; }
-
-    public IToolDock? RightDock { get; private set; }
-
-    public IToolDock? BottomDock { get; private set; }
+    private bool _anchorCacheDirty = true;
 
     public override IRootDock CreateLayout()
     {
-        // Left sidebar
-        var leftDock = CreateToolDock();
-        leftDock.Id = "Dock.Left";
-        leftDock.Proportion = 0.25;
-        leftDock.Alignment = Alignment.Left;
-        leftDock.GripMode = GripMode.Hidden;
-        leftDock.AutoHide = false;
-        leftDock.VisibleDockables = CreateList<IDockable>();
-        leftDock.MinWidth = 100;
-        leftDock.MinHeight = 100;
-        LeftDock = leftDock;
+        var leftDock = CreateAnchoredDock(DockAnchor.Left);
 
-        // Player
         _playerDockable = new PlayerToolDockable(editViewModel.Player, "Preview");
-        var playerDock = CreateToolDock();
-        playerDock.Id = "Dock.Player";
-        playerDock.Proportion = 0.5;
-        playerDock.Alignment = Alignment.Unset;
-        playerDock.GripMode = GripMode.Hidden;
-        playerDock.AutoHide = false;
+        var playerDock = CreateAnchoredDock(DockAnchor.Player);
         playerDock.VisibleDockables = CreateList<IDockable>(_playerDockable);
         playerDock.ActiveDockable = _playerDockable;
-        playerDock.MinWidth = 100;
-        playerDock.MinHeight = 100;
 
-        // Right sidebar
-        var rightDock = CreateToolDock();
-        rightDock.Id = "Dock.Right";
-        rightDock.Proportion = 0.25;
-        rightDock.Alignment = Alignment.Right;
-        rightDock.GripMode = GripMode.Hidden;
-        rightDock.AutoHide = false;
-        rightDock.VisibleDockables = CreateList<IDockable>();
-        rightDock.MinWidth = 100;
-        rightDock.MinHeight = 100;
-        RightDock = rightDock;
+        var rightDock = CreateAnchoredDock(DockAnchor.Right);
 
         var topDock = CreateProportionalDock();
-        topDock.Id = "Dock.Top";
+        topDock.Id = DockIds.Top;
         topDock.Proportion = 0.5;
         topDock.Orientation = Orientation.Horizontal;
         topDock.VisibleDockables = CreateList<IDockable>(
@@ -67,21 +35,10 @@ public class BeutlDockFactory(EditViewModel editViewModel) : Factory
             CreateProportionalDockSplitter(),
             rightDock);
 
-        // Bottom tool dock (for timeline etc.)
-        var bottomDock = CreateToolDock();
-        bottomDock.Id = "Dock.Bottom";
-        bottomDock.Proportion = 0.5;
-        bottomDock.Alignment = Alignment.Bottom;
-        bottomDock.GripMode = GripMode.Hidden;
-        bottomDock.AutoHide = false;
-        bottomDock.VisibleDockables = CreateList<IDockable>();
-        bottomDock.MinWidth = 100;
-        bottomDock.MinHeight = 100;
-        BottomDock = bottomDock;
+        var bottomDock = CreateAnchoredDock(DockAnchor.Bottom);
 
-        // Top-level horizontal split
         var root = CreateProportionalDock();
-        root.Id = "Dock.Root";
+        root.Id = DockIds.RootSplit;
         root.Orientation = Orientation.Vertical;
         root.IsCollapsable = false;
         root.VisibleDockables = CreateList<IDockable>(
@@ -90,7 +47,7 @@ public class BeutlDockFactory(EditViewModel editViewModel) : Factory
             bottomDock);
 
         var rootDock = CreateRootDock();
-        rootDock.Id = "Root";
+        rootDock.Id = DockIds.Root;
         rootDock.Title = "Editor";
         rootDock.IsCollapsable = false;
         rootDock.VisibleDockables = CreateList<IDockable>(root);
@@ -98,7 +55,40 @@ public class BeutlDockFactory(EditViewModel editViewModel) : Factory
         rootDock.DefaultDockable = root;
 
         _rootDock = rootDock;
+        _anchorCacheDirty = true;
         return rootDock;
+    }
+
+    public IToolDock CreateAnchoredDock(DockAnchor anchor)
+    {
+        var (id, alignment, proportion, minWidth, minHeight) = anchor switch
+        {
+            DockAnchor.Left => (DockIds.Left, Alignment.Left, 0.25, 160.0, 0.0),
+            DockAnchor.Right => (DockIds.Right, Alignment.Right, 0.25, 160.0, 0.0),
+            DockAnchor.Bottom => (DockIds.Bottom, Alignment.Bottom, 0.5, 0.0, 120.0),
+            DockAnchor.Top => (DockIds.Top, Alignment.Top, 0.25, 0.0, 100.0),
+            DockAnchor.Player => (DockIds.Player, Alignment.Unset, 0.5, 0.0, 0.0),
+            _ => (string.Empty, Alignment.Unset, double.NaN, 0.0, 0.0),
+        };
+
+        return CreateStyledToolDock(id, alignment, proportion, minWidth, minHeight);
+    }
+
+    internal IToolDock CreateStyledToolDock(string id, Alignment alignment, double proportion)
+        => CreateStyledToolDock(id, alignment, proportion, 100.0, 100.0);
+
+    private IToolDock CreateStyledToolDock(string id, Alignment alignment, double proportion, double minWidth, double minHeight)
+    {
+        var dock = CreateToolDock();
+        dock.Id = id;
+        dock.Alignment = alignment;
+        dock.Proportion = proportion;
+        dock.GripMode = GripMode.Hidden;
+        dock.AutoHide = false;
+        dock.MinWidth = minWidth;
+        dock.MinHeight = minHeight;
+        dock.VisibleDockables = CreateList<IDockable>();
+        return dock;
     }
 
     public override void InitLayout(IDockable layout)
@@ -125,12 +115,50 @@ public class BeutlDockFactory(EditViewModel editViewModel) : Factory
 
         base.InitLayout(layout);
 
+        DockableClosed -= OnDockableClosed;
         DockableClosed += OnDockableClosed;
+        DockableRemoved -= OnDockableRemoved;
+        DockableRemoved += OnDockableRemoved;
+
+        _anchorCacheDirty = true;
     }
+
+    public IToolDock? GetAnchoredDock(DockAnchor anchor)
+    {
+        if (anchor == DockAnchor.None) return null;
+        if (_anchorCacheDirty)
+            RebuildAnchorCache();
+        return _anchorCache.TryGetValue(anchor, out var dock) ? dock : null;
+    }
+
+    private void RebuildAnchorCache()
+    {
+        _anchorCache.Clear();
+        _anchorCacheDirty = false;
+        if (_rootDock is null) return;
+
+        foreach (var d in Traverse(_rootDock))
+        {
+            if (d is not IToolDock toolDock) continue;
+            var anchor = AnchorFromId(toolDock.Id);
+            if (anchor != DockAnchor.None && !_anchorCache.ContainsKey(anchor))
+                _anchorCache[anchor] = toolDock;
+        }
+    }
+
+    private static DockAnchor AnchorFromId(string? id) => id switch
+    {
+        DockIds.Left => DockAnchor.Left,
+        DockIds.Right => DockAnchor.Right,
+        DockIds.Bottom => DockAnchor.Bottom,
+        DockIds.Top => DockAnchor.Top,
+        DockIds.Player => DockAnchor.Player,
+        _ => DockAnchor.None,
+    };
 
     public BeutlToolDockable? AddTool(IToolContext context, IToolDock? target = null, bool activate = true)
     {
-        var zone = target ?? FindFocusedToolDock() ?? FindFirstToolDock();
+        var zone = target ?? GetAnchoredDock(DockAnchor.Left) ?? FindFirstToolDock();
         if (zone is null) return null;
 
         var dockable = new BeutlToolDockable(context, editViewModel);
@@ -141,6 +169,7 @@ public class BeutlDockFactory(EditViewModel editViewModel) : Factory
             if (_rootDock is not null)
                 SetFocusedDockable(_rootDock, dockable);
         }
+        _anchorCacheDirty = true;
         return dockable;
     }
 
@@ -153,45 +182,11 @@ public class BeutlDockFactory(EditViewModel editViewModel) : Factory
         }
     }
 
-    public IEnumerable<IDockable> EnumerateIdentifiedDocks()
-    {
-        if (_rootDock is null) yield break;
-        foreach (var d in Traverse(_rootDock))
-        {
-            if (!string.IsNullOrEmpty(d.Id) && (d is IProportionalDock || d is IToolDock))
-                yield return d;
-        }
-    }
-
-    public IDockable? FindById(string id)
-    {
-        if (_rootDock is null) return null;
-        return Traverse(_rootDock).FirstOrDefault(d => d.Id == id);
-    }
-
-    public IRootDock? RootDock => _rootDock;
-
-    public PlayerToolDockable? PlayerDockable => _playerDockable;
-
     internal void SetRootDock(IRootDock rootDock)
     {
         _rootDock = rootDock;
-        // Try to locate named docks from the restored layout
-        LeftDock = FindById("Dock.Left") as IToolDock;
-        RightDock = FindById("Dock.Right") as IToolDock;
-        BottomDock = FindById("Dock.Bottom") as IToolDock;
         _playerDockable = Traverse(rootDock).OfType<PlayerToolDockable>().FirstOrDefault();
-    }
-
-    private IToolDock? FindFocusedToolDock()
-    {
-        if (_rootDock is null) return null;
-        foreach (var d in Traverse(_rootDock))
-        {
-            if (d is IToolDock toolDock && toolDock.ActiveDockable is BeutlToolDockable { ToolContext.IsSelected.Value: true })
-                return toolDock;
-        }
-        return null;
+        _anchorCacheDirty = true;
     }
 
     internal IToolDock? FindFirstToolDock()
@@ -199,7 +194,7 @@ public class BeutlDockFactory(EditViewModel editViewModel) : Factory
         if (_rootDock is null) return null;
         foreach (var d in Traverse(_rootDock))
         {
-            if (d is IToolDock toolDock && toolDock.Id != "Dock.Player")
+            if (d is IToolDock toolDock && toolDock.Id != DockIds.Player)
                 return toolDock;
         }
         return null;
@@ -228,9 +223,15 @@ public class BeutlDockFactory(EditViewModel editViewModel) : Factory
 
     private void OnDockableClosed(object? sender, DockableClosedEventArgs e)
     {
+        _anchorCacheDirty = true;
         if (e.Dockable is BeutlToolDockable dockable)
         {
             dockable.Dispose();
         }
+    }
+
+    private void OnDockableRemoved(object? sender, DockableRemovedEventArgs e)
+    {
+        _anchorCacheDirty = true;
     }
 }

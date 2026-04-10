@@ -8,7 +8,6 @@ public class BeutlToolDockable : Tool, IDisposable
 {
     private readonly IDisposable _isSelectedSubscription;
     private bool _isDisposed;
-    private bool _suppressSync;
 
     public BeutlToolDockable(IToolContext context, EditViewModel editViewModel)
     {
@@ -23,14 +22,15 @@ public class BeutlToolDockable : Tool, IDisposable
         CanFloat = true;
         CanPin = true;
 
-        // When Beutl-side IsSelected changes, reflect to Dock IsActive.
-        _isSelectedSubscription = context.IsSelected.Subscribe(v =>
-        {
-            if (_suppressSync) return;
-            _suppressSync = true;
-            try { IsActive = v; }
-            finally { _suppressSync = false; }
-        });
+        IsActive = context.IsSelected.Value;
+
+        _isSelectedSubscription = context.IsSelected
+            .DistinctUntilChanged()
+            .Subscribe(v =>
+            {
+                if (_isDisposed) return;
+                if (IsActive != v) IsActive = v;
+            });
 
         PropertyChanged += OnPropertyChanged;
     }
@@ -44,15 +44,10 @@ public class BeutlToolDockable : Tool, IDisposable
     private void OnPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (_isDisposed) return;
+        if (e.PropertyName != nameof(IsActive)) return;
 
-        // When Dock IsActive changes (e.g. tab clicked), reflect to Beutl IsSelected.
-        if (e.PropertyName == nameof(IsActive))
-        {
-            if (_suppressSync) return;
-            _suppressSync = true;
-            try { ToolContext.IsSelected.Value = IsActive; }
-            finally { _suppressSync = false; }
-        }
+        if (ToolContext.IsSelected.Value != IsActive)
+            ToolContext.IsSelected.Value = IsActive;
     }
 
     public void Dispose()
