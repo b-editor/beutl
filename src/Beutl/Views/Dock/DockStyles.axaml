@@ -94,25 +94,52 @@
         GripMode=AutoHide, and some transitions can leak into GripMode=Hidden
         state, so we override it explicitly.
     -->
-    <Style Selector="ToolChromeControl /template/ Border#PART_Border">
-        <Setter Property="IsVisible" Value="False" />
-    </Style>
-    <Style Selector="ToolChromeControl:pointerover /template/ Border#PART_Border">
-        <Setter Property="IsVisible" Value="False" />
-    </Style>
-    <Style Selector="ToolChromeControl /template/ Panel#PART_Panel">
-        <Setter Property="IsVisible" Value="False" />
-    </Style>
-    <Style Selector="ToolChromeControl:pointerover /template/ Panel#PART_Panel">
-        <Setter Property="IsVisible" Value="False" />
-    </Style>
+    <Style Selector="ToolChromeControl">
+        <Style Selector="^ /template/ Border#PART_Border">
+            <Setter Property="Margin" Value="0,0,0,-30" />
+            <Setter Property="Opacity" Value="0" />
+            <Setter Property="IsVisible" Value="True" />
+            <Setter Property="ZIndex" Value="-100" />
+        </Style>
 
-    <!--  In floating windows, DO show the grip so users can drag/move the window.  -->
-    <Style Selector="HostWindow ToolChromeControl /template/ Border#PART_Border">
-        <Setter Property="IsVisible" Value="True" />
+        <Style Selector="^ /template/ Button#PART_MenuButton,
+                         ^ /template/ Button#PART_PinButton,
+                         ^ /template/ Button#PART_MaximumRestoreButton,
+                         ^ /template/ Button#PART_CloseButton">
+            <Setter Property="IsHitTestVisible" Value="False" />
+            <Setter Property="Opacity" Value="0" />
+        </Style>
+
+        <Style Selector="^:pointerover /template/ Border#PART_Border">
+            <Setter Property="IsVisible" Value="True" />
+        </Style>
+
+        <Style Selector="^ /template/ Panel#PART_Panel">
+            <Setter Property="IsVisible" Value="False" />
+        </Style>
+
+        <Style Selector="^:pointerover /template/ Panel#PART_Panel">
+            <Setter Property="IsVisible" Value="False" />
+        </Style>
     </Style>
-    <Style Selector="HostWindow ToolChromeControl:pointerover /template/ Border#PART_Border">
-        <Setter Property="IsVisible" Value="True" />
+    <!--  In floating windows, DO show the grip so users can drag/move the window.  -->
+    <Style Selector="HostWindow ToolChromeControl">
+        <Style Selector="^ /template/ Border#PART_Border">
+            <Setter Property="Margin" Value="0" />
+            <Setter Property="Opacity" Value="1" />
+            <Setter Property="IsVisible" Value="True" />
+            <Setter Property="ZIndex" Value="0" />
+        </Style>
+        <Style Selector="^ /template/ Button#PART_MenuButton,
+                         ^ /template/ Button#PART_PinButton,
+                         ^ /template/ Button#PART_MaximumRestoreButton,
+                         ^ /template/ Button#PART_CloseButton">
+            <Setter Property="IsHitTestVisible" Value="True" />
+            <Setter Property="Opacity" Value="1" />
+        </Style>
+        <Style Selector="^:pointerover /template/ Border#PART_Border">
+            <Setter Property="IsVisible" Value="True" />
+        </Style>
     </Style>
 
     <!--  Always show the single tab so users can drag it to another zone.  -->
@@ -161,7 +188,8 @@
     </Style>
 
     <!--  When the ToolControl has focus-within, selected tab label stays bright  -->
-    <Style Selector="ToolControl:focus-within ToolTabStripItem:selected /template/ ContentPresenter#PART_HeaderPresenter">
+    <Style
+        Selector="ToolControl:focus-within ToolTabStripItem:selected /template/ ContentPresenter#PART_HeaderPresenter">
         <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimary}" />
     </Style>
 
@@ -180,6 +208,7 @@
     </Style>
 
     <Style Selector="ToolDockControl">
-        <Setter Property="IsVisible" Value="{ReflectionBinding IsEmpty, FallbackValue=True, Converter={x:Static BoolConverters.Not}}" />
+        <Setter Property="IsVisible"
+                Value="{ReflectionBinding IsEmpty, FallbackValue=True, Converter={x:Static BoolConverters.Not}}" />
     </Style>
 </Styles>
