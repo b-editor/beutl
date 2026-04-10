@@ -19,6 +19,10 @@ public sealed class GraphEditorTabExtension : ToolTabExtension
 
     public override string DisplayName => "Graph Editor Tab";
 
+    public override DockAnchor DefaultAnchor => DockAnchor.Bottom;
+
+    public override int DefaultOrder => 1;
+
     public override IconSource GetIcon()
     {
         return new SymbolIconSource { Symbol = Symbol.StarEmphasis };

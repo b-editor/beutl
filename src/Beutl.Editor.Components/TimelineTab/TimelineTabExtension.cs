@@ -22,6 +22,12 @@ public sealed class TimelineTabExtension : ToolTabExtension
 
     public override string? Header => Strings.Timeline;
 
+    public override DockAnchor DefaultAnchor => DockAnchor.Bottom;
+
+    public override bool OpenByDefault => true;
+
+    public override int DefaultOrder => 0;
+
     public override IEnumerable<ContextCommandDefinition> ContextCommands =>
     [
         new ContextCommandDefinition("Paste", Strings.Paste, Strings.Paste_Description,

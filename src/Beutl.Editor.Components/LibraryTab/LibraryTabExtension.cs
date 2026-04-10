@@ -26,6 +26,12 @@ public sealed class LibraryTabExtension : ToolTabExtension
 
     public override string? Header => Strings.Library;
 
+    public override DockAnchor DefaultAnchor => DockAnchor.Left;
+
+    public override bool OpenByDefault => true;
+
+    public override int DefaultOrder => 0;
+
     public override IconSource GetIcon()
     {
         return new SymbolIconSource { Symbol = Symbol.Library };

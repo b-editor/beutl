@@ -21,6 +21,12 @@ public sealed class ElementPropertyTabExtension : ToolTabExtension
 
     public override string? Header => Strings.ElementProperty;
 
+    public override DockAnchor DefaultAnchor => DockAnchor.Right;
+
+    public override bool OpenByDefault => true;
+
+    public override int DefaultOrder => 0;
+
     public override IconSource GetIcon()
     {
         return new SymbolIconSource { Symbol = Symbol.Wrench };

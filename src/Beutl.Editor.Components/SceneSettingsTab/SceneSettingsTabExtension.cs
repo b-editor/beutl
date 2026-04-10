@@ -24,6 +24,10 @@ public sealed class SceneSettingsTabExtension : ToolTabExtension
 
     public override string DisplayName => Name;
 
+    public override DockAnchor DefaultAnchor => DockAnchor.Right;
+
+    public override int DefaultOrder => 3;
+
     public override IconSource GetIcon()
     {
         return new SymbolIconSource { Symbol = Symbol.PlaySettings };

@@ -20,6 +20,12 @@ public abstract class ToolTabExtension : ViewExtension
 
     public virtual string? Header => null;
 
+    public virtual DockAnchor DefaultAnchor => DockAnchor.None;
+
+    public virtual int DefaultOrder => 0;
+
+    public virtual bool OpenByDefault => false;
+
     public abstract IconSource GetIcon();
 
     public abstract bool TryCreateContent(

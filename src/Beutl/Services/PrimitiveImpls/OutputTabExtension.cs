@@ -22,6 +22,12 @@ public sealed class OutputTabExtension : ToolTabExtension
 
     public override bool CanMultiple => false;
 
+    public override DockAnchor DefaultAnchor => DockAnchor.Right;
+
+    public override bool OpenByDefault => true;
+
+    public override int DefaultOrder => 1;
+
     public override IconSource GetIcon()
     {
         return new SymbolIconSource { Symbol = Symbol.ArrowExportLtr };
