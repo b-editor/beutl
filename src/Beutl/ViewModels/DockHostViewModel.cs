@@ -553,7 +553,7 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
 
     private PlayerToolDockable? RestorePlayerDockable()
     {
-        return new PlayerToolDockable(_editViewModel.Player, "Preview");
+        return new PlayerToolDockable(_editViewModel.Player, Strings.Preview);
     }
 
     private List<IDockable> RestoreChildren(JsonObject obj)

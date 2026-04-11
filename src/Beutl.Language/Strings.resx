@@ -919,4 +919,7 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="BpmOffset" xml:space="preserve">
     <value>Offset</value>
   </data>
+  <data name="Preview" xml:space="preserve">
+    <value>Preview</value>
+  </data>
 </root>

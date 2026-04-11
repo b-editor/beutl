@@ -913,4 +913,7 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="BpmOffset" xml:space="preserve">
     <value>オフセット</value>
   </data>
+  <data name="Preview" xml:space="preserve">
+    <value>プレビュー</value>
+  </data>
 </root>
