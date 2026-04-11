@@ -421,7 +421,7 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
                 var layout = RestoreNode(layoutObj);
                 if (layout is null) continue;
 
-                if (!BeutlDockFactory.Traverse(layout).Any(i=> i is BeutlToolDockable or PlayerToolDockable))
+                if (!BeutlDockFactory.Traverse(layout).Any(i => i is BeutlToolDockable or PlayerToolDockable))
                 {
                     continue;
                 }
