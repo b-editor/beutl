@@ -1,5 +1,6 @@
 ﻿using System.Text.Json.Nodes;
 
+using Avalonia.Input;
 using Beutl.Audio.Effects;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Engine;
@@ -15,6 +16,10 @@ public sealed class AudioEffectEditorViewModel : ValueEditorViewModel<AudioEffec
     public AudioEffectEditorViewModel(IPropertyAdapter<AudioEffect?> property)
         : base(property)
     {
+        CanCopy = Value.Select(v => v is AudioEffect and not FallbackAudioEffect)
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(Disposables);
+
         IsFallback = Value.Select(v => v is IFallback)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
@@ -84,6 +89,10 @@ public sealed class AudioEffectEditorViewModel : ValueEditorViewModel<AudioEffec
             .DisposeWith(Disposables);
 
     }
+
+    public override IReadOnlyReactiveProperty<bool> CanCopy { get; }
+
+    protected override DataFormat<string>? PasteFormat => BeutlDataFormats.AudioEffect;
 
     public ReadOnlyReactivePropertySlim<string?> FilterName { get; }
 
@@ -167,25 +176,10 @@ public sealed class AudioEffectEditorViewModel : ValueEditorViewModel<AudioEffec
         }
     }
 
-    public override bool CanCopy => Value.Value is AudioEffect and not FallbackAudioEffect;
+    protected override ICoreSerializable? GetCopyTarget()
+        => Value.Value is AudioEffect ae and not FallbackAudioEffect ? ae : null;
 
-    public override bool CanPaste => true;
-
-    public override async ValueTask<bool> CopyAsync()
-    {
-        if (Value.Value is not AudioEffect ae || ae is FallbackAudioEffect) return false;
-        return await CoreObjectClipboard.CopyAsync(ae, BeutlDataFormats.AudioEffect);
-    }
-
-    public override async ValueTask<bool> PasteAsync()
-    {
-        var clipboard = ClipboardHelper.GetClipboard();
-        if (clipboard == null) return false;
-        string? json = await CoreObjectClipboard.TryGetJsonAsync(clipboard, BeutlDataFormats.AudioEffect);
-        return json != null && TryPasteJson(json);
-    }
-
-    public bool TryPasteJson(string? json)
+    public override bool TryPasteJson(string json)
     {
         if (!CoreObjectClipboard.TryDeserializeJson<AudioEffect>(json, out var pasted)) return false;
 

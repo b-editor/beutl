@@ -22,7 +22,7 @@
                       Theme="{DynamicResource PropertyEditorMiniExpanderToggleButton}"
                       ToolTip.Tip="{Binding Description.Value}">
             <ToggleButton.ContextFlyout>
-                <ui:FAMenuFlyout>
+                <ui:FAMenuFlyout Opening="CopyPasteFlyout_Opening">
                     <ui:MenuFlyoutItem Click="SetNullClick"
                                        FontWeight="Normal"
                                        Text="{x:Static lang:Strings.Null}" />
@@ -32,12 +32,14 @@
                     <ui:MenuFlyoutItem Click="ImportFromSvgPathClick"
                                        FontWeight="Normal"
                                        Text="{x:Static lang:Strings.ImportSvgPath}" />
-                    <ui:MenuFlyoutSeparator />
+                    <ui:MenuFlyoutSeparator IsVisible="{Binding CanCopy.Value}" />
                     <ui:MenuFlyoutItem Click="CopyClick"
                                        FontWeight="Normal"
+                                       IsVisible="{Binding CanCopy.Value}"
                                        Text="{x:Static lang:Strings.Copy}" />
                     <ui:MenuFlyoutItem Click="PasteClick"
                                        FontWeight="Normal"
+                                       IsVisible="{Binding CanPaste.Value}"
                                        Text="{x:Static lang:Strings.Paste}" />
                 </ui:FAMenuFlyout>
             </ToggleButton.ContextFlyout>

@@ -4,6 +4,7 @@ using System.Reactive.Subjects;
 using System.Text.Json.Nodes;
 using Avalonia;
 using Avalonia.Data;
+using Avalonia.Input;
 using Avalonia.Threading;
 using Beutl.Animation;
 using Beutl.Animation.Easings;
@@ -14,6 +15,7 @@ using Beutl.Engine.Expressions;
 using Beutl.Logging;
 using Beutl.Media;
 using Beutl.ProjectSystem;
+using Beutl.Serialization;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
@@ -327,13 +329,60 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
     }
 
     // 任意のICoreSerializableオブジェクトのクリップボードコピー&ペースト対応
-    public virtual bool CanCopy => false;
+    private static readonly IReadOnlyReactiveProperty<bool> s_alwaysFalse
+        = new ReactivePropertySlim<bool>(false);
 
-    public virtual bool CanPaste => false;
+    private readonly ReactivePropertySlim<bool> _canPaste = new(false);
 
-    public virtual ValueTask<bool> CopyAsync() => ValueTask.FromResult(false);
+    public virtual IReadOnlyReactiveProperty<bool> CanCopy => s_alwaysFalse;
 
-    public virtual ValueTask<bool> PasteAsync() => ValueTask.FromResult(false);
+    public IReadOnlyReactiveProperty<bool> CanPaste => _canPaste;
+
+    protected virtual DataFormat<string>? PasteFormat => null;
+
+    protected virtual ICoreSerializable? GetCopyTarget() => null;
+
+    public virtual bool TryPasteJson(string json) => false;
+
+    public virtual async ValueTask<bool> CopyAsync()
+    {
+        if (PasteFormat is not { } format) return false;
+        if (GetCopyTarget() is not { } obj) return false;
+        return await CoreObjectClipboard.CopyAsync(obj, format);
+    }
+
+    public virtual async ValueTask<bool> PasteAsync()
+    {
+        if (PasteFormat is not { } format) return false;
+        var clipboard = ClipboardHelper.GetClipboard();
+        if (clipboard == null) return false;
+        string? json = await CoreObjectClipboard.TryGetJsonAsync(clipboard, format);
+        return json != null && TryPasteJson(json);
+    }
+
+    public async ValueTask RefreshCanPasteAsync()
+    {
+        if (PasteFormat is not { } format)
+        {
+            _canPaste.Value = false;
+            return;
+        }
+        var clipboard = ClipboardHelper.GetClipboard();
+        if (clipboard == null)
+        {
+            _canPaste.Value = false;
+            return;
+        }
+        try
+        {
+            string? json = await CoreObjectClipboard.TryGetJsonAsync(clipboard, format);
+            _canPaste.Value = json != null;
+        }
+        catch
+        {
+            _canPaste.Value = false;
+        }
+    }
 
     public virtual object? GetService(Type serviceType)
     {

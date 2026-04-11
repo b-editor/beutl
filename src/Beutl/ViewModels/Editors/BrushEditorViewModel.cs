@@ -1,4 +1,5 @@
 ﻿using System.Text.Json.Nodes;
+using Avalonia.Input;
 using Beutl.Composition;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Engine;
@@ -34,6 +35,10 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel, IFallbackObjectV
         ChildContext = Value.Select(v => v as ICoreObject)
             .Select(x => x != null ? new PropertiesEditorViewModel(x) : null)
             .Do(AcceptChildren)
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(Disposables);
+
+        CanCopy = Value.Select(v => v is Brush and not FallbackBrush)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 
@@ -114,6 +119,10 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel, IFallbackObjectV
 
     public ReadOnlyReactivePropertySlim<PropertiesEditorViewModel?> ChildContext { get; }
 
+    public override IReadOnlyReactiveProperty<bool> CanCopy { get; }
+
+    protected override DataFormat<string>? PasteFormat => BeutlDataFormats.Brush;
+
     public ReadOnlyReactivePropertySlim<bool> IsSolid { get; }
 
     public ReadOnlyReactivePropertySlim<bool> IsLinearGradient { get; }
@@ -193,25 +202,10 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel, IFallbackObjectV
         }
     }
 
-    public override bool CanCopy => Value.Value is Brush and not FallbackBrush;
+    protected override ICoreSerializable? GetCopyTarget()
+        => Value.Value is Brush brush and not FallbackBrush ? brush : null;
 
-    public override bool CanPaste => true;
-
-    public override async ValueTask<bool> CopyAsync()
-    {
-        if (Value.Value is not Brush brush || brush is FallbackBrush) return false;
-        return await CoreObjectClipboard.CopyAsync(brush, BeutlDataFormats.Brush);
-    }
-
-    public override async ValueTask<bool> PasteAsync()
-    {
-        var clipboard = ClipboardHelper.GetClipboard();
-        if (clipboard == null) return false;
-        string? json = await CoreObjectClipboard.TryGetJsonAsync(clipboard, BeutlDataFormats.Brush);
-        return json != null && TryPasteJson(json);
-    }
-
-    public bool TryPasteJson(string? json)
+    public override bool TryPasteJson(string json)
     {
         if (!CoreObjectClipboard.TryDeserializeJson<Brush>(json, out var pasted)) return false;
 

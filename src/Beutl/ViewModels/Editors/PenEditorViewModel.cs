@@ -1,9 +1,11 @@
 ﻿using System.Text.Json.Nodes;
+using Avalonia.Input;
 using Beutl.Collections.Pooled;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Engine;
 using Beutl.Media;
 using Beutl.PropertyAdapters;
+using Beutl.Serialization;
 using Beutl.Services;
 
 using DynamicData;
@@ -18,6 +20,10 @@ public sealed class PenEditorViewModel : BaseEditorViewModel
     {
         Value = property.GetObservable()
             .ToReadOnlyReactiveProperty()
+            .DisposeWith(Disposables);
+
+        CanCopy = Value.Select(v => v is Pen)
+            .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 
         Value.Subscribe(Update)
@@ -96,6 +102,10 @@ public sealed class PenEditorViewModel : BaseEditorViewModel
 
     public ReadOnlyReactiveProperty<Pen?> Value { get; }
 
+    public override IReadOnlyReactiveProperty<bool> CanCopy { get; }
+
+    protected override DataFormat<string>? PasteFormat => BeutlDataFormats.Pen;
+
     public CoreList<IPropertyEditorContext> MajorProperties { get; } = [];
 
     public CoreList<IPropertyEditorContext> MinorProperties { get; } = [];
@@ -117,25 +127,9 @@ public sealed class PenEditorViewModel : BaseEditorViewModel
         }
     }
 
-    public override bool CanCopy => Value.Value is Pen;
+    protected override ICoreSerializable? GetCopyTarget() => Value.Value;
 
-    public override bool CanPaste => true;
-
-    public override async ValueTask<bool> CopyAsync()
-    {
-        if (Value.Value is not Pen pen) return false;
-        return await CoreObjectClipboard.CopyAsync(pen, BeutlDataFormats.Pen);
-    }
-
-    public override async ValueTask<bool> PasteAsync()
-    {
-        var clipboard = ClipboardHelper.GetClipboard();
-        if (clipboard == null) return false;
-        string? json = await CoreObjectClipboard.TryGetJsonAsync(clipboard, BeutlDataFormats.Pen);
-        return json != null && TryPasteJson(json);
-    }
-
-    public bool TryPasteJson(string? json)
+    public override bool TryPasteJson(string json)
     {
         if (!CoreObjectClipboard.TryDeserializeJson<Pen>(json, out var pasted)) return false;
 

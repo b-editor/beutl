@@ -66,10 +66,10 @@ public partial class DisplacementMapTransformEditor : UserControl
 
     private async void CopyClick(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is not DisplacementMapTransformEditorViewModel { IsDisposed: false } viewModel) return;
+        if (DataContext is not BaseEditorViewModel { IsDisposed: false } vm) return;
         try
         {
-            await viewModel.CopyAsync();
+            await vm.CopyAsync();
         }
         catch (Exception ex)
         {
@@ -79,14 +79,25 @@ public partial class DisplacementMapTransformEditor : UserControl
 
     private async void PasteClick(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is not DisplacementMapTransformEditorViewModel { IsDisposed: false } viewModel) return;
+        if (DataContext is not BaseEditorViewModel { IsDisposed: false } vm) return;
         try
         {
-            await viewModel.PasteAsync();
+            if (!await vm.PasteAsync())
+            {
+                NotificationService.ShowInformation(Strings.Paste, MessageStrings.CannotPasteFromClipboard);
+            }
         }
         catch (Exception ex)
         {
             NotificationService.ShowError(Strings.Error, ex.Message);
+        }
+    }
+
+    private async void CopyPasteFlyout_Opening(object? sender, EventArgs e)
+    {
+        if (DataContext is BaseEditorViewModel { IsDisposed: false } vm)
+        {
+            await vm.RefreshCanPasteAsync();
         }
     }
 }

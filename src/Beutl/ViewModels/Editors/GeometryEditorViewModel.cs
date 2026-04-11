@@ -1,5 +1,6 @@
 ﻿using System.Text.Json.Nodes;
 
+using Avalonia.Input;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.PropertyEditors.Services;
 using Beutl.Media;
@@ -15,6 +16,10 @@ public sealed class GeometryEditorViewModel : ValueEditorViewModel<Geometry?>, I
     public GeometryEditorViewModel(IPropertyAdapter<Geometry?> property)
         : base(property)
     {
+        CanCopy = Value.Select(v => v is Geometry and not FallbackGeometry)
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(Disposables);
+
         IsFallback = Value.Select(v => v is IFallback)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
@@ -73,6 +78,10 @@ public sealed class GeometryEditorViewModel : ValueEditorViewModel<Geometry?>, I
     public ReadOnlyReactivePropertySlim<bool> IsGroupOrNull { get; }
 
     public ReactivePropertySlim<bool> IsExpanded { get; } = new();
+
+    public override IReadOnlyReactiveProperty<bool> CanCopy { get; }
+
+    protected override DataFormat<string>? PasteFormat => BeutlDataFormats.Geometry;
 
     public ReactivePropertySlim<PropertiesEditorViewModel?> Properties { get; } = new();
 
@@ -145,25 +154,10 @@ public sealed class GeometryEditorViewModel : ValueEditorViewModel<Geometry?>, I
         }
     }
 
-    public override bool CanCopy => Value.Value is Geometry and not FallbackGeometry;
+    protected override ICoreSerializable? GetCopyTarget()
+        => Value.Value is Geometry geom and not FallbackGeometry ? geom : null;
 
-    public override bool CanPaste => true;
-
-    public override async ValueTask<bool> CopyAsync()
-    {
-        if (Value.Value is not Geometry geom || geom is FallbackGeometry) return false;
-        return await CoreObjectClipboard.CopyAsync(geom, BeutlDataFormats.Geometry);
-    }
-
-    public override async ValueTask<bool> PasteAsync()
-    {
-        var clipboard = ClipboardHelper.GetClipboard();
-        if (clipboard == null) return false;
-        string? json = await CoreObjectClipboard.TryGetJsonAsync(clipboard, BeutlDataFormats.Geometry);
-        return json != null && TryPasteJson(json);
-    }
-
-    public bool TryPasteJson(string? json)
+    public override bool TryPasteJson(string json)
     {
         if (!CoreObjectClipboard.TryDeserializeJson<Geometry>(json, out var pasted)) return false;
 

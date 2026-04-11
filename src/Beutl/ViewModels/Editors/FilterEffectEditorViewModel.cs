@@ -1,4 +1,5 @@
 ﻿using System.Text.Json.Nodes;
+using Avalonia.Input;
 using Beutl.Composition;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Engine;
@@ -16,6 +17,10 @@ public sealed class FilterEffectEditorViewModel : ValueEditorViewModel<FilterEff
     public FilterEffectEditorViewModel(IPropertyAdapter<FilterEffect?> property)
         : base(property)
     {
+        CanCopy = Value.Select(v => v is FilterEffect and not FallbackFilterEffect)
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(Disposables);
+
         IsFallback = Value.Select(v => v is IFallback)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
@@ -116,6 +121,10 @@ public sealed class FilterEffectEditorViewModel : ValueEditorViewModel<FilterEff
             .DisposeWith(Disposables);
     }
 
+    public override IReadOnlyReactiveProperty<bool> CanCopy { get; }
+
+    protected override DataFormat<string>? PasteFormat => BeutlDataFormats.FilterEffect;
+
     public ReadOnlyReactivePropertySlim<string?> FilterName { get; }
 
     public ReadOnlyReactivePropertySlim<bool> IsGroup { get; }
@@ -169,26 +178,11 @@ public sealed class FilterEffectEditorViewModel : ValueEditorViewModel<FilterEff
         }
     }
 
-    public override bool CanCopy => Value.Value is FilterEffect and not FallbackFilterEffect;
-
-    public override bool CanPaste => true;
-
-    public override async ValueTask<bool> CopyAsync()
-    {
-        if (Value.Value is not FilterEffect fe || fe is FallbackFilterEffect) return false;
-        return await CoreObjectClipboard.CopyAsync(fe, BeutlDataFormats.FilterEffect);
-    }
-
-    public override async ValueTask<bool> PasteAsync()
-    {
-        var clipboard = ClipboardHelper.GetClipboard();
-        if (clipboard == null) return false;
-        string? json = await CoreObjectClipboard.TryGetJsonAsync(clipboard, BeutlDataFormats.FilterEffect);
-        return json != null && TryPasteJson(json);
-    }
+    protected override ICoreSerializable? GetCopyTarget()
+        => Value.Value is FilterEffect fe and not FallbackFilterEffect ? fe : null;
 
     // Drop時にも利用できる、JSON文字列からの貼り付け処理
-    public bool TryPasteJson(string? json)
+    public override bool TryPasteJson(string json)
     {
         if (!CoreObjectClipboard.TryDeserializeJson<FilterEffect>(json, out var pasted)) return false;
 

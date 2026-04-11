@@ -1,6 +1,8 @@
 ﻿using System.Text.Json.Nodes;
+using Avalonia.Input;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Graphics.Effects;
+using Beutl.Serialization;
 using Reactive.Bindings;
 
 namespace Beutl.ViewModels.Editors;
@@ -51,6 +53,10 @@ public sealed class DisplacementMapTransformEditorViewModel : ValueEditorViewMod
     public DisplacementMapTransformEditorViewModel(IPropertyAdapter<DisplacementMapTransform?> property)
         : base(property)
     {
+        CanCopy = Value.Select(v => v is DisplacementMapTransform)
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(Disposables);
+
         TransformType = Value.Select(GetTransformType)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
@@ -94,6 +100,10 @@ public sealed class DisplacementMapTransformEditorViewModel : ValueEditorViewMod
             .DisposeWith(Disposables);
 
     }
+
+    public override IReadOnlyReactiveProperty<bool> CanCopy { get; }
+
+    protected override DataFormat<string>? PasteFormat => BeutlDataFormats.EngineObject;
 
     public ReadOnlyReactivePropertySlim<string?> TransformName { get; }
 
@@ -140,25 +150,9 @@ public sealed class DisplacementMapTransformEditorViewModel : ValueEditorViewMod
         SetValue(Value.Value, null);
     }
 
-    public override bool CanCopy => Value.Value is DisplacementMapTransform;
+    protected override ICoreSerializable? GetCopyTarget() => Value.Value;
 
-    public override bool CanPaste => true;
-
-    public override async ValueTask<bool> CopyAsync()
-    {
-        if (Value.Value is not DisplacementMapTransform obj) return false;
-        return await CoreObjectClipboard.CopyAsync(obj, BeutlDataFormats.EngineObject);
-    }
-
-    public override async ValueTask<bool> PasteAsync()
-    {
-        var clipboard = ClipboardHelper.GetClipboard();
-        if (clipboard == null) return false;
-        string? json = await CoreObjectClipboard.TryGetJsonAsync(clipboard, BeutlDataFormats.EngineObject);
-        return json != null && TryPasteJson(json);
-    }
-
-    public bool TryPasteJson(string? json)
+    public override bool TryPasteJson(string json)
     {
         if (!CoreObjectClipboard.TryDeserializeJson<DisplacementMapTransform>(json, out var pasted)) return false;
 

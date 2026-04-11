@@ -21,7 +21,7 @@
                       IsChecked="{Binding IsExpanded.Value}"
                       Theme="{DynamicResource PropertyEditorMiniExpanderToggleButton}">
             <ToggleButton.ContextFlyout>
-                <ui:FAMenuFlyout>
+                <ui:FAMenuFlyout Opening="CopyPasteFlyout_Opening">
                     <ui:RadioMenuFlyoutItem Click="TransformTypeClicked"
                                             IsChecked="{Binding IsTranslate.Value, Mode=OneWay}"
                                             Tag="Translate"
@@ -50,12 +50,14 @@
                                             IsChecked="{Binding !Value.Value, Mode=OneWay}"
                                             Tag="Null"
                                             Text="{x:Static lang:Strings.Null}" />
-                    <ui:MenuFlyoutSeparator />
+                    <ui:MenuFlyoutSeparator IsVisible="{Binding CanCopy.Value}" />
                     <ui:MenuFlyoutItem Click="CopyClick"
                                        FontWeight="Normal"
+                                       IsVisible="{Binding CanCopy.Value}"
                                        Text="{x:Static lang:Strings.Copy}" />
                     <ui:MenuFlyoutItem Click="PasteClick"
                                        FontWeight="Normal"
+                                       IsVisible="{Binding CanPaste.Value}"
                                        Text="{x:Static lang:Strings.Paste}" />
                 </ui:FAMenuFlyout>
             </ToggleButton.ContextFlyout>

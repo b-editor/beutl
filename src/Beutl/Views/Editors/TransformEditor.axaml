@@ -23,7 +23,7 @@
                       Theme="{DynamicResource PropertyEditorMiniExpanderToggleButton}"
                       ToolTip.Tip="{Binding Description.Value}">
             <ToggleButton.ContextFlyout>
-                <ui:FAMenuFlyout>
+                <ui:FAMenuFlyout Opening="CopyPasteFlyout_Opening">
                     <ui:MenuFlyoutSubItem x:Name="ChangeTypeMenu"
                                           FontWeight="Normal"
                                           IconSource="New"
@@ -31,12 +31,14 @@
                     <ui:MenuFlyoutItem Click="SetNullClick"
                                        FontWeight="Normal"
                                        Text="{x:Static lang:Strings.Null}" />
-                    <ui:MenuFlyoutSeparator />
+                    <ui:MenuFlyoutSeparator IsVisible="{Binding CanCopy.Value}" />
                     <ui:MenuFlyoutItem Click="CopyClick"
                                        FontWeight="Normal"
+                                       IsVisible="{Binding CanCopy.Value}"
                                        Text="{x:Static lang:Strings.Copy}" />
                     <ui:MenuFlyoutItem Click="PasteClick"
                                        FontWeight="Normal"
+                                       IsVisible="{Binding CanPaste.Value}"
                                        Text="{x:Static lang:Strings.Paste}" />
                 </ui:FAMenuFlyout>
             </ToggleButton.ContextFlyout>
@@ -81,7 +83,7 @@
                         Classes="size-24x24"
                         Theme="{StaticResource TransparentButton}">
                     <Button.Flyout>
-                        <ui:FAMenuFlyout>
+                        <ui:FAMenuFlyout Opening="CopyPasteFlyout_Opening">
                             <ui:MenuFlyoutSubItem x:Name="PresenterChangeTypeMenu"
                                                   FontWeight="Normal"
                                                   IconSource="New"
@@ -89,12 +91,14 @@
                             <ui:MenuFlyoutItem Click="SetNullClick"
                                                FontWeight="Normal"
                                                Text="{x:Static lang:Strings.Null}" />
-                            <ui:MenuFlyoutSeparator />
+                            <ui:MenuFlyoutSeparator IsVisible="{Binding CanCopy.Value}" />
                             <ui:MenuFlyoutItem Click="CopyClick"
                                                FontWeight="Normal"
+                                               IsVisible="{Binding CanCopy.Value}"
                                                Text="{x:Static lang:Strings.Copy}" />
                             <ui:MenuFlyoutItem Click="PasteClick"
                                                FontWeight="Normal"
+                                               IsVisible="{Binding CanPaste.Value}"
                                                Text="{x:Static lang:Strings.Paste}" />
                         </ui:FAMenuFlyout>
                     </Button.Flyout>

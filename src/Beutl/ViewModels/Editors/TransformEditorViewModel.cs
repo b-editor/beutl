@@ -1,4 +1,5 @@
 ﻿using System.Text.Json.Nodes;
+using Avalonia.Input;
 using Beutl.Composition;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Engine;
@@ -74,6 +75,10 @@ public sealed class TransformEditorViewModel : ValueEditorViewModel<Transform?>,
     public TransformEditorViewModel(IPropertyAdapter<Transform?> property)
         : base(property)
     {
+        CanCopy = Value.Select(v => v is Transform and not FallbackTransform)
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(Disposables);
+
         IsFallback = Value.Select(v => v is IFallback)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
@@ -170,6 +175,10 @@ public sealed class TransformEditorViewModel : ValueEditorViewModel<Transform?>,
     }
 
     public ReadOnlyReactivePropertySlim<string?> TransformName { get; }
+
+    public override IReadOnlyReactiveProperty<bool> CanCopy { get; }
+
+    protected override DataFormat<string>? PasteFormat => BeutlDataFormats.Transform;
 
     public ReadOnlyReactivePropertySlim<KnownTransformType> TransformType { get; }
 
@@ -278,25 +287,10 @@ public sealed class TransformEditorViewModel : ValueEditorViewModel<Transform?>,
         }
     }
 
-    public override bool CanCopy => Value.Value is Transform and not FallbackTransform;
+    protected override ICoreSerializable? GetCopyTarget()
+        => Value.Value is { } tf and not FallbackTransform ? tf : null;
 
-    public override bool CanPaste => true;
-
-    public override async ValueTask<bool> CopyAsync()
-    {
-        if (Value.Value is not Transform tf || tf is FallbackTransform) return false;
-        return await CoreObjectClipboard.CopyAsync(tf, BeutlDataFormats.Transform);
-    }
-
-    public override async ValueTask<bool> PasteAsync()
-    {
-        var clipboard = ClipboardHelper.GetClipboard();
-        if (clipboard == null) return false;
-        string? json = await CoreObjectClipboard.TryGetJsonAsync(clipboard, BeutlDataFormats.Transform);
-        return json != null && TryPasteJson(json);
-    }
-
-    public bool TryPasteJson(string? json)
+    public override bool TryPasteJson(string json)
     {
         if (!CoreObjectClipboard.TryDeserializeJson<Transform>(json, out var pasted)) return false;
 
