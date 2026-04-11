@@ -22,14 +22,14 @@ public class BeutlToolDockable : Tool, IDisposable
         CanFloat = true;
         CanPin = true;
 
-        IsActive = context.IsSelected.Value;
+        IsSelected = context.IsSelected.Value;
 
         _isSelectedSubscription = context.IsSelected
             .DistinctUntilChanged()
             .Subscribe(v =>
             {
                 if (_isDisposed) return;
-                if (IsActive != v) IsActive = v;
+                if (IsSelected != v) IsSelected = v;
             });
 
         PropertyChanged += OnPropertyChanged;
@@ -44,10 +44,10 @@ public class BeutlToolDockable : Tool, IDisposable
     private void OnPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (_isDisposed) return;
-        if (e.PropertyName != nameof(IsActive)) return;
+        if (e.PropertyName != nameof(IsSelected)) return;
 
-        if (ToolContext.IsSelected.Value != IsActive)
-            ToolContext.IsSelected.Value = IsActive;
+        if (ToolContext.IsSelected.Value != IsSelected)
+            ToolContext.IsSelected.Value = IsSelected;
     }
 
     public void Dispose()
