@@ -1,4 +1,4 @@
-using Dock.Avalonia.Controls;
+﻿using Dock.Avalonia.Controls;
 using Dock.Model.Controls;
 using Dock.Model.Core;
 using Dock.Model.Core.Events;
@@ -207,14 +207,14 @@ public class BeutlDockFactory(EditViewModel editViewModel) : Factory
         if (node is IDock dock && dock.VisibleDockables is { } list)
         {
             foreach (var child in list)
-            foreach (var grand in Traverse(child))
-                yield return grand;
+                foreach (var grand in Traverse(child))
+                    yield return grand;
         }
         if (node is IRootDock root)
         {
             if (root.HiddenDockables is { } hidden)
                 foreach (var c in hidden)
-                foreach (var g in Traverse(c)) yield return g;
+                    foreach (var g in Traverse(c)) yield return g;
             if (root.Windows is { } windows)
                 foreach (var w in windows)
                     if (w.Layout is not null)

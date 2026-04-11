@@ -1,4 +1,4 @@
-using System.ComponentModel;
+﻿using System.ComponentModel;
 using Dock.Model.Inpc.Controls;
 using FluentAvalonia.UI.Controls;
 

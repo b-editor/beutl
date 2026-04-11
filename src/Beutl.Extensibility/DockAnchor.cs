@@ -1,4 +1,4 @@
-namespace Beutl.Extensibility;
+﻿namespace Beutl.Extensibility;
 
 public enum DockAnchor
 {

@@ -1,4 +1,4 @@
-using Dock.Model.Inpc.Controls;
+﻿using Dock.Model.Inpc.Controls;
 
 namespace Beutl.ViewModels.Dock;
 

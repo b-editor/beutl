@@ -1,4 +1,4 @@
-namespace Beutl.ViewModels.Dock;
+﻿namespace Beutl.ViewModels.Dock;
 
 internal static class DockIds
 {
