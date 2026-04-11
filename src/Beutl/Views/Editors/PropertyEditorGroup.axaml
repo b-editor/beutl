@@ -14,7 +14,7 @@
                 Background="Transparent"
                 IsVisible="{Binding !IsFirst}"
                 ToolTip.Tip="{x:Static lang:MessageStrings.DoubleClickToHideGroup}">
-            <Separator Height="2" />
+            <Separator Height="1" />
         </Border>
 
         <Panel x:Name="summary"

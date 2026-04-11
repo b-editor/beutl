@@ -107,10 +107,7 @@
     </UserControl.Resources>
     <ScrollViewer>
         <StackPanel>
-            <TextBlock Margin="4,8"
-                       Text="{x:Static lang:Strings.Output}"
-                       Theme="{StaticResource SubtitleTextBlockStyle}" />
-            <Grid Margin="4,0,4,4" ColumnDefinitions="*,4,Auto,4,Auto">
+            <Grid Margin="4" ColumnDefinitions="*,4,Auto,4,Auto">
                 <DropDownButton x:Name="ProfilesButton"
                                 HorizontalAlignment="Stretch"
                                 Click="OnProfilesButtonClick">
