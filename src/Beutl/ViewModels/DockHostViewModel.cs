@@ -5,6 +5,7 @@ using Beutl.ViewModels.Dock;
 using Dock.Model.Controls;
 using Dock.Model.Core;
 using Microsoft.Extensions.Logging;
+using Reactive.Bindings;
 
 namespace Beutl.ViewModels;
 
@@ -25,12 +26,12 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
         var placeholder = Factory.CreateRootDock();
         placeholder.Id = DockIds.Root;
         placeholder.IsCollapsable = false;
-        Layout = placeholder;
+        Layout = new ReactivePropertySlim<IRootDock>(placeholder);
     }
 
     public BeutlDockFactory Factory { get; }
 
-    public IRootDock Layout { get; private set; }
+    public ReactivePropertySlim<IRootDock> Layout { get; }
 
     public T? FindToolTab<T>(Func<T, bool> condition) where T : IToolContext
     {
@@ -146,8 +147,9 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
     private void EnsureDefaultLayout()
     {
         if (_layoutInitialized) return;
-        Layout = Factory.CreateLayout();
-        Factory.InitLayout(Layout);
+        var layout = Factory.CreateLayout();
+        Factory.InitLayout(layout);
+        Layout.Value = layout;
         _layoutInitialized = true;
     }
 
@@ -156,7 +158,7 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
         _logger.LogInformation("Disposing DockHostViewModel ({SceneId})", _sceneId);
         foreach (var dockable in Factory.EnumerateTools().ToList())
         {
-            dockable.Dispose();
+            Factory.CloseDockable(dockable);
         }
     }
 
@@ -164,7 +166,7 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
     {
         _logger.LogInformation("Writing DockHostViewModel to JSON ({SceneId})", _sceneId);
         json["_dockVersion"] = DockVersion;
-        json["DockLayout"] = SaveNode(Layout);
+        json["DockLayout"] = SaveNode(Layout.Value);
     }
 
     public void ReadFromJson(JsonObject json)
@@ -184,9 +186,9 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
                 var restored = RestoreNode(layoutObj);
                 if (restored is IRootDock rootDock)
                 {
-                    Layout = rootDock;
                     Factory.SetRootDock(rootDock);
                     Factory.InitLayout(rootDock);
+                    Layout.Value = rootDock;
                     _layoutInitialized = true;
                 }
                 else
@@ -213,6 +215,12 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
         }
     }
 
+    public void ResetLayout()
+    {
+        ResetToDefaultLayout("user requested");
+        OpenDefaultTabs();
+    }
+
     private void ResetToDefaultLayout(string reason)
     {
         _logger.LogWarning("Resetting dock layout to defaults ({Reason}, {SceneId})", reason, _sceneId);
@@ -220,11 +228,10 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
         {
             try
             {
-                tool.Dispose();
+                Factory.CloseDockable(tool);
             }
             catch
             {
-                /* best-effort */
             }
         }
 

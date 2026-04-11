@@ -13,5 +13,5 @@
              mc:Ignorable="d">
     <dock:DockControl Name="DockControl"
                       Factory="{Binding DockHost.Factory}"
-                      Layout="{Binding DockHost.Layout}" />
+                      Layout="{Binding DockHost.Layout.Value}" />
 </UserControl>

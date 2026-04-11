@@ -194,6 +194,9 @@
   <data name="Reset" xml:space="preserve">
     <value>Reset</value>
   </data>
+  <data name="ResetDockLayout" xml:space="preserve">
+    <value>Reset dock layout</value>
+  </data>
   <data name="EditAnimation" xml:space="preserve">
     <value>Edit animation</value>
   </data>

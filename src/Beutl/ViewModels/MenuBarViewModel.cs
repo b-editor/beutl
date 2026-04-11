@@ -22,7 +22,8 @@ public sealed partial class MenuBarViewModel
 
         Parallel.Invoke(
             () => InitializeFilesCommands(),
-            () => InitializeSceneCommands(isSceneOpened));
+            () => InitializeSceneCommands(isSceneOpened),
+            () => InitializeViewCommands(isSceneOpened));
 
         //InitializeFilesCommands();
         //InitializeSceneCommands(isSceneOpened);

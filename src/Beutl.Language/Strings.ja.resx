@@ -198,6 +198,9 @@
   <data name="Reset" xml:space="preserve">
     <value>リセット</value>
   </data>
+  <data name="ResetDockLayout" xml:space="preserve">
+    <value>ドックレイアウトをリセット</value>
+  </data>
   <data name="Others" xml:space="preserve">
     <value>その他</value>
   </data>
