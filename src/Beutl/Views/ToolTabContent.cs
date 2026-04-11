@@ -1,8 +1,12 @@
 ﻿using Avalonia.Controls;
-using Beutl.ViewModels;
+using Beutl.ViewModels.Dock;
 
 namespace Beutl.Views;
 
+/// <summary>
+/// Hosts the Control produced by a <see cref="BeutlToolDockable"/>'s underlying
+/// <see cref="IToolContext"/> via its <see cref="ToolTabExtension"/>.
+/// </summary>
 public sealed class ToolTabContent : ContentControl
 {
     protected override void OnDataContextChanged(EventArgs e)
@@ -14,10 +18,10 @@ public sealed class ToolTabContent : ContentControl
             return;
         }
 
-        if (DataContext is not ToolTabViewModel viewModel ||
-            !viewModel.Context.Extension.TryCreateContent(viewModel.EditViewModel, out Control? control))
+        if (DataContext is not BeutlToolDockable dockable ||
+            !dockable.ToolContext.Extension.TryCreateContent(dockable.EditViewModel, out Control? control))
         {
-            control = new TextBlock()
+            control = new TextBlock
             {
                 Text = $"""
                         Error:
@@ -28,8 +32,8 @@ public sealed class ToolTabContent : ContentControl
         else
         {
             var cm = App.GetContextCommandManager();
-            cm?.Attach(control, viewModel.Context.Extension);
-            control.DataContext = viewModel.Context;
+            cm?.Attach(control, dockable.ToolContext.Extension);
+            control.DataContext = dockable.ToolContext;
         }
 
         Content = control;

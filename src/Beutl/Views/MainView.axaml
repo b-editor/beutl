@@ -172,6 +172,9 @@
                 <MenuItem x:Name="viewMenuItem" Header="{x:Static lang:Strings.View}">
                     <MenuItem x:Name="editorTabMenuItem" Header="{x:Static lang:Strings.Editors}" />
                     <MenuItem x:Name="toolTabMenuItem" Header="{x:Static lang:Strings.Tools}" />
+                    <Separator />
+                    <MenuItem Command="{CompiledBinding MenuBar.ResetDockLayout}"
+                              Header="{x:Static lang:Strings.ResetDockLayout}" />
                 </MenuItem>
                 <MenuItem x:Name="toolWindowMenuItem" Header="{x:Static lang:Strings.Tools}" />
                 <!--  シーン  -->
@@ -273,7 +276,7 @@
         </Grid>
         <Border Grid.Row="1"
                 HorizontalAlignment="Stretch"
-                Background="{DynamicResource ReDockingDividerBrush}" />
+                Background="{DynamicResource ControlStrokeColorDefaultBrush}" />
 
         <views:EditorHostView Name="EditorHost"
                               Grid.Row="2"

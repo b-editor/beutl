@@ -5,10 +5,7 @@ using Avalonia.Controls;
 using Beutl.Editor.Components.PathEditorTab.ViewModels;
 using Beutl.Editor.Components.PathEditorTab.Views;
 using Beutl.Editor.Services;
-using FluentAvalonia.UI.Controls;
 using Microsoft.Extensions.DependencyInjection;
-using Symbol = FluentIcons.Common.Symbol;
-using SymbolIconSource = FluentIcons.FluentAvalonia.SymbolIconSource;
 
 namespace Beutl.Editor.Components.PathEditorTab;
 
@@ -24,11 +21,6 @@ public sealed class PathEditorTabExtension : ToolTabExtension
     public override bool CanMultiple => false;
 
     public override string? Header => Strings.PathEditor;
-
-    public override IconSource GetIcon()
-    {
-        return new SymbolIconSource { Symbol = Symbol.CalligraphyPen };
-    }
 
     public override bool TryCreateContent(IEditorContext editorContext, [NotNullWhen(true)] out Control? control)
     {

@@ -1,0 +1,215 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:acr="using:Avalonia.Controls.Recycling"
+        xmlns:core="using:Dock.Model.Core"
+        xmlns:dmc="using:Dock.Model.Controls">
+    <Styles.Resources>
+        <ControlTheme x:Key="{x:Type ToolControl}"
+                      x:DataType="dmc:IToolDock"
+                      TargetType="ToolControl">
+            <Setter Property="(DockProperties.IsDragEnabled)" Value="{Binding CanDrag}" />
+            <Setter Property="(DockProperties.IsDropEnabled)" Value="{Binding CanDrop}" />
+            <Setter Property="(DockProperties.DockGroup)" Value="{Binding DockGroup}" />
+            <Setter Property="MinWidth" Value="{Binding MinWidth}" />
+            <Setter Property="MaxWidth" Value="{Binding MaxWidth}" />
+            <Setter Property="MinHeight" Value="{Binding MinHeight}" />
+            <Setter Property="MaxHeight" Value="{Binding MaxHeight}" />
+
+            <Setter Property="IconTemplate">
+                <DataTemplate DataType="core:IDockable">
+                    <Panel />
+                </DataTemplate>
+            </Setter>
+
+            <Setter Property="HeaderTemplate">
+                <DataTemplate DataType="core:IDockable">
+                    <TextBlock Padding="{DynamicResource DockHeaderContentPadding}" Text="{Binding Title}" />
+                </DataTemplate>
+            </Setter>
+
+            <Setter Property="ModifiedTemplate">
+                <DataTemplate DataType="core:IDockable">
+                    <TextBlock Margin="{DynamicResource DockModifiedIndicatorMargin}"
+                               VerticalAlignment="Center"
+                               Text="*" />
+                </DataTemplate>
+            </Setter>
+
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <DockPanel x:Name="PART_DockPanel"
+                               DockProperties.IsDockTarget="True"
+                               DockProperties.IsDropArea="True">
+                        <ToolTabStrip x:Name="PART_TabStrip"
+                                      MinHeight="28"
+                                      DockPanel.Dock="Top"
+                                      DockProperties.DockAdornerHost="{Binding #PART_DockPanel}"
+                                      DockProperties.IsDropArea="True"
+                                      HeaderTemplate="{TemplateBinding HeaderTemplate}"
+                                      IconTemplate="{TemplateBinding IconTemplate}"
+                                      ItemsSource="{Binding VisibleDockables}"
+                                      ModifiedTemplate="{TemplateBinding ModifiedTemplate}"
+                                      SelectedItem="{Binding ActiveDockable, Mode=TwoWay}" />
+                        <Border x:Name="PART_Border">
+                            <DockableControl DataContext="{Binding ActiveDockable}" TrackingMode="Visible">
+                                <ContentControl x:Name="PART_ContentPresenter"
+                                                HorizontalAlignment="Stretch"
+                                                VerticalAlignment="Stretch"
+                                                Content="{Binding}">
+                                    <ContentControl.ContentTemplate>
+                                        <acr:ControlRecyclingDataTemplate Parent="{Binding #PART_ContentPresenter}" />
+                                    </ContentControl.ContentTemplate>
+                                </ContentControl>
+                            </DockableControl>
+                        </Border>
+                    </DockPanel>
+                </ControlTemplate>
+            </Setter>
+
+            <Style Selector="^/template/ DockPanel#PART_DockPanel">
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="ZIndex" Value="1" />
+            </Style>
+
+            <Style Selector="^/template/ Border#PART_Border">
+                <Setter Property="ZIndex" Value="-1" />
+                <Setter Property="Background" Value="{DynamicResource DockSurfacePanelBrush}" />
+                <Setter Property="Margin" Value="0" />
+                <Setter Property="BorderBrush" Value="Transparent" />
+                <Setter Property="BorderThickness" Value="0" />
+            </Style>
+        </ControlTheme>
+    </Styles.Resources>
+
+    <Style Selector="HostWindow">
+        <Setter Property="SystemDecorations" Value="BorderOnly" />
+        <Setter Property="Background" Value="{DynamicResource DockSurfaceWorkbenchBrush}" />
+        <Setter Property="Topmost" Value="True" />
+    </Style>
+    <Style Selector="HostWindow:toolwindow">
+        <Setter Property="Background" Value="{DynamicResource DockSurfaceWorkbenchBrush}" />
+    </Style>
+    <!--
+        Force the ToolChrome grip bar hidden on docked (non-floating) tools.
+        The default Dock Fluent theme re-shows the grip on :pointerover when
+        GripMode=AutoHide, and some transitions can leak into GripMode=Hidden
+        state, so we override it explicitly.
+    -->
+    <Style Selector="ToolChromeControl">
+        <Style Selector="^ /template/ Border#PART_Border">
+            <Setter Property="Margin" Value="0,0,0,-30" />
+            <Setter Property="Opacity" Value="0" />
+            <Setter Property="IsVisible" Value="True" />
+            <Setter Property="ZIndex" Value="-100" />
+        </Style>
+
+        <Style Selector="^ /template/ Button#PART_MenuButton,
+                         ^ /template/ Button#PART_PinButton,
+                         ^ /template/ Button#PART_MaximumRestoreButton,
+                         ^ /template/ Button#PART_CloseButton">
+            <Setter Property="IsHitTestVisible" Value="False" />
+            <Setter Property="Opacity" Value="0" />
+        </Style>
+
+        <Style Selector="^:pointerover /template/ Border#PART_Border">
+            <Setter Property="IsVisible" Value="True" />
+        </Style>
+
+        <Style Selector="^ /template/ Panel#PART_Panel">
+            <Setter Property="IsVisible" Value="False" />
+        </Style>
+
+        <Style Selector="^:pointerover /template/ Panel#PART_Panel">
+            <Setter Property="IsVisible" Value="False" />
+        </Style>
+    </Style>
+    <!--  In floating windows, DO show the grip so users can drag/move the window.  -->
+    <Style Selector="HostWindow ToolChromeControl">
+        <Style Selector="^ /template/ Border#PART_Border">
+            <Setter Property="Margin" Value="0" />
+            <Setter Property="Opacity" Value="1" />
+            <Setter Property="IsVisible" Value="True" />
+            <Setter Property="ZIndex" Value="0" />
+        </Style>
+        <Style Selector="^ /template/ Button#PART_MenuButton,
+                         ^ /template/ Button#PART_PinButton,
+                         ^ /template/ Button#PART_MaximumRestoreButton,
+                         ^ /template/ Button#PART_CloseButton">
+            <Setter Property="IsHitTestVisible" Value="True" />
+            <Setter Property="Opacity" Value="1" />
+        </Style>
+        <Style Selector="^:pointerover /template/ Border#PART_Border">
+            <Setter Property="IsVisible" Value="True" />
+        </Style>
+    </Style>
+
+    <!--  Always show the single tab so users can drag it to another zone.  -->
+    <Style Selector="ToolTabStrip:singleitem /template/ ItemsPresenter#PART_ItemsPresenter">
+        <Setter Property="IsVisible" Value="True" />
+    </Style>
+
+    <!--  Tab item states: only Foreground + BorderBrush change between states  -->
+    <Style Selector="ToolTabStripItem">
+        <Setter Property="Background" Value="Transparent" />
+        <!-- <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondary}" /> -->
+        <Setter Property="BorderBrush" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0,0,0,2" />
+
+        <Style Selector="^ /template/ ContentPresenter#PART_HeaderPresenter">
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondary}" />
+        </Style>
+
+        <Style Selector="^:pointerover">
+            <Setter Property="Background" Value="{DynamicResource DockTabHoverBackgroundBrush}" />
+            <Style Selector="^ /template/ ContentPresenter#PART_HeaderPresenter">
+                <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimary}" />
+            </Style>
+        </Style>
+
+        <Style Selector="^:selected">
+            <Setter Property="Background" Value="{DynamicResource DockSurfacePanelBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource SystemAccentColor}" />
+            <Setter Property="BorderThickness" Value="0,0,0,2" />
+            <Style Selector="^ /template/ ContentPresenter#PART_HeaderPresenter">
+                <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondary}" />
+            </Style>
+        </Style>
+
+        <Style Selector="^:selected:pointerover">
+            <Setter Property="Background" Value="{DynamicResource DockTabHoverBackgroundBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource SystemAccentColor}" />
+            <Style Selector="^ /template/ ContentPresenter#PART_HeaderPresenter">
+                <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimary}" />
+            </Style>
+        </Style>
+
+        <Style Selector="^ /template/ Border">
+            <Setter Property="CornerRadius" Value="4,4,0,0" />
+        </Style>
+    </Style>
+
+    <!--  When the ToolControl has focus-within, selected tab label stays bright  -->
+    <Style
+        Selector="ToolControl:focus-within ToolTabStripItem:selected /template/ ContentPresenter#PART_HeaderPresenter">
+        <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimary}" />
+    </Style>
+
+    <Style Selector="ToolTabStrip /template/ Border#PART_BorderLeftFill">
+        <Setter Property="BorderThickness" Value="0,0,0,1" />
+    </Style>
+    <Style Selector="ToolTabStrip /template/ Border#PART_BorderRightFill">
+        <Setter Property="BorderThickness" Value="0,0,0,1" />
+    </Style>
+    <Style Selector="ToolTabStrip:singleitem /template/ Border#PART_Border">
+        <Setter Property="ZIndex" Value="100" />
+    </Style>
+
+    <Style Selector="ToolChromeControl">
+        <Setter Property="Background" Value="Transparent" />
+    </Style>
+
+    <Style Selector="ToolDockControl">
+        <Setter Property="IsVisible"
+                Value="{ReflectionBinding IsEmpty, FallbackValue=True, Converter={x:Static BoolConverters.Not}}" />
+    </Style>
+</Styles>

@@ -31,12 +31,6 @@ public class OutputTabViewModel : IToolContext
 
     public IReactiveProperty<bool> IsSelected { get; } = new ReactiveProperty<bool>();
 
-    public IReactiveProperty<ToolTabExtension.TabPlacement> Placement { get; }
-        = new ReactiveProperty<ToolTabExtension.TabPlacement>(ToolTabExtension.TabPlacement.RightUpperBottom);
-
-    public IReactiveProperty<ToolTabExtension.TabDisplayMode> DisplayMode { get; }
-        = new ReactiveProperty<ToolTabExtension.TabDisplayMode>();
-
     public string Header => Strings.Output;
 
     public ICoreList<OutputProfileItem> Items => _outputService.Items;

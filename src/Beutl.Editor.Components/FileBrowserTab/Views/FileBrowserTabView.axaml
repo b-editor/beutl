@@ -120,7 +120,7 @@
         <!--  ツールバー  -->
         <Border Grid.Row="0"
                 Padding="4"
-                BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
+                BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}"
                 BorderThickness="0,0,0,1">
             <Grid ColumnDefinitions="Auto,*,Auto">
                 <!--  上へボタン（ディレクトリブラウズ時のみ表示）  -->
@@ -216,7 +216,7 @@
         <Panel Grid.Row="1">
             <!--  ホームビュー  -->
             <ScrollViewer IsVisible="{Binding IsHomeView.Value}">
-                <StackPanel Spacing="0" Background="Transparent">
+                <StackPanel Background="Transparent" Spacing="0">
                     <!--  お気に入りセクション  -->
                     <Grid x:Name="favoritesSection" RowDefinitions="Auto,Auto">
                         <ToggleButton x:Name="favoritesToggle"
@@ -285,7 +285,7 @@
                     </Grid>
 
                     <!--  プロジェクトディレクトリセクション  -->
-                    <Grid RowDefinitions="Auto,Auto" x:Name="projectDirectorySection">
+                    <Grid x:Name="projectDirectorySection" RowDefinitions="Auto,Auto">
                         <ToggleButton x:Name="projectDirToggle"
                                       Margin="8,4"
                                       IsChecked="True"

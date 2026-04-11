@@ -48,6 +48,7 @@ public sealed class App : Application
 
         AvaloniaXamlLoader.Load(this);
         Resources["PaletteColors"] = AppHelpers.GetPaletteColors();
+        ApplyDockStringOverrides();
 
         _theme = (FluentAvaloniaTheme)Styles[0];
 
@@ -91,6 +92,28 @@ public sealed class App : Application
         {
             Resources["ContentControlThemeFontFamily"] = Resources["NotoSansJP"] as FontFamily;
         }
+    }
+
+    private void ApplyDockStringOverrides()
+    {
+        Resources["ToolChromeControlFloatString"] = DockStrings.ToolChromeControlFloatString;
+        Resources["ToolChromeControlDockString"] = DockStrings.ToolChromeControlDockString;
+        Resources["ToolChromeControlAutoHideString"] = DockStrings.ToolChromeControlAutoHideString;
+        Resources["ToolChromeControlCloseString"] = DockStrings.ToolChromeControlCloseString;
+
+        Resources["ToolTabStripItemFloatString"] = DockStrings.ToolTabStripItemFloatString;
+        Resources["ToolTabStripItemFloatAllString"] = DockStrings.ToolTabStripItemFloatAllString;
+        Resources["ToolTabStripItemDockString"] = DockStrings.ToolTabStripItemDockString;
+        Resources["ToolTabStripItemAutoHideString"] = DockStrings.ToolTabStripItemAutoHideString;
+        Resources["ToolTabStripItemCloseString"] = DockStrings.ToolTabStripItemCloseString;
+
+        Resources["ToolPinItemControlFloatString"] = DockStrings.ToolPinItemControlFloatString;
+        Resources["ToolPinItemControlShowString"] = DockStrings.ToolPinItemControlShowString;
+        Resources["ToolPinItemControlCloseString"] = DockStrings.ToolPinItemControlCloseString;
+
+        Resources["DragPreviewControlDockString"] = DockStrings.DragPreviewControlDockString;
+        Resources["DragPreviewControlFloatString"] = DockStrings.DragPreviewControlFloatString;
+        Resources["DragPreviewControlNoneString"] = DockStrings.DragPreviewControlNoneString;
     }
 
     public override void RegisterServices()

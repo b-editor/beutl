@@ -22,6 +22,7 @@
     <EmbeddedResource Update="TutorialStrings.resx" />
     <EmbeddedResource Update="AudioStrings.resx" />
     <EmbeddedResource Update="GraphicsStrings.resx" />
+    <EmbeddedResource Update="DockStrings.resx" />
   </ItemGroup>
 
 </Project>

@@ -3,9 +3,6 @@ using Avalonia.Controls;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Tools;
 using Beutl.Views.Tools;
-using FluentAvalonia.UI.Controls;
-using Symbol = FluentIcons.Common.Symbol;
-using SymbolIconSource = FluentIcons.FluentAvalonia.SymbolIconSource;
 
 namespace Beutl.Services.PrimitiveImpls;
 
@@ -22,10 +19,11 @@ public sealed class OutputTabExtension : ToolTabExtension
 
     public override bool CanMultiple => false;
 
-    public override IconSource GetIcon()
-    {
-        return new SymbolIconSource { Symbol = Symbol.ArrowExportLtr };
-    }
+    public override DockAnchor DefaultAnchor => DockAnchor.Right;
+
+    public override bool OpenByDefault => true;
+
+    public override int DefaultOrder => 1;
 
     public override bool TryCreateContent(IEditorContext editorContext, [NotNullWhen(true)] out Control? control)
     {

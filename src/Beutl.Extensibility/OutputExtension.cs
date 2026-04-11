@@ -3,8 +3,6 @@ using System.Text.Json.Nodes;
 using Avalonia.Controls;
 using Avalonia.Platform.Storage;
 
-using FluentAvalonia.UI.Controls;
-
 using Reactive.Bindings;
 
 namespace Beutl.Extensibility;
@@ -38,8 +36,6 @@ public interface ISupportOutputPreset
 public abstract class OutputExtension : Extension
 {
     public abstract FilePickerFileType GetFilePickerFileType();
-
-    public abstract IconSource? GetIcon();
 
     public abstract bool TryCreateControl(IEditorContext editorContext, [NotNullWhen(true)] out Control? control);
 

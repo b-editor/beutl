@@ -96,12 +96,6 @@ public sealed class FileBrowserTabViewModel : IToolContext
 
     public IReactiveProperty<bool> IsSelected { get; } = new ReactiveProperty<bool>();
 
-    public IReactiveProperty<ToolTabExtension.TabPlacement> Placement { get; } =
-        new ReactiveProperty<ToolTabExtension.TabPlacement>(ToolTabExtension.TabPlacement.LeftUpperTop);
-
-    public IReactiveProperty<ToolTabExtension.TabDisplayMode> DisplayMode { get; } =
-        new ReactivePropertySlim<ToolTabExtension.TabDisplayMode>();
-
     public string Header => Strings.FileBrowser;
 
     public ReactiveProperty<FileBrowserViewMode> ViewMode { get; } = new(FileBrowserViewMode.Icon);

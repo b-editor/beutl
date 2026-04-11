@@ -6,7 +6,6 @@ using Beutl.ProjectSystem;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Tools;
 using Beutl.Views.Tools;
-using FluentAvalonia.UI.Controls;
 
 namespace Beutl.Services.PrimitiveImpls;
 
@@ -27,14 +26,6 @@ public sealed class SceneOutputExtension : OutputExtension
             [
                 "*.scene"
             ]
-        };
-    }
-
-    public override IconSource? GetIcon()
-    {
-        return new SymbolIconSource
-        {
-            Symbol = Symbol.Document
         };
     }
 

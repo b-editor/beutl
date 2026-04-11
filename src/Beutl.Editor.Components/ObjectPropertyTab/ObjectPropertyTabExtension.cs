@@ -4,12 +4,6 @@ using Avalonia.Controls;
 
 using Beutl.Editor.Components.ObjectPropertyTab.ViewModels;
 using Beutl.Editor.Components.ObjectPropertyTab.Views;
-using Beutl.Extensibility;
-
-using FluentAvalonia.UI.Controls;
-
-using Symbol = FluentIcons.Common.Symbol;
-using SymbolIconSource = FluentIcons.FluentAvalonia.SymbolIconSource;
 
 namespace Beutl.Editor.Components.ObjectPropertyTab;
 
@@ -26,10 +20,9 @@ public sealed class ObjectPropertyTabExtension : ToolTabExtension
 
     public override string? Header => Strings.Properties;
 
-    public override IconSource GetIcon()
-    {
-        return new SymbolIconSource { Symbol = Symbol.WrenchScrewdriver };
-    }
+    public override DockAnchor DefaultAnchor => DockAnchor.Right;
+
+    public override int DefaultOrder => 2;
 
     public override bool TryCreateContent(IEditorContext editorContext, [NotNullWhen(true)] out Control? control)
     {

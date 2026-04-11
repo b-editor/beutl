@@ -12,7 +12,7 @@ public sealed class SampleExtension : LayerExtension
 
     public override void Load()
     {
-        LibraryService.Current.Register<SampleOp>(KnownLibraryItemFormats.EngineObject, "Sample Operator");
+        LibraryService.Current.Register<SampleObject>(KnownLibraryItemFormats.EngineObject, "Sample Operator");
         LibraryService.Current.AddMultiple("Sample Drawables", item =>
             item.BindDrawable<SampleDrawable>()
         );

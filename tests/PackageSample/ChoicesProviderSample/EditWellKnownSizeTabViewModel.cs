@@ -10,12 +10,6 @@ public sealed class EditWellKnownSizeTabViewModel(ToolTabExtension extension) : 
 
     public IReactiveProperty<bool> IsSelected { get; } = new ReactivePropertySlim<bool>();
 
-    public IReactiveProperty<ToolTabExtension.TabPlacement> Placement { get; } =
-        new ReactivePropertySlim<ToolTabExtension.TabPlacement>(ToolTabExtension.TabPlacement.RightUpperBottom);
-
-    public IReactiveProperty<ToolTabExtension.TabDisplayMode> DisplayMode { get; } =
-        new ReactiveProperty<ToolTabExtension.TabDisplayMode>();
-
     public string Header => "Edit Well known size";
 
     public AddWellKnownSizeScreenViewModel AddScreen { get; } = new AddWellKnownSizeScreenViewModel();

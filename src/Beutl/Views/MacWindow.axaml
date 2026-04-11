@@ -13,6 +13,7 @@
         d:DesignHeight="720"
         d:DesignWidth="1280"
         x:DataType="vm:MainViewModel"
+        Background="{DynamicResource MainWindowBackground}"
         Icon="avares://Beutl.Controls/Assets/logo.png"
         mc:Ignorable="d">
     <NativeMenu.Menu>
@@ -121,6 +122,9 @@
                     <NativeMenuItem Header="{x:Static lang:Strings.Tools}">
                         <NativeMenu />
                     </NativeMenuItem>
+                    <NativeMenuItemSeparator />
+                    <NativeMenuItem Command="{CompiledBinding MenuBar.ResetDockLayout}"
+                                    Header="{x:Static lang:Strings.ResetDockLayout}" />
                 </NativeMenu>
             </NativeMenuItem>
             <NativeMenuItem Header="{x:Static lang:Strings.Tools}">

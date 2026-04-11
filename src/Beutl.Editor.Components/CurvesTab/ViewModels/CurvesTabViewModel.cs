@@ -167,12 +167,6 @@ public sealed class CurvesTabViewModel : IToolContext
 
     public IReactiveProperty<bool> IsSelected { get; } = new ReactiveProperty<bool>();
 
-    public IReactiveProperty<ToolTabExtension.TabPlacement> Placement { get; } =
-        new ReactivePropertySlim<ToolTabExtension.TabPlacement>(ToolTabExtension.TabPlacement.RightLowerBottom);
-
-    public IReactiveProperty<ToolTabExtension.TabDisplayMode> DisplayMode { get; } =
-        new ReactivePropertySlim<ToolTabExtension.TabDisplayMode>();
-
     public ReadOnlyReactivePropertySlim<bool> HasCurves { get; }
 
     public ReadOnlyReactivePropertySlim<bool> IsCurvesMissing { get; }
