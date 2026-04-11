@@ -84,6 +84,19 @@ public static class ObjectRegenerator
         json = Encoding.UTF8.GetString(buffer);
     }
 
+    public static void Regenerate(ICoreSerializable obj, Type actualType, out ICoreSerializable newInstance)
+    {
+        using var output = new PooledArrayBufferWriter<byte>(BufferSizeDefault);
+        RegenerateCore(obj, output);
+
+        Span<byte> buffer = PooledArrayBufferWriter<byte>.GetArray(output).AsSpan().Slice(0, output.WrittenCount);
+        JsonObject jsonObj = JsonNode.Parse(buffer)!.AsObject();
+
+        var instance = (ICoreSerializable)Activator.CreateInstance(actualType)!;
+        CoreSerializer.PopulateFromJsonObject(instance, actualType, jsonObj);
+        newInstance = instance;
+    }
+
     public static void Regenerate<T>(T[] obj, out T[] newInstance)
         where T : class, ICoreObject, new()
     {

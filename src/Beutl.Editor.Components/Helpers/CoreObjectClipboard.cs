@@ -3,12 +3,16 @@ using System.Text.Json.Nodes;
 using Avalonia.Input;
 using Avalonia.Input.Platform;
 using Beutl.Editor.Services;
+using Beutl.Logging;
 using Beutl.Serialization;
+using Microsoft.Extensions.Logging;
 
 namespace Beutl.Editor.Components.Helpers;
 
 public static class CoreObjectClipboard
 {
+    private static readonly ILogger s_logger = Log.CreateLogger(typeof(CoreObjectClipboard));
+
     // クリップボードにICoreSerializableオブジェクトをJSON化して保存する
     public static async ValueTask<bool> CopyAsync(ICoreSerializable obj, DataFormat<string> format)
     {
@@ -44,21 +48,16 @@ public static class CoreObjectClipboard
             Type? actualType = baseType.IsSealed ? baseType : jsonObj.GetDiscriminator(baseType);
             if (actualType == null || !actualType.IsAssignableTo(baseType)) return false;
 
-            if (Activator.CreateInstance(actualType) is not T instance) return false;
+            if (Activator.CreateInstance(actualType) is not ICoreSerializable tmp) return false;
+            CoreSerializer.PopulateFromJsonObject(tmp, actualType, jsonObj);
 
-            CoreSerializer.PopulateFromJsonObject(instance, actualType, jsonObj);
-            ObjectRegenerator.Regenerate(instance, out string newJson);
-            var newJsonNode = JsonNode.Parse(newJson) as JsonObject;
-            if (newJsonNode == null) return false;
-
-            var newInstance = (T)Activator.CreateInstance(actualType)!;
-            CoreSerializer.PopulateFromJsonObject(newInstance, actualType, newJsonNode);
-
-            result = newInstance;
+            ObjectRegenerator.Regenerate(tmp, actualType, out ICoreSerializable newInstance);
+            result = (T)newInstance;
             return true;
         }
-        catch
+        catch (Exception ex)
         {
+            s_logger.LogWarning(ex, "Failed to deserialize clipboard JSON as {Type}", typeof(T).Name);
             return false;
         }
     }
