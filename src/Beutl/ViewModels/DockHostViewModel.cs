@@ -98,6 +98,7 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
                 item.Dispose();
                 return;
             }
+
             Factory.CloseDockable(dockable);
         }
         catch (Exception ex)
@@ -125,6 +126,15 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
             var target = Factory.GetAnchoredDock(ext.DefaultAnchor) ?? fallback;
             OpenToolTabFromExtension(ext, target);
         }
+
+        if (Factory.GetAnchoredDock(DockAnchor.Bottom) is { } bottomDock)
+            bottomDock.ActiveDockable = bottomDock.VisibleDockables?.FirstOrDefault();
+
+        if (Factory.GetAnchoredDock(DockAnchor.Left) is { } leftDock)
+            leftDock.ActiveDockable = leftDock.VisibleDockables?.FirstOrDefault();
+
+        if (Factory.GetAnchoredDock(DockAnchor.Right) is { } rightDock)
+            rightDock.ActiveDockable = rightDock.VisibleDockables?.FirstOrDefault();
     }
 
     private void OpenToolTabFromExtension(ToolTabExtension ext, IToolDock? target)
@@ -149,10 +159,6 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
             dockable.Dispose();
         }
     }
-
-    // ──────────────────────────────────────────────────────────────
-    //  Serialization: recursive tree walker
-    // ──────────────────────────────────────────────────────────────
 
     public void WriteToJson(JsonObject json)
     {
@@ -212,13 +218,19 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
         _logger.LogWarning("Resetting dock layout to defaults ({Reason}, {SceneId})", reason, _sceneId);
         foreach (var tool in Factory.EnumerateTools().ToList())
         {
-            try { tool.Dispose(); } catch { /* best-effort */ }
+            try
+            {
+                tool.Dispose();
+            }
+            catch
+            {
+                /* best-effort */
+            }
         }
+
         _layoutInitialized = false;
         EnsureDefaultLayout();
     }
-
-    // ── Save ─────────────────────────────────────────────────────
 
     private JsonObject SaveNode(IDockable node)
     {
@@ -239,7 +251,7 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
         var obj = new JsonObject
         {
             ["$type"] = "root",
-            ["id"] = root.Id,
+            ["id"] = root.Id
         };
 
         if (root.VisibleDockables is { Count: > 0 } visible)
@@ -275,6 +287,7 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
                     wObj["title"] = w.Title;
                 windowsArray.Add(wObj);
             }
+
             obj["windows"] = windowsArray;
         }
 
@@ -336,6 +349,7 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
                 if (child == toolDock.ActiveDockable)
                     activeDockableIndex = i;
             }
+
             obj["tools"] = tools;
             if (activeDockableIndex >= 0)
                 obj["activeDockableIndex"] = activeDockableIndex;
@@ -350,7 +364,7 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
         var obj = new JsonObject
         {
             ["$type"] = "tool",
-            ["id"] = dockable.Id,
+            ["id"] = dockable.Id
         };
         var extObj = new JsonObject();
         extObj.WriteDiscriminator(ctx.Extension.GetType());
@@ -358,8 +372,6 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
         ctx.WriteToJson(obj);
         return obj;
     }
-
-    // ── Restore ──────────────────────────────────────────────────
 
     private IDockable? RestoreNode(JsonObject obj)
     {
@@ -436,6 +448,7 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
             var restored = RestoreNode(itemObj);
             if (restored is not null) list.Add(restored);
         }
+
         return list.Count == 0 ? null : Factory.CreateList<IDockable>(list.ToArray());
     }
 
@@ -556,6 +569,7 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
             if (restored is not null)
                 result.Add(restored);
         }
+
         return result;
     }
 
