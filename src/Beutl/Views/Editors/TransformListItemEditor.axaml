@@ -4,6 +4,7 @@
              xmlns:controls="using:Beutl.Controls"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:icons="using:FluentIcons.FluentAvalonia"
+             xmlns:lang="using:Beutl.Language"
              xmlns:local="using:Beutl.Views.Editors"
              xmlns:pe="using:Beutl.Controls.PropertyEditors"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -25,6 +26,18 @@
                 <ToggleButton.Tag>
                     <ui:FAPathIcon Data="{Binding TransformType.Value, Converter={StaticResource TransformTypeToIconConverter}}" RenderTransform="scale(0.7)" />
                 </ToggleButton.Tag>
+                <ToggleButton.ContextFlyout>
+                    <ui:FAMenuFlyout Opening="CopyPasteFlyout_Opening">
+                        <ui:MenuFlyoutItem Click="CopyClick"
+                                           FontWeight="Normal"
+                                           IsVisible="{Binding CanCopy.Value}"
+                                           Text="{x:Static lang:Strings.Copy}" />
+                        <ui:MenuFlyoutItem Click="PasteClick"
+                                           FontWeight="Normal"
+                                           IsVisible="{Binding CanPaste.Value}"
+                                           Text="{x:Static lang:Strings.Paste}" />
+                    </ui:FAMenuFlyout>
+                </ToggleButton.ContextFlyout>
             </ToggleButton>
 
             <ToggleButton Grid.Column="1"

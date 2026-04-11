@@ -3,8 +3,10 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:icons="using:FluentIcons.FluentAvalonia"
+             xmlns:lang="using:Beutl.Language"
              xmlns:local="using:Beutl.Views.Editors"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:viewModel="using:Beutl.ViewModels.Editors"
              d:DesignHeight="450"
              d:DesignWidth="400"
@@ -16,7 +18,20 @@
                           ToolTip.Tip="{Binding Description.Value}"
                           Cursor="SizeNorthSouth"
                           IsChecked="{Binding IsExpanded.Value}"
-                          Theme="{StaticResource ListEditorMiniExpanderToggleButton}" />
+                          Theme="{StaticResource ListEditorMiniExpanderToggleButton}">
+                <ToggleButton.ContextFlyout>
+                    <ui:FAMenuFlyout Opening="CopyPasteFlyout_Opening">
+                        <ui:MenuFlyoutItem Click="CopyClick"
+                                           FontWeight="Normal"
+                                           IsVisible="{Binding CanCopy.Value}"
+                                           Text="{x:Static lang:Strings.Copy}" />
+                        <ui:MenuFlyoutItem Click="PasteClick"
+                                           FontWeight="Normal"
+                                           IsVisible="{Binding CanPaste.Value}"
+                                           Text="{x:Static lang:Strings.Paste}" />
+                    </ui:FAMenuFlyout>
+                </ToggleButton.ContextFlyout>
+            </ToggleButton>
 
             <ToggleButton Grid.Column="1"
                           Margin="4,0,0,0"

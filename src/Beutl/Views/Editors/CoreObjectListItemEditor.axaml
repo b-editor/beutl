@@ -7,6 +7,7 @@
              xmlns:local="using:Beutl.Views.Editors"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:pe="using:Beutl.Controls.PropertyEditors"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:vm="using:Beutl.ViewModels.Editors"
              d:DesignHeight="450"
              d:DesignWidth="400"
@@ -21,7 +22,20 @@
                           Content="{x:Static lang:Strings.Item}"
                           Cursor="SizeNorthSouth"
                           IsChecked="{Binding IsExpanded.Value}"
-                          Theme="{StaticResource ListEditorMiniExpanderToggleButton}" />
+                          Theme="{StaticResource ListEditorMiniExpanderToggleButton}">
+                <ToggleButton.ContextFlyout>
+                    <ui:FAMenuFlyout Opening="CopyPasteFlyout_Opening">
+                        <ui:MenuFlyoutItem Click="CopyClick"
+                                           FontWeight="Normal"
+                                           IsVisible="{Binding CanCopy.Value}"
+                                           Text="{x:Static lang:Strings.Copy}" />
+                        <ui:MenuFlyoutItem Click="PasteClick"
+                                           FontWeight="Normal"
+                                           IsVisible="{Binding CanPaste.Value}"
+                                           Text="{x:Static lang:Strings.Paste}" />
+                    </ui:FAMenuFlyout>
+                </ToggleButton.ContextFlyout>
+            </ToggleButton>
 
             <Button Grid.Column="1"
                     Margin="4,0,0,0"
