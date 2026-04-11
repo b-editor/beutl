@@ -44,8 +44,16 @@ public sealed class TargetPickerFlyout(TargetPickerFlyoutViewModel viewModel) : 
                     break;
             }
         };
-
         return presenter;
+    }
+
+    protected override void OnOpened()
+    {
+        base.OnOpened();
+        if (Popup.Child is LibraryItemPickerFlyoutPresenter presenter)
+        {
+            presenter.FocusInitialElement();
+        }
     }
 
     private void OnFlyoutDismissed(DraggablePickerFlyoutPresenter sender, object args)

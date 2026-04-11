@@ -1,7 +1,13 @@
 ﻿#nullable enable
 
+using System.Reactive.Disposables;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
+using Avalonia.Input;
+using Avalonia.Interactivity;
+using Avalonia.Threading;
+using Beutl.Reactive;
 using Reactive.Bindings;
 
 namespace Beutl.Controls.PropertyEditors;
@@ -40,7 +46,8 @@ public class LibraryItemPickerFlyoutPresenter : DraggablePickerFlyoutPresenter
         AvaloniaProperty.Register<LibraryItemPickerFlyoutPresenter, PinnableLibraryItem?>(nameof(SelectedItem));
 
     public static readonly StyledProperty<ReactiveCollection<PinnableLibraryItem>?> ItemsProperty =
-        AvaloniaProperty.Register<LibraryItemPickerFlyoutPresenter, ReactiveCollection<PinnableLibraryItem>?>(nameof(Items));
+        AvaloniaProperty.Register<LibraryItemPickerFlyoutPresenter, ReactiveCollection<PinnableLibraryItem>?>(
+            nameof(Items));
 
     public static readonly StyledProperty<bool> IsBusyProperty =
         AvaloniaProperty.Register<LibraryItemPickerFlyoutPresenter, bool>(nameof(IsBusy));
@@ -67,6 +74,11 @@ public class LibraryItemPickerFlyoutPresenter : DraggablePickerFlyoutPresenter
     private const string IsBusyPseudoClass = ":busy";
     private const string ShowReferencesPseudoClass = ":show-references";
     private const string ShowReferencesTabPseudoClass = ":show-references-tab";
+
+    private readonly CompositeDisposable _keyboardDisposables = [];
+    private TextBox? _searchTextBox;
+    private ListBox? _listBox;
+    private ListBox? _referenceListBox;
 
     public event Action<PinnableLibraryItem>? Pinned;
 
@@ -126,12 +138,127 @@ public class LibraryItemPickerFlyoutPresenter : DraggablePickerFlyoutPresenter
         set => SetValue(ReferenceItemsProperty, value);
     }
 
+    protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
+    {
+        _keyboardDisposables.Clear();
+        base.OnApplyTemplate(e);
+
+        _searchTextBox = e.NameScope.Find<TextBox>("SearchTextBox");
+        _listBox = e.NameScope.Find<ListBox>("PART_ListBox");
+        _referenceListBox = e.NameScope.Find<ListBox>("PART_ReferenceListBox");
+        _listBox?.Focusable = true;
+        _referenceListBox?.Focusable = true;
+
+        this.AddDisposableHandler(KeyDownEvent, OnPresenterKeyDown, RoutingStrategies.Tunnel)
+            .DisposeWith(_keyboardDisposables);
+
+        _searchTextBox?.AddDisposableHandler(KeyDownEvent, OnSearchBoxKeyDown)
+            .DisposeWith(_keyboardDisposables);
+
+        _listBox?.AddDisposableHandler(KeyDownEvent, OnListBoxKeyDown, RoutingStrategies.Tunnel)
+            .DisposeWith(_keyboardDisposables);
+
+        _referenceListBox?.AddDisposableHandler(KeyDownEvent, OnListBoxKeyDown, RoutingStrategies.Tunnel)
+            .DisposeWith(_keyboardDisposables);
+    }
+
+    private void OnPresenterKeyDown(object? sender, KeyEventArgs e)
+    {
+        // Ctrl+F (Windows/Linux) または Cmd+F (macOS): 検索ボックスを表示してフォーカス
+        if (e is { Key: Key.F, KeyModifiers: KeyModifiers.Control or KeyModifiers.Meta })
+        {
+            ShowSearchBox = true;
+            e.Handled = true;
+            _searchTextBox?.Focus();
+            return;
+        }
+
+        // Tab / Shift+Tab: 型タブと参照タブを切り替え
+        if (ShowReferencesTab && e is { Key: Key.Tab, KeyModifiers: KeyModifiers.None or KeyModifiers.Shift })
+        {
+            ShowReferences = !ShowReferences;
+            e.Handled = true;
+            FocusListBox();
+        }
+    }
+
+    private void OnListBoxKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (sender is not ListBox listBox) return;
+
+        switch (e.Key)
+        {
+            case Key.Up:
+                listBox.SelectedIndex = listBox.SelectedIndex <= 0
+                    ? 0
+                    : listBox.SelectedIndex - 1;
+                ScrollSelectedIntoView(listBox);
+                e.Handled = true;
+                break;
+            case Key.Down:
+                listBox.SelectedIndex = listBox.SelectedIndex >= listBox.ItemCount - 1
+                    ? listBox.ItemCount - 1
+                    : listBox.SelectedIndex + 1;
+                ScrollSelectedIntoView(listBox);
+                e.Handled = true;
+                break;
+        }
+
+        FocusListBox();
+    }
+
+    private static void ScrollSelectedIntoView(ListBox listBox)
+    {
+        if (listBox.SelectedItem is { } item)
+        {
+            listBox.ScrollIntoView(item);
+        }
+    }
+
+    private void OnSearchBoxKeyDown(object? sender, KeyEventArgs e)
+    {
+        switch (e.Key)
+        {
+            case Key.Down:
+                FocusListBox();
+                e.Handled = true;
+                break;
+            case Key.Escape:
+                // 検索ボックスを閉じて ListBox にフォーカスを戻す
+                ShowSearchBox = false;
+                FocusListBox();
+                e.Handled = true;
+                break;
+        }
+    }
+
+    public void FocusInitialElement()
+    {
+        Dispatcher.UIThread.Post(FocusListBox, DispatcherPriority.Input);
+    }
+
+    private void FocusListBox()
+    {
+        var target = GetCurrentListBox();
+        if (target is null) return;
+        if (target.SelectedIndex < 0 && target.ItemCount > 0)
+            target.SelectedIndex = 0;
+
+        target.Focus();
+    }
+
+    private ListBox? GetCurrentListBox() => ShowReferences ? _referenceListBox : _listBox;
+
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
         base.OnPropertyChanged(change);
         if (change.Property == ShowSearchBoxProperty)
         {
             PseudoClasses.Set(SearchBoxPseudoClass, ShowSearchBox);
+            if (ShowSearchBox)
+            {
+                _searchTextBox?.Focus();
+            }
         }
         else if (change.Property == IsBusyProperty)
         {

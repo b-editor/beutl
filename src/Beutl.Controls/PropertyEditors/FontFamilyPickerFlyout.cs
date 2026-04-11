@@ -52,6 +52,15 @@ public sealed class FontFamilyPickerFlyout(FontFamilyPickerFlyoutViewModel viewM
         return pfp;
     }
 
+    protected override void OnOpened()
+    {
+        base.OnOpened();
+        if (Popup.Child is LibraryItemPickerFlyoutPresenter pfp)
+        {
+            pfp.FocusInitialElement();
+        }
+    }
+
     private void OnFlyoutDismissed(DraggablePickerFlyoutPresenter sender, object args)
     {
         Dismissed?.Invoke(this, EventArgs.Empty);
