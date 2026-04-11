@@ -3,9 +3,6 @@ using System.Runtime.InteropServices;
 using Avalonia.Controls;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Components.TimelineTab.Views;
-using FluentAvalonia.UI.Controls;
-using Symbol = FluentIcons.Common.Symbol;
-using SymbolIconSource = FluentIcons.FluentAvalonia.SymbolIconSource;
 
 namespace Beutl.Services.PrimitiveImpls;
 
@@ -79,11 +76,6 @@ public sealed class TimelineTabExtension : ToolTabExtension
             new ContextCommandKeyGesture("Cmd+G", OSPlatform.OSX),
         ]),
     ];
-
-    public override IconSource GetIcon()
-    {
-        return new SymbolIconSource() { Symbol = Symbol.GlanceHorizontal };
-    }
 
     public override bool TryCreateContent(IEditorContext editorContext, [NotNullWhen(true)] out Control? control)
     {

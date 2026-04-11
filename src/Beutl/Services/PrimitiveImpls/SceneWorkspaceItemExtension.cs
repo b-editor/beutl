@@ -1,13 +1,9 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using Avalonia.Platform.Storage;
 using Beutl.Logging;
-using Beutl.Models;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
-using FluentAvalonia.UI.Controls;
 using Microsoft.Extensions.Logging;
-using Symbol = FluentIcons.Common.Symbol;
-using SymbolIconSource = FluentIcons.FluentAvalonia.SymbolIconSource;
 
 namespace Beutl.Services.PrimitiveImpls;
 
@@ -30,11 +26,6 @@ public sealed class SceneProjectItemExtension : ProjectItemExtension
                 "*.scene"
             ]
         };
-    }
-
-    public override IconSource? GetIcon()
-    {
-        return new SymbolIconSource { Symbol = Symbol.Document };
     }
 
     public override bool IsSupported(string file)

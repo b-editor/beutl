@@ -13,7 +13,6 @@ public class BeutlToolDockable : Tool, IDisposable
     {
         ToolContext = context;
         EditViewModel = editViewModel;
-        Icon = context.Extension.GetIcon();
 
         Id = CreateId(context);
         Title = context.Header;
@@ -39,8 +38,6 @@ public class BeutlToolDockable : Tool, IDisposable
     public IToolContext ToolContext { get; }
 
     public EditViewModel EditViewModel { get; }
-
-    public IconSource? Icon { get; }
 
     private void OnPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {

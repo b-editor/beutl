@@ -4,12 +4,6 @@ using Avalonia.Controls;
 
 using Beutl.Editor.Components.LibraryTab.ViewModels;
 using Beutl.Editor.Components.LibraryTab.Views;
-using Beutl.Extensibility;
-
-using FluentAvalonia.UI.Controls;
-
-using Symbol = FluentIcons.Common.Symbol;
-using SymbolIconSource = FluentIcons.FluentAvalonia.SymbolIconSource;
 
 namespace Beutl.Editor.Components.LibraryTab;
 
@@ -31,11 +25,6 @@ public sealed class LibraryTabExtension : ToolTabExtension
     public override bool OpenByDefault => true;
 
     public override int DefaultOrder => 0;
-
-    public override IconSource GetIcon()
-    {
-        return new SymbolIconSource { Symbol = Symbol.Library };
-    }
 
     public override bool TryCreateContent(IEditorContext editorContext, [NotNullWhen(true)] out Control? control)
     {

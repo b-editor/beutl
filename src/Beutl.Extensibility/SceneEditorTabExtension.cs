@@ -26,8 +26,6 @@ public abstract class ToolTabExtension : ViewExtension
 
     public virtual bool OpenByDefault => false;
 
-    public abstract IconSource GetIcon();
-
     public abstract bool TryCreateContent(
         IEditorContext editorContext,
         [NotNullWhen(true)] out Control? control);

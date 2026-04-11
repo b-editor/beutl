@@ -4,7 +4,6 @@ using Avalonia.Controls;
 
 using Beutl.Editor.Components.ColorGradingProperties.ViewModels;
 using Beutl.Editor.Components.ColorGradingProperties.Views;
-using Beutl.Extensibility;
 using Beutl.Graphics.Effects;
 
 namespace Beutl.Editor.Components.ColorGradingProperties;

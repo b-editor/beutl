@@ -84,6 +84,7 @@
     <Style Selector="HostWindow">
         <Setter Property="SystemDecorations" Value="BorderOnly" />
         <Setter Property="Background" Value="{DynamicResource DockSurfaceWorkbenchBrush}" />
+        <Setter Property="Topmost" Value="True" />
     </Style>
     <Style Selector="HostWindow:toolwindow">
         <Setter Property="Background" Value="{DynamicResource DockSurfaceWorkbenchBrush}" />

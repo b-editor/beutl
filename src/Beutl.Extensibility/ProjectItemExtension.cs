@@ -2,15 +2,11 @@
 
 using Avalonia.Platform.Storage;
 
-using FluentAvalonia.UI.Controls;
-
 namespace Beutl.Extensibility;
 
 public abstract class ProjectItemExtension : Extension
 {
     public abstract FilePickerFileType GetFilePickerFileType();
-
-    public abstract IconSource? GetIcon();
 
     public abstract bool TryCreateItem(
         string file,
