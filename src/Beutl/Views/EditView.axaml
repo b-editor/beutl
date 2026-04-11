@@ -11,5 +11,7 @@
              x:DataType="vm:EditViewModel"
              IsEnabled="{Binding IsEnabled.Value, Mode=OneWay}"
              mc:Ignorable="d">
-    <dock:DockControl Name="DockControl" Layout="{Binding DockHost.Layout}" />
+    <dock:DockControl Name="DockControl"
+                      Factory="{Binding DockHost.Factory}"
+                      Layout="{Binding DockHost.Layout}" />
 </UserControl>
