@@ -13,6 +13,7 @@ public class PlayerToolDockable : Tool
         CanClose = false;
         CanPin = false;
         CanFloat = true;
+        CanDockAsDocument = false;
     }
 
     public PlayerViewModel Player { get; }

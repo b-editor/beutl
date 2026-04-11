@@ -21,6 +21,7 @@ public class BeutlToolDockable : Tool, IDisposable
         CanClose = true;
         CanFloat = true;
         CanPin = true;
+        CanDockAsDocument = false;
 
         IsSelected = context.IsSelected.Value;
 
