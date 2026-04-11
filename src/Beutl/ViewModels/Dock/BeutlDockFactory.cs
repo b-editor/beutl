@@ -117,11 +117,6 @@ public class BeutlDockFactory(EditViewModel editViewModel) : Factory
 
         base.InitLayout(layout);
 
-        DockableClosed -= OnDockableClosed;
-        DockableClosed += OnDockableClosed;
-        DockableRemoved -= OnDockableRemoved;
-        DockableRemoved += OnDockableRemoved;
-
         _anchorCacheDirty = true;
     }
 
@@ -222,17 +217,21 @@ public class BeutlDockFactory(EditViewModel editViewModel) : Factory
         }
     }
 
-    private void OnDockableClosed(object? sender, DockableClosedEventArgs e)
+    public override void CloseDockable(IDockable? dockable)
     {
         _anchorCacheDirty = true;
-        if (e.Dockable is BeutlToolDockable dockable)
+        if (dockable is null) return;
+        base.CloseDockable(dockable);
+
+        if (dockable is BeutlToolDockable beutlToolDockable)
         {
-            dockable.Dispose();
+            beutlToolDockable.Dispose();
         }
     }
 
-    private void OnDockableRemoved(object? sender, DockableRemovedEventArgs e)
+    public override void RemoveDockable(IDockable dockable, bool collapse)
     {
         _anchorCacheDirty = true;
+        base.RemoveDockable(dockable, collapse);
     }
 }

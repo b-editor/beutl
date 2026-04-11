@@ -421,6 +421,11 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
                 var layout = RestoreNode(layoutObj);
                 if (layout is null) continue;
 
+                if (!BeutlDockFactory.Traverse(layout).Any(i=> i is BeutlToolDockable or PlayerToolDockable))
+                {
+                    continue;
+                }
+
                 var window = Factory.CreateDockWindow();
                 window.Layout = layout as IRootDock ?? CreateWindowRootDock(layout);
                 if (wObj["x"] is JsonValue xVal && xVal.TryGetValue(out double x)) window.X = x;
