@@ -31,7 +31,7 @@ public class BeutlDockFactory(EditViewModel editViewModel) : Factory
     {
         var leftDock = CreateAnchoredDock(DockAnchor.Left);
 
-        var playerDockable = new PlayerToolDockable(editViewModel.Player, "Preview");
+        var playerDockable = new PlayerToolDockable(editViewModel.Player, Strings.Preview);
         var playerDock = CreateAnchoredDock(DockAnchor.Player);
         playerDock.VisibleDockables = CreateList<IDockable>(playerDockable);
         playerDock.ActiveDockable = playerDockable;
