@@ -184,5 +184,4 @@ public partial class AudioEffectEditor : UserControl
             viewModel.SetNull();
         }
     }
-
 }

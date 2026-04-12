@@ -7,7 +7,7 @@ using FluentAvalonia.UI.Controls;
 
 namespace Beutl.Views.Editors;
 
-public class CopyPasteMenuHelper
+public static class CopyPasteMenuHelper
 {
     public static void AddMenus(FAMenuFlyout menuFlyout, Control control)
     {
