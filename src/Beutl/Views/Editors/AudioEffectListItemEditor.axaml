@@ -15,23 +15,10 @@
         <Grid Margin="8,0,0,0" ColumnDefinitions="*,Auto,Auto">
             <ToggleButton x:Name="reorderHandle"
                           Content="{Binding FilterName.Value}"
-                          ToolTip.Tip="{Binding Description.Value}"
                           Cursor="SizeNorthSouth"
                           IsChecked="{Binding IsExpanded.Value}"
-                          Theme="{StaticResource ListEditorMiniExpanderToggleButton}">
-                <ToggleButton.ContextFlyout>
-                    <ui:FAMenuFlyout Opening="CopyPasteFlyout_Opening">
-                        <ui:MenuFlyoutItem Click="CopyClick"
-                                           FontWeight="Normal"
-                                           IsVisible="{Binding CanCopy.Value}"
-                                           Text="{x:Static lang:Strings.Copy}" />
-                        <ui:MenuFlyoutItem Click="PasteClick"
-                                           FontWeight="Normal"
-                                           IsVisible="{Binding CanPaste.Value}"
-                                           Text="{x:Static lang:Strings.Paste}" />
-                    </ui:FAMenuFlyout>
-                </ToggleButton.ContextFlyout>
-            </ToggleButton>
+                          Theme="{StaticResource ListEditorMiniExpanderToggleButton}"
+                          ToolTip.Tip="{Binding Description.Value}" />
 
             <ToggleButton Grid.Column="1"
                           Margin="4,0,0,0"

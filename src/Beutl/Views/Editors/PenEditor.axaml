@@ -19,12 +19,13 @@
     <Grid RowDefinitions="Auto,Auto">
         <ToggleButton x:Name="expandToggle"
                       Margin="8,4"
-                      ToolTip.Tip="{Binding Description.Value}"
                       Content="{Binding Header, FallbackValue=Pen}"
                       IsChecked="{Binding IsExpanded.Value}"
-                      Theme="{DynamicResource PropertyEditorMiniExpanderToggleButton}">
+                      Theme="{DynamicResource PropertyEditorMiniExpanderToggleButton}"
+                      ToolTip.Tip="{Binding Description.Value}">
             <ToggleButton.Tag>
-                <Button Width="24"
+                <Button x:Name="ExpandMenuButton"
+                        Width="24"
                         Height="24"
                         Padding="0"
                         HorizontalContentAlignment="Center"
@@ -32,16 +33,9 @@
                         Click="Menu_Click"
                         Theme="{StaticResource TransparentButton}">
                     <Button.ContextFlyout>
-                        <ui:FAMenuFlyout Opening="CopyPasteFlyout_Opening">
+                        <ui:FAMenuFlyout>
                             <ui:MenuFlyoutItem Click="InitializeClick" Text="{x:Static lang:Strings.Initialize}" />
                             <ui:MenuFlyoutItem Click="DeleteClick" Text="{x:Static lang:Strings.Remove}" />
-                            <ui:MenuFlyoutSeparator IsVisible="{Binding CanCopy.Value}" />
-                            <ui:MenuFlyoutItem Click="CopyClick"
-                                               IsVisible="{Binding CanCopy.Value}"
-                                               Text="{x:Static lang:Strings.Copy}" />
-                            <ui:MenuFlyoutItem Click="PasteClick"
-                                               IsVisible="{Binding CanPaste.Value}"
-                                               Text="{x:Static lang:Strings.Paste}" />
                         </ui:FAMenuFlyout>
                     </Button.ContextFlyout>
                     <icons:SymbolIcon Symbol="Compose" />

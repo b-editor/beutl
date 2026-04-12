@@ -15,27 +15,14 @@
              mc:Ignorable="d">
     <Grid RowDefinitions="Auto,Auto">
         <Grid Margin="8,0,0,0"
-              ToolTip.Tip="{Binding Description.Value}"
               ColumnDefinitions="*,Auto,Auto"
-              IsVisible="{Binding !IsPresenter.Value}">
+              IsVisible="{Binding !IsPresenter.Value}"
+              ToolTip.Tip="{Binding Description.Value}">
             <ToggleButton x:Name="reorderHandle"
                           Content="{x:Static lang:Strings.Item}"
                           Cursor="SizeNorthSouth"
                           IsChecked="{Binding IsExpanded.Value}"
-                          Theme="{StaticResource ListEditorMiniExpanderToggleButton}">
-                <ToggleButton.ContextFlyout>
-                    <ui:FAMenuFlyout Opening="CopyPasteFlyout_Opening">
-                        <ui:MenuFlyoutItem Click="CopyClick"
-                                           FontWeight="Normal"
-                                           IsVisible="{Binding CanCopy.Value}"
-                                           Text="{x:Static lang:Strings.Copy}" />
-                        <ui:MenuFlyoutItem Click="PasteClick"
-                                           FontWeight="Normal"
-                                           IsVisible="{Binding CanPaste.Value}"
-                                           Text="{x:Static lang:Strings.Paste}" />
-                    </ui:FAMenuFlyout>
-                </ToggleButton.ContextFlyout>
-            </ToggleButton>
+                          Theme="{StaticResource ListEditorMiniExpanderToggleButton}" />
 
             <Button Grid.Column="1"
                     Margin="4,0,0,0"
@@ -63,8 +50,8 @@
                             EditorStyle="ListItem"
                             IsVisible="{Binding IsPresenter.Value}"
                             SelectTargetRequested="SelectTarget_Requested"
-                            TargetName="{Binding CurrentTargetName.Value}"
-                            ToolTip.Tip="{Binding Description.Value}">
+                            ToolTip.Tip="{Binding Description.Value}"
+                            TargetName="{Binding CurrentTargetName.Value}">
             <pe:ReferenceEditor.MenuContent>
                 <StackPanel Orientation="Horizontal">
                     <ToggleButton Margin="4,0,0,0"

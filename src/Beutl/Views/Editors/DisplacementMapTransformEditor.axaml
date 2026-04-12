@@ -16,12 +16,12 @@
              mc:Ignorable="d">
     <Grid RowDefinitions="Auto,Auto">
         <ToggleButton x:Name="expandToggle"
-                      ToolTip.Tip="{Binding Description.Value}"
                       Margin="8,4"
                       IsChecked="{Binding IsExpanded.Value}"
-                      Theme="{DynamicResource PropertyEditorMiniExpanderToggleButton}">
+                      Theme="{DynamicResource PropertyEditorMiniExpanderToggleButton}"
+                      ToolTip.Tip="{Binding Description.Value}">
             <ToggleButton.ContextFlyout>
-                <ui:FAMenuFlyout Opening="CopyPasteFlyout_Opening">
+                <ui:FAMenuFlyout>
                     <ui:RadioMenuFlyoutItem Click="TransformTypeClicked"
                                             IsChecked="{Binding IsTranslate.Value, Mode=OneWay}"
                                             Tag="Translate"
@@ -50,15 +50,6 @@
                                             IsChecked="{Binding !Value.Value, Mode=OneWay}"
                                             Tag="Null"
                                             Text="{x:Static lang:Strings.Null}" />
-                    <ui:MenuFlyoutSeparator IsVisible="{Binding CanCopy.Value}" />
-                    <ui:MenuFlyoutItem Click="CopyClick"
-                                       FontWeight="Normal"
-                                       IsVisible="{Binding CanCopy.Value}"
-                                       Text="{x:Static lang:Strings.Copy}" />
-                    <ui:MenuFlyoutItem Click="PasteClick"
-                                       FontWeight="Normal"
-                                       IsVisible="{Binding CanPaste.Value}"
-                                       Text="{x:Static lang:Strings.Paste}" />
                 </ui:FAMenuFlyout>
             </ToggleButton.ContextFlyout>
             <ToggleButton.Tag>
@@ -71,7 +62,7 @@
                     <icons:SymbolIcon Symbol="Compose" />
                 </Button>
             </ToggleButton.Tag>
-            <TextBlock FontWeight="DemiBold" Text="{Binding Header, FallbackValue=Transform}" />
+            <TextBlock Text="{Binding Header, FallbackValue=Transform}" />
         </ToggleButton>
 
         <Panel x:Name="content"

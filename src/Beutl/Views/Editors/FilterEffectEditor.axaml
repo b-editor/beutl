@@ -19,28 +19,16 @@
     <Grid RowDefinitions="Auto,Auto">
         <ToggleButton x:Name="expandToggle"
                       Margin="8,4"
-                      ToolTip.Tip="{Binding Description.Value}"
                       IsChecked="{Binding IsExpanded.Value}"
                       IsVisible="{Binding !IsPresenter.Value}"
-                      Theme="{DynamicResource PropertyEditorMiniExpanderToggleButton}">
+                      Theme="{DynamicResource PropertyEditorMiniExpanderToggleButton}"
+                      ToolTip.Tip="{Binding Description.Value}">
             <ToggleButton.ContextFlyout>
-                <ui:FAMenuFlyout Opening="CopyPasteFlyout_Opening">
+                <ui:FAMenuFlyout>
                     <ui:MenuFlyoutItem Click="ChangeFilterTypeClick"
-                                       FontWeight="Normal"
                                        IconSource="New"
                                        Text="{x:Static lang:Strings.Change}" />
-                    <ui:MenuFlyoutItem Click="SetNullClick"
-                                       FontWeight="Normal"
-                                       Text="{x:Static lang:Strings.Null}" />
-                    <ui:MenuFlyoutSeparator IsVisible="{Binding CanCopy.Value}" />
-                    <ui:MenuFlyoutItem Click="CopyClick"
-                                       FontWeight="Normal"
-                                       IsVisible="{Binding CanCopy.Value}"
-                                       Text="{x:Static lang:Strings.Copy}" />
-                    <ui:MenuFlyoutItem Click="PasteClick"
-                                       FontWeight="Normal"
-                                       IsVisible="{Binding CanPaste.Value}"
-                                       Text="{x:Static lang:Strings.Paste}" />
+                    <ui:MenuFlyoutItem Click="SetNullClick" Text="{x:Static lang:Strings.Null}" />
                 </ui:FAMenuFlyout>
             </ToggleButton.ContextFlyout>
             <ToggleButton.Tag>
@@ -71,7 +59,7 @@
                 </StackPanel>
             </ToggleButton.Tag>
             <WrapPanel Orientation="Horizontal">
-                <TextBlock FontWeight="DemiBold" Text="{Binding Header, FallbackValue=Filter}" />
+                <TextBlock Text="{Binding Header, FallbackValue=Filter}" />
                 <TextBlock Margin="8,0,0,0"
                            IsVisible="{Binding !IsGroupOrNull.Value}"
                            Text="{Binding FilterName.Value}" />
@@ -79,33 +67,22 @@
         </ToggleButton>
 
         <pe:ReferenceEditor Header="{Binding Header, FallbackValue=Filter}"
-                            ToolTip.Tip="{Binding Description.Value}"
                             IsVisible="{Binding IsPresenter.Value}"
                             SelectTargetRequested="SelectTarget_Requested"
+                            ToolTip.Tip="{Binding Description.Value}"
                             TargetName="{Binding CurrentTargetName.Value}">
             <pe:ReferenceEditor.MenuContent>
-                <Button Margin="0,0,4,0"
+                <Button x:Name="ReferenceMenuButton"
+                        Margin="0,0,4,0"
                         Padding="0"
                         Classes="size-24x24"
                         Theme="{StaticResource TransparentButton}">
                     <Button.Flyout>
-                        <ui:FAMenuFlyout Opening="CopyPasteFlyout_Opening">
+                        <ui:FAMenuFlyout>
                             <ui:MenuFlyoutItem Click="ChangeFilterTypeClick"
-                                               FontWeight="Normal"
                                                IconSource="New"
                                                Text="{x:Static lang:Strings.Change}" />
-                            <ui:MenuFlyoutItem Click="SetNullClick"
-                                               FontWeight="Normal"
-                                               Text="{x:Static lang:Strings.Null}" />
-                            <ui:MenuFlyoutSeparator IsVisible="{Binding CanCopy.Value}" />
-                            <ui:MenuFlyoutItem Click="CopyClick"
-                                               FontWeight="Normal"
-                                               IsVisible="{Binding CanCopy.Value}"
-                                               Text="{x:Static lang:Strings.Copy}" />
-                            <ui:MenuFlyoutItem Click="PasteClick"
-                                               FontWeight="Normal"
-                                               IsVisible="{Binding CanPaste.Value}"
-                                               Text="{x:Static lang:Strings.Paste}" />
+                            <ui:MenuFlyoutItem Click="SetNullClick" Text="{x:Static lang:Strings.Null}" />
                         </ui:FAMenuFlyout>
                     </Button.Flyout>
                     <icons:SymbolIcon Symbol="MoreVertical" />

@@ -9,6 +9,7 @@ using Beutl.Editor.Components.Views;
 using Beutl.Graphics.Transformation;
 using Beutl.Services;
 using Beutl.ViewModels.Editors;
+using FluentAvalonia.UI.Controls;
 
 namespace Beutl.Views.Editors;
 
@@ -62,6 +63,9 @@ public partial class TransformListItemEditor : UserControl, IListItemEditor
             .Switch()
             .CombineLatest(presenterEditor.GetObservable(PropertyEditor.ReorderHandleProperty))
             .Subscribe(t => UpdateReorderHandle(t.First, t.Second));
+
+        reorderHandle.ContextFlyout = new FAMenuFlyout();
+        CopyPasteMenuHelper.AddMenus((FAMenuFlyout)reorderHandle.ContextFlyout!, this);
     }
 
     public Control? ReorderHandle
@@ -93,43 +97,6 @@ public partial class TransformListItemEditor : UserControl, IListItemEditor
             vm,
             vm => vm.GetAvailableTargets(),
             (vm, target) => vm.SetTarget(target));
-    }
-
-    private async void CopyClick(object? sender, RoutedEventArgs e)
-    {
-        if (DataContext is not BaseEditorViewModel { IsDisposed: false } vm) return;
-        try
-        {
-            await vm.CopyAsync();
-        }
-        catch (Exception ex)
-        {
-            NotificationService.ShowError(Strings.Error, ex.Message);
-        }
-    }
-
-    private async void PasteClick(object? sender, RoutedEventArgs e)
-    {
-        if (DataContext is not BaseEditorViewModel { IsDisposed: false } vm) return;
-        try
-        {
-            if (!await vm.PasteAsync())
-            {
-                NotificationService.ShowInformation(Strings.Paste, MessageStrings.CannotPasteFromClipboard);
-            }
-        }
-        catch (Exception ex)
-        {
-            NotificationService.ShowError(Strings.Error, ex.Message);
-        }
-    }
-
-    private async void CopyPasteFlyout_Opening(object? sender, EventArgs e)
-    {
-        if (DataContext is BaseEditorViewModel { IsDisposed: false } vm)
-        {
-            await vm.RefreshCanPasteAsync();
-        }
     }
 
     private sealed class TransformTypeToIconConverter : IValueConverter

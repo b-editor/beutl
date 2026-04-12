@@ -7,7 +7,7 @@ using Avalonia.Interactivity;
 using Beutl.Media;
 using Beutl.Services;
 using Beutl.ViewModels.Editors;
-
+using FluentAvalonia.UI.Controls;
 using static Beutl.Views.Editors.PropertiesEditor;
 
 namespace Beutl.Views.Editors;
@@ -56,6 +56,8 @@ public sealed partial class PenEditor : UserControl
                     await s_transition.Start(minorProps, null, localToken);
                 }
             });
+
+        CopyPasteMenuHelper.AddMenus((FAMenuFlyout)ExpandMenuButton.ContextFlyout!, this);
     }
 
     private void InitializeClick(object? sender, RoutedEventArgs e)
@@ -80,43 +82,6 @@ public sealed partial class PenEditor : UserControl
         if (sender is Button button)
         {
             button.ContextFlyout?.ShowAt(button);
-        }
-    }
-
-    private async void CopyClick(object? sender, RoutedEventArgs e)
-    {
-        if (DataContext is not BaseEditorViewModel { IsDisposed: false } vm) return;
-        try
-        {
-            await vm.CopyAsync();
-        }
-        catch (Exception ex)
-        {
-            NotificationService.ShowError(Strings.Error, ex.Message);
-        }
-    }
-
-    private async void PasteClick(object? sender, RoutedEventArgs e)
-    {
-        if (DataContext is not BaseEditorViewModel { IsDisposed: false } vm) return;
-        try
-        {
-            if (!await vm.PasteAsync())
-            {
-                NotificationService.ShowInformation(Strings.Paste, MessageStrings.CannotPasteFromClipboard);
-            }
-        }
-        catch (Exception ex)
-        {
-            NotificationService.ShowError(Strings.Error, ex.Message);
-        }
-    }
-
-    private async void CopyPasteFlyout_Opening(object? sender, EventArgs e)
-    {
-        if (DataContext is BaseEditorViewModel { IsDisposed: false } vm)
-        {
-            await vm.RefreshCanPasteAsync();
         }
     }
 }

@@ -53,6 +53,8 @@ public partial class GeometryEditor : UserControl
                 _fallbackObjectView = new FallbackObjectView();
                 content.Children.Add(_fallbackObjectView);
             });
+
+        CopyPasteMenuHelper.AddMenus((FAMenuFlyout)expandToggle.ContextFlyout!, this);
     }
 
     private void Tag_Click(object? sender, RoutedEventArgs e)
@@ -142,44 +144,5 @@ public partial class GeometryEditor : UserControl
 
         _logger.LogInformation("Initializing geometry type.");
         viewModel.ChangeGeometryType(typeof(PathGeometry));
-    }
-
-    private async void CopyClick(object? sender, RoutedEventArgs e)
-    {
-        if (DataContext is not BaseEditorViewModel { IsDisposed: false } vm) return;
-        try
-        {
-            await vm.CopyAsync();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "An exception occurred while copying the geometry.");
-            NotificationService.ShowError(Strings.Error, ex.Message);
-        }
-    }
-
-    private async void PasteClick(object? sender, RoutedEventArgs e)
-    {
-        if (DataContext is not BaseEditorViewModel { IsDisposed: false } vm) return;
-        try
-        {
-            if (!await vm.PasteAsync())
-            {
-                NotificationService.ShowInformation(Strings.Paste, MessageStrings.CannotPasteFromClipboard);
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "An exception occurred while pasting the geometry.");
-            NotificationService.ShowError(Strings.Error, ex.Message);
-        }
-    }
-
-    private async void CopyPasteFlyout_Opening(object? sender, EventArgs e)
-    {
-        if (DataContext is BaseEditorViewModel { IsDisposed: false } vm)
-        {
-            await vm.RefreshCanPasteAsync();
-        }
     }
 }

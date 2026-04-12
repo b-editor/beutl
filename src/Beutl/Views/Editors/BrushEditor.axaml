@@ -23,12 +23,11 @@
         <ToggleButton x:Name="expandToggle"
                       Margin="8,4"
                       Classes="center-fill"
-                      ToolTip.Tip="{Binding Description.Value}"
                       Content="{Binding Header, FallbackValue=Brush}"
-                      FontWeight="DemiBold"
                       IsChecked="{Binding IsExpanded.Value}"
                       IsVisible="{Binding !IsPresenter.Value}"
-                      Theme="{DynamicResource PropertyEditorMiniExpanderToggleButton}">
+                      Theme="{DynamicResource PropertyEditorMiniExpanderToggleButton}"
+                      ToolTip.Tip="{Binding Description.Value}">
             <ToggleButton.Tag>
                 <Grid ColumnDefinitions="*,4,Auto">
                     <Button Width="80"
@@ -45,7 +44,8 @@
                         </Panel>
                     </Button>
 
-                    <Button Grid.Column="2"
+                    <Button x:Name="ExpandMenuButton"
+                            Grid.Column="2"
                             Padding="0"
                             HorizontalContentAlignment="Center"
                             VerticalContentAlignment="Center"
@@ -53,7 +53,7 @@
                             Click="Menu_Click"
                             Theme="{StaticResource TransparentButton}">
                         <Button.ContextFlyout>
-                            <ui:FAMenuFlyout Opening="CopyPasteFlyout_Opening">
+                            <ui:FAMenuFlyout>
                                 <ui:RadioMenuFlyoutItem Click="ChangeBrushType"
                                                         IsChecked="{Binding IsSolid.Value, Mode=OneWay}"
                                                         Tag="Solid"
@@ -86,15 +86,6 @@
                                                         IsChecked="{Binding !Value.Value, Mode=OneWay}"
                                                         Tag="Null"
                                                         Text="{x:Static lang:Strings.Null}" />
-                                <ui:MenuFlyoutSeparator IsVisible="{Binding CanCopy.Value}" />
-                                <ui:MenuFlyoutItem Click="CopyClick"
-                                                   FontWeight="Normal"
-                                                   IsVisible="{Binding CanCopy.Value}"
-                                                   Text="{x:Static lang:Strings.Copy}" />
-                                <ui:MenuFlyoutItem Click="PasteClick"
-                                                   FontWeight="Normal"
-                                                   IsVisible="{Binding CanPaste.Value}"
-                                                   Text="{x:Static lang:Strings.Paste}" />
                             </ui:FAMenuFlyout>
                         </Button.ContextFlyout>
                         <icons:SymbolIcon Symbol="Compose" />
@@ -104,17 +95,18 @@
         </ToggleButton>
 
         <pe:ReferenceEditor Header="{Binding Header, FallbackValue=Brush}"
-                            ToolTip.Tip="{Binding Description.Value}"
                             IsVisible="{Binding IsPresenter.Value}"
                             SelectTargetRequested="SelectTarget_Requested"
+                            ToolTip.Tip="{Binding Description.Value}"
                             TargetName="{Binding CurrentTargetName.Value}">
             <pe:ReferenceEditor.MenuContent>
-                <Button Margin="0,0,4,0"
+                <Button x:Name="ReferenceMenuButton"
+                        Margin="0,0,4,0"
                         Padding="0"
                         Classes="size-24x24"
                         Theme="{StaticResource TransparentButton}">
                     <Button.Flyout>
-                        <ui:FAMenuFlyout Opening="CopyPasteFlyout_Opening">
+                        <ui:FAMenuFlyout>
                             <ui:RadioMenuFlyoutItem Click="ChangeBrushType"
                                                     IsChecked="{Binding IsSolid.Value, Mode=OneWay}"
                                                     Tag="Solid"
@@ -147,15 +139,6 @@
                                                     IsChecked="{Binding !Value.Value, Mode=OneWay}"
                                                     Tag="Null"
                                                     Text="{x:Static lang:Strings.Null}" />
-                            <ui:MenuFlyoutSeparator IsVisible="{Binding CanCopy.Value}" />
-                            <ui:MenuFlyoutItem Click="CopyClick"
-                                               FontWeight="Normal"
-                                               IsVisible="{Binding CanCopy.Value}"
-                                               Text="{x:Static lang:Strings.Copy}" />
-                            <ui:MenuFlyoutItem Click="PasteClick"
-                                               FontWeight="Normal"
-                                               IsVisible="{Binding CanPaste.Value}"
-                                               Text="{x:Static lang:Strings.Paste}" />
                         </ui:FAMenuFlyout>
                     </Button.Flyout>
                     <icons:SymbolIcon Symbol="MoreVertical" />

@@ -6,7 +6,6 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Beutl.Controls;
 using Beutl.Controls.PropertyEditors;
-using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.ObjectPropertyTab.ViewModels;
 using Beutl.Editor.Components.Views;
 using Beutl.Engine;
@@ -69,6 +68,9 @@ public sealed partial class BrushEditor : UserControl
                 _fallbackObjectView = new FallbackObjectView();
                 (content.Child as Panel)?.Children.Add(_fallbackObjectView);
             });
+
+        CopyPasteMenuHelper.AddMenus((FAMenuFlyout)ExpandMenuButton.ContextFlyout!, this);
+        CopyPasteMenuHelper.AddMenus((FAMenuFlyout)ReferenceMenuButton.Flyout!, this);
     }
 
     public Avalonia.Media.Brush? Brush
@@ -367,43 +369,6 @@ public sealed partial class BrushEditor : UserControl
         if (sender is Button button)
         {
             button.ContextFlyout?.ShowAt(button);
-        }
-    }
-
-    private async void CopyClick(object? sender, RoutedEventArgs e)
-    {
-        if (DataContext is not BaseEditorViewModel { IsDisposed: false } vm) return;
-        try
-        {
-            await vm.CopyAsync();
-        }
-        catch (Exception ex)
-        {
-            NotificationService.ShowError(Strings.Error, ex.Message);
-        }
-    }
-
-    private async void PasteClick(object? sender, RoutedEventArgs e)
-    {
-        if (DataContext is not BaseEditorViewModel { IsDisposed: false } vm) return;
-        try
-        {
-            if (!await vm.PasteAsync())
-            {
-                NotificationService.ShowInformation(Strings.Paste, MessageStrings.CannotPasteFromClipboard);
-            }
-        }
-        catch (Exception ex)
-        {
-            NotificationService.ShowError(Strings.Error, ex.Message);
-        }
-    }
-
-    private async void CopyPasteFlyout_Opening(object? sender, EventArgs e)
-    {
-        if (DataContext is BaseEditorViewModel { IsDisposed: false } vm)
-        {
-            await vm.RefreshCanPasteAsync();
         }
     }
 

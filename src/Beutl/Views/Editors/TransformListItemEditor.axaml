@@ -6,8 +6,8 @@
              xmlns:icons="using:FluentIcons.FluentAvalonia"
              xmlns:lang="using:Beutl.Language"
              xmlns:local="using:Beutl.Views.Editors"
-             xmlns:pe="using:Beutl.Controls.PropertyEditors"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:pe="using:Beutl.Controls.PropertyEditors"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:viewModel="using:Beutl.ViewModels.Editors"
              d:DesignHeight="450"
@@ -18,26 +18,14 @@
               ColumnDefinitions="*,Auto,Auto"
               IsVisible="{Binding !IsPresenter.Value}">
             <ToggleButton x:Name="reorderHandle"
-                          ToolTip.Tip="{Binding Description.Value}"
                           Content="{Binding TransformName.Value}"
                           Cursor="SizeNorthSouth"
                           IsChecked="{Binding IsExpanded.Value}"
-                          Theme="{StaticResource ListEditorMiniExpanderToggleButton}">
+                          Theme="{StaticResource ListEditorMiniExpanderToggleButton}"
+                          ToolTip.Tip="{Binding Description.Value}">
                 <ToggleButton.Tag>
                     <ui:FAPathIcon Data="{Binding TransformType.Value, Converter={StaticResource TransformTypeToIconConverter}}" RenderTransform="scale(0.7)" />
                 </ToggleButton.Tag>
-                <ToggleButton.ContextFlyout>
-                    <ui:FAMenuFlyout Opening="CopyPasteFlyout_Opening">
-                        <ui:MenuFlyoutItem Click="CopyClick"
-                                           FontWeight="Normal"
-                                           IsVisible="{Binding CanCopy.Value}"
-                                           Text="{x:Static lang:Strings.Copy}" />
-                        <ui:MenuFlyoutItem Click="PasteClick"
-                                           FontWeight="Normal"
-                                           IsVisible="{Binding CanPaste.Value}"
-                                           Text="{x:Static lang:Strings.Paste}" />
-                    </ui:FAMenuFlyout>
-                </ToggleButton.ContextFlyout>
             </ToggleButton>
 
             <ToggleButton Grid.Column="1"
@@ -58,12 +46,12 @@
         </Grid>
 
         <pe:ReferenceEditor x:Name="presenterEditor"
-                             ToolTip.Tip="{Binding Description.Value}"
-                             Margin="8,0,0,0"
-                             EditorStyle="ListItem"
-                             IsVisible="{Binding IsPresenter.Value}"
-                             TargetName="{Binding CurrentTargetName.Value}"
-                             SelectTargetRequested="SelectTarget_Requested">
+                            Margin="8,0,0,0"
+                            EditorStyle="ListItem"
+                            IsVisible="{Binding IsPresenter.Value}"
+                            SelectTargetRequested="SelectTarget_Requested"
+                            ToolTip.Tip="{Binding Description.Value}"
+                            TargetName="{Binding CurrentTargetName.Value}">
             <pe:ReferenceEditor.MenuContent>
                 <StackPanel Orientation="Horizontal">
                     <ToggleButton Margin="4,0,0,0"
