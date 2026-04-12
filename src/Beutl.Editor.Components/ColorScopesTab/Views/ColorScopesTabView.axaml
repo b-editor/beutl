@@ -12,7 +12,7 @@
              x:DataType="viewModels:ColorScopesTabViewModel"
              mc:Ignorable="d">
     <Grid RowDefinitions="Auto,*">
-        <Grid Height="32" ColumnDefinitions="Auto,Auto">
+        <Grid Height="32" ColumnDefinitions="Auto,Auto,Auto">
             <ComboBox Grid.Column="0"
                       Margin="8,0,0,0"
                       HorizontalAlignment="Stretch"
@@ -48,12 +48,23 @@
                     <ComboBoxItem Content="{x:Static lang:Strings.RgbParade}" />
                 </ComboBox>
             </Grid>
+
+            <ComboBox Grid.Column="2"
+                      Margin="8,0,0,0"
+                      HorizontalAlignment="Stretch"
+                      VerticalAlignment="Center"
+                      SelectedIndex="{Binding ColorSpace.Value, Converter={x:Static scopes:ScopeColorSpaceConverter.Instance}}"
+                      Theme="{StaticResource LiteComboBoxStyle}">
+                <ComboBoxItem Content="{x:Static lang:Strings.Gamma}" />
+                <ComboBoxItem Content="{x:Static lang:Strings.Linear}" />
+            </ComboBox>
         </Grid>
 
         <Panel Grid.Row="1">
             <scopes:WaveformControl x:Name="WaveformControl"
                                     AxisBrush="{StaticResource ColorScopeAxisBrush}"
                                     BackgroundBrush="{StaticResource ColorScopeBackgroundBrush}"
+                                    ColorSpace="{Binding ColorSpace.Value}"
                                     HdrRange="{Binding WaveformHdrRange.Value, Mode=TwoWay}"
                                     IsVisible="{Binding SelectedScopeType.Value, Converter={x:Static scopes:ScopeTypeConverter.Instance}, ConverterParameter=Waveform}"
                                     LabelBrush="{StaticResource ColorScopeLabelBrush}"
@@ -63,6 +74,7 @@
             <scopes:HistogramControl x:Name="HistogramControl"
                                      AxisBrush="{StaticResource ColorScopeAxisBrush}"
                                      BackgroundBrush="{StaticResource ColorScopeBackgroundBrush}"
+                                     ColorSpace="{Binding ColorSpace.Value}"
                                      HdrRange="{Binding HistogramHdrRange.Value, Mode=TwoWay}"
                                      IsVisible="{Binding SelectedScopeType.Value, Converter={x:Static scopes:ScopeTypeConverter.Instance}, ConverterParameter=Histogram}"
                                      LabelBrush="{StaticResource ColorScopeLabelBrush}"
@@ -72,6 +84,7 @@
             <scopes:VectorscopeControl x:Name="VectorscopeControl"
                                        AxisBrush="{StaticResource ColorScopeAxisBrush}"
                                        BackgroundBrush="{StaticResource ColorScopeBackgroundBrush}"
+                                       ColorSpace="{Binding ColorSpace.Value}"
                                        IsVisible="{Binding SelectedScopeType.Value, Converter={x:Static scopes:ScopeTypeConverter.Instance}, ConverterParameter=Vectorscope}"
                                        LabelBrush="{StaticResource ColorScopeLabelBrush}"
                                        SourceBitmap="{Binding SourceBitmap.Value}" />

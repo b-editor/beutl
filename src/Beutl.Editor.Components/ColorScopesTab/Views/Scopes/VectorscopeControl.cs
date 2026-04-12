@@ -2,6 +2,7 @@
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
+using Beutl.Editor.Components.ColorScopesTab.ViewModels;
 using Beutl.Media;
 using Beutl.Media.Pixel;
 using Brushes = Avalonia.Media.Brushes;
@@ -78,23 +79,25 @@ public class VectorscopeControl : ScopeControlBase
         int sourceHeight = sourceBitmap.Height;
         int step = Math.Max(1, Math.Max(sourceWidth, sourceHeight) / size);
 
-        BtlBitmap rgbaGamma;
+        BitmapColorSpace targetColorSpace = ColorSpace == ViewModels.ScopeColorSpace.Linear
+            ? BitmapColorSpace.LinearSrgb
+            : BitmapColorSpace.Srgb;
+        BtlBitmap rgbaConverted;
         bool requireDispose = false;
-        // TODO: Linear/Gammaを切り替えられるようにする
-        if (sourceBitmap.ColorType == BitmapColorType.RgbaF16 && sourceBitmap.ColorSpace == BitmapColorSpace.Srgb)
+        if (sourceBitmap.ColorType == BitmapColorType.RgbaF16 && sourceBitmap.ColorSpace == targetColorSpace)
         {
-            rgbaGamma = sourceBitmap;
+            rgbaConverted = sourceBitmap;
         }
         else
         {
-            rgbaGamma = sourceBitmap.Convert(BitmapColorType.RgbaF16, colorSpace: BitmapColorSpace.Srgb);
+            rgbaConverted = sourceBitmap.Convert(BitmapColorType.RgbaF16, colorSpace: targetColorSpace);
             requireDispose = true;
         }
 
         try
         {
             int rowCount = (sourceHeight + step - 1) / step;
-            var rgbaGammaLocal = rgbaGamma;
+            var rgbaConvertedLocal = rgbaConverted;
             int sizeMinus1 = size - 1;
 
             // Parallelize row scanning. The read-modify-write on destPtr[idx] is NOT atomic,
@@ -107,7 +110,7 @@ public class VectorscopeControl : ScopeControlBase
                 int y = yi * step;
                 if (y >= sourceHeight) return;
                 // ReSharper disable once AccessToDisposedClosure
-                var row = rgbaGammaLocal.GetRow<RgbaF16>(y);
+                var row = rgbaConvertedLocal.GetRow<RgbaF16>(y);
                 for (int x = 0; x < sourceWidth; x += step)
                 {
                     RgbaF16 pixel = row[x];
@@ -145,7 +148,7 @@ public class VectorscopeControl : ScopeControlBase
         {
             if (requireDispose)
             {
-                rgbaGamma.Dispose();
+                rgbaConverted.Dispose();
             }
         }
 

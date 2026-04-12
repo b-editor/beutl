@@ -55,6 +55,9 @@ public sealed class ColorScopesTabViewModel : IToolContext
 
     public ReactivePropertySlim<float> HistogramHdrRange { get; } = new(1.0f);
 
+    // Shared settings
+    public ReactivePropertySlim<ScopeColorSpace> ColorSpace { get; } = new(ScopeColorSpace.Gamma);
+
     public IReactiveProperty<bool> IsSelected { get; } = new ReactiveProperty<bool>();
 
     public void Dispose()
@@ -110,6 +113,15 @@ public sealed class ColorScopesTabViewModel : IToolContext
                 HistogramHdrRange.Value = histogramHdr;
             }
         }
+
+        // Shared settings
+        if (json.TryGetPropertyValue("colorSpace", out var colorSpaceNode) && colorSpaceNode is JsonValue colorSpaceValue)
+        {
+            if (colorSpaceValue.TryGetValue(out int colorSpace) && Enum.IsDefined(typeof(ScopeColorSpace), colorSpace))
+            {
+                ColorSpace.Value = (ScopeColorSpace)colorSpace;
+            }
+        }
     }
 
     public void WriteToJson(JsonObject json)
@@ -123,5 +135,8 @@ public sealed class ColorScopesTabViewModel : IToolContext
         // Histogram settings
         json["histogramMode"] = (int)HistogramMode.Value;
         json["histogramHdrRange"] = HistogramHdrRange.Value;
+
+        // Shared settings
+        json["colorSpace"] = (int)ColorSpace.Value;
     }
 }

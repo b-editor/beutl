@@ -157,15 +157,18 @@ public class WaveformControl : HdrScopeControlBase
         }
 
         using ILockedFramebuffer fb = result.Lock();
-        BtlBitmap rgbaSrgb;
+        BitmapColorSpace targetColorSpace = ColorSpace == ViewModels.ScopeColorSpace.Linear
+            ? BitmapColorSpace.LinearSrgb
+            : BitmapColorSpace.Srgb;
+        BtlBitmap rgbaConverted;
         bool requireDispose = false;
-        if (sourceBitmap.ColorType == BitmapColorType.RgbaF16 && sourceBitmap.ColorSpace == BitmapColorSpace.Srgb)
+        if (sourceBitmap.ColorType == BitmapColorType.RgbaF16 && sourceBitmap.ColorSpace == targetColorSpace)
         {
-            rgbaSrgb = sourceBitmap;
+            rgbaConverted = sourceBitmap;
         }
         else
         {
-            rgbaSrgb = sourceBitmap.Convert(BitmapColorType.RgbaF16, BitmapAlphaType.Unpremul, BitmapColorSpace.Srgb);
+            rgbaConverted = sourceBitmap.Convert(BitmapColorType.RgbaF16, BitmapAlphaType.Unpremul, targetColorSpace);
             requireDispose = true;
         }
 
@@ -174,9 +177,9 @@ public class WaveformControl : HdrScopeControlBase
             byte* destPtr = (byte*)fb.Address;
             int destRowBytes = fb.RowBytes;
             // Direct data access — bypasses GetRow overhead (ThrowIfDisposed + ThrowRowOutOfRange + MemoryMarshal.Cast) per sample
-            byte* srcData = (byte*)rgbaSrgb.Data;
-            int srcRowBytes = rgbaSrgb.RowBytes;
-            bool premul = rgbaSrgb.AlphaType == BitmapAlphaType.Premul;
+            byte* srcData = (byte*)rgbaConverted.Data;
+            int srcRowBytes = rgbaConverted.RowBytes;
+            bool premul = rgbaConverted.AlphaType == BitmapAlphaType.Premul;
 
             Parallel.For(0, targetWidth,
                 // Per-thread local: reuse 4 float buffers across columns to avoid stackalloc / heap alloc per iteration
@@ -229,7 +232,7 @@ public class WaveformControl : HdrScopeControlBase
         finally
         {
             if (requireDispose)
-                rgbaSrgb.Dispose();
+                rgbaConverted.Dispose();
         }
 
         return result;

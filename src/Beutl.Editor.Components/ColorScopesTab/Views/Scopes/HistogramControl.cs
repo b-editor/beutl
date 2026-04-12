@@ -75,15 +75,18 @@ public class HistogramControl : HdrScopeControlBase
         float hdrRange = HdrRange;
         float binScale = (binCount - 1) / hdrRange;
 
+        BitmapColorSpace targetColorSpace = ColorSpace == ViewModels.ScopeColorSpace.Linear
+            ? BitmapColorSpace.LinearSrgb
+            : BitmapColorSpace.Srgb;
         BtlBitmap rgbaF16;
         bool requireDispose = false;
-        if (sourceBitmap.ColorType == BitmapColorType.RgbaF16 && sourceBitmap.ColorSpace == BitmapColorSpace.Srgb)
+        if (sourceBitmap.ColorType == BitmapColorType.RgbaF16 && sourceBitmap.ColorSpace == targetColorSpace)
         {
             rgbaF16 = sourceBitmap;
         }
         else
         {
-            rgbaF16 = sourceBitmap.Convert(BitmapColorType.RgbaF16, BitmapAlphaType.Unpremul, BitmapColorSpace.Srgb);
+            rgbaF16 = sourceBitmap.Convert(BitmapColorType.RgbaF16, BitmapAlphaType.Unpremul, targetColorSpace);
             requireDispose = true;
         }
 
