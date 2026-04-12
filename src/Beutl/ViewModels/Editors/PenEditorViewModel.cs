@@ -104,6 +104,10 @@ public sealed class PenEditorViewModel : BaseEditorViewModel
 
     public override IReadOnlyReactiveProperty<bool> CanCopy { get; }
 
+    public override IReadOnlyReactiveProperty<bool> CanSaveAsTemplate => CanCopy;
+
+    protected override Type? TemplateBaseType => typeof(Pen);
+
     protected override DataFormat<string>? PasteFormat => BeutlDataFormats.Pen;
 
     public CoreList<IPropertyEditorContext> MajorProperties { get; } = [];
@@ -128,6 +132,17 @@ public sealed class PenEditorViewModel : BaseEditorViewModel
     }
 
     protected override ICoreSerializable? GetCopyTarget() => Value.Value;
+
+    protected override ICoreSerializable? GetTemplateTarget() => GetCopyTarget();
+
+    public override bool ApplyTemplate(ObjectTemplateItem template)
+    {
+        if (template.CreateInstance() is not Pen instance) return false;
+        IsExpanded.Value = true;
+        PropertyAdapter.SetValue(instance);
+        Commit(CommandNames.ApplyTemplate);
+        return true;
+    }
 
     public override bool TryPasteJson(string json)
     {

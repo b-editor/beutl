@@ -92,6 +92,10 @@ public sealed class AudioEffectEditorViewModel : ValueEditorViewModel<AudioEffec
 
     public override IReadOnlyReactiveProperty<bool> CanCopy { get; }
 
+    public override IReadOnlyReactiveProperty<bool> CanSaveAsTemplate => CanCopy;
+
+    protected override Type? TemplateBaseType => typeof(AudioEffect);
+
     protected override DataFormat<string>? PasteFormat => BeutlDataFormats.AudioEffect;
 
     public ReadOnlyReactivePropertySlim<string?> FilterName { get; }
@@ -167,17 +171,22 @@ public sealed class AudioEffectEditorViewModel : ValueEditorViewModel<AudioEffec
         }
     }
 
+    public void ChangeAudioEffect(AudioEffect instance)
+    {
+        IsExpanded.Value = true;
+        SetValue(Value.Value, instance);
+    }
+
     public void ChangeFilterType(Type type)
     {
         if (Activator.CreateInstance(type) is AudioEffect instance)
-        {
-            IsExpanded.Value = true;
-            SetValue(Value.Value, instance);
-        }
+            ChangeAudioEffect(instance);
     }
 
     protected override ICoreSerializable? GetCopyTarget()
         => Value.Value is AudioEffect ae and not FallbackAudioEffect ? ae : null;
+
+    protected override ICoreSerializable? GetTemplateTarget() => GetCopyTarget();
 
     public override bool TryPasteJson(string json)
     {
@@ -205,10 +214,21 @@ public sealed class AudioEffectEditorViewModel : ValueEditorViewModel<AudioEffec
         return true;
     }
 
-    public void AddItem(Type type)
+    public override bool ApplyTemplate(ObjectTemplateItem template)
     {
-        if (Value.Value is AudioEffectGroup group
-            && Activator.CreateInstance(type) is AudioEffect instance)
+        if (template.CreateInstance() is not AudioEffect instance) return false;
+        IsExpanded.Value = true;
+        if (Value.Value is AudioEffectGroup)
+            AddItem(instance);
+        else
+            ChangeAudioEffect(instance);
+        Commit(CommandNames.ApplyTemplate);
+        return true;
+    }
+
+    public void AddItem(AudioEffect instance)
+    {
+        if (Value.Value is AudioEffectGroup group)
         {
             IsExpanded.Value = true;
             group.Children.Add(instance);
@@ -223,6 +243,12 @@ public sealed class AudioEffectEditorViewModel : ValueEditorViewModel<AudioEffec
                 }
             }
         }
+    }
+
+    public void AddItem(Type type)
+    {
+        if (Activator.CreateInstance(type) is AudioEffect instance)
+            AddItem(instance);
     }
 
     public void SetNull()

@@ -361,6 +361,25 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
         return json != null && TryPasteJson(json);
     }
 
+    // テンプレート保存・適用対応
+    public virtual IReadOnlyReactiveProperty<bool> CanSaveAsTemplate => s_alwaysFalse;
+
+    protected virtual Type? TemplateBaseType => null;
+
+    protected virtual ICoreSerializable? GetTemplateTarget() => null;
+
+    public virtual bool ApplyTemplate(ObjectTemplateItem template) => false;
+
+    public IEnumerable<ObjectTemplateItem> GetApplicableTemplates()
+        => TemplateBaseType is { } t ? ObjectTemplateService.Instance.FindByBaseType(t) : [];
+
+    public ValueTask<bool> SaveAsTemplateAsync(string name)
+    {
+        if (GetTemplateTarget() is not { } target) return new(false);
+        ObjectTemplateService.Instance.AddFromInstance(target, name);
+        return new(true);
+    }
+
     public async ValueTask RefreshCanPasteAsync()
     {
         if (PasteFormat is not { } format)

@@ -81,6 +81,10 @@ public sealed class GeometryEditorViewModel : ValueEditorViewModel<Geometry?>, I
 
     public override IReadOnlyReactiveProperty<bool> CanCopy { get; }
 
+    public override IReadOnlyReactiveProperty<bool> CanSaveAsTemplate => CanCopy;
+
+    protected override Type? TemplateBaseType => typeof(Geometry);
+
     protected override DataFormat<string>? PasteFormat => BeutlDataFormats.Geometry;
 
     public ReactivePropertySlim<PropertiesEditorViewModel?> Properties { get; } = new();
@@ -156,6 +160,17 @@ public sealed class GeometryEditorViewModel : ValueEditorViewModel<Geometry?>, I
 
     protected override ICoreSerializable? GetCopyTarget()
         => Value.Value is Geometry geom and not FallbackGeometry ? geom : null;
+
+    protected override ICoreSerializable? GetTemplateTarget() => GetCopyTarget();
+
+    public override bool ApplyTemplate(ObjectTemplateItem template)
+    {
+        if (template.CreateInstance() is not Geometry instance) return false;
+        IsExpanded.Value = true;
+        PropertyAdapter.SetValue(instance);
+        Commit(CommandNames.ApplyTemplate);
+        return true;
+    }
 
     public override bool TryPasteJson(string json)
     {

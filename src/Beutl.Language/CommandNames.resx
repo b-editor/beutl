@@ -155,4 +155,10 @@
   <data name="EditProperty" xml:space="preserve">
     <value>Edit Property</value>
   </data>
+  <data name="ApplyTemplate" xml:space="preserve">
+    <value>Apply Template</value>
+  </data>
+  <data name="AddElementFromTemplate" xml:space="preserve">
+    <value>Add Element from Template</value>
+  </data>
 </root>

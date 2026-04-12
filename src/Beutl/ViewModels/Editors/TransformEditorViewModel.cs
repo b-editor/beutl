@@ -178,6 +178,10 @@ public sealed class TransformEditorViewModel : ValueEditorViewModel<Transform?>,
 
     public override IReadOnlyReactiveProperty<bool> CanCopy { get; }
 
+    public override IReadOnlyReactiveProperty<bool> CanSaveAsTemplate => CanCopy;
+
+    protected override Type? TemplateBaseType => typeof(Transform);
+
     protected override DataFormat<string>? PasteFormat => BeutlDataFormats.Transform;
 
     public ReadOnlyReactivePropertySlim<KnownTransformType> TransformType { get; }
@@ -257,23 +261,24 @@ public sealed class TransformEditorViewModel : ValueEditorViewModel<Transform?>,
         }
     }
 
-    public void ChangeType(KnownTransformType type)
+    public void ChangeTransform(Transform instance)
     {
-        Transform? obj = CreateTransform(type);
-        if (obj != null)
-        {
-            IsExpanded.Value = true;
-            SetValue(Value.Value, obj);
-        }
+        IsExpanded.Value = true;
+        SetValue(Value.Value, instance);
     }
 
-    public void AddItem(KnownTransformType type)
+    public void ChangeType(KnownTransformType type)
     {
-        if (Value.Value is TransformGroup group
-            && CreateTransform(type) is { } obj)
+        if (CreateTransform(type) is { } obj)
+            ChangeTransform(obj);
+    }
+
+    public void AddItem(Transform instance)
+    {
+        if (Value.Value is TransformGroup group)
         {
             IsExpanded.Value = true;
-            group.Children.Add(obj);
+            group.Children.Add(instance);
             Commit();
 
             if (Group.Value is { } listEditor)
@@ -287,8 +292,28 @@ public sealed class TransformEditorViewModel : ValueEditorViewModel<Transform?>,
         }
     }
 
+    public void AddItem(KnownTransformType type)
+    {
+        if (CreateTransform(type) is { } obj)
+            AddItem(obj);
+    }
+
     protected override ICoreSerializable? GetCopyTarget()
         => Value.Value is { } tf and not FallbackTransform ? tf : null;
+
+    protected override ICoreSerializable? GetTemplateTarget() => GetCopyTarget();
+
+    public override bool ApplyTemplate(ObjectTemplateItem template)
+    {
+        if (template.CreateInstance() is not Transform instance) return false;
+        IsExpanded.Value = true;
+        if (Value.Value is TransformGroup)
+            AddItem(instance);
+        else
+            ChangeTransform(instance);
+        Commit(CommandNames.ApplyTemplate);
+        return true;
+    }
 
     public override bool TryPasteJson(string json)
     {

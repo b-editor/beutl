@@ -121,6 +121,10 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel, IFallbackObjectV
 
     public override IReadOnlyReactiveProperty<bool> CanCopy { get; }
 
+    public override IReadOnlyReactiveProperty<bool> CanSaveAsTemplate => CanCopy;
+
+    protected override Type? TemplateBaseType => typeof(Brush);
+
     protected override DataFormat<string>? PasteFormat => BeutlDataFormats.Brush;
 
     public ReadOnlyReactivePropertySlim<bool> IsSolid { get; }
@@ -204,6 +208,17 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel, IFallbackObjectV
 
     protected override ICoreSerializable? GetCopyTarget()
         => Value.Value is Brush brush and not FallbackBrush ? brush : null;
+
+    protected override ICoreSerializable? GetTemplateTarget() => GetCopyTarget();
+
+    public override bool ApplyTemplate(ObjectTemplateItem template)
+    {
+        if (template.CreateInstance() is not Brush instance) return false;
+        IsExpanded.Value = true;
+        PropertyAdapter.SetValue(instance);
+        Commit(CommandNames.ApplyTemplate);
+        return true;
+    }
 
     public override bool TryPasteJson(string json)
     {

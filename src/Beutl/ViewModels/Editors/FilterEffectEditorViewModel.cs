@@ -123,6 +123,10 @@ public sealed class FilterEffectEditorViewModel : ValueEditorViewModel<FilterEff
 
     public override IReadOnlyReactiveProperty<bool> CanCopy { get; }
 
+    public override IReadOnlyReactiveProperty<bool> CanSaveAsTemplate => CanCopy;
+
+    protected override Type? TemplateBaseType => typeof(FilterEffect);
+
     protected override DataFormat<string>? PasteFormat => BeutlDataFormats.FilterEffect;
 
     public ReadOnlyReactivePropertySlim<string?> FilterName { get; }
@@ -169,17 +173,34 @@ public sealed class FilterEffectEditorViewModel : ValueEditorViewModel<FilterEff
         }
     }
 
+    public void ChangeFilter(FilterEffect instance)
+    {
+        IsExpanded.Value = true;
+        SetValue(Value.Value, instance);
+    }
+
     public void ChangeFilterType(Type type)
     {
         if (Activator.CreateInstance(type) is FilterEffect instance)
-        {
-            IsExpanded.Value = true;
-            SetValue(Value.Value, instance);
-        }
+            ChangeFilter(instance);
     }
 
     protected override ICoreSerializable? GetCopyTarget()
         => Value.Value is FilterEffect fe and not FallbackFilterEffect ? fe : null;
+
+    protected override ICoreSerializable? GetTemplateTarget() => GetCopyTarget();
+
+    public override bool ApplyTemplate(ObjectTemplateItem template)
+    {
+        if (template.CreateInstance() is not FilterEffect instance) return false;
+        IsExpanded.Value = true;
+        if (Value.Value is FilterEffectGroup group)
+            AddItem(instance);
+        else
+            ChangeFilter(instance);
+        Commit(CommandNames.ApplyTemplate);
+        return true;
+    }
 
     // Drop時にも利用できる、JSON文字列からの貼り付け処理
     public override bool TryPasteJson(string json)
@@ -208,16 +229,14 @@ public sealed class FilterEffectEditorViewModel : ValueEditorViewModel<FilterEff
         return true;
     }
 
-    public void AddItem(Type type)
+    public void AddItem(FilterEffect instance)
     {
-        if (Value.Value is FilterEffectGroup group
-            && Activator.CreateInstance(type) is FilterEffect instance)
+        if (Value.Value is FilterEffectGroup group)
         {
             IsExpanded.Value = true;
             group.Children.Add(instance);
             Commit();
 
-            // 追加されたアイテムのViewModelを探して展開する
             if (Group.Value is { } listEditor)
             {
                 var addedItem = listEditor.Items.LastOrDefault();
@@ -227,6 +246,12 @@ public sealed class FilterEffectEditorViewModel : ValueEditorViewModel<FilterEff
                 }
             }
         }
+    }
+
+    public void AddItem(Type type)
+    {
+        if (Activator.CreateInstance(type) is FilterEffect instance)
+            AddItem(instance);
     }
 
     public void AddTarget(Type presenterType, FilterEffect target)
