@@ -166,10 +166,15 @@ public sealed class GeometryEditorViewModel : ValueEditorViewModel<Geometry?>, I
         {
             kf.Value = pasted;
         }
+        else if (PropertyAdapter is ListItemAccessorImpl<Geometry> listItemAccessor)
+        {
+            listItemAccessor.List.Insert(listItemAccessor.Index, pasted);
+        }
         else
         {
             PropertyAdapter.SetValue(pasted);
         }
+
         Commit(CommandNames.PasteObject);
         return true;
     }

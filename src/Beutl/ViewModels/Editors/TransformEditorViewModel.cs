@@ -303,10 +303,15 @@ public sealed class TransformEditorViewModel : ValueEditorViewModel<Transform?>,
         {
             kf.Value = pasted;
         }
+        else if (PropertyAdapter is ListItemAccessorImpl<Transform> listItemAccessor)
+        {
+            listItemAccessor.List.Insert(listItemAccessor.Index, pasted);
+        }
         else
         {
             PropertyAdapter.SetValue(pasted);
         }
+
         Commit(CommandNames.PasteObject);
         return true;
     }

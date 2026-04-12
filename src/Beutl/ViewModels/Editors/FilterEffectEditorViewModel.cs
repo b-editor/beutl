@@ -195,10 +195,15 @@ public sealed class FilterEffectEditorViewModel : ValueEditorViewModel<FilterEff
         {
             kf.Value = pasted;
         }
+        else if (PropertyAdapter is ListItemAccessorImpl<FilterEffect> listItemAccessor)
+        {
+            listItemAccessor.List.Insert(listItemAccessor.Index, pasted);
+        }
         else
         {
             PropertyAdapter.SetValue(pasted);
         }
+
         Commit(CommandNames.PasteObject);
         return true;
     }

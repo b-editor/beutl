@@ -205,10 +205,15 @@ public sealed class CoreObjectEditorViewModel<T> : BaseEditorViewModel<T>, ICore
         {
             kf.Value = pasted;
         }
+        else if (PropertyAdapter is ListItemAccessorImpl<T> listItemAccessor)
+        {
+            listItemAccessor.List.Insert(listItemAccessor.Index, pasted);
+        }
         else
         {
             PropertyAdapter.SetValue(pasted);
         }
+
         Commit(CommandNames.PasteObject);
         return true;
     }
