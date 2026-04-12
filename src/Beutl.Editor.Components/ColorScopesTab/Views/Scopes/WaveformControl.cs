@@ -1,4 +1,5 @@
-﻿using Avalonia;
+using System.Runtime.CompilerServices;
+using Avalonia;
 using Avalonia.Layout;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
@@ -118,10 +119,8 @@ public class WaveformControl : HdrScopeControlBase
         float[]? gridStrength = showGrid ? GetGridStrength(targetHeight, hdrRange) : null;
         int sampleCount = (int)Math.Clamp(sourceBitmap.Height * 0.25f, 32f, 1024f);
         float invSamplesGain = gain / Math.Max(sampleCount, 1);
-
-        // Pre-compute inverse values to avoid division in hot loops
         float invTargetWidth = 1f / targetWidth;
-        float invSampleCount = 1f / sampleCount;
+        float invHdr = 1f / MathF.Max(hdrRange, 1e-6f);
 
         // Pre-compute Gaussian kernel LUT (shared across all samples since thickness is constant per frame)
         int kernelRadius = Math.Max((int)MathF.Ceiling(thickness * 3f), 1);
@@ -133,6 +132,28 @@ public class WaveformControl : HdrScopeControlBase
             float dv = (k - kernelRadius) * invKernelDenom;
             float dSq = dv * dv;
             kernelArr[k] = 1f / (1f + dSq + 0.5f * dSq * dSq);
+        }
+
+        // Pre-compute srcY indices (shared across all columns)
+        float invSampleCount = 1f / sampleCount;
+        int[] srcYArr = new int[sampleCount];
+        for (int i = 0; i < sampleCount; i++)
+            srcYArr[i] = Math.Clamp((int)((i + 0.5f) * invSampleCount * sourceHeight), 0, sourceHeight - 1);
+
+        // Pre-compute srcX and parade band per column
+        int[] srcXArr = new int[targetWidth];
+        int[]? paradeBandArr = mode == WaveformMode.RgbParade ? new int[targetWidth] : null;
+        for (int x = 0; x < targetWidth; x++)
+        {
+            float x01 = (x + 0.5f) * invTargetWidth;
+            if (paradeBandArr != null)
+            {
+                float x3 = x01 * 3f;
+                int band = Math.Min(2, (int)MathF.Floor(x3));
+                paradeBandArr[x] = band;
+                x01 = x3 - band;
+            }
+            srcXArr[x] = Math.Clamp((int)(x01 * sourceWidth), 0, sourceWidth - 1);
         }
 
         using ILockedFramebuffer fb = result.Lock();
@@ -152,8 +173,10 @@ public class WaveformControl : HdrScopeControlBase
         {
             byte* destPtr = (byte*)fb.Address;
             int destRowBytes = fb.RowBytes;
+            // Direct data access — bypasses GetRow overhead (ThrowIfDisposed + ThrowRowOutOfRange + MemoryMarshal.Cast) per sample
+            byte* srcData = (byte*)rgbaSrgb.Data;
+            int srcRowBytes = rgbaSrgb.RowBytes;
             bool premul = rgbaSrgb.AlphaType == BitmapAlphaType.Premul;
-            var rgbaSrgbLocal = rgbaSrgb; // capture stable reference for closure
 
             Parallel.For(0, targetWidth,
                 // Per-thread local: reuse 4 float buffers across columns to avoid stackalloc / heap alloc per iteration
@@ -173,52 +196,25 @@ public class WaveformControl : HdrScopeControlBase
                     Array.Clear(bBuf);
                     Array.Clear(yBuf);
 
-                    float x01 = (x + 0.5f) * invTargetWidth;
-                    float paradeBand = 0f;
+                    int srcX = srcXArr[x];
 
-                    if (mode == WaveformMode.RgbParade)
+                    // Mode-specific sampling — eliminates per-sample branching
+                    if (mode == WaveformMode.Luma)
                     {
-                        float x3 = x01 * 3f;
-                        paradeBand = MathF.Min(2f, MathF.Floor(x3));
-                        x01 = x3 - paradeBand;
+                        SampleLuma(srcData, srcRowBytes, srcX, srcYArr, sampleCount, premul,
+                            yBuf, targetHeight, invHdr, kernelArr, kernelRadius);
                     }
-
-                    int srcX = Math.Clamp((int)(x01 * sourceWidth), 0, sourceWidth - 1);
-
-                    for (int i = 0; i < sampleCount; i++)
+                    else if (mode == WaveformMode.RgbOverlay)
                     {
-                        int srcY = Math.Clamp((int)((i + 0.5f) * invSampleCount * sourceHeight), 0, sourceHeight - 1);
-
-                        // ReSharper disable once AccessToDisposedClosure
-                        RgbaF16 sample = rgbaSrgbLocal.GetRow<RgbaF16>(srcY)[srcX];
-                        float r = (float)sample.R;
-                        float g = (float)sample.G;
-                        float b = (float)sample.B;
-                        float a = (float)sample.A;
-
-                        if (a > 0f && a < 1f && premul)
-                        {
-                            float invA = 1f / a;
-                            r *= invA;
-                            g *= invA;
-                            b *= invA;
-                        }
-
-                        if (mode == WaveformMode.Luma)
-                        {
-                            float y = (0.2126f * r) + (0.7152f * g) + (0.0722f * b);
-                            AddContribution(yBuf, y, targetHeight, hdrRange, kernelArr, kernelRadius);
-                        }
-                        else if (mode == WaveformMode.RgbOverlay)
-                        {
-                            AddContributionRgb(rBuf, gBuf, bBuf, r, g, b, targetHeight, hdrRange, kernelArr, kernelRadius);
-                        }
-                        else
-                        {
-                            float channel = paradeBand < 0.5f ? r : paradeBand < 1.5f ? g : b;
-                            float[] target = paradeBand < 0.5f ? rBuf : paradeBand < 1.5f ? gBuf : bBuf;
-                            AddContribution(target, channel, targetHeight, hdrRange, kernelArr, kernelRadius);
-                        }
+                        SampleRgbOverlay(srcData, srcRowBytes, srcX, srcYArr, sampleCount, premul,
+                            rBuf, gBuf, bBuf, targetHeight, invHdr, kernelArr, kernelRadius);
+                    }
+                    else
+                    {
+                        int band = paradeBandArr![x];
+                        float[] target = band == 0 ? rBuf : band == 1 ? gBuf : bBuf;
+                        SampleParade(srcData, srcRowBytes, srcX, srcYArr, sampleCount, premul, band,
+                            target, targetHeight, invHdr, kernelArr, kernelRadius);
                     }
 
                     WriteColumn(
@@ -237,6 +233,90 @@ public class WaveformControl : HdrScopeControlBase
         }
 
         return result;
+    }
+
+    private static unsafe void SampleLuma(
+        byte* srcData, int srcRowBytes, int srcX, int[] srcYArr, int sampleCount, bool premul,
+        float[] yBuf, int height, float invHdr, float[] kernel, int radius)
+    {
+        for (int i = 0; i < sampleCount; i++)
+        {
+            RgbaF16* pixel = (RgbaF16*)(srcData + (long)srcYArr[i] * srcRowBytes) + srcX;
+            float r = (float)pixel->R;
+            float g = (float)pixel->G;
+            float b = (float)pixel->B;
+
+            if (premul)
+            {
+                float a = (float)pixel->A;
+                if (a > 0f && a < 1f)
+                {
+                    float invA = 1f / a;
+                    r *= invA;
+                    g *= invA;
+                    b *= invA;
+                }
+            }
+
+            float y = 0.2126f * r + 0.7152f * g + 0.0722f * b;
+            AddContribution(yBuf, y, height, invHdr, kernel, radius);
+        }
+    }
+
+    private static unsafe void SampleRgbOverlay(
+        byte* srcData, int srcRowBytes, int srcX, int[] srcYArr, int sampleCount, bool premul,
+        float[] rBuf, float[] gBuf, float[] bBuf,
+        int height, float invHdr, float[] kernel, int radius)
+    {
+        for (int i = 0; i < sampleCount; i++)
+        {
+            RgbaF16* pixel = (RgbaF16*)(srcData + (long)srcYArr[i] * srcRowBytes) + srcX;
+            float r = (float)pixel->R;
+            float g = (float)pixel->G;
+            float b = (float)pixel->B;
+
+            if (premul)
+            {
+                float a = (float)pixel->A;
+                if (a > 0f && a < 1f)
+                {
+                    float invA = 1f / a;
+                    r *= invA;
+                    g *= invA;
+                    b *= invA;
+                }
+            }
+
+            AddContributionRgb(rBuf, gBuf, bBuf, r, g, b, height, invHdr, kernel, radius);
+        }
+    }
+
+    private static unsafe void SampleParade(
+        byte* srcData, int srcRowBytes, int srcX, int[] srcYArr, int sampleCount, bool premul,
+        int band, float[] target, int height, float invHdr, float[] kernel, int radius)
+    {
+        for (int i = 0; i < sampleCount; i++)
+        {
+            RgbaF16* pixel = (RgbaF16*)(srcData + (long)srcYArr[i] * srcRowBytes) + srcX;
+            float r = (float)pixel->R;
+            float g = (float)pixel->G;
+            float b = (float)pixel->B;
+
+            if (premul)
+            {
+                float a = (float)pixel->A;
+                if (a > 0f && a < 1f)
+                {
+                    float invA = 1f / a;
+                    r *= invA;
+                    g *= invA;
+                    b *= invA;
+                }
+            }
+
+            float channel = band == 0 ? r : band == 1 ? g : b;
+            AddContribution(target, channel, height, invHdr, kernel, radius);
+        }
     }
 
     private static unsafe void WriteColumn(
@@ -385,9 +465,10 @@ public class WaveformControl : HdrScopeControlBase
         }
     }
 
-    private static void AddContribution(float[] buffer, float value, int height, float hdrRange, float[] kernel, int radius)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void AddContribution(float[] buffer, float value, int height, float invHdr, float[] kernel, int radius)
     {
-        float normalized = Math.Clamp(value / hdrRange, 0f, 1f);
+        float normalized = Math.Clamp(value * invHdr, 0f, 1f);
         float center = (1f - normalized) * height;
         int centerInt = (int)MathF.Round(center);
         int start = Math.Max(0, centerInt - radius);
@@ -399,12 +480,12 @@ public class WaveformControl : HdrScopeControlBase
         }
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void AddContributionRgb(
         float[] rBuf, float[] gBuf, float[] bBuf,
         float r, float g, float b,
-        int height, float hdrRange, float[] kernel, int radius)
+        int height, float invHdr, float[] kernel, int radius)
     {
-        float invHdr = 1f / hdrRange;
         float rNorm = Math.Clamp(r * invHdr, 0f, 1f);
         float gNorm = Math.Clamp(g * invHdr, 0f, 1f);
         float bNorm = Math.Clamp(b * invHdr, 0f, 1f);
@@ -475,7 +556,7 @@ public class WaveformControl : HdrScopeControlBase
         float d = MathF.Abs(v - t);
         float k = (d * height) / MathF.Max(px, 1e-3f);
         float kSq = k * k;
-        // Fast Gaussian approximation: exp(-x²) ≈ 1/(1 + x² + 0.5*x⁴)
+        // Fast Gaussian approximation: exp(-x^2) ≈ 1/(1 + x^2 + 0.5*x^4)
         return 1f / (1f + kSq + 0.5f * kSq * kSq);
     }
 }
