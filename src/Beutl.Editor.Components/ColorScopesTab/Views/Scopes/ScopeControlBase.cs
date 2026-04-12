@@ -1,4 +1,5 @@
-﻿using Avalonia;
+﻿using System.Runtime.CompilerServices;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
@@ -308,11 +309,13 @@ public abstract class ScopeControlBase : Control
         _backBuffer = null;
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     protected static uint PackColor(byte r, byte g, byte b, byte a = 255)
     {
         return (uint)(b | (g << 8) | (r << 16) | (a << 24));
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     protected static void PlotPoint(Span<uint> dest, int stride, int x, int y, uint color)
     {
         int height = dest.Length / stride;
@@ -325,6 +328,7 @@ public abstract class ScopeControlBase : Control
         dest[idx] = newA > existingA ? color : BlendAdd(existing, color);
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     protected static uint BlendAdd(uint dst, uint src)
     {
         byte db = (byte)(dst);

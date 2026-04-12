@@ -68,9 +68,11 @@ public class VectorscopeControl : ScopeControlBase
                 AlphaFormat.Premul);
 
         using ILockedFramebuffer fb = bitmap.Lock();
-        var dest = new Span<uint>((void*)fb.Address, (fb.RowBytes * fb.Size.Height) / sizeof(uint));
-        dest.Fill(PackColor(0, 0, 0, 0));
+        uint* destPtr = (uint*)fb.Address;
         int stridePixels = fb.RowBytes / sizeof(uint);
+        int destHeight = fb.Size.Height;
+        int destLength = stridePixels * destHeight;
+        new Span<uint>(destPtr, destLength).Fill(PackColor(0, 0, 0, 0));
 
         int sourceWidth = sourceBitmap.Width;
         int sourceHeight = sourceBitmap.Height;
@@ -91,15 +93,27 @@ public class VectorscopeControl : ScopeControlBase
 
         try
         {
-            for (int y = 0; y < sourceHeight; y += step)
+            int rowCount = (sourceHeight + step - 1) / step;
+            var rgbaGammaLocal = rgbaGamma;
+            int sizeMinus1 = size - 1;
+
+            // Parallelize row scanning. The read-modify-write on destPtr[idx] is NOT atomic,
+            // so concurrent threads may overwrite each other's BlendAdd contributions at the same
+            // pixel. This is a deliberate trade-off: collisions are rare (230K samples → 262K pixels),
+            // and the visual impact of occasionally losing one sample contribution is imperceptible
+            // on a dense vectorscope display.
+            Parallel.For(0, rowCount, yi =>
             {
-                var row = rgbaGamma.GetRow<RgbaF16>(y);
+                int y = yi * step;
+                if (y >= sourceHeight) return;
+                // ReSharper disable once AccessToDisposedClosure
+                var row = rgbaGammaLocal.GetRow<RgbaF16>(y);
                 for (int x = 0; x < sourceWidth; x += step)
                 {
                     RgbaF16 pixel = row[x];
-                    var r = (float)pixel.R;
-                    var g = (float)pixel.G;
-                    var b = (float)pixel.B;
+                    float r = (float)pixel.R;
+                    float g = (float)pixel.G;
+                    float b = (float)pixel.B;
 
                     // Convert RGB to CbCr (YCbCr color space)
                     float cb = -0.11457f * r - 0.38543f * g + 0.5f * b;
@@ -108,13 +122,24 @@ public class VectorscopeControl : ScopeControlBase
                     byte cb8 = (byte)Math.Clamp(MathF.Round(cb * 255f + 128f), 0, 255);
                     byte cr8 = (byte)Math.Clamp(MathF.Round(cr * 255f + 128f), 0, 255);
 
-                    int vx = cb8 * (size - 1) / 255;
-                    int vy = (255 - cr8) * (size - 1) / 255;
+                    int vx = cb8 * sizeMinus1 / 255;
+                    int vy = (255 - cr8) * sizeMinus1 / 255;
 
-                    var c = Media.Color.FromRgb((byte)(r * 255), (byte)(g * 255), (byte)(b * 255));
-                    PlotPoint(dest, stridePixels, vx, vy, PackColor(c.R, c.G, c.B, 180));
+                    // Inline byte conversion (no Color.FromRgb allocation)
+                    byte r8 = (byte)Math.Clamp((int)(r * 255f), 0, 255);
+                    byte g8 = (byte)Math.Clamp((int)(g * 255f), 0, 255);
+                    byte b8 = (byte)Math.Clamp((int)(b * 255f), 0, 255);
+                    uint color = PackColor(r8, g8, b8, 180);
+
+                    if ((uint)vx < (uint)stridePixels && (uint)vy < (uint)destHeight)
+                    {
+                        int idx = vy * stridePixels + vx;
+                        uint existing = destPtr[idx];
+                        byte existingA = (byte)(existing >> 24);
+                        destPtr[idx] = 180 > existingA ? color : BlendAdd(existing, color);
+                    }
                 }
-            }
+            });
         }
         finally
         {
