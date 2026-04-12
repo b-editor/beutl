@@ -1,4 +1,4 @@
-using System.Runtime.CompilerServices;
+﻿using System.Runtime.CompilerServices;
 using Avalonia;
 using Avalonia.Layout;
 using Avalonia.Media.Imaging;

@@ -1,4 +1,4 @@
-namespace Beutl.Editor.Components.ColorScopesTab.ViewModels;
+﻿namespace Beutl.Editor.Components.ColorScopesTab.ViewModels;
 
 public enum ScopeColorSpace
 {
