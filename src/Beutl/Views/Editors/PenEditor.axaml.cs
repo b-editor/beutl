@@ -58,6 +58,7 @@ public sealed partial class PenEditor : UserControl
             });
 
         CopyPasteMenuHelper.AddMenus((FAMenuFlyout)ExpandMenuButton.ContextFlyout!, this);
+        TemplateMenuHelper.AddMenus((FAMenuFlyout)ExpandMenuButton.ContextFlyout!, this);
     }
 
     private void InitializeClick(object? sender, RoutedEventArgs e)

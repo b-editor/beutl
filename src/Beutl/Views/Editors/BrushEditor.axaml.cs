@@ -70,7 +70,9 @@ public sealed partial class BrushEditor : UserControl
             });
 
         CopyPasteMenuHelper.AddMenus((FAMenuFlyout)ExpandMenuButton.ContextFlyout!, this);
+        TemplateMenuHelper.AddMenus((FAMenuFlyout)ExpandMenuButton.ContextFlyout!, this);
         CopyPasteMenuHelper.AddMenus((FAMenuFlyout)ReferenceMenuButton.Flyout!, this);
+        TemplateMenuHelper.AddMenus((FAMenuFlyout)ReferenceMenuButton.Flyout!, this);
     }
 
     public Avalonia.Media.Brush? Brush

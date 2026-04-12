@@ -64,6 +64,7 @@ public partial class FilterEffectListItemEditor : UserControl, IListItemEditor
 
         reorderHandle.ContextFlyout = new FAMenuFlyout();
         CopyPasteMenuHelper.AddMenus((FAMenuFlyout)reorderHandle.ContextFlyout!, this);
+        TemplateMenuHelper.AddMenus((FAMenuFlyout)reorderHandle.ContextFlyout!, this);
     }
 
     public Control? ReorderHandle

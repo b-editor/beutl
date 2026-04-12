@@ -58,6 +58,7 @@ public partial class AudioEffectEditor : UserControl
         AddHandler(DragDrop.DropEvent, Drop);
 
         CopyPasteMenuHelper.AddMenus((FAMenuFlyout)expandToggle.ContextFlyout!, this);
+        TemplateMenuHelper.AddMenus((FAMenuFlyout)expandToggle.ContextFlyout!, this);
     }
 
     private void Drop(object? sender, DragEventArgs e)

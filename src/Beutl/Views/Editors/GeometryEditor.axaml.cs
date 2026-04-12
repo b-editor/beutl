@@ -55,6 +55,7 @@ public partial class GeometryEditor : UserControl
             });
 
         CopyPasteMenuHelper.AddMenus((FAMenuFlyout)expandToggle.ContextFlyout!, this);
+        TemplateMenuHelper.AddMenus((FAMenuFlyout)expandToggle.ContextFlyout!, this);
     }
 
     private void Tag_Click(object? sender, RoutedEventArgs e)

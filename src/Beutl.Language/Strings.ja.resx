@@ -919,4 +919,25 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="Preview" xml:space="preserve">
     <value>プレビュー</value>
   </data>
+  <data name="Templates" xml:space="preserve">
+    <value>テンプレート</value>
+  </data>
+  <data name="SaveAsTemplate" xml:space="preserve">
+    <value>テンプレートとして保存</value>
+  </data>
+  <data name="ApplyTemplate" xml:space="preserve">
+    <value>テンプレートを適用</value>
+  </data>
+  <data name="AddFromTemplate" xml:space="preserve">
+    <value>テンプレートから追加</value>
+  </data>
+  <data name="TemplateSaved" xml:space="preserve">
+    <value>テンプレートが保存されました。</value>
+  </data>
+  <data name="DeleteTemplateConfirm" xml:space="preserve">
+    <value>このテンプレートを削除しますか？</value>
+  </data>
+  <data name="EnterTemplateName" xml:space="preserve">
+    <value>テンプレート名を入力</value>
+  </data>
 </root>

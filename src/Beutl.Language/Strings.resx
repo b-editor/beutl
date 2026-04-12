@@ -925,4 +925,25 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="Preview" xml:space="preserve">
     <value>Preview</value>
   </data>
+  <data name="Templates" xml:space="preserve">
+    <value>Templates</value>
+  </data>
+  <data name="SaveAsTemplate" xml:space="preserve">
+    <value>Save as Template</value>
+  </data>
+  <data name="ApplyTemplate" xml:space="preserve">
+    <value>Apply Template</value>
+  </data>
+  <data name="AddFromTemplate" xml:space="preserve">
+    <value>Add from Template</value>
+  </data>
+  <data name="TemplateSaved" xml:space="preserve">
+    <value>Template has been saved.</value>
+  </data>
+  <data name="DeleteTemplateConfirm" xml:space="preserve">
+    <value>Are you sure you want to delete this template?</value>
+  </data>
+  <data name="EnterTemplateName" xml:space="preserve">
+    <value>Enter template name</value>
+  </data>
 </root>

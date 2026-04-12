@@ -61,7 +61,9 @@ public partial class FilterEffectEditor : UserControl
             });
 
         CopyPasteMenuHelper.AddMenus((FAMenuFlyout)expandToggle.ContextFlyout!, this);
+        TemplateMenuHelper.AddMenus((FAMenuFlyout)expandToggle.ContextFlyout!, this);
         CopyPasteMenuHelper.AddMenus((FAMenuFlyout)ReferenceMenuButton.Flyout!, this);
+        TemplateMenuHelper.AddMenus((FAMenuFlyout)ReferenceMenuButton.Flyout!, this);
     }
 
     private void Drop(object? sender, DragEventArgs e)

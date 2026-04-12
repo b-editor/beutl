@@ -55,7 +55,9 @@ public partial class CoreObjectEditor : UserControl
             });
 
         CopyPasteMenuHelper.AddMenus((FAMenuFlyout)expandToggle.ContextFlyout!, this);
+        TemplateMenuHelper.AddMenus((FAMenuFlyout)expandToggle.ContextFlyout!, this);
         CopyPasteMenuHelper.AddMenus((FAMenuFlyout)ReferenceMenuButton.Flyout!, this);
+        TemplateMenuHelper.AddMenus((FAMenuFlyout)ReferenceMenuButton.Flyout!, this);
     }
 
     private void Navigate_Click(object? sender, RoutedEventArgs e)

@@ -10,6 +10,7 @@ using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using Avalonia.Xaml.Interactivity;
 using Beutl.Configuration;
+using Beutl.Controls;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Services;
@@ -187,6 +188,21 @@ public sealed partial class ElementView : UserControl
         textBox.IsVisible = true;
         textBox.SelectAll();
         textBox.Focus();
+    }
+
+    private void SaveAsTemplate_Click(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not ElementViewModel viewModel) return;
+
+        var flyout = new SaveAsTemplateFlyout();
+        flyout.Confirmed += (_, name) =>
+        {
+            if (!string.IsNullOrWhiteSpace(name))
+            {
+                ObjectTemplateService.Instance.AddFromInstance(viewModel.Model, name);
+            }
+        };
+        flyout.ShowAt(this, true);
     }
 
     private void ChangeColor_Click(object? sender, RoutedEventArgs e)

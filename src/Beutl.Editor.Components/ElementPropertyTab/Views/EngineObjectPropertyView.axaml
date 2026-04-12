@@ -43,6 +43,11 @@
                                 <icons:SymbolIcon Symbol="Delete" />
                             </MenuItem.Icon>
                         </MenuItem>
+                        <MenuItem Click="SaveAsTemplate_Click" Header="{x:Static lang:Strings.SaveAsTemplate}">
+                            <MenuItem.Icon>
+                                <icons:SymbolIcon Symbol="DocumentCopy" />
+                            </MenuItem.Icon>
+                        </MenuItem>
                     </ContextMenu>
                 </StackPanel.ContextMenu>
                 <Border x:Name="dragBorder"
