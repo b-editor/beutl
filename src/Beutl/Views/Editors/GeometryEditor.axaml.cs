@@ -53,6 +53,8 @@ public partial class GeometryEditor : UserControl
                 _fallbackObjectView = new FallbackObjectView();
                 content.Children.Add(_fallbackObjectView);
             });
+
+        CopyPasteMenuHelper.AddMenus((FAMenuFlyout)expandToggle.ContextFlyout!, this);
     }
 
     private void Tag_Click(object? sender, RoutedEventArgs e)

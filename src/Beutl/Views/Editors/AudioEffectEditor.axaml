@@ -18,17 +18,14 @@
         <ToggleButton x:Name="expandToggle"
                       Margin="8,4"
                       IsChecked="{Binding IsExpanded.Value}"
-                      ToolTip.Tip="{Binding Description.Value}"
-                      Theme="{DynamicResource PropertyEditorMiniExpanderToggleButton}">
+                      Theme="{DynamicResource PropertyEditorMiniExpanderToggleButton}"
+                      ToolTip.Tip="{Binding Description.Value}">
             <ToggleButton.ContextFlyout>
                 <ui:FAMenuFlyout>
                     <ui:MenuFlyoutItem Click="ChangeEffectTypeClick"
-                                       FontWeight="Normal"
                                        IconSource="New"
                                        Text="{x:Static lang:Strings.Change}" />
-                    <ui:MenuFlyoutItem Click="SetNullClick"
-                                       FontWeight="Normal"
-                                       Text="{x:Static lang:Strings.Null}" />
+                    <ui:MenuFlyoutItem Click="SetNullClick" Text="{x:Static lang:Strings.Null}" />
                 </ui:FAMenuFlyout>
             </ToggleButton.ContextFlyout>
             <ToggleButton.Tag>
@@ -59,7 +56,7 @@
                 </StackPanel>
             </ToggleButton.Tag>
             <WrapPanel Orientation="Horizontal">
-                <TextBlock FontWeight="DemiBold" Text="{Binding Header, FallbackValue=Filter}" />
+                <TextBlock Text="{Binding Header, FallbackValue=Filter}" />
                 <TextBlock Margin="8,0,0,0"
                            IsVisible="{Binding !IsGroupOrNull.Value}"
                            Text="{Binding FilterName.Value}" />

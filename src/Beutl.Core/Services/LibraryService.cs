@@ -181,6 +181,7 @@ public static class KnownLibraryItemFormats
     public const string Brush = "Beutl.Media.Brush";
     public const string Easing = "Beutl.Animation.Easings.Easing";
     public const string Geometry = "Beutl.Media.Geometry";
+    public const string Pen = "Beutl.Media.Pen";
 }
 
 public sealed class LibraryService

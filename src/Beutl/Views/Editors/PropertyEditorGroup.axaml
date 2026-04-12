@@ -21,9 +21,7 @@
                Grid.Row="1"
                Margin="8,4"
                IsVisible="False">
-            <TextBlock VerticalAlignment="Center"
-                       FontWeight="Bold"
-                       Text="{Binding GroupName}" />
+            <TextBlock VerticalAlignment="Center" Text="{Binding GroupName}" />
 
             <Button Padding="0"
                     HorizontalAlignment="Right"

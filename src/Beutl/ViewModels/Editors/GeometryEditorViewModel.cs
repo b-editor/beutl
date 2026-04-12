@@ -1,5 +1,6 @@
 ﻿using System.Text.Json.Nodes;
 
+using Avalonia.Input;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.PropertyEditors.Services;
 using Beutl.Media;
@@ -15,6 +16,10 @@ public sealed class GeometryEditorViewModel : ValueEditorViewModel<Geometry?>, I
     public GeometryEditorViewModel(IPropertyAdapter<Geometry?> property)
         : base(property)
     {
+        CanCopy = Value.Select(v => v is Geometry and not FallbackGeometry)
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(Disposables);
+
         IsFallback = Value.Select(v => v is IFallback)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
@@ -73,6 +78,10 @@ public sealed class GeometryEditorViewModel : ValueEditorViewModel<Geometry?>, I
     public ReadOnlyReactivePropertySlim<bool> IsGroupOrNull { get; }
 
     public ReactivePropertySlim<bool> IsExpanded { get; } = new();
+
+    public override IReadOnlyReactiveProperty<bool> CanCopy { get; }
+
+    protected override DataFormat<string>? PasteFormat => BeutlDataFormats.Geometry;
 
     public ReactivePropertySlim<PropertiesEditorViewModel?> Properties { get; } = new();
 
@@ -143,6 +152,31 @@ public sealed class GeometryEditorViewModel : ValueEditorViewModel<Geometry?>, I
         {
             SetValue(Value.Value, instance);
         }
+    }
+
+    protected override ICoreSerializable? GetCopyTarget()
+        => Value.Value is Geometry geom and not FallbackGeometry ? geom : null;
+
+    public override bool TryPasteJson(string json)
+    {
+        if (!CoreObjectClipboard.TryDeserializeJson<Geometry>(json, out var pasted)) return false;
+
+        IsExpanded.Value = true;
+        if (EditingKeyFrame.Value is { } kf)
+        {
+            kf.Value = pasted;
+        }
+        else if (PropertyAdapter is ListItemAccessorImpl<Geometry> listItemAccessor)
+        {
+            listItemAccessor.List.Insert(listItemAccessor.Index, pasted);
+        }
+        else
+        {
+            PropertyAdapter.SetValue(pasted);
+        }
+
+        Commit(CommandNames.PasteObject);
+        return true;
     }
 
     public void AddItem()

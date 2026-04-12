@@ -68,6 +68,9 @@ public sealed partial class BrushEditor : UserControl
                 _fallbackObjectView = new FallbackObjectView();
                 (content.Child as Panel)?.Children.Add(_fallbackObjectView);
             });
+
+        CopyPasteMenuHelper.AddMenus((FAMenuFlyout)ExpandMenuButton.ContextFlyout!, this);
+        CopyPasteMenuHelper.AddMenus((FAMenuFlyout)ReferenceMenuButton.Flyout!, this);
     }
 
     public Avalonia.Media.Brush? Brush

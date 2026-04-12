@@ -1,4 +1,5 @@
 ﻿using System.Text.Json.Nodes;
+using Avalonia.Input;
 using Beutl.Composition;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Engine;
@@ -16,6 +17,10 @@ public sealed class FilterEffectEditorViewModel : ValueEditorViewModel<FilterEff
     public FilterEffectEditorViewModel(IPropertyAdapter<FilterEffect?> property)
         : base(property)
     {
+        CanCopy = Value.Select(v => v is FilterEffect and not FallbackFilterEffect)
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(Disposables);
+
         IsFallback = Value.Select(v => v is IFallback)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
@@ -116,6 +121,10 @@ public sealed class FilterEffectEditorViewModel : ValueEditorViewModel<FilterEff
             .DisposeWith(Disposables);
     }
 
+    public override IReadOnlyReactiveProperty<bool> CanCopy { get; }
+
+    protected override DataFormat<string>? PasteFormat => BeutlDataFormats.FilterEffect;
+
     public ReadOnlyReactivePropertySlim<string?> FilterName { get; }
 
     public ReadOnlyReactivePropertySlim<bool> IsGroup { get; }
@@ -167,6 +176,36 @@ public sealed class FilterEffectEditorViewModel : ValueEditorViewModel<FilterEff
             IsExpanded.Value = true;
             SetValue(Value.Value, instance);
         }
+    }
+
+    protected override ICoreSerializable? GetCopyTarget()
+        => Value.Value is FilterEffect fe and not FallbackFilterEffect ? fe : null;
+
+    // Drop時にも利用できる、JSON文字列からの貼り付け処理
+    public override bool TryPasteJson(string json)
+    {
+        if (!CoreObjectClipboard.TryDeserializeJson<FilterEffect>(json, out var pasted)) return false;
+
+        IsExpanded.Value = true;
+        if (Value.Value is FilterEffectGroup group)
+        {
+            group.Children.Add(pasted);
+        }
+        else if (EditingKeyFrame.Value is { } kf)
+        {
+            kf.Value = pasted;
+        }
+        else if (PropertyAdapter is ListItemAccessorImpl<FilterEffect> listItemAccessor)
+        {
+            listItemAccessor.List.Insert(listItemAccessor.Index, pasted);
+        }
+        else
+        {
+            PropertyAdapter.SetValue(pasted);
+        }
+
+        Commit(CommandNames.PasteObject);
+        return true;
     }
 
     public void AddItem(Type type)

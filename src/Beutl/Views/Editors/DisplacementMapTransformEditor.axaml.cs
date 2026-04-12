@@ -32,6 +32,8 @@ public partial class DisplacementMapTransformEditor : UserControl
                     await s_transition.Start(content, null, localToken);
                 }
             });
+
+        CopyPasteMenuHelper.AddMenus((FAMenuFlyout)expandToggle.ContextFlyout!, this);
     }
 
     private void Tag_Click(object? sender, RoutedEventArgs e)
@@ -53,13 +55,5 @@ public partial class DisplacementMapTransformEditor : UserControl
             "Scale" => DispMapTransformType.Scale,
             _ => DispMapTransformType.Null
         });
-    }
-
-    private void SetNullClick(object? sender, RoutedEventArgs e)
-    {
-        if (DataContext is DisplacementMapTransformEditorViewModel { IsDisposed: false } viewModel)
-        {
-            viewModel.SetNull();
-        }
     }
 }

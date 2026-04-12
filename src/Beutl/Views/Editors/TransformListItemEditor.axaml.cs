@@ -7,7 +7,9 @@ using Avalonia.Interactivity;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Editor.Components.Views;
 using Beutl.Graphics.Transformation;
+using Beutl.Services;
 using Beutl.ViewModels.Editors;
+using FluentAvalonia.UI.Controls;
 
 namespace Beutl.Views.Editors;
 
@@ -61,6 +63,9 @@ public partial class TransformListItemEditor : UserControl, IListItemEditor
             .Switch()
             .CombineLatest(presenterEditor.GetObservable(PropertyEditor.ReorderHandleProperty))
             .Subscribe(t => UpdateReorderHandle(t.First, t.Second));
+
+        reorderHandle.ContextFlyout = new FAMenuFlyout();
+        CopyPasteMenuHelper.AddMenus((FAMenuFlyout)reorderHandle.ContextFlyout!, this);
     }
 
     public Control? ReorderHandle

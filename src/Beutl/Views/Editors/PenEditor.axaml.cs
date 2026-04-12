@@ -5,8 +5,9 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Interactivity;
 
 using Beutl.Media;
+using Beutl.Services;
 using Beutl.ViewModels.Editors;
-
+using FluentAvalonia.UI.Controls;
 using static Beutl.Views.Editors.PropertiesEditor;
 
 namespace Beutl.Views.Editors;
@@ -55,6 +56,8 @@ public sealed partial class PenEditor : UserControl
                     await s_transition.Start(minorProps, null, localToken);
                 }
             });
+
+        CopyPasteMenuHelper.AddMenus((FAMenuFlyout)ExpandMenuButton.ContextFlyout!, this);
     }
 
     private void InitializeClick(object? sender, RoutedEventArgs e)

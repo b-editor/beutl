@@ -10,6 +10,7 @@ using Beutl.Services;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Dialogs;
 using Beutl.ViewModels.Editors;
+using FluentAvalonia.UI.Controls;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.Views.Editors;
@@ -52,6 +53,9 @@ public partial class CoreObjectEditor : UserControl
                 _fallbackObjectView = new FallbackObjectView();
                 content.Children.Add(_fallbackObjectView);
             });
+
+        CopyPasteMenuHelper.AddMenus((FAMenuFlyout)expandToggle.ContextFlyout!, this);
+        CopyPasteMenuHelper.AddMenus((FAMenuFlyout)ReferenceMenuButton.Flyout!, this);
     }
 
     private void Navigate_Click(object? sender, RoutedEventArgs e)
@@ -66,14 +70,6 @@ public partial class CoreObjectEditor : UserControl
 
         objViewModel.NavigateCore(viewModel.Value.Value, false, viewModel);
         editViewModel.OpenToolTab(objViewModel);
-    }
-
-    private void Menu_Click(object? sender, RoutedEventArgs e)
-    {
-        if (sender is Button button)
-        {
-            button.ContextMenu?.Open();
-        }
     }
 
     private async void NewClick(object? sender, RoutedEventArgs e)

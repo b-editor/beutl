@@ -4,12 +4,12 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.Views;
-using Beutl.Language;
-using Beutl.Models;
 using Beutl.Services;
 using Beutl.ViewModels.Dialogs;
 using Beutl.ViewModels.Editors;
+using FluentAvalonia.UI.Controls;
 
 namespace Beutl.Views.Editors;
 
@@ -56,13 +56,23 @@ public partial class AudioEffectEditor : UserControl
         DragDrop.SetAllowDrop(this, true);
         AddHandler(DragDrop.DragOverEvent, DragOver);
         AddHandler(DragDrop.DropEvent, Drop);
+
+        CopyPasteMenuHelper.AddMenus((FAMenuFlyout)expandToggle.ContextFlyout!, this);
     }
 
     private void Drop(object? sender, DragEventArgs e)
     {
-        if (e.DataTransfer.TryGetValue(BeutlDataFormats.AudioEffect) is { } typeName
-            && TypeFormat.ToType(typeName) is { } type
-            && DataContext is AudioEffectEditorViewModel { IsDisposed: false } viewModel)
+        if (DataContext is not AudioEffectEditorViewModel { IsDisposed: false } viewModel) return;
+        if (e.DataTransfer.TryGetValue(BeutlDataFormats.AudioEffect) is not { } data) return;
+
+        if (CoreObjectClipboard.IsJsonData(data))
+        {
+            if (viewModel.TryPasteJson(data))
+            {
+                e.Handled = true;
+            }
+        }
+        else if (TypeFormat.ToType(data) is { } type)
         {
             if (viewModel.IsGroup.Value)
             {

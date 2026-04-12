@@ -8,6 +8,7 @@ using Beutl.Engine;
 using Beutl.Services;
 using Beutl.ViewModels.Dialogs;
 using Beutl.ViewModels.Editors;
+using FluentAvalonia.UI.Controls;
 
 namespace Beutl.Views.Editors;
 
@@ -49,6 +50,9 @@ public partial class CoreObjectListItemEditor : UserControl, IListItemEditor
                 _fallbackObjectView = new FallbackObjectView();
                 content.Children.Add(_fallbackObjectView);
             });
+
+        reorderHandle.ContextFlyout = new FAMenuFlyout();
+        CopyPasteMenuHelper.AddMenus((FAMenuFlyout)reorderHandle.ContextFlyout!, this);
     }
 
     public Control? ReorderHandle => reorderHandle;

@@ -353,4 +353,7 @@
   <data name="KeyframeExistsAtPastePosition" xml:space="preserve">
     <value>貼り付け位置にキーフレームが既に存在します。イージングと値が更新されました。</value>
   </data>
+  <data name="CannotPasteFromClipboard" xml:space="preserve">
+    <value>貼り付けできません: クリップボードに互換性のあるオブジェクトがありません。</value>
+  </data>
 </root>

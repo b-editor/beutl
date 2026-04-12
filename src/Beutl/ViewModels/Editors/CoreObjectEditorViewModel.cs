@@ -1,4 +1,5 @@
 ﻿using System.Text.Json.Nodes;
+using Avalonia.Input;
 using Beutl.Composition;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Engine;
@@ -31,6 +32,10 @@ public interface ICoreObjectEditorViewModel : IServiceProvider
     ReadOnlyReactivePropertySlim<bool> IsPresenter { get; }
 
     ReadOnlyReactivePropertySlim<string?> CurrentTargetName { get; }
+
+    IReadOnlyReactiveProperty<bool> CanCopy { get; }
+
+    IReadOnlyReactiveProperty<bool> CanPaste { get; }
 
     IPropertyAdapter PropertyAdapter { get; }
 
@@ -101,6 +106,10 @@ public sealed class CoreObjectEditorViewModel<T> : BaseEditorViewModel<T>, ICore
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 
+        CanCopy = Value.Select(v => v is T and not IFallback)
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(Disposables);
+
         ActualTypeName = Value.Select(FallbackHelper.GetTypeName)
             .ToReadOnlyReactivePropertySlim(Strings.Unknown)
             .DisposeWith(Disposables);
@@ -111,6 +120,10 @@ public sealed class CoreObjectEditorViewModel<T> : BaseEditorViewModel<T>, ICore
     }
 
     public ReadOnlyReactivePropertySlim<T?> Value { get; }
+
+    public override IReadOnlyReactiveProperty<bool> CanCopy { get; }
+
+    protected override DataFormat<string>? PasteFormat => BeutlDataFormats.EngineObject;
 
     public ReadOnlyReactivePropertySlim<PropertiesEditorViewModel?> Properties { get; }
 
@@ -178,6 +191,31 @@ public sealed class CoreObjectEditorViewModel<T> : BaseEditorViewModel<T>, ICore
         {
             SetValue(Value.Value, typed);
         }
+    }
+
+    protected override ICoreSerializable? GetCopyTarget()
+        => Value.Value is T obj and not IFallback ? obj : null;
+
+    public override bool TryPasteJson(string json)
+    {
+        if (!CoreObjectClipboard.TryDeserializeJson<T>(json, out var pasted)) return false;
+
+        IsExpanded.Value = true;
+        if (EditingKeyFrame.Value is { } kf)
+        {
+            kf.Value = pasted;
+        }
+        else if (PropertyAdapter is ListItemAccessorImpl<T> listItemAccessor)
+        {
+            listItemAccessor.List.Insert(listItemAccessor.Index, pasted);
+        }
+        else
+        {
+            PropertyAdapter.SetValue(pasted);
+        }
+
+        Commit(CommandNames.PasteObject);
+        return true;
     }
 
     public void SetTarget(CoreObject? target)

@@ -5,6 +5,7 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Interactivity;
 using Beutl.Editor.Components.Views;
 using Beutl.ViewModels.Editors;
+using FluentAvalonia.UI.Controls;
 
 namespace Beutl.Views.Editors;
 
@@ -45,6 +46,9 @@ public partial class AudioEffectListItemEditor : UserControl, IListItemEditor
                 _fallbackObjectView = new FallbackObjectView();
                 content.Children.Add(_fallbackObjectView);
             });
+
+        reorderHandle.ContextFlyout = new FAMenuFlyout();
+        CopyPasteMenuHelper.AddMenus((FAMenuFlyout)reorderHandle.ContextFlyout!, this);
     }
 
     public Control? ReorderHandle => reorderHandle;

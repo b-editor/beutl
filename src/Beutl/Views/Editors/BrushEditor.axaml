@@ -23,12 +23,11 @@
         <ToggleButton x:Name="expandToggle"
                       Margin="8,4"
                       Classes="center-fill"
-                      ToolTip.Tip="{Binding Description.Value}"
                       Content="{Binding Header, FallbackValue=Brush}"
-                      FontWeight="DemiBold"
                       IsChecked="{Binding IsExpanded.Value}"
                       IsVisible="{Binding !IsPresenter.Value}"
-                      Theme="{DynamicResource PropertyEditorMiniExpanderToggleButton}">
+                      Theme="{DynamicResource PropertyEditorMiniExpanderToggleButton}"
+                      ToolTip.Tip="{Binding Description.Value}">
             <ToggleButton.Tag>
                 <Grid ColumnDefinitions="*,4,Auto">
                     <Button Width="80"
@@ -45,7 +44,8 @@
                         </Panel>
                     </Button>
 
-                    <Button Grid.Column="2"
+                    <Button x:Name="ExpandMenuButton"
+                            Grid.Column="2"
                             Padding="0"
                             HorizontalContentAlignment="Center"
                             VerticalContentAlignment="Center"
@@ -95,12 +95,13 @@
         </ToggleButton>
 
         <pe:ReferenceEditor Header="{Binding Header, FallbackValue=Brush}"
-                            ToolTip.Tip="{Binding Description.Value}"
                             IsVisible="{Binding IsPresenter.Value}"
                             SelectTargetRequested="SelectTarget_Requested"
+                            ToolTip.Tip="{Binding Description.Value}"
                             TargetName="{Binding CurrentTargetName.Value}">
             <pe:ReferenceEditor.MenuContent>
-                <Button Margin="0,0,4,0"
+                <Button x:Name="ReferenceMenuButton"
+                        Margin="0,0,4,0"
                         Padding="0"
                         Classes="size-24x24"
                         Theme="{StaticResource TransparentButton}">

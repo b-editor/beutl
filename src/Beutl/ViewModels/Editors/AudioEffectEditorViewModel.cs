@@ -1,5 +1,6 @@
 ﻿using System.Text.Json.Nodes;
 
+using Avalonia.Input;
 using Beutl.Audio.Effects;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Engine;
@@ -15,6 +16,10 @@ public sealed class AudioEffectEditorViewModel : ValueEditorViewModel<AudioEffec
     public AudioEffectEditorViewModel(IPropertyAdapter<AudioEffect?> property)
         : base(property)
     {
+        CanCopy = Value.Select(v => v is AudioEffect and not FallbackAudioEffect)
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(Disposables);
+
         IsFallback = Value.Select(v => v is IFallback)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
@@ -84,6 +89,10 @@ public sealed class AudioEffectEditorViewModel : ValueEditorViewModel<AudioEffec
             .DisposeWith(Disposables);
 
     }
+
+    public override IReadOnlyReactiveProperty<bool> CanCopy { get; }
+
+    protected override DataFormat<string>? PasteFormat => BeutlDataFormats.AudioEffect;
 
     public ReadOnlyReactivePropertySlim<string?> FilterName { get; }
 
@@ -165,6 +174,35 @@ public sealed class AudioEffectEditorViewModel : ValueEditorViewModel<AudioEffec
             IsExpanded.Value = true;
             SetValue(Value.Value, instance);
         }
+    }
+
+    protected override ICoreSerializable? GetCopyTarget()
+        => Value.Value is AudioEffect ae and not FallbackAudioEffect ? ae : null;
+
+    public override bool TryPasteJson(string json)
+    {
+        if (!CoreObjectClipboard.TryDeserializeJson<AudioEffect>(json, out var pasted)) return false;
+
+        IsExpanded.Value = true;
+        if (Value.Value is AudioEffectGroup group)
+        {
+            group.Children.Add(pasted);
+        }
+        else if (EditingKeyFrame.Value is { } kf)
+        {
+            kf.Value = pasted;
+        }
+        else if (PropertyAdapter is ListItemAccessorImpl<AudioEffect> listItemAccessor)
+        {
+            listItemAccessor.List.Insert(listItemAccessor.Index, pasted);
+        }
+        else
+        {
+            PropertyAdapter.SetValue(pasted);
+        }
+
+        Commit(CommandNames.PasteObject);
+        return true;
     }
 
     public void AddItem(Type type)

@@ -1,5 +1,8 @@
 ﻿using System.Text.Json.Nodes;
+using Avalonia.Input;
+using Beutl.Editor.Components.Helpers;
 using Beutl.Graphics.Effects;
+using Beutl.Serialization;
 using Reactive.Bindings;
 
 namespace Beutl.ViewModels.Editors;
@@ -50,6 +53,10 @@ public sealed class DisplacementMapTransformEditorViewModel : ValueEditorViewMod
     public DisplacementMapTransformEditorViewModel(IPropertyAdapter<DisplacementMapTransform?> property)
         : base(property)
     {
+        CanCopy = Value.Select(v => v is DisplacementMapTransform)
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(Disposables);
+
         TransformType = Value.Select(GetTransformType)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
@@ -94,6 +101,10 @@ public sealed class DisplacementMapTransformEditorViewModel : ValueEditorViewMod
 
     }
 
+    public override IReadOnlyReactiveProperty<bool> CanCopy { get; }
+
+    protected override DataFormat<string>? PasteFormat => BeutlDataFormats.EngineObject;
+
     public ReadOnlyReactivePropertySlim<string?> TransformName { get; }
 
     public ReadOnlyReactivePropertySlim<DispMapTransformType> TransformType { get; }
@@ -137,6 +148,25 @@ public sealed class DisplacementMapTransformEditorViewModel : ValueEditorViewMod
     public void SetNull()
     {
         SetValue(Value.Value, null);
+    }
+
+    protected override ICoreSerializable? GetCopyTarget() => Value.Value;
+
+    public override bool TryPasteJson(string json)
+    {
+        if (!CoreObjectClipboard.TryDeserializeJson<DisplacementMapTransform>(json, out var pasted)) return false;
+
+        IsExpanded.Value = true;
+        if (EditingKeyFrame.Value is { } kf)
+        {
+            kf.Value = pasted;
+        }
+        else
+        {
+            PropertyAdapter.SetValue(pasted);
+        }
+        Commit(CommandNames.PasteObject);
+        return true;
     }
 
     public override void ReadFromJson(JsonObject json)

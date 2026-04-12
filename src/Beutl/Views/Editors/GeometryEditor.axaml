@@ -24,13 +24,10 @@
             <ToggleButton.ContextFlyout>
                 <ui:FAMenuFlyout>
                     <ui:MenuFlyoutItem Click="SetNullClick"
-                                       FontWeight="Normal"
                                        Text="{x:Static lang:Strings.Null}" />
                     <ui:MenuFlyoutItem Click="InitializeClick"
-                                       FontWeight="Normal"
                                        Text="{x:Static lang:Strings.Initialize}" />
                     <ui:MenuFlyoutItem Click="ImportFromSvgPathClick"
-                                       FontWeight="Normal"
                                        Text="{x:Static lang:Strings.ImportSvgPath}" />
                 </ui:FAMenuFlyout>
             </ToggleButton.ContextFlyout>
@@ -54,7 +51,7 @@
                 </Button>
             </ToggleButton.Tag>
             <WrapPanel Orientation="Horizontal">
-                <TextBlock FontWeight="DemiBold" Text="{Binding Header, FallbackValue=Filter}" />
+                <TextBlock Text="{Binding Header, FallbackValue=Filter}" />
                 <!--<TextBlock Margin="8,0,0,0"
                 IsVisible="{Binding !IsGroupOrNull.Value}"
                 Text="{Binding FilterName.Value}" />-->
@@ -67,7 +64,7 @@
                 <local:PropertiesEditor Padding="0"
                                         DataContext="{Binding Properties.Value}"
                                         IsVisible="{ReflectionBinding #root.DataContext.Properties.Value,
-                                        Converter={x:Static ObjectConverters.IsNotNull}}" />
+                                                                      Converter={x:Static ObjectConverters.IsNotNull}}" />
 
                 <ItemsControl Margin="-16,0,0,0"
                               DataContext="{Binding Group.Value}"

@@ -4,6 +4,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.Views;
 using Beutl.Graphics.Transformation;
 using Beutl.Models;
@@ -60,6 +61,9 @@ public partial class TransformEditor : UserControl
         DragDrop.SetAllowDrop(this, true);
         AddHandler(DragDrop.DragOverEvent, DragOver);
         AddHandler(DragDrop.DropEvent, Drop);
+
+        CopyPasteMenuHelper.AddMenus((FAMenuFlyout)expandToggle.ContextFlyout!, this);
+        CopyPasteMenuHelper.AddMenus((FAMenuFlyout)ReferenceMenuButton.Flyout!, this);
     }
 
     private void Drop(object? sender, DragEventArgs e)
@@ -82,9 +86,19 @@ public partial class TransformEditor : UserControl
                 return KnownTransformType.Unknown;
         }
 
-        if (e.DataTransfer.TryGetValue(BeutlDataFormats.Transform) is { } typeName
-            && TypeFormat.ToType(typeName) is { } type
-            && DataContext is TransformEditorViewModel { IsDisposed: false } viewModel)
+        if (DataContext is not TransformEditorViewModel { IsDisposed: false } viewModel) return;
+        if (e.DataTransfer.TryGetValue(BeutlDataFormats.Transform) is not { } data) return;
+
+        if (CoreObjectClipboard.IsJsonData(data))
+        {
+            if (viewModel.TryPasteJson(data))
+            {
+                e.Handled = true;
+            }
+            return;
+        }
+
+        if (TypeFormat.ToType(data) is { } type)
         {
             KnownTransformType knownType = ToKnownType(type);
             if (knownType == KnownTransformType.Unknown)

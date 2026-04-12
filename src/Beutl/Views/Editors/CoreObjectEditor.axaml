@@ -17,22 +17,17 @@
     <Grid RowDefinitions="Auto,Auto">
         <ToggleButton x:Name="expandToggle"
                       Margin="8,4"
-                      ToolTip.Tip="{Binding Description.Value}"
                       IsChecked="{Binding IsExpanded.Value}"
                       IsVisible="{Binding !IsPresenter.Value}"
-                      Theme="{DynamicResource PropertyEditorMiniExpanderToggleButton}">
+                      Theme="{DynamicResource PropertyEditorMiniExpanderToggleButton}"
+                      ToolTip.Tip="{Binding Description.Value}">
             <ToggleButton.ContextFlyout>
                 <ui:FAMenuFlyout>
                     <ui:MenuFlyoutItem Click="NewClick"
-                                       FontWeight="Normal"
                                        IconSource="New"
                                        Text="{x:Static lang:Strings.Change}" />
-                    <ui:MenuFlyoutItem Click="SetNullClick"
-                                       FontWeight="Normal"
-                                       Text="{x:Static lang:Strings.Null}" />
-                    <ui:MenuFlyoutItem Click="Navigate_Click"
-                                       FontWeight="Normal"
-                                       Text="{x:Static lang:Strings.OpenInTab}" />
+                    <ui:MenuFlyoutItem Click="SetNullClick" Text="{x:Static lang:Strings.Null}" />
+                    <ui:MenuFlyoutItem Click="Navigate_Click" Text="{x:Static lang:Strings.OpenInTab}" />
                 </ui:FAMenuFlyout>
             </ToggleButton.ContextFlyout>
             <ToggleButton.Tag>
@@ -45,28 +40,26 @@
                     <icons:SymbolIcon Symbol="New" />
                 </Button>
             </ToggleButton.Tag>
-            <TextBlock FontWeight="DemiBold" Text="{Binding Header}" />
+            <TextBlock Text="{Binding Header}" />
         </ToggleButton>
 
         <pe:ReferenceEditor Header="{Binding Header}"
-                            ToolTip.Tip="{Binding Description.Value}"
                             IsVisible="{Binding IsPresenter.Value}"
                             SelectTargetRequested="SelectTarget_Requested"
+                            ToolTip.Tip="{Binding Description.Value}"
                             TargetName="{Binding CurrentTargetName.Value}">
             <pe:ReferenceEditor.MenuContent>
-                <Button Margin="0,0,4,0"
+                <Button x:Name="ReferenceMenuButton"
+                        Margin="0,0,4,0"
                         Padding="0"
                         Classes="size-24x24"
                         Theme="{StaticResource TransparentButton}">
                     <Button.Flyout>
                         <ui:FAMenuFlyout>
                             <ui:MenuFlyoutItem Click="NewClick"
-                                               FontWeight="Normal"
                                                IconSource="New"
                                                Text="{x:Static lang:Strings.Change}" />
-                            <ui:MenuFlyoutItem Click="SetNullClick"
-                                               FontWeight="Normal"
-                                               Text="{x:Static lang:Strings.Null}" />
+                            <ui:MenuFlyoutItem Click="SetNullClick" Text="{x:Static lang:Strings.Null}" />
                         </ui:FAMenuFlyout>
                     </Button.Flyout>
                     <icons:SymbolIcon Symbol="MoreVertical" />

@@ -10,14 +10,15 @@ namespace Beutl.ViewModels.Editors;
 public sealed class ListItemAccessorImpl<T> : IPropertyAdapter<T>
 {
     private readonly ReactivePropertySlim<T?> _inner = new();
-    private readonly IList<T?> _list;
 
     public ListItemAccessorImpl(int index, T? item, IList<T?> list)
     {
         Index = index;
         _inner.Value = item;
-        _list = list;
+        List = list;
     }
+
+    public IList<T?> List { get; }
 
     public Type ImplementedType => throw new InvalidOperationException();
 
@@ -48,7 +49,7 @@ public sealed class ListItemAccessorImpl<T> : IPropertyAdapter<T>
 
     public void SetValue(T? value)
     {
-        _list[Index] = value;
+        List[Index] = value;
     }
 
     public void OnItemChanged(T? value)

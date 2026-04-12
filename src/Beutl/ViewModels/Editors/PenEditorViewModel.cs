@@ -1,8 +1,11 @@
 ﻿using System.Text.Json.Nodes;
+using Avalonia.Input;
 using Beutl.Collections.Pooled;
+using Beutl.Editor.Components.Helpers;
 using Beutl.Engine;
 using Beutl.Media;
 using Beutl.PropertyAdapters;
+using Beutl.Serialization;
 using Beutl.Services;
 
 using DynamicData;
@@ -17,6 +20,10 @@ public sealed class PenEditorViewModel : BaseEditorViewModel
     {
         Value = property.GetObservable()
             .ToReadOnlyReactiveProperty()
+            .DisposeWith(Disposables);
+
+        CanCopy = Value.Select(v => v is Pen)
+            .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
 
         Value.Subscribe(Update)
@@ -95,6 +102,10 @@ public sealed class PenEditorViewModel : BaseEditorViewModel
 
     public ReadOnlyReactiveProperty<Pen?> Value { get; }
 
+    public override IReadOnlyReactiveProperty<bool> CanCopy { get; }
+
+    protected override DataFormat<string>? PasteFormat => BeutlDataFormats.Pen;
+
     public CoreList<IPropertyEditorContext> MajorProperties { get; } = [];
 
     public CoreList<IPropertyEditorContext> MinorProperties { get; } = [];
@@ -114,6 +125,18 @@ public sealed class PenEditorViewModel : BaseEditorViewModel
             PropertyAdapter.SetValue(newValue);
             Commit();
         }
+    }
+
+    protected override ICoreSerializable? GetCopyTarget() => Value.Value;
+
+    public override bool TryPasteJson(string json)
+    {
+        if (!CoreObjectClipboard.TryDeserializeJson<Pen>(json, out var pasted)) return false;
+
+        IsExpanded.Value = true;
+        PropertyAdapter.SetValue(pasted);
+        Commit(CommandNames.PasteObject);
+        return true;
     }
 
     public override void Accept(IPropertyEditorContextVisitor visitor)

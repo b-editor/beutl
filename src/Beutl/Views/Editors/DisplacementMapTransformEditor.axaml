@@ -16,10 +16,10 @@
              mc:Ignorable="d">
     <Grid RowDefinitions="Auto,Auto">
         <ToggleButton x:Name="expandToggle"
-                      ToolTip.Tip="{Binding Description.Value}"
                       Margin="8,4"
                       IsChecked="{Binding IsExpanded.Value}"
-                      Theme="{DynamicResource PropertyEditorMiniExpanderToggleButton}">
+                      Theme="{DynamicResource PropertyEditorMiniExpanderToggleButton}"
+                      ToolTip.Tip="{Binding Description.Value}">
             <ToggleButton.ContextFlyout>
                 <ui:FAMenuFlyout>
                     <ui:RadioMenuFlyoutItem Click="TransformTypeClicked"
@@ -62,7 +62,7 @@
                     <icons:SymbolIcon Symbol="Compose" />
                 </Button>
             </ToggleButton.Tag>
-            <TextBlock FontWeight="DemiBold" Text="{Binding Header, FallbackValue=Transform}" />
+            <TextBlock Text="{Binding Header, FallbackValue=Transform}" />
         </ToggleButton>
 
         <Panel x:Name="content"

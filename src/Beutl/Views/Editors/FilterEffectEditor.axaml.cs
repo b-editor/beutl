@@ -4,6 +4,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.Views;
 using Beutl.Engine;
 using Beutl.Graphics.Effects;
@@ -11,6 +12,7 @@ using Beutl.Models;
 using Beutl.Services;
 using Beutl.ViewModels.Dialogs;
 using Beutl.ViewModels.Editors;
+using FluentAvalonia.UI.Controls;
 
 namespace Beutl.Views.Editors;
 
@@ -57,13 +59,24 @@ public partial class FilterEffectEditor : UserControl
                 _fallbackObjectView = new FallbackObjectView();
                 content.Children.Add(_fallbackObjectView);
             });
+
+        CopyPasteMenuHelper.AddMenus((FAMenuFlyout)expandToggle.ContextFlyout!, this);
+        CopyPasteMenuHelper.AddMenus((FAMenuFlyout)ReferenceMenuButton.Flyout!, this);
     }
 
     private void Drop(object? sender, DragEventArgs e)
     {
-        if (e.DataTransfer.TryGetValue(BeutlDataFormats.FilterEffect) is { } typeName
-            && TypeFormat.ToType(typeName) is { } type
-            && DataContext is FilterEffectEditorViewModel { IsDisposed: false } viewModel)
+        if (DataContext is not FilterEffectEditorViewModel { IsDisposed: false } viewModel) return;
+        if (e.DataTransfer.TryGetValue(BeutlDataFormats.FilterEffect) is not { } data) return;
+
+        if (CoreObjectClipboard.IsJsonData(data))
+        {
+            if (viewModel.TryPasteJson(data))
+            {
+                e.Handled = true;
+            }
+        }
+        else if (TypeFormat.ToType(data) is { } type)
         {
             if (viewModel.IsGroup.Value)
             {
