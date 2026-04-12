@@ -289,6 +289,7 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
     protected virtual void Dispose(bool disposing)
     {
         Disposables.Dispose();
+        _canPaste.Dispose();
         _currentFrameRevoker?.Dispose();
         _currentFrameRevoker = null;
         _editViewModel = null!;

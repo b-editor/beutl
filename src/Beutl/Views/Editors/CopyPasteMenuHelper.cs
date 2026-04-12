@@ -62,7 +62,11 @@ public static class CopyPasteMenuHelper
             var separator = new MenuFlyoutSeparator();
             separator.Bind(
                 Visual.IsVisibleProperty,
-                dataContext.Select(d => d?.CanCopy ?? Observable.ReturnThenNever(false)).Switch());
+                dataContext
+                    .Select(d => d != null
+                        ? d.CanCopy.CombineLatest(d.CanPaste, (canCopy, canPaste) => canCopy || canPaste)
+                        : Observable.ReturnThenNever(false))
+                    .Switch());
             menuFlyout.Items.Add(separator);
         }
 
