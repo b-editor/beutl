@@ -13,6 +13,7 @@ using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.SceneSettingsTab.ViewModels;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Services;
+using Beutl.Engine;
 using Beutl.Logging;
 using Beutl.Media;
 using Beutl.ProjectSystem;
@@ -53,6 +54,9 @@ public sealed partial class TimelineTabView : UserControl
         this.SubscribeDataContextChange<TimelineTabViewModel>(OnDataContextAttached, OnDataContextDetached);
 
         PopulateAddElementSubMenu();
+
+        PopulateAddFromTemplateSubMenu();
+        ObjectTemplateService.Instance.Items.CollectionChanged += (_, _) => PopulateAddFromTemplateSubMenu();
     }
 
     private void OnDataContextDetached(TimelineTabViewModel obj)
@@ -463,7 +467,32 @@ public sealed partial class TimelineTabView : UserControl
             .RoundToRate(viewModel.Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30);
         viewModel.ClickedPosition = pt;
 
-        if (e.DataTransfer.TryGetValue(BeutlDataFormats.EngineObject) is { } typeName
+        // テンプレート経路（優先）
+        if (e.DataTransfer.TryGetValue(BeutlDataFormats.ObjectTemplate) is { } idStr
+            && Guid.TryParse(idStr, out Guid templateId)
+            && ObjectTemplateService.Instance.FindById(templateId) is { } template)
+        {
+            if (template.BaseType == typeof(Element))
+            {
+                // Element テンプレート → Element として配置
+                if (viewModel.EditorContext.GetService(typeof(IElementAdder))
+                    is IElementAdder adder)
+                {
+                    adder.AddElementFromTemplate(
+                        template,
+                        viewModel.ClickedFrame,
+                        viewModel.CalculateClickedLayer());
+                }
+            }
+            else if (template.CreateInstance() is EngineObject)
+            {
+                // EngineObject テンプレート → 新しい Element を作って配置
+                viewModel.AddElement.Execute(new ElementDescription(
+                    viewModel.ClickedFrame, TimeSpan.FromSeconds(5), viewModel.CalculateClickedLayer(),
+                    InitialObject: template.ActualType));
+            }
+        }
+        else if (e.DataTransfer.TryGetValue(BeutlDataFormats.EngineObject) is { } typeName
             && TypeFormat.ToType(typeName) is { } type)
         {
             viewModel.AddElement.Execute(new ElementDescription(
@@ -480,7 +509,8 @@ public sealed partial class TimelineTabView : UserControl
 
     private void TimelinePanel_DragOver(object? sender, DragEventArgs e)
     {
-        if (e.DataTransfer.Contains(BeutlDataFormats.EngineObject)
+        if (e.DataTransfer.Contains(BeutlDataFormats.ObjectTemplate)
+            || e.DataTransfer.Contains(BeutlDataFormats.EngineObject)
             || e.DataTransfer.Contains(DataFormat.File))
         {
             e.DragEffects = DragDropEffects.Copy;
@@ -555,6 +585,35 @@ public sealed partial class TimelineTabView : UserControl
             TimeSpan.FromSeconds(5),
             ViewModel.CalculateClickedLayer(),
             InitialObject: operatorType));
+    }
+
+    private void PopulateAddFromTemplateSubMenu()
+    {
+        AddFromTemplateSubMenu.Items.Clear();
+        foreach (ObjectTemplateItem template in ObjectTemplateService.Instance
+            .FindByBaseType(typeof(Element)))
+        {
+            var menuItem = new MenuFlyoutItem { Text = template.Name.Value, Tag = template };
+            menuItem.Click += AddElementFromTemplateClick;
+            AddFromTemplateSubMenu.Items.Add(menuItem);
+        }
+
+        AddFromTemplateSubMenu.IsEnabled = AddFromTemplateSubMenu.Items.Count > 0;
+    }
+
+    private void AddElementFromTemplateClick(object? sender, RoutedEventArgs e)
+    {
+        if (ViewModel == null) return;
+        if (sender is not MenuFlyoutItem { Tag: ObjectTemplateItem template }) return;
+
+        if (ViewModel.EditorContext.GetService(typeof(IElementAdder))
+            is IElementAdder adder)
+        {
+            adder.AddElementFromTemplate(
+                template,
+                ViewModel.ClickedFrame,
+                ViewModel.CalculateClickedLayer());
+        }
     }
 
     private void ShowSceneSettings(object? sender, RoutedEventArgs e)

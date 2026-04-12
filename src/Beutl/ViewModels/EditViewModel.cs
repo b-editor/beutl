@@ -839,6 +839,33 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
         _logger.LogInformation("Element added successfully.");
     }
 
+    public void AddElementFromTemplate(ObjectTemplateItem template, TimeSpan start, int layer)
+    {
+        _logger.LogInformation("Adding element from template: {TemplateName}", template.Name.Value);
+
+        if (template.CreateInstance() is not Element templateElement)
+        {
+            _logger.LogWarning("Failed to create element from template.");
+            return;
+        }
+
+        // ObjectRegenerator で ID を再生成
+        ObjectRegenerator.Regenerate(templateElement, out Element newElement);
+
+        newElement.Start = start;
+        newElement.ZIndex = layer;
+        newElement.Uri = RandomFileNameGenerator.GenerateUri(Scene.Uri!, Constants.ElementFileExtension);
+
+        CoreSerializer.StoreToUri(newElement, newElement.Uri!);
+        Scene.AddChild(newElement);
+        HistoryManager.Commit(CommandNames.AddElementFromTemplate);
+
+        TimelineTabViewModel? timeline = FindToolTab<TimelineTabViewModel>();
+        timeline?.ScrollTo.Execute((newElement.Range, newElement.ZIndex));
+
+        _logger.LogInformation("Element from template added successfully.");
+    }
+
     private static bool MatchFileExtensions(string filePath, IEnumerable<string> extensions)
     {
         string ext = Path.GetExtension(filePath);
