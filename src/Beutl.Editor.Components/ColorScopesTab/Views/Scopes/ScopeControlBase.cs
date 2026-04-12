@@ -1,8 +1,10 @@
-﻿using Avalonia;
+﻿using System.Runtime.CompilerServices;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
+using Beutl.Editor.Components.ColorScopesTab.ViewModels;
 using Beutl.Media.Source;
 using BtlBitmap = Beutl.Media.Bitmap;
 
@@ -25,6 +27,12 @@ public abstract class ScopeControlBase : Control
     public static readonly StyledProperty<double> AxisMarginProperty =
         AvaloniaProperty.Register<ScopeControlBase, double>(nameof(AxisMargin), 32);
 
+    public static readonly DirectProperty<ScopeControlBase, ScopeColorSpace> ColorSpaceProperty =
+        AvaloniaProperty.RegisterDirect<ScopeControlBase, ScopeColorSpace>(
+            nameof(ColorSpace), o => o.ColorSpace, (o, v) => o.ColorSpace = v, ScopeColorSpace.Gamma);
+
+    private ScopeColorSpace _colorSpace = ScopeColorSpace.Gamma;
+
     protected static readonly Typeface DefaultTypeface = new(FontFamily.Default, FontStyle.Normal, FontWeight.Normal);
 
     private readonly Pen _axisPen = new(Brushes.Gray, 1.5);
@@ -46,10 +54,13 @@ public abstract class ScopeControlBase : Control
             AxisBrushProperty,
             LabelBrushProperty,
             BackgroundBrushProperty,
-            AxisMarginProperty);
+            AxisMarginProperty,
+            ColorSpaceProperty);
 
         AxisBrushProperty.Changed.AddClassHandler<ScopeControlBase>((s, e) =>
             s._axisPen.Brush = (e.NewValue as IBrush) ?? Brushes.Gray);
+
+        ColorSpaceProperty.Changed.AddClassHandler<ScopeControlBase>((o, _) => o.Refresh());
     }
 
     public Ref<BtlBitmap>? SourceBitmap
@@ -80,6 +91,12 @@ public abstract class ScopeControlBase : Control
     {
         get => GetValue(AxisMarginProperty);
         set => SetValue(AxisMarginProperty, value);
+    }
+
+    public ScopeColorSpace ColorSpace
+    {
+        get => _colorSpace;
+        set => SetAndRaise(ColorSpaceProperty, ref _colorSpace, value);
     }
 
     protected abstract string[]? VerticalAxisLabels { get; }
@@ -308,11 +325,13 @@ public abstract class ScopeControlBase : Control
         _backBuffer = null;
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     protected static uint PackColor(byte r, byte g, byte b, byte a = 255)
     {
         return (uint)(b | (g << 8) | (r << 16) | (a << 24));
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     protected static void PlotPoint(Span<uint> dest, int stride, int x, int y, uint color)
     {
         int height = dest.Length / stride;
@@ -325,6 +344,7 @@ public abstract class ScopeControlBase : Control
         dest[idx] = newA > existingA ? color : BlendAdd(existing, color);
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     protected static uint BlendAdd(uint dst, uint src)
     {
         byte db = (byte)(dst);

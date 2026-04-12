@@ -21,6 +21,13 @@ public class HistogramControl : HdrScopeControlBase
 
     private HistogramMode _mode = HistogramMode.Overlay;
 
+    // Cached histogram bin arrays (reused across frames to avoid per-frame allocation)
+    // Thread safety: _renderLock in ScopeControlBase serializes RenderScope calls
+    private readonly int[] _rHist = new int[256];
+    private readonly int[] _gHist = new int[256];
+    private readonly int[] _bHist = new int[256];
+    private readonly object _histLock = new();
+
     private static readonly string[] s_horizontalLabelsSdr = ["0", "0.3", "0.5", "0.8", "1.0"];
     private static readonly (float R, float G, float B) s_colorRed = (1.00f, 0.25f, 0.25f);
     private static readonly (float R, float G, float B) s_colorGreen = (0.25f, 1.00f, 0.35f);
@@ -53,11 +60,13 @@ public class HistogramControl : HdrScopeControlBase
         int targetHeight,
         WriteableBitmap? existingBitmap)
     {
-        // Calculate histograms using RgbaF16 for HDR support
         const int binCount = 256;
-        var rHist = new int[binCount];
-        var gHist = new int[binCount];
-        var bHist = new int[binCount];
+        int[] rHist = _rHist;
+        int[] gHist = _gHist;
+        int[] bHist = _bHist;
+        Array.Clear(rHist);
+        Array.Clear(gHist);
+        Array.Clear(bHist);
 
         int sourceWidth = sourceBitmap.Width;
         int sourceHeight = sourceBitmap.Height;
@@ -66,45 +75,71 @@ public class HistogramControl : HdrScopeControlBase
         float hdrRange = HdrRange;
         float binScale = (binCount - 1) / hdrRange;
 
+        BitmapColorSpace targetColorSpace = ColorSpace == ViewModels.ScopeColorSpace.Linear
+            ? BitmapColorSpace.LinearSrgb
+            : BitmapColorSpace.Srgb;
         BtlBitmap rgbaF16;
         bool requireDispose = false;
-        if (sourceBitmap.ColorType == BitmapColorType.RgbaF16 && sourceBitmap.ColorSpace == BitmapColorSpace.Srgb)
+        if (sourceBitmap.ColorType == BitmapColorType.RgbaF16 && sourceBitmap.ColorSpace == targetColorSpace)
         {
             rgbaF16 = sourceBitmap;
         }
         else
         {
-            rgbaF16 = sourceBitmap.Convert(BitmapColorType.RgbaF16, BitmapAlphaType.Unpremul, BitmapColorSpace.Srgb);
+            rgbaF16 = sourceBitmap.Convert(BitmapColorType.RgbaF16, BitmapAlphaType.Unpremul, targetColorSpace);
             requireDispose = true;
         }
 
         try
         {
             bool premul = rgbaF16.AlphaType == BitmapAlphaType.Premul;
-            for (int y = 0; y < sourceHeight; y += yStep)
-            {
-                var row = rgbaF16.GetRow<RgbaF16>(y);
-                for (int x = 0; x < sourceWidth; x += xStep)
+            int yCount = (sourceHeight + yStep - 1) / yStep;
+
+            // Parallelize binning with per-task local histograms, merged at the end
+            var rgbaF16Local = rgbaF16; // capture for closure
+            Parallel.For(0, yCount,
+                () => (new int[binCount], new int[binCount], new int[binCount]),
+                (yi, _, local) =>
                 {
-                    RgbaF16 pixel = row[x];
-                    float r = (float)pixel.R;
-                    float g = (float)pixel.G;
-                    float b = (float)pixel.B;
-                    float a = (float)pixel.A;
-
-                    if (premul && a > 0f && a < 1f)
+                    int y = yi * yStep;
+                    var (lR, lG, lB) = local;
+                    // ReSharper disable once AccessToDisposedClosure
+                    var row = rgbaF16Local.GetRow<RgbaF16>(y);
+                    for (int x = 0; x < sourceWidth; x += xStep)
                     {
-                        float invA = 1f / a;
-                        r *= invA;
-                        g *= invA;
-                        b *= invA;
-                    }
+                        RgbaF16 pixel = row[x];
+                        float r = (float)pixel.R;
+                        float g = (float)pixel.G;
+                        float b = (float)pixel.B;
+                        float a = (float)pixel.A;
 
-                    rHist[Math.Clamp((int)(r * binScale + 0.5f), 0, binCount - 1)]++;
-                    gHist[Math.Clamp((int)(g * binScale + 0.5f), 0, binCount - 1)]++;
-                    bHist[Math.Clamp((int)(b * binScale + 0.5f), 0, binCount - 1)]++;
-                }
-            }
+                        if (premul && a > 0f && a < 1f)
+                        {
+                            float invA = 1f / a;
+                            r *= invA;
+                            g *= invA;
+                            b *= invA;
+                        }
+
+                        lR[Math.Clamp((int)(r * binScale + 0.5f), 0, binCount - 1)]++;
+                        lG[Math.Clamp((int)(g * binScale + 0.5f), 0, binCount - 1)]++;
+                        lB[Math.Clamp((int)(b * binScale + 0.5f), 0, binCount - 1)]++;
+                    }
+                    return local;
+                },
+                local =>
+                {
+                    var (lR, lG, lB) = local;
+                    lock (_histLock)
+                    {
+                        for (int i = 0; i < binCount; i++)
+                        {
+                            rHist[i] += lR[i];
+                            gHist[i] += lG[i];
+                            bHist[i] += lB[i];
+                        }
+                    }
+                });
         }
         finally
         {
@@ -139,13 +174,22 @@ public class HistogramControl : HdrScopeControlBase
         return bitmap;
     }
 
+    private static (int rMax, int gMax, int bMax) ComputeMax(int[] rHist, int[] gHist, int[] bHist)
+    {
+        int rMax = 0, gMax = 0, bMax = 0;
+        for (int i = 0; i < 256; i++)
+        {
+            if (rHist[i] > rMax) rMax = rHist[i];
+            if (gHist[i] > gMax) gMax = gHist[i];
+            if (bHist[i] > bMax) bMax = bHist[i];
+        }
+        return (rMax, gMax, bMax);
+    }
+
     private void RenderOverlayMode(int[] rHist, int[] gHist, int[] bHist, Span<uint> dest, int stridePixels, int targetWidth, int targetHeight)
     {
-        int rMax = rHist.Max();
-        int gMax = gHist.Max();
-        int bMax = bHist.Max();
-        int max = Math.Max(rMax, Math.Max(gMax, bMax));
-        max = Math.Max(max, 1);
+        var (rMax, gMax, bMax) = ComputeMax(rHist, gHist, bHist);
+        int max = Math.Max(1, Math.Max(rMax, Math.Max(gMax, bMax)));
 
         // Pre-compute colors (DaVinci Resolve style)
         uint redColor = PackColor(
@@ -164,40 +208,44 @@ public class HistogramControl : HdrScopeControlBase
             (byte)(s_colorBlue.B * 200),
             180);
 
-        // Render histogram bars
+        // Render histogram bars with per-bin pre-computed zone colors (no per-pixel branching/blending)
         for (int i = 0; i < 256; i++)
         {
             int x = i * targetWidth / 256;
             int nextX = (i + 1) * targetWidth / 256;
             int barWidth = Math.Max(1, nextX - x);
+            int barEnd = Math.Min(x + barWidth, stridePixels);
 
-            int rHeight = rHist[i] * targetHeight / max;
-            int gHeight = gHist[i] * targetHeight / max;
-            int bHeight = bHist[i] * targetHeight / max;
+            // Sort (height, color) triples ascending by height
+            (int H, uint C) a = (rHist[i] * targetHeight / max, redColor);
+            (int H, uint C) b = (gHist[i] * targetHeight / max, greenColor);
+            (int H, uint C) c = (bHist[i] * targetHeight / max, blueColor);
+            if (a.H > b.H) (a, b) = (b, a);
+            if (b.H > c.H) (b, c) = (c, b);
+            if (a.H > b.H) (a, b) = (b, a);
+            // Now a.H <= b.H <= c.H
 
-            int maxHeight = Math.Max(rHeight, Math.Max(gHeight, bHeight));
+            // Zones: [0, a.H) = a+b+c, [a.H, b.H) = b+c, [b.H, c.H) = c
+            uint zone0 = BlendAdd(BlendAdd(BlendAdd(0u, a.C), b.C), c.C);
+            uint zone1 = BlendAdd(BlendAdd(0u, b.C), c.C);
+            uint zone2 = BlendAdd(0u, c.C);
 
-            for (int bx = x; bx < x + barWidth && bx < stridePixels; bx++)
+            // Clamp to target bounds
+            int h0 = Math.Min(a.H, targetHeight);
+            int h1 = Math.Min(b.H, targetHeight);
+            int h2 = Math.Min(c.H, targetHeight);
+
+            for (int bx = x; bx < barEnd; bx++)
             {
-                for (int y = 0; y < maxHeight && y < targetHeight; y++)
-                {
-                    int destY = targetHeight - 1 - y;
-                    if (destY < 0) continue;
-
-                    int destIndex = destY * stridePixels + bx;
-                    if (destIndex >= dest.Length) continue;
-
-                    uint color = dest[destIndex];
-
-                    if (y < rHeight)
-                        color = BlendAdd(color, redColor);
-                    if (y < gHeight)
-                        color = BlendAdd(color, greenColor);
-                    if (y < bHeight)
-                        color = BlendAdd(color, blueColor);
-
-                    dest[destIndex] = color;
-                }
+                // Zone 0 (all 3 channels): rows [targetHeight - h0, targetHeight)
+                for (int y = 0; y < h0; y++)
+                    dest[(targetHeight - 1 - y) * stridePixels + bx] = zone0;
+                // Zone 1 (2 channels): rows [targetHeight - h1, targetHeight - h0)
+                for (int y = h0; y < h1; y++)
+                    dest[(targetHeight - 1 - y) * stridePixels + bx] = zone1;
+                // Zone 2 (1 channel): rows [targetHeight - h2, targetHeight - h1)
+                for (int y = h1; y < h2; y++)
+                    dest[(targetHeight - 1 - y) * stridePixels + bx] = zone2;
             }
         }
     }
@@ -210,9 +258,10 @@ public class HistogramControl : HdrScopeControlBase
         int gSectionStart = sectionHeight;
         int bSectionStart = sectionHeight * 2;
 
-        int rMax = Math.Max(1, rHist.Max());
-        int gMax = Math.Max(1, gHist.Max());
-        int bMax = Math.Max(1, bHist.Max());
+        var (rMaxR, gMaxR, bMaxR) = ComputeMax(rHist, gHist, bHist);
+        int rMax = Math.Max(1, rMaxR);
+        int gMax = Math.Max(1, gMaxR);
+        int bMax = Math.Max(1, bMaxR);
 
         // Pre-compute colors (DaVinci Resolve style)
         uint redColor = PackColor(
@@ -231,53 +280,45 @@ public class HistogramControl : HdrScopeControlBase
             (byte)(s_colorBlue.B * 220),
             200);
 
+        // Pre-blend once (each bar writes to a unique pixel within its section)
+        uint redBlended = BlendAdd(0u, redColor);
+        uint greenBlended = BlendAdd(0u, greenColor);
+        uint blueBlended = BlendAdd(0u, blueColor);
+
         // Render each channel in its section
         for (int i = 0; i < 256; i++)
         {
             int x = i * targetWidth / 256;
             int nextX = (i + 1) * targetWidth / 256;
             int barWidth = Math.Max(1, nextX - x);
+            int barEnd = Math.Min(x + barWidth, stridePixels);
 
-            int rHeight = rHist[i] * sectionHeight / rMax;
-            int gHeight = gHist[i] * sectionHeight / gMax;
-            int bHeight = bHist[i] * sectionHeight / bMax;
+            int rHeight = Math.Min(rHist[i] * sectionHeight / rMax, sectionHeight);
+            int gHeight = Math.Min(gHist[i] * sectionHeight / gMax, sectionHeight);
+            int bHeight = Math.Min(bHist[i] * sectionHeight / bMax, sectionHeight);
 
-            for (int bx = x; bx < x + barWidth && bx < stridePixels; bx++)
+            for (int bx = x; bx < barEnd; bx++)
             {
-                // Red section (top) - draws from bottom of section upward
-                for (int y = 0; y < rHeight && y < sectionHeight; y++)
+                // Red section (top) - fill from bottom of section upward
+                for (int y = 0; y < rHeight; y++)
                 {
                     int destY = rSectionStart + sectionHeight - 1 - y;
-                    if (destY < 0 || destY >= targetHeight) continue;
-
-                    int destIndex = destY * stridePixels + bx;
-                    if (destIndex >= dest.Length) continue;
-
-                    dest[destIndex] = BlendAdd(dest[destIndex], redColor);
+                    if ((uint)destY < (uint)targetHeight)
+                        dest[destY * stridePixels + bx] = redBlended;
                 }
-
-                // Green section (middle) - draws from bottom of section upward
-                for (int y = 0; y < gHeight && y < sectionHeight; y++)
+                // Green section (middle)
+                for (int y = 0; y < gHeight; y++)
                 {
                     int destY = gSectionStart + sectionHeight - 1 - y;
-                    if (destY < 0 || destY >= targetHeight) continue;
-
-                    int destIndex = destY * stridePixels + bx;
-                    if (destIndex >= dest.Length) continue;
-
-                    dest[destIndex] = BlendAdd(dest[destIndex], greenColor);
+                    if ((uint)destY < (uint)targetHeight)
+                        dest[destY * stridePixels + bx] = greenBlended;
                 }
-
-                // Blue section (bottom) - draws from bottom of section upward
-                for (int y = 0; y < bHeight && y < sectionHeight; y++)
+                // Blue section (bottom)
+                for (int y = 0; y < bHeight; y++)
                 {
                     int destY = bSectionStart + sectionHeight - 1 - y;
-                    if (destY < 0 || destY >= targetHeight) continue;
-
-                    int destIndex = destY * stridePixels + bx;
-                    if (destIndex >= dest.Length) continue;
-
-                    dest[destIndex] = BlendAdd(dest[destIndex], blueColor);
+                    if ((uint)destY < (uint)targetHeight)
+                        dest[destY * stridePixels + bx] = blueBlended;
                 }
             }
         }

@@ -802,6 +802,9 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="RgbParade" xml:space="preserve">
     <value>RGBパレード</value>
   </data>
+  <data name="Gamma" xml:space="preserve">
+    <value>ガンマ</value>
+  </data>
   <data name="AVFoundationEncoder" xml:space="preserve">
     <value>AVFoundation エンコーダー</value>
   </data>
