@@ -1,12 +1,8 @@
 ﻿using Avalonia;
-using Avalonia.Animation;
 using Avalonia.Controls;
-using Avalonia.Controls.Primitives;
 using Avalonia.Interactivity;
 using Beutl.Controls.PropertyEditors;
-using Beutl.Editor.Components.Views;
 using Beutl.Graphics.Effects;
-using Beutl.Services;
 using Beutl.ViewModels.Editors;
 using FluentAvalonia.UI.Controls;
 
@@ -19,41 +15,11 @@ public partial class FilterEffectListItemEditor : UserControl, IListItemEditor
             nameof(ReorderHandle),
             o => o.ReorderHandle);
 
-    private static readonly CrossFade s_transition = new(TimeSpan.FromMilliseconds(167));
-    private CancellationTokenSource? _lastTransitionCts;
-    private FallbackObjectView? _fallbackObjectView;
-
     public FilterEffectListItemEditor()
     {
         InitializeComponent();
-        reorderHandle.GetObservable(ToggleButton.IsCheckedProperty)
-            .Subscribe(async v =>
-            {
-                _lastTransitionCts?.Cancel();
-                _lastTransitionCts = new CancellationTokenSource();
-                CancellationToken localToken = _lastTransitionCts.Token;
-
-                if (v == true)
-                {
-                    await s_transition.Start(null, content, localToken);
-                }
-                else
-                {
-                    await s_transition.Start(content, null, localToken);
-                }
-            });
-
-        this.GetObservable(DataContextProperty)
-            .Select(x => x as FilterEffectEditorViewModel)
-            .Select(x => x?.IsFallback.Select(_ => x) ?? Observable.ReturnThenNever<FilterEffectEditorViewModel?>(null))
-            .Switch()
-            .Where(v => v?.IsFallback.Value == true)
-            .Take(1)
-            .Subscribe(_ =>
-            {
-                _fallbackObjectView = new FallbackObjectView();
-                content.Children.Add(_fallbackObjectView);
-            });
+        ExpandTransitionHelper.Attach(reorderHandle, content, ExpandTransitionHelper.ListItemDuration);
+        FallbackObjectViewHelper.Attach(this, view => content.Children.Add(view));
 
         this.GetObservable(DataContextProperty)
             .Select(x => x as FilterEffectEditorViewModel)
@@ -62,9 +28,8 @@ public partial class FilterEffectListItemEditor : UserControl, IListItemEditor
             .CombineLatest(presenterEditor.GetObservable(PropertyEditor.ReorderHandleProperty))
             .Subscribe(t => UpdateReorderHandle(t.First, t.Second));
 
-        reorderHandle.ContextFlyout = new FAMenuFlyout();
-        CopyPasteMenuHelper.AddMenus((FAMenuFlyout)reorderHandle.ContextFlyout!, this);
-        TemplateMenuHelper.AddMenus((FAMenuFlyout)reorderHandle.ContextFlyout!, this);
+        reorderHandle.ContextFlyout = new FAMenuFlyout { Placement = PlacementMode.Pointer };
+        EditorMenuHelper.AttachCopyPasteAndTemplateMenus(this, (FAMenuFlyout)reorderHandle.ContextFlyout);
     }
 
     public Control? ReorderHandle

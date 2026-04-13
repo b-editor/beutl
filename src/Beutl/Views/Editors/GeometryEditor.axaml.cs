@@ -1,12 +1,8 @@
 ﻿using Avalonia;
-using Avalonia.Animation;
 using Avalonia.Controls;
-using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
-using Beutl.Editor.Components.Views;
-using Beutl.Language;
 using Beutl.Logging;
 using Beutl.Media;
 using Beutl.Services;
@@ -18,46 +14,15 @@ namespace Beutl.Views.Editors;
 
 public partial class GeometryEditor : UserControl
 {
-    private static readonly CrossFade s_transition = new(TimeSpan.FromMilliseconds(250));
     private readonly ILogger _logger = Log.CreateLogger<GeometryEditor>();
-
-    private CancellationTokenSource? _lastTransitionCts;
-    private FallbackObjectView? _fallbackObjectView;
 
     public GeometryEditor()
     {
         InitializeComponent();
-        expandToggle.GetObservable(ToggleButton.IsCheckedProperty)
-            .Subscribe(async v =>
-            {
-                _lastTransitionCts?.Cancel();
-                _lastTransitionCts = new CancellationTokenSource();
-                CancellationToken localToken = _lastTransitionCts.Token;
+        ExpandTransitionHelper.Attach(expandToggle, content);
+        FallbackObjectViewHelper.Attach(this, view => content.Children.Add(view));
 
-                if (v == true)
-                {
-                    await s_transition.Start(null, content, localToken);
-                }
-                else
-                {
-                    await s_transition.Start(content, null, localToken);
-                }
-            });
-
-        this.GetObservable(DataContextProperty)
-            .Select(x => x as GeometryEditorViewModel)
-            .Select(x => x?.IsFallback.Select(_ => x) ?? Observable.ReturnThenNever<GeometryEditorViewModel?>(null))
-            .Switch()
-            .Where(v => v?.IsFallback.Value == true)
-            .Take(1)
-            .Subscribe(_ =>
-            {
-                _fallbackObjectView = new FallbackObjectView();
-                content.Children.Add(_fallbackObjectView);
-            });
-
-        CopyPasteMenuHelper.AddMenus((FAMenuFlyout)expandToggle.ContextFlyout!, this);
-        TemplateMenuHelper.AddMenus((FAMenuFlyout)expandToggle.ContextFlyout!, this);
+        EditorMenuHelper.AttachCopyPasteAndTemplateMenus(this, (FAMenuFlyout)expandToggle.ContextFlyout!);
 
         DragDrop.SetAllowDrop(this, true);
         AddHandler(DragDrop.DragOverEvent, DragOver);

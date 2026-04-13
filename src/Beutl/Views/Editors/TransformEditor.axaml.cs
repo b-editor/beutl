@@ -1,12 +1,9 @@
 ﻿using Avalonia;
-using Avalonia.Animation;
 using Avalonia.Controls;
-using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
 using Beutl.Editor.Components.Helpers;
-using Beutl.Editor.Components.Views;
 using Beutl.Graphics.Transformation;
 using Beutl.Models;
 using Beutl.Services;
@@ -17,56 +14,27 @@ namespace Beutl.Views.Editors;
 
 public partial class TransformEditor : UserControl
 {
-    private static readonly CrossFade s_transition = new(TimeSpan.FromMilliseconds(250));
-    private CancellationTokenSource? _lastTransitionCts;
-    private FallbackObjectView? _fallbackObjectView;
-
     private static FAMenuFlyout? s_flyout;
     private static EventHandler<RoutedEventArgs>? s_handler;
 
     public TransformEditor()
     {
         InitializeComponent();
-        expandToggle.GetObservable(ToggleButton.IsCheckedProperty)
-            .Subscribe(async v =>
-            {
-                _lastTransitionCts?.Cancel();
-                _lastTransitionCts = new CancellationTokenSource();
-                CancellationToken localToken = _lastTransitionCts.Token;
-
-                if (v == true)
-                {
-                    await s_transition.Start(null, content, localToken);
-                }
-                else
-                {
-                    await s_transition.Start(content, null, localToken);
-                }
-            });
+        ExpandTransitionHelper.Attach(expandToggle, content);
 
         ChangeTypeMenu.ItemsSource = CreateMenuItems(TransformTypeClicked);
         PresenterChangeTypeMenu.ItemsSource = CreateMenuItems(TransformTypeClicked);
 
-        this.GetObservable(DataContextProperty)
-            .Select(x => x as TransformEditorViewModel)
-            .Select(x => x?.IsFallback.Select(_ => x) ?? Observable.ReturnThenNever<TransformEditorViewModel?>(null))
-            .Switch()
-            .Where(v => v?.IsFallback.Value == true)
-            .Take(1)
-            .Subscribe(_ =>
-            {
-                _fallbackObjectView = new FallbackObjectView();
-                content.Children.Add(_fallbackObjectView);
-            });
+        FallbackObjectViewHelper.Attach(this, view => content.Children.Add(view));
 
         DragDrop.SetAllowDrop(this, true);
         AddHandler(DragDrop.DragOverEvent, DragOver);
         AddHandler(DragDrop.DropEvent, Drop);
 
-        CopyPasteMenuHelper.AddMenus((FAMenuFlyout)expandToggle.ContextFlyout!, this);
-        TemplateMenuHelper.AddMenus((FAMenuFlyout)expandToggle.ContextFlyout!, this);
-        CopyPasteMenuHelper.AddMenus((FAMenuFlyout)ReferenceMenuButton.Flyout!, this);
-        TemplateMenuHelper.AddMenus((FAMenuFlyout)ReferenceMenuButton.Flyout!, this);
+        EditorMenuHelper.AttachCopyPasteAndTemplateMenus(
+            this,
+            (FAMenuFlyout)expandToggle.ContextFlyout!,
+            (FAMenuFlyout)ReferenceMenuButton.Flyout!);
     }
 
     private void Drop(object? sender, DragEventArgs e)
@@ -187,7 +155,7 @@ public partial class TransformEditor : UserControl
     {
         return s_flyout ??= new FAMenuFlyout()
         {
-            Placement = PlacementMode.BottomEdgeAlignedRight,
+            Placement = PlacementMode.Pointer,
             ItemsSource = CreateMenuItems((s, e) => s_handler?.Invoke(s, e))
         };
     }
@@ -255,7 +223,7 @@ public partial class TransformEditor : UserControl
         pickerVm.Initialize(targets);
 
         var flyout = new TargetPickerFlyout(pickerVm);
-        flyout.ShowAt(this);
+        flyout.ShowAt(this, true);
 
         var tcs = new TaskCompletionSource<Transform?>();
         flyout.Dismissed += (_, _) => tcs.TrySetResult(null);

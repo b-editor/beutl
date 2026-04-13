@@ -1,7 +1,4 @@
-﻿using Avalonia;
-using Avalonia.Animation;
-using Avalonia.Controls;
-using Avalonia.Controls.Primitives;
+﻿using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
@@ -16,51 +13,14 @@ namespace Beutl.Views.Editors;
 
 public sealed partial class PenEditor : UserControl
 {
-    private static readonly CrossFade s_transition = new(TimeSpan.FromMilliseconds(250));
-
-    private CancellationTokenSource? _lastTransitionCts1;
-    private CancellationTokenSource? _lastTransitionCts2;
-
     public PenEditor()
     {
         Resources["ViewModelToViewConverter"] = ViewModelToViewConverter.Instance;
         InitializeComponent();
-        expandToggle.GetObservable(ToggleButton.IsCheckedProperty)
-            .Subscribe(async v =>
-            {
-                _lastTransitionCts1?.Cancel();
-                _lastTransitionCts1 = new CancellationTokenSource();
-                CancellationToken localToken = _lastTransitionCts1.Token;
+        ExpandTransitionHelper.Attach(expandToggle, content);
+        ExpandTransitionHelper.Attach(expandMinorProps, minorProps);
 
-                if (v == true)
-                {
-                    await s_transition.Start(null, content, localToken);
-                }
-                else
-                {
-                    await s_transition.Start(content, null, localToken);
-                }
-            });
-
-        expandMinorProps.GetObservable(ToggleButton.IsCheckedProperty)
-            .Subscribe(async v =>
-            {
-                _lastTransitionCts2?.Cancel();
-                _lastTransitionCts2 = new CancellationTokenSource();
-                CancellationToken localToken = _lastTransitionCts2.Token;
-
-                if (v == true)
-                {
-                    await s_transition.Start(null, minorProps, localToken);
-                }
-                else
-                {
-                    await s_transition.Start(minorProps, null, localToken);
-                }
-            });
-
-        CopyPasteMenuHelper.AddMenus((FAMenuFlyout)ExpandMenuButton.ContextFlyout!, this);
-        TemplateMenuHelper.AddMenus((FAMenuFlyout)ExpandMenuButton.ContextFlyout!, this);
+        EditorMenuHelper.AttachCopyPasteAndTemplateMenus(this, (FAMenuFlyout)ExpandMenuButton.ContextFlyout!);
 
         DragDrop.SetAllowDrop(this, true);
         AddHandler(DragDrop.DragOverEvent, DragOver);

@@ -17,7 +17,7 @@ public static class TargetSelectionHelper
         pickerVm.Initialize(targets);
 
         var flyout = new TargetPickerFlyout(pickerVm);
-        flyout.ShowAt(host);
+        flyout.ShowAt(host, true);
 
         var tcs = new TaskCompletionSource<T?>();
         flyout.Dismissed += (_, _) => tcs.TrySetResult(null);

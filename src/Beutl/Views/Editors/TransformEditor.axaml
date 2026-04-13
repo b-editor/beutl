@@ -23,7 +23,7 @@
                       Theme="{DynamicResource PropertyEditorMiniExpanderToggleButton}"
                       ToolTip.Tip="{Binding Description.Value}">
             <ToggleButton.ContextFlyout>
-                <ui:FAMenuFlyout>
+                <ui:FAMenuFlyout Placement="Pointer">
                     <ui:MenuFlyoutSubItem x:Name="ChangeTypeMenu"
                                           IconSource="New"
                                           Text="{x:Static lang:Strings.Change}" />

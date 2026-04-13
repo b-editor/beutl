@@ -1,13 +1,9 @@
-﻿using Avalonia;
-using Avalonia.Animation;
-using Avalonia.Controls;
-using Avalonia.Controls.Primitives;
+﻿using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
 using Beutl.Audio.Effects;
 using Beutl.Editor.Components.Helpers;
-using Beutl.Editor.Components.Views;
 using Beutl.Services;
 using Beutl.ViewModels.Dialogs;
 using Beutl.ViewModels.Editors;
@@ -17,50 +13,19 @@ namespace Beutl.Views.Editors;
 
 public partial class AudioEffectEditor : UserControl
 {
-    private static readonly CrossFade s_transition = new(TimeSpan.FromMilliseconds(250));
-
-    private CancellationTokenSource? _lastTransitionCts;
-    private FallbackObjectView? _fallbackObjectView;
     private bool _flyoutOpen;
 
     public AudioEffectEditor()
     {
         InitializeComponent();
-        expandToggle.GetObservable(ToggleButton.IsCheckedProperty)
-            .Subscribe(async v =>
-            {
-                _lastTransitionCts?.Cancel();
-                _lastTransitionCts = new CancellationTokenSource();
-                CancellationToken localToken = _lastTransitionCts.Token;
-
-                if (v == true)
-                {
-                    await s_transition.Start(null, content, localToken);
-                }
-                else
-                {
-                    await s_transition.Start(content, null, localToken);
-                }
-            });
-
-        this.GetObservable(DataContextProperty)
-            .Select(x => x as AudioEffectEditorViewModel)
-            .Select(x => x?.IsFallback.Select(_ => x) ?? Observable.ReturnThenNever<AudioEffectEditorViewModel?>(null))
-            .Switch()
-            .Where(v => v?.IsFallback.Value == true)
-            .Take(1)
-            .Subscribe(_ =>
-            {
-                _fallbackObjectView = new FallbackObjectView();
-                content.Children.Add(_fallbackObjectView);
-            });
+        ExpandTransitionHelper.Attach(expandToggle, content);
+        FallbackObjectViewHelper.Attach(this, view => content.Children.Add(view));
 
         DragDrop.SetAllowDrop(this, true);
         AddHandler(DragDrop.DragOverEvent, DragOver);
         AddHandler(DragDrop.DropEvent, Drop);
 
-        CopyPasteMenuHelper.AddMenus((FAMenuFlyout)expandToggle.ContextFlyout!, this);
-        TemplateMenuHelper.AddMenus((FAMenuFlyout)expandToggle.ContextFlyout!, this);
+        EditorMenuHelper.AttachCopyPasteAndTemplateMenus(this, (FAMenuFlyout)expandToggle.ContextFlyout!);
     }
 
     private void Drop(object? sender, DragEventArgs e)
@@ -153,29 +118,7 @@ public partial class AudioEffectEditor : UserControl
         {
             _flyoutOpen = true;
             var viewModel = new SelectAudioEffectTypeViewModel();
-            var dialog = new LibraryItemPickerFlyout(viewModel);
-            dialog.ShowAt(this);
-            var tcs = new TaskCompletionSource<Type?>();
-            dialog.Pinned += (_, item) => viewModel.Pin(item);
-            dialog.Unpinned += (_, item) => viewModel.Unpin(item);
-            dialog.Dismissed += (_, _) => tcs.SetResult(null);
-            dialog.Confirmed += (_, _) =>
-            {
-                switch (viewModel.SelectedItem.Value?.UserData)
-                {
-                    case SingleTypeLibraryItem single:
-                        tcs.SetResult(single.ImplementationType);
-                        break;
-                    case MultipleTypeLibraryItem multi:
-                        tcs.SetResult(multi.Types.GetValueOrDefault(KnownLibraryItemFormats.AudioEffect));
-                        break;
-                    default:
-                        tcs.SetResult(null);
-                        break;
-                }
-            };
-
-            return await tcs.Task;
+            return await LibraryItemPickerHelper.ShowTypeOnlyAsync(this, viewModel, KnownLibraryItemFormats.AudioEffect);
         }
         finally
         {

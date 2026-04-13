@@ -27,7 +27,7 @@ public partial class SceneEditor : UserControl
             pickerVm.Initialize(targets);
 
             var flyout = new TargetPickerFlyout(pickerVm);
-            flyout.ShowAt(this);
+            flyout.ShowAt(this, true);
 
             var tcs = new TaskCompletionSource<Scene?>();
             flyout.Dismissed += (_, _) => tcs.TrySetResult(null);

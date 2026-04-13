@@ -1,7 +1,5 @@
 ﻿using Avalonia;
-using Avalonia.Animation;
 using Avalonia.Controls;
-using Avalonia.Controls.Primitives;
 using Avalonia.Data;
 using Avalonia.Data.Converters;
 using Avalonia.Interactivity;
@@ -13,29 +11,11 @@ namespace Beutl.Views.Editors;
 
 public partial class GraphModelNodeMemberView : UserControl
 {
-    private static readonly CrossFade s_transition = new(TimeSpan.FromMilliseconds(167));
-    private CancellationTokenSource? _lastTransitionCts;
-
     public GraphModelNodeMemberView()
     {
         Resources["ViewModelToViewConverter"] = ViewModelToViewConverter.Instance;
         InitializeComponent();
-        expandToggle.GetObservable(ToggleButton.IsCheckedProperty)
-            .Subscribe(async v =>
-            {
-                _lastTransitionCts?.Cancel();
-                _lastTransitionCts = new CancellationTokenSource();
-                CancellationToken localToken = _lastTransitionCts.Token;
-
-                if (v == true)
-                {
-                    await s_transition.Start(null, content, localToken);
-                }
-                else
-                {
-                    await s_transition.Start(content, null, localToken);
-                }
-            });
+        ExpandTransitionHelper.Attach(expandToggle, content, ExpandTransitionHelper.ListItemDuration);
     }
 
     public void Remove_Click(object? sender, RoutedEventArgs e)

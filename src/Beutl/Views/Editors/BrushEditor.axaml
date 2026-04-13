@@ -53,7 +53,7 @@
                             Click="Menu_Click"
                             Theme="{StaticResource TransparentButton}">
                         <Button.ContextFlyout>
-                            <ui:FAMenuFlyout>
+                            <ui:FAMenuFlyout Placement="Pointer">
                                 <ui:RadioMenuFlyoutItem Click="ChangeBrushType"
                                                         IsChecked="{Binding IsSolid.Value, Mode=OneWay}"
                                                         Tag="Solid"
@@ -106,7 +106,7 @@
                         Classes="size-24x24"
                         Theme="{StaticResource TransparentButton}">
                     <Button.Flyout>
-                        <ui:FAMenuFlyout>
+                        <ui:FAMenuFlyout Placement="Pointer">
                             <ui:RadioMenuFlyoutItem Click="ChangeBrushType"
                                                     IsChecked="{Binding IsSolid.Value, Mode=OneWay}"
                                                     Tag="Solid"

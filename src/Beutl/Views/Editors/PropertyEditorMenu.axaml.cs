@@ -141,7 +141,7 @@ public sealed partial class PropertyEditorMenu : UserControl
                 args.Error = error;
             };
 
-            flyout.ShowAt(this);
+            flyout.ShowAt(this, true);
         }
     }
 

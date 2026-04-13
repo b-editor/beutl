@@ -1,9 +1,7 @@
-﻿using System.ComponentModel.DataAnnotations;
-using Avalonia;
+﻿using Avalonia;
 using Avalonia.Interactivity;
 
 using Beutl.Controls.PropertyEditors;
-using Beutl.Extensibility;
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
 
@@ -37,19 +35,7 @@ namespace Beutl.ViewModels.Editors
             base.Accept(visitor);
             if (visitor is Vector2Editor<int> editor && !Disposables.IsDisposed)
             {
-                var attrs = PropertyAdapter.GetAttributes();
-                var stepAttr = attrs.OfType<NumberStepAttribute>().FirstOrDefault();
-                if (stepAttr != null)
-                {
-                    editor.LargeChange = int.CreateTruncating(stepAttr.LargeChange);
-                    editor.SmallChange = int.CreateTruncating(stepAttr.SmallChange);
-                }
-
-                var formatAttr = attrs.OfType<DisplayFormatAttribute>().FirstOrDefault();
-                if (formatAttr != null)
-                {
-                    editor.NumberFormat = formatAttr.DataFormatString;
-                }
+                VectorEditorBindingHelper.ApplyNumberAttributes(editor, PropertyAdapter);
 
                 editor.FirstHeader = "X";
                 editor.SecondHeader = "Y";
@@ -113,19 +99,7 @@ namespace Beutl.ViewModels.Editors
             base.Accept(visitor);
             if (visitor is Vector2Editor<int> editor && !Disposables.IsDisposed)
             {
-                var attrs = PropertyAdapter.GetAttributes();
-                var stepAttr = attrs.OfType<NumberStepAttribute>().FirstOrDefault();
-                if (stepAttr != null)
-                {
-                    editor.LargeChange = int.CreateTruncating(stepAttr.LargeChange);
-                    editor.SmallChange = int.CreateTruncating(stepAttr.SmallChange);
-                }
-
-                var formatAttr = attrs.OfType<DisplayFormatAttribute>().FirstOrDefault();
-                if (formatAttr != null)
-                {
-                    editor.NumberFormat = formatAttr.DataFormatString;
-                }
+                VectorEditorBindingHelper.ApplyNumberAttributes(editor, PropertyAdapter);
 
                 editor.FirstHeader = Strings.Width;
                 editor.SecondHeader = Strings.Height;
@@ -189,19 +163,7 @@ namespace Beutl.ViewModels.Editors
             base.Accept(visitor);
             if (visitor is Vector2Editor<float> editor && !Disposables.IsDisposed)
             {
-                var attrs = PropertyAdapter.GetAttributes();
-                var stepAttr = attrs.OfType<NumberStepAttribute>().FirstOrDefault();
-                if (stepAttr != null)
-                {
-                    editor.LargeChange = float.CreateTruncating(stepAttr.LargeChange);
-                    editor.SmallChange = float.CreateTruncating(stepAttr.SmallChange);
-                }
-
-                var formatAttr = attrs.OfType<DisplayFormatAttribute>().FirstOrDefault();
-                if (formatAttr != null)
-                {
-                    editor.NumberFormat = formatAttr.DataFormatString;
-                }
+                VectorEditorBindingHelper.ApplyNumberAttributes(editor, PropertyAdapter);
 
                 editor.FirstHeader = "X";
                 editor.SecondHeader = "Y";
@@ -265,19 +227,7 @@ namespace Beutl.ViewModels.Editors
             base.Accept(visitor);
             if (visitor is Vector2Editor<float> editor && !Disposables.IsDisposed)
             {
-                var attrs = PropertyAdapter.GetAttributes();
-                var stepAttr = attrs.OfType<NumberStepAttribute>().FirstOrDefault();
-                if (stepAttr != null)
-                {
-                    editor.LargeChange = float.CreateTruncating(stepAttr.LargeChange);
-                    editor.SmallChange = float.CreateTruncating(stepAttr.SmallChange);
-                }
-
-                var formatAttr = attrs.OfType<DisplayFormatAttribute>().FirstOrDefault();
-                if (formatAttr != null)
-                {
-                    editor.NumberFormat = formatAttr.DataFormatString;
-                }
+                VectorEditorBindingHelper.ApplyNumberAttributes(editor, PropertyAdapter);
 
                 editor.FirstHeader = Strings.Width;
                 editor.SecondHeader = Strings.Height;
@@ -341,19 +291,7 @@ namespace Beutl.ViewModels.Editors
             base.Accept(visitor);
             if (visitor is Vector2Editor<float> editor && !Disposables.IsDisposed)
             {
-                var attrs = PropertyAdapter.GetAttributes();
-                var stepAttr = attrs.OfType<NumberStepAttribute>().FirstOrDefault();
-                if (stepAttr != null)
-                {
-                    editor.LargeChange = float.CreateTruncating(stepAttr.LargeChange);
-                    editor.SmallChange = float.CreateTruncating(stepAttr.SmallChange);
-                }
-
-                var formatAttr = attrs.OfType<DisplayFormatAttribute>().FirstOrDefault();
-                if (formatAttr != null)
-                {
-                    editor.NumberFormat = formatAttr.DataFormatString;
-                }
+                VectorEditorBindingHelper.ApplyNumberAttributes(editor, PropertyAdapter);
 
                 editor.FirstHeader = "X";
                 editor.SecondHeader = "Y";
@@ -417,19 +355,7 @@ namespace Beutl.ViewModels.Editors
             base.Accept(visitor);
             if (visitor is Vector2Editor<float> editor && !Disposables.IsDisposed)
             {
-                var attrs = PropertyAdapter.GetAttributes();
-                var stepAttr = attrs.OfType<NumberStepAttribute>().FirstOrDefault();
-                if (stepAttr != null)
-                {
-                    editor.LargeChange = float.CreateTruncating(stepAttr.LargeChange);
-                    editor.SmallChange = float.CreateTruncating(stepAttr.SmallChange);
-                }
-
-                var formatAttr = attrs.OfType<DisplayFormatAttribute>().FirstOrDefault();
-                if (formatAttr != null)
-                {
-                    editor.NumberFormat = formatAttr.DataFormatString;
-                }
+                VectorEditorBindingHelper.ApplyNumberAttributes(editor, PropertyAdapter);
 
                 editor.FirstHeader = "X";
                 editor.SecondHeader = "Y";
@@ -502,19 +428,7 @@ namespace Beutl.ViewModels.Editors
             base.Accept(visitor);
             if (visitor is Vector3Editor<float> editor && !Disposables.IsDisposed)
             {
-                var attrs = PropertyAdapter.GetAttributes();
-                var stepAttr = attrs.OfType<NumberStepAttribute>().FirstOrDefault();
-                if (stepAttr != null)
-                {
-                    editor.LargeChange = float.CreateTruncating(stepAttr.LargeChange);
-                    editor.SmallChange = float.CreateTruncating(stepAttr.SmallChange);
-                }
-
-                var formatAttr = attrs.OfType<DisplayFormatAttribute>().FirstOrDefault();
-                if (formatAttr != null)
-                {
-                    editor.NumberFormat = formatAttr.DataFormatString;
-                }
+                VectorEditorBindingHelper.ApplyNumberAttributes(editor, PropertyAdapter);
 
                 editor.FirstHeader = "X";
                 editor.SecondHeader = "Y";
@@ -599,19 +513,7 @@ namespace Beutl.ViewModels.Editors
             base.Accept(visitor);
             if (visitor is Vector4Editor<int> editor && !Disposables.IsDisposed)
             {
-                var attrs = PropertyAdapter.GetAttributes();
-                var stepAttr = attrs.OfType<NumberStepAttribute>().FirstOrDefault();
-                if (stepAttr != null)
-                {
-                    editor.LargeChange = int.CreateTruncating(stepAttr.LargeChange);
-                    editor.SmallChange = int.CreateTruncating(stepAttr.SmallChange);
-                }
-
-                var formatAttr = attrs.OfType<DisplayFormatAttribute>().FirstOrDefault();
-                if (formatAttr != null)
-                {
-                    editor.NumberFormat = formatAttr.DataFormatString;
-                }
+                VectorEditorBindingHelper.ApplyNumberAttributes(editor, PropertyAdapter);
 
                 editor.FirstHeader = "X";
                 editor.SecondHeader = "Y";
@@ -698,19 +600,7 @@ namespace Beutl.ViewModels.Editors
             base.Accept(visitor);
             if (visitor is Vector4Editor<float> editor && !Disposables.IsDisposed)
             {
-                var attrs = PropertyAdapter.GetAttributes();
-                var stepAttr = attrs.OfType<NumberStepAttribute>().FirstOrDefault();
-                if (stepAttr != null)
-                {
-                    editor.LargeChange = float.CreateTruncating(stepAttr.LargeChange);
-                    editor.SmallChange = float.CreateTruncating(stepAttr.SmallChange);
-                }
-
-                var formatAttr = attrs.OfType<DisplayFormatAttribute>().FirstOrDefault();
-                if (formatAttr != null)
-                {
-                    editor.NumberFormat = formatAttr.DataFormatString;
-                }
+                VectorEditorBindingHelper.ApplyNumberAttributes(editor, PropertyAdapter);
 
                 editor.FirstHeader = "X";
                 editor.SecondHeader = "Y";
@@ -797,19 +687,7 @@ namespace Beutl.ViewModels.Editors
             base.Accept(visitor);
             if (visitor is Vector4Editor<float> editor && !Disposables.IsDisposed)
             {
-                var attrs = PropertyAdapter.GetAttributes();
-                var stepAttr = attrs.OfType<NumberStepAttribute>().FirstOrDefault();
-                if (stepAttr != null)
-                {
-                    editor.LargeChange = float.CreateTruncating(stepAttr.LargeChange);
-                    editor.SmallChange = float.CreateTruncating(stepAttr.SmallChange);
-                }
-
-                var formatAttr = attrs.OfType<DisplayFormatAttribute>().FirstOrDefault();
-                if (formatAttr != null)
-                {
-                    editor.NumberFormat = formatAttr.DataFormatString;
-                }
+                VectorEditorBindingHelper.ApplyNumberAttributes(editor, PropertyAdapter);
 
                 editor.FirstHeader = "X";
                 editor.SecondHeader = "Y";

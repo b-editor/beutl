@@ -49,12 +49,7 @@ public sealed class ThicknessEditorViewModel : ValueEditorViewModel<Graphics.Thi
         base.Accept(visitor);
         if (visitor is Vector4Editor<float> editor && !Disposables.IsDisposed)
         {
-            var stepAttr = PropertyAdapter.GetAttributes().OfType<NumberStepAttribute>().FirstOrDefault();
-            if (stepAttr != null)
-            {
-                editor.LargeChange = float.CreateTruncating(stepAttr.LargeChange);
-                editor.SmallChange = float.CreateTruncating(stepAttr.SmallChange);
-            }
+            VectorEditorBindingHelper.ApplyNumberAttributes(editor, PropertyAdapter);
 
             editor.Bind(Vector4Editor<float>.FirstValueProperty, FirstValue.ToBinding())
                 .DisposeWith(Disposables);

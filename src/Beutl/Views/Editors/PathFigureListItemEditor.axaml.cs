@@ -1,6 +1,4 @@
-﻿using Avalonia;
-using Avalonia.Animation;
-using Avalonia.Controls;
+﻿using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Interactivity;
 
@@ -18,29 +16,10 @@ namespace Beutl.Views.Editors;
 
 public partial class PathFigureListItemEditor : UserControl, IListItemEditor
 {
-    private static readonly CrossFade s_transition = new(TimeSpan.FromMilliseconds(250));
-
-    private CancellationTokenSource? _lastTransitionCts;
-
     public PathFigureListItemEditor()
     {
         InitializeComponent();
-        reorderHandle.GetObservable(ToggleButton.IsCheckedProperty)
-            .Subscribe(async v =>
-            {
-                _lastTransitionCts?.Cancel();
-                _lastTransitionCts = new CancellationTokenSource();
-                CancellationToken localToken = _lastTransitionCts.Token;
-
-                if (v == true)
-                {
-                    await s_transition.Start(null, content, localToken);
-                }
-                else
-                {
-                    await s_transition.Start(content, null, localToken);
-                }
-            });
+        ExpandTransitionHelper.Attach(reorderHandle, content);
     }
 
     private void Tag_Click(object? sender, RoutedEventArgs e)
