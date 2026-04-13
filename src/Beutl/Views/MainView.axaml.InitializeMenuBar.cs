@@ -14,6 +14,7 @@ using Beutl.Services;
 using Beutl.ViewModels;
 using Beutl.Views.Dialogs;
 using FluentAvalonia.UI.Controls;
+using Microsoft.Extensions.DependencyInjection;
 using Reactive.Bindings.Extensions;
 
 namespace Beutl.Views;
@@ -112,7 +113,7 @@ public partial class MainView
     {
         if (TryGetSelectedEditViewModel(out EditViewModel? viewModel)
             && viewModel.Scene is Scene scene
-            && viewModel.SelectedObject.Value is Element element)
+            && viewModel.GetService<IEditorSelection>()?.SelectedObject.Value is Element element)
         {
             string path = element.Uri!.LocalPath;
             string name = Path.GetFileName(path);

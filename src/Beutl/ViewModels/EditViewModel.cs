@@ -301,11 +301,7 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
 
     public ReadOnlyReactivePropertySlim<SceneComposer> Composer { get; }
 
-    public ReactiveProperty<CoreObject?> SelectedObject => _editorSelection.SelectedObject;
-
     public ReactivePropertySlim<bool> IsEnabled { get; } = new(true);
-
-    public ReadOnlyReactivePropertySlim<int?> SelectedLayerNumber => _editorSelection.SelectedLayerNumber;
 
     public PlayerViewModel Player { get; private set; }
 
@@ -331,7 +327,7 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
 
         GlobalConfiguration.Instance.EditorConfig.PropertyChanged -= OnEditorConfigPropertyChanged;
         SaveState();
-        SelectedObject.Value = null;
+        _editorSelection.SelectedObject.Value = null;
         await Player.DisposeAsync();
         _disposables.Dispose();
         IsEnabled.Dispose();
@@ -387,7 +383,7 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
         string viewStateDir = ViewStateDirectory();
         var json = new JsonObject
         {
-            ["selected-object"] = SelectedObject.Value?.Id,
+            ["selected-object"] = _editorSelection.SelectedObject.Value?.Id,
             ["max-layer-count"] = _timelineOptionsProvider.Options.Value.MaxLayerCount,
             ["scale"] = _timelineOptionsProvider.Options.Value.Scale,
             ["offset"] = new JsonObject { ["x"] = _timelineOptionsProvider.Options.Value.Offset.X, ["y"] = _timelineOptionsProvider.Options.Value.Offset.Y, },
@@ -428,7 +424,7 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
                 if (id.HasValue)
                 {
                     var searcher = new ObjectSearcher(Scene, o => o is CoreObject obj && obj.Id == id.Value);
-                    SelectedObject.Value = searcher.Search() as CoreObject;
+                    _editorSelection.SelectedObject.Value = searcher.Search() as CoreObject;
                 }
             }
             catch (Exception ex)

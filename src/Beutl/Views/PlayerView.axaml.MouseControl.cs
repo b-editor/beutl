@@ -24,6 +24,7 @@ using Beutl.Services;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Editors;
 using FluentAvalonia.UI.Controls;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using AvaImage = Avalonia.Controls.Image;
 using AvaPoint = Avalonia.Point;
@@ -347,7 +348,8 @@ public partial class PlayerView
 
                 if (Element != null)
                 {
-                    EditViewModel.SelectedObject.Value = Element;
+                    var editorSelection = EditViewModel.GetService<IEditorSelection>();
+                    editorSelection?.SelectedObject.Value = Element;
                 }
             }
 
@@ -1166,7 +1168,8 @@ public partial class PlayerView
             _camera = null;
 
             // 選択されているオブジェクトから探す
-            if (EditViewModel.SelectedObject.Value is Element element)
+            var editorSelection = EditViewModel.GetService<IEditorSelection>();
+            if (editorSelection?.SelectedObject.Value is Element element)
             {
                 var scene3DObj = element.Objects.OfType<Scene3D>().FirstOrDefault();
                 if (scene3DObj != null)

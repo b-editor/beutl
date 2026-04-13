@@ -6,6 +6,7 @@ using Beutl.Graphics;
 using Beutl.Graphics.Transformation;
 using Beutl.ProjectSystem;
 using Beutl.ViewModels;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.Services.Tutorials;
 
@@ -69,16 +70,16 @@ public static class TutorialHelpers
 
     public static IDisposable? SubscribeToElementSelection(EditViewModel? editVm, Action onSelected)
     {
-        if (editVm == null) return null;
+        if (editVm?.GetService<IEditorSelection>() is not { } editorSelection) return null;
 
         // Already selected?
-        if (editVm.SelectedObject.Value != null)
+        if (editorSelection.SelectedObject.Value != null)
         {
             Dispatcher.UIThread.Post(onSelected);
             return null;
         }
 
-        return editVm.SelectedObject.Where(obj => obj != null)
+        return editorSelection.SelectedObject.Where(obj => obj != null)
             .Take(1)
             .Subscribe(_ => Dispatcher.UIThread.Post(onSelected));
     }
@@ -244,9 +245,9 @@ public static class TutorialHelpers
 
     public static Drawable? GetDrawable(EditViewModel? editVm)
     {
-        if (editVm == null) return null;
+        if (editVm?.GetService<IEditorSelection>() is not { } editorSelection) return null;
 
-        Element? element = editVm.SelectedObject.Value as Element;
+        Element? element = editorSelection.SelectedObject.Value as Element;
         element ??= editVm.Scene.Children.FirstOrDefault(e =>
             e.Objects.OfType<Drawable>().Any());
 

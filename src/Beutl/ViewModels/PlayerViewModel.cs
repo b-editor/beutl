@@ -17,6 +17,7 @@ using Beutl.Media.Source;
 using Beutl.Models;
 using Beutl.ProjectSystem;
 using Beutl.Services;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 using Silk.NET.OpenAL;
@@ -650,7 +651,8 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
 
     private void DrawBoundaries(Renderer renderer, SKCanvas canvas, Size canvasSize, bool recalculate = false)
     {
-        int? selected = EditViewModel.SelectedLayerNumber.Value;
+        var editorSelection = EditViewModel.GetRequiredService<IEditorSelection>();
+        int? selected = editorSelection.SelectedLayerNumber.Value;
         if (selected.HasValue)
         {
             var frameSize = new Size(renderer.FrameSize.Width, renderer.FrameSize.Height);
