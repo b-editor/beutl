@@ -486,8 +486,7 @@ public sealed partial class TimelineTabView : UserControl
 
         if (template != null)
         {
-            if (viewModel.EditorContext.GetService(typeof(IElementAdder))
-                is IElementAdder adder
+            if (viewModel.EditorContext.GetService<IElementAdder>() is { } adder
                 && (template.BaseType == typeof(Element)
                     || template.BaseType.IsAssignableTo(typeof(EngineObject))))
             {

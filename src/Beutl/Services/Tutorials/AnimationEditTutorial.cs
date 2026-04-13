@@ -15,6 +15,7 @@ using Beutl.ProjectSystem;
 using Beutl.Services.PrimitiveImpls;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Editors;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.Services.Tutorials;
 
@@ -47,10 +48,11 @@ public static class AnimationEditTutorial
                 if (!result) return false;
 
                 EditViewModel? editVm = TutorialHelpers.GetEditViewModel();
-                if (editVm == null) return false;
+                var adder = editVm?.GetService<IElementAdder>();
+                if (adder == null) return false;
 
                 // 楕円要素を追加
-                editVm.AddElement(new ElementDescription(
+                adder.AddElement(new ElementDescription(
                     Start: TimeSpan.Zero,
                     Length: TimeSpan.FromSeconds(5),
                     Layer: 0,

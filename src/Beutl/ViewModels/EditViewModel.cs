@@ -545,11 +545,6 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
         return null;
     }
 
-    public void AddElement(ElementDescription desc) => _elementAdder.AddElement(desc);
-
-    public void AddElementFromTemplate(ObjectTemplateItem template, TimeSpan start, int layer)
-        => _elementAdder.AddElementFromTemplate(template, start, layer);
-
     private sealed class KnownCommandsImpl(Scene scene, EditViewModel viewModel) : IKnownEditorCommands
     {
         public ValueTask<bool> OnSave()
