@@ -1,4 +1,4 @@
-﻿using System.Text.Json.Nodes;
+using System.Text.Json.Nodes;
 using Beutl.Serialization;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
@@ -11,7 +11,8 @@ public sealed class ObjectTemplateItem(
     Type actualType,
     JsonObject json,
     string name,
-    string categoryFormat)
+    string categoryFormat,
+    string? filePath)
 {
     public Guid Id { get; } = id;
 
@@ -24,6 +25,8 @@ public sealed class ObjectTemplateItem(
     public ReactiveProperty<string> Name { get; } = new(name);
 
     public string CategoryFormat { get; } = categoryFormat;
+
+    public string? FilePath { get; internal set; } = filePath;
 
     public ICoreSerializable? CreateInstance()
     {
@@ -44,7 +47,7 @@ public sealed class ObjectTemplateItem(
         (Type baseType, string format) = ObjectTemplateCategoryResolver.Resolve(actual);
         JsonObject json = CoreSerializer.SerializeToJsonObject(obj);
 
-        return new ObjectTemplateItem(Guid.NewGuid(), baseType, actual, json, name, format);
+        return new ObjectTemplateItem(Guid.NewGuid(), baseType, actual, json, name, format, null);
     }
 
     public static JsonNode ToJson(ObjectTemplateItem item)
@@ -55,12 +58,11 @@ public sealed class ObjectTemplateItem(
             [nameof(BaseType)] = TypeFormat.ToString(item.BaseType),
             [nameof(ActualType)] = TypeFormat.ToString(item.ActualType),
             [nameof(Json)] = item.Json.DeepClone(),
-            [nameof(Name)] = item.Name.Value,
             [nameof(CategoryFormat)] = item.CategoryFormat
         };
     }
 
-    public static ObjectTemplateItem? FromJson(JsonNode json, ILogger logger)
+    public static ObjectTemplateItem? FromJson(JsonNode json, string name, string filePath, ILogger logger)
     {
         try
         {
@@ -105,16 +107,10 @@ public sealed class ObjectTemplateItem(
                 return null;
             }
 
-            if (json[nameof(Name)] is not JsonValue jsonValue || !jsonValue.TryGetValue(out string? name))
-            {
-                logger.LogError("Name is null.");
-                return null;
-            }
-
             string categoryFormat = json[nameof(CategoryFormat)]?.GetValue<string>()
                                     ?? ObjectTemplateCategoryResolver.Resolve(actualType).Format;
 
-            return new ObjectTemplateItem(id, baseType, actualType, jsonObject, name, categoryFormat);
+            return new ObjectTemplateItem(id, baseType, actualType, jsonObject, name, categoryFormat, filePath);
         }
         catch (Exception ex)
         {

@@ -3,6 +3,7 @@ using System.Collections.Specialized;
 using System.Text.Json;
 using Beutl.Configuration;
 using Beutl.Editor.Components.FileBrowserTab.ViewModels;
+using Beutl.Editor.Services;
 using Beutl.Logging;
 using Microsoft.Extensions.Logging;
 
@@ -47,6 +48,14 @@ internal sealed class FavoritesManager : IDisposable
     public void RefreshFavoriteItems()
     {
         DisposeAndClearItems();
+
+        // テンプレートフォルダを常に先頭に表示（ローカライズ名で）
+        string templatesDir = ObjectTemplateService.Instance.DirectoryPath;
+        Directory.CreateDirectory(templatesDir);
+        var templatesItem = new FileSystemItemViewModel(templatesDir, true);
+        templatesItem.Name.Value = Strings.Templates;
+        FavoriteItems.Add(templatesItem);
+
         foreach (string path in Favorites)
         {
             if (Directory.Exists(path))
