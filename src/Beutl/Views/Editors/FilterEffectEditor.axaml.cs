@@ -4,6 +4,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Platform.Storage;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.Views;
 using Beutl.Engine;
@@ -69,6 +70,26 @@ public partial class FilterEffectEditor : UserControl
     private void Drop(object? sender, DragEventArgs e)
     {
         if (DataContext is not FilterEffectEditorViewModel { IsDisposed: false } viewModel) return;
+
+        // テンプレートファイルのドロップ
+        if (e.DataTransfer.TryGetFile()?.TryGetLocalPath() is { } droppedFile
+            && string.Equals(Path.GetExtension(droppedFile), ".json", StringComparison.OrdinalIgnoreCase)
+            && ObjectTemplateService.Instance.TryLoadFromFile(droppedFile) is { } template
+            && template.CreateInstance() is FilterEffect instance)
+        {
+            if (viewModel.IsGroup.Value)
+            {
+                viewModel.AddItem(instance);
+            }
+            else
+            {
+                viewModel.ChangeFilter(instance);
+            }
+
+            e.Handled = true;
+            return;
+        }
+
         if (e.DataTransfer.TryGetValue(BeutlDataFormats.FilterEffect) is not { } data) return;
 
         if (CoreObjectClipboard.IsJsonData(data))
@@ -95,10 +116,12 @@ public partial class FilterEffectEditor : UserControl
 
     private void DragOver(object? sender, DragEventArgs e)
     {
-        if (!e.DataTransfer.Contains(BeutlDataFormats.FilterEffect)) return;
-
-        e.DragEffects = DragDropEffects.Copy | DragDropEffects.Link;
-        e.Handled = true;
+        if (e.DataTransfer.Contains(BeutlDataFormats.FilterEffect)
+            || e.DataTransfer.Contains(DataFormat.File))
+        {
+            e.DragEffects = DragDropEffects.Copy | DragDropEffects.Link;
+            e.Handled = true;
+        }
     }
 
     private async void Tag_Click(object? sender, RoutedEventArgs e)

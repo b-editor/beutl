@@ -468,9 +468,21 @@ public sealed partial class TimelineTabView : UserControl
         viewModel.ClickedPosition = pt;
 
         // テンプレート経路（優先）
+        ObjectTemplateItem? template = null;
         if (e.DataTransfer.TryGetValue(BeutlDataFormats.ObjectTemplate) is { } idStr
-            && Guid.TryParse(idStr, out Guid templateId)
-            && ObjectTemplateService.Instance.FindById(templateId) is { } template)
+            && Guid.TryParse(idStr, out Guid templateId))
+        {
+            template = ObjectTemplateService.Instance.FindById(templateId);
+        }
+
+        // テンプレートファイルのドロップもテンプレート経路で処理
+        if (template == null && e.DataTransfer.TryGetFile()?.TryGetLocalPath() is { } droppedFile
+            && string.Equals(Path.GetExtension(droppedFile), ".json", StringComparison.OrdinalIgnoreCase))
+        {
+            template = ObjectTemplateService.Instance.TryLoadFromFile(droppedFile);
+        }
+
+        if (template != null)
         {
             if (template.BaseType == typeof(Element))
             {

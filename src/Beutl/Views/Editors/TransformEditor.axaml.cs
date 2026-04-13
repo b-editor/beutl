@@ -4,6 +4,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Platform.Storage;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.Views;
 using Beutl.Graphics.Transformation;
@@ -89,6 +90,26 @@ public partial class TransformEditor : UserControl
         }
 
         if (DataContext is not TransformEditorViewModel { IsDisposed: false } viewModel) return;
+
+        // テンプレートファイルのドロップ
+        if (e.DataTransfer.TryGetFile()?.TryGetLocalPath() is { } droppedFile
+            && string.Equals(Path.GetExtension(droppedFile), ".json", StringComparison.OrdinalIgnoreCase)
+            && ObjectTemplateService.Instance.TryLoadFromFile(droppedFile) is { } template
+            && template.CreateInstance() is Transform instance)
+        {
+            if (viewModel.IsGroup.Value)
+            {
+                viewModel.AddItem(instance);
+            }
+            else
+            {
+                viewModel.ChangeTransform(instance);
+            }
+
+            e.Handled = true;
+            return;
+        }
+
         if (e.DataTransfer.TryGetValue(BeutlDataFormats.Transform) is not { } data) return;
 
         if (CoreObjectClipboard.IsJsonData(data))
@@ -121,7 +142,8 @@ public partial class TransformEditor : UserControl
 
     private void DragOver(object? sender, DragEventArgs e)
     {
-        if (e.DataTransfer.Contains(BeutlDataFormats.Transform))
+        if (e.DataTransfer.Contains(BeutlDataFormats.Transform)
+            || e.DataTransfer.Contains(DataFormat.File))
         {
             e.DragEffects = DragDropEffects.Copy | DragDropEffects.Link;
             e.Handled = true;

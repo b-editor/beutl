@@ -4,6 +4,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Platform.Storage;
 using Beutl.Controls;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Editor.Components.ObjectPropertyTab.ViewModels;
@@ -73,6 +74,32 @@ public sealed partial class BrushEditor : UserControl
         TemplateMenuHelper.AddMenus((FAMenuFlyout)ExpandMenuButton.ContextFlyout!, this);
         CopyPasteMenuHelper.AddMenus((FAMenuFlyout)ReferenceMenuButton.Flyout!, this);
         TemplateMenuHelper.AddMenus((FAMenuFlyout)ReferenceMenuButton.Flyout!, this);
+
+        DragDrop.SetAllowDrop(this, true);
+        AddHandler(DragDrop.DragOverEvent, DragOver);
+        AddHandler(DragDrop.DropEvent, Drop);
+    }
+
+    private void Drop(object? sender, DragEventArgs e)
+    {
+        if (DataContext is not BrushEditorViewModel { IsDisposed: false } viewModel) return;
+
+        if (e.DataTransfer.TryGetFile()?.TryGetLocalPath() is { } droppedFile
+            && string.Equals(Path.GetExtension(droppedFile), ".json", StringComparison.OrdinalIgnoreCase)
+            && ObjectTemplateService.Instance.TryLoadFromFile(droppedFile) is { } template
+            && viewModel.ApplyTemplate(template))
+        {
+            e.Handled = true;
+        }
+    }
+
+    private void DragOver(object? sender, DragEventArgs e)
+    {
+        if (e.DataTransfer.Contains(DataFormat.File))
+        {
+            e.DragEffects = DragDropEffects.Copy | DragDropEffects.Link;
+            e.Handled = true;
+        }
     }
 
     public Avalonia.Media.Brush? Brush
