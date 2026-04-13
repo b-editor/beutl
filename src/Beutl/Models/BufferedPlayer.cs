@@ -6,6 +6,7 @@ using Beutl.Media.Source;
 using Beutl.ProjectSystem;
 using Beutl.Services;
 using Beutl.ViewModels;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 
@@ -16,6 +17,7 @@ public sealed class BufferedPlayer : IPlayer
     private readonly ILogger _logger = Log.CreateLogger<BufferedPlayer>();
     private readonly ConcurrentQueue<IPlayer.Frame> _queue = new();
     private readonly EditViewModel _editViewModel;
+    private readonly IEditorClock _editorClock;
     private readonly FrameCacheManager _frameCacheManager;
     private readonly SceneRenderer _renderer;
     private readonly Scene _scene;
@@ -34,6 +36,7 @@ public sealed class BufferedPlayer : IPlayer
         _editViewModel = editViewModel;
         _frameCacheManager = editViewModel.FrameCacheManager.Value;
         _renderer = editViewModel.Renderer.Value;
+        _editorClock = editViewModel.GetRequiredService<IEditorClock>();
         _scene = scene;
         _isPlaying = isPlaying;
         _rate = rate;
@@ -47,7 +50,7 @@ public sealed class BufferedPlayer : IPlayer
 
     public void Start()
     {
-        int startFrame = (int)_editViewModel.CurrentTime.Value.ToFrameNumber(_rate);
+        int startFrame = (int)_editorClock.CurrentTime.Value.ToFrameNumber(_rate);
         int durationFrame = (int)Math.Ceiling(_scene.Duration.ToFrameNumber(_rate));
 
         RenderThread.Dispatcher.Dispatch(() =>

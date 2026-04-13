@@ -15,6 +15,7 @@ using Beutl.ProjectSystem;
 using Beutl.Services.PrimitiveImpls;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Editors;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.Services.Tutorials;
 
@@ -47,10 +48,11 @@ public static class AnimationEditTutorial
                 if (!result) return false;
 
                 EditViewModel? editVm = TutorialHelpers.GetEditViewModel();
-                if (editVm == null) return false;
+                var adder = editVm?.GetService<IElementAdder>();
+                if (adder == null) return false;
 
                 // 楕円要素を追加
-                editVm.AddElement(new ElementDescription(
+                adder.AddElement(new ElementDescription(
                     Start: TimeSpan.Zero,
                     Length: TimeSpan.FromSeconds(5),
                     Layer: 0,
@@ -186,6 +188,9 @@ public static class AnimationEditTutorial
                         EditViewModel? editVm = TutorialHelpers.GetEditViewModel();
                         if (editVm == null) return;
 
+                        var editorClock = editVm.GetService<IEditorClock>();
+                        if (editorClock == null) return;
+
                         Element? element = TutorialHelpers.FindElementWithObject<EllipseShape>(editVm.Scene);
                         if (element == null) return;
 
@@ -198,12 +203,12 @@ public static class AnimationEditTutorial
                         // Move playhead forward
                         if (animation.KeyFrames.Count >= 2)
                         {
-                            editVm.CurrentTime.Value = animation.KeyFrames[1].KeyTime + element.Start;
+                            editorClock.CurrentTime.Value = animation.KeyFrames[1].KeyTime + element.Start;
                             Dispatcher.UIThread.Post(() => TutorialService.Current.AdvanceStep());
                         }
                         else
                         {
-                            editVm.CurrentTime.Value = element.Start + TimeSpan.FromSeconds(2);
+                            editorClock.CurrentTime.Value = element.Start + TimeSpan.FromSeconds(2);
                             step4Subscription = TutorialHelpers.SubscribeToKeyFrameAdded(
                                 animation,
                                 2,
@@ -398,9 +403,10 @@ public static class AnimationEditTutorial
                     {
                         EditViewModel? editVm = TutorialHelpers.GetEditViewModel();
                         Element? element = TutorialHelpers.FindElementWithObject<EllipseShape>(editVm?.Scene);
-                        if (editVm != null && element != null)
+                        var clock = editVm?.GetService<IEditorClock>();
+                        if (editVm != null && element != null && clock != null)
                         {
-                            editVm.CurrentTime.Value = element.Start;
+                            clock.CurrentTime.Value = element.Start;
                         }
                     },
                 },

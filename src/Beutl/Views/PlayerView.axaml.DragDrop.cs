@@ -7,6 +7,7 @@ using Beutl.Graphics.Transformation;
 using Beutl.Helpers;
 using Beutl.ProjectSystem;
 using Beutl.ViewModels;
+using Microsoft.Extensions.DependencyInjection;
 using AvaPoint = Avalonia.Point;
 
 namespace Beutl.Views;
@@ -47,7 +48,8 @@ public partial class PlayerView
 
                 if (element != null)
                 {
-                    editViewModel.SelectedObject.Value = element;
+                    var editorSelection = editViewModel.GetService<IEditorSelection>();
+                    editorSelection?.SelectedObject.Value = element;
                 }
 
                 if (containsFe
@@ -82,6 +84,7 @@ public partial class PlayerView
                 return elements.Length == 0 ? 0 : elements.Max(v => v.ZIndex) + 1;
             }
 
+            var adder = editViewModel.GetRequiredService<IElementAdder>();
             if (e.DataTransfer.TryGetValue(BeutlDataFormats.EngineObject) is { } typeName
                 && TypeFormat.ToType(typeName) is { } type)
             {
@@ -89,14 +92,14 @@ public partial class PlayerView
 
                 int zindex = CalculateZIndex(scene);
 
-                editViewModel.AddElement(new ElementDescription(
+                adder.AddElement(new ElementDescription(
                     frame, TimeSpan.FromSeconds(5), zindex, InitialObject: type, Position: centeredPosition));
             }
             else if (e.DataTransfer.TryGetFile()?.TryGetLocalPath() is { } fileName)
             {
                 int zindex = CalculateZIndex(scene);
 
-                editViewModel.AddElement(new ElementDescription(
+                adder.AddElement(new ElementDescription(
                     frame, TimeSpan.FromSeconds(5), zindex, FileName: fileName, Position: centeredPosition));
 
                 e.Handled = true;

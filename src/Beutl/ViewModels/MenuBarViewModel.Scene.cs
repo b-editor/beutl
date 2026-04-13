@@ -7,6 +7,7 @@ using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
 using Beutl.Services;
+using Microsoft.Extensions.DependencyInjection;
 using Reactive.Bindings;
 
 namespace Beutl.ViewModels;
@@ -99,7 +100,7 @@ public partial class MenuBarViewModel
     {
         if (TryGetSelectedEditViewModel(out EditViewModel? viewModel)
             && viewModel.Scene is Scene scene
-            && viewModel.SelectedObject.Value is Element element)
+            && viewModel.GetService<IEditorSelection>()?.SelectedObject.Value is Element element)
         {
             scene.RemoveChild(element);
             viewModel.HistoryManager.Commit(CommandNames.RemoveElement);
@@ -111,7 +112,7 @@ public partial class MenuBarViewModel
         if (ClipboardHelper.GetClipboard() is IClipboard clipboard
             && TryGetSelectedEditViewModel(out EditViewModel? viewModel)
             && viewModel.Scene is Scene scene
-            && viewModel.SelectedObject.Value is Element element)
+            && viewModel.GetService<IEditorSelection>()?.SelectedObject.Value is Element element)
         {
             DataTransfer data = CreateElementDataObject(element);
 
@@ -125,7 +126,7 @@ public partial class MenuBarViewModel
     {
         if (ClipboardHelper.GetClipboard() is IClipboard clipboard
             && TryGetSelectedEditViewModel(out EditViewModel? viewModel)
-            && viewModel.SelectedObject.Value is Element element)
+            && viewModel.GetService<IEditorSelection>()?.SelectedObject.Value is Element element)
         {
             DataTransfer data = CreateElementDataObject(element);
 

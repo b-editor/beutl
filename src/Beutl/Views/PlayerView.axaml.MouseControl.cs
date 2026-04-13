@@ -24,6 +24,7 @@ using Beutl.Services;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Editors;
 using FluentAvalonia.UI.Controls;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using AvaImage = Avalonia.Controls.Image;
 using AvaPoint = Avalonia.Point;
@@ -146,6 +147,10 @@ public partial class PlayerView
 
         public required PlayerViewModel ViewModel { get; init; }
 
+        public required IEditorClock Clock { get; init; }
+
+        public required IEditorSelection EditorSelection { get; init; }
+
         public EditViewModel EditViewModel => ViewModel.EditViewModel;
 
         public Drawable? Drawable { get; private set; }
@@ -185,7 +190,7 @@ public partial class PlayerView
                     }
                     else
                     {
-                        var res = transformGroup.ToResource(new CompositionContext(EditViewModel.CurrentTime.Value));
+                        var res = transformGroup.ToResource(new CompositionContext(Clock.CurrentTime.Value));
 
                         return (obj, res.Matrix);
                     }
@@ -197,7 +202,7 @@ public partial class PlayerView
         private KeyFrameState<float>? FindKeyFramePairOrNull(IProperty<float> property)
         {
             int rate = EditViewModel.Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;
-            TimeSpan globalkeyTime = EditViewModel.CurrentTime.Value;
+            TimeSpan globalkeyTime = Clock.CurrentTime.Value;
             TimeSpan localKeyTime = Element != null ? globalkeyTime - Element.Start : globalkeyTime;
 
             if (property.Animation is KeyFrameAnimation<float> animation)
@@ -330,7 +335,7 @@ public partial class PlayerView
             Drawable = RenderThread.Dispatcher.Invoke(() =>
             {
                 var compositor = EditViewModel.Renderer.Value.Compositor;
-                var compositionFrame = compositor.EvaluateGraphics(EditViewModel.CurrentTime.Value);
+                var compositionFrame = compositor.EvaluateGraphics(Clock.CurrentTime.Value);
                 return EditViewModel.Renderer.Value.HitTest(compositionFrame, new((float)_scaledStartPosition.X, (float)_scaledStartPosition.Y));
             });
 
@@ -338,7 +343,7 @@ public partial class PlayerView
             {
                 // TODO: DrawableGroup以下のDrawableを拾った場合の対応
                 int zindex = Drawable.ZIndex;
-                TimeSpan time = EditViewModel.CurrentTime.Value;
+                TimeSpan time = Clock.CurrentTime.Value;
 
                 Element = scene.Children.FirstOrDefault(v =>
                     v.ZIndex == zindex
@@ -347,7 +352,7 @@ public partial class PlayerView
 
                 if (Element != null)
                 {
-                    EditViewModel.SelectedObject.Value = Element;
+                    EditorSelection.SelectedObject.Value = Element;
                 }
             }
 
@@ -605,16 +610,20 @@ public partial class PlayerView
 
         public required PlayerViewModel ViewModel { get; init; }
 
+        public required IEditorClock Clock { get; init; }
+
+        public required IEditorSelection EditorSelection { get; init; }
+
         public EditViewModel EditViewModel => ViewModel.EditViewModel;
 
-        private CompositionContext CompositionContext => field ??= new(EditViewModel.CurrentTime.Value);
+        private CompositionContext CompositionContext => field ??= new(Clock.CurrentTime.Value);
 
         private Control Image => View.image;
 
         private KeyFrameState<Vector3>? FindKeyFramePairOrNull(IProperty<Vector3> property)
         {
             int rate = EditViewModel.Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;
-            TimeSpan globalKeyTime = EditViewModel.CurrentTime.Value;
+            TimeSpan globalKeyTime = Clock.CurrentTime.Value;
             TimeSpan localKeyTime = _scene3D != null ? globalKeyTime - _scene3D.TimeRange.Start : globalKeyTime;
 
             if (property.Animation is KeyFrameAnimation<Vector3> animation)
@@ -1166,7 +1175,7 @@ public partial class PlayerView
             _camera = null;
 
             // 選択されているオブジェクトから探す
-            if (EditViewModel.SelectedObject.Value is Element element)
+            if (EditorSelection.SelectedObject.Value is Element element)
             {
                 var scene3DObj = element.Objects.OfType<Scene3D>().FirstOrDefault();
                 if (scene3DObj != null)
@@ -1186,7 +1195,7 @@ public partial class PlayerView
             var drawable = RenderThread.Dispatcher.Invoke(() =>
             {
                 var compositor = EditViewModel.Renderer.Value.Compositor;
-                var compositionFrame = compositor.EvaluateGraphics(EditViewModel.CurrentTime.Value);
+                var compositionFrame = compositor.EvaluateGraphics(Clock.CurrentTime.Value);
                 return EditViewModel.Renderer.Value.HitTest(compositionFrame, new((float)scaledPos.X, (float)scaledPos.Y));
             });
 
@@ -1311,7 +1320,13 @@ public partial class PlayerView
     {
         if (viewModel.IsMoveMode.Value)
         {
-            return new MouseControlMove { ViewModel = viewModel, View = this };
+            return new MouseControlMove
+            {
+                ViewModel = viewModel,
+                Clock = viewModel.EditViewModel.GetRequiredService<IEditorClock>(),
+                EditorSelection = viewModel.EditViewModel.GetRequiredService<IEditorSelection>(),
+                View = this
+            };
         }
         else if (viewModel.IsHandMode.Value)
         {
@@ -1319,7 +1334,13 @@ public partial class PlayerView
         }
         else if (viewModel.IsCameraMode.Value)
         {
-            return new MouseControl3DCamera { ViewModel = viewModel, View = this };
+            return new MouseControl3DCamera
+            {
+                ViewModel = viewModel,
+                Clock = viewModel.EditViewModel.GetRequiredService<IEditorClock>(),
+                EditorSelection = viewModel.EditViewModel.GetRequiredService<IEditorSelection>(),
+                View = this
+            };
         }
         else
         {
