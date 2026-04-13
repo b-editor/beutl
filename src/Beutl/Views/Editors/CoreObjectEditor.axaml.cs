@@ -145,7 +145,7 @@ public partial class CoreObjectEditor : UserControl
             pickerVm.Initialize(targets);
 
             var flyout = new TargetPickerFlyout(pickerVm);
-            flyout.ShowAt(this);
+            flyout.ShowAt(this, true);
 
             var tcs = new TaskCompletionSource<CoreObject?>();
             flyout.Dismissed += (_, _) => tcs.TrySetResult(null);

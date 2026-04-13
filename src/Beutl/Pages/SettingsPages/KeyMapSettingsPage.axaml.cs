@@ -27,7 +27,7 @@ public partial class KeyMapSettingsPage : UserControl
             var flyout = new KeyMapFlyout();
             _keyGesture.Value = item.KeyGesture.Value;
             flyout.Bind(KeyMapFlyout.GestureProperty, _keyGesture);
-            flyout.ShowAt(control);
+            flyout.ShowAt(control, true);
             flyout.Confirmed += (_, _) => item.SetKeyGesture(flyout.Gesture);
 
             e.Handled = true;

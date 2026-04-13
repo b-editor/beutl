@@ -155,7 +155,7 @@ public partial class TransformEditor : UserControl
     {
         return s_flyout ??= new FAMenuFlyout()
         {
-            Placement = PlacementMode.BottomEdgeAlignedRight,
+            Placement = PlacementMode.Pointer,
             ItemsSource = CreateMenuItems((s, e) => s_handler?.Invoke(s, e))
         };
     }
@@ -223,7 +223,7 @@ public partial class TransformEditor : UserControl
         pickerVm.Initialize(targets);
 
         var flyout = new TargetPickerFlyout(pickerVm);
-        flyout.ShowAt(this);
+        flyout.ShowAt(this, true);
 
         var tcs = new TaskCompletionSource<Transform?>();
         flyout.Dismissed += (_, _) => tcs.TrySetResult(null);

@@ -186,7 +186,7 @@ public sealed partial class BrushEditor : UserControl
         _flyout.DrawableName = GetDrawableName((OriginalBrush as Media.DrawableBrush)?.Drawable.CurrentValue);
         _flyout.CanEditDrawable = (OriginalBrush as Media.DrawableBrush)?.Drawable.CurrentValue is not null;
 
-        _flyout.ShowAt(this);
+        _flyout.ShowAt(this, true);
     }
 
     private void OnEditDrawableClicked(object? sender, EventArgs e)

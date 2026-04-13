@@ -35,7 +35,7 @@ public static class TemplateMenuHelper
                     NotificationService.ShowInformation(Strings.Templates, Strings.TemplateSaved);
                 }
             };
-            flyout.ShowAt(control);
+            flyout.ShowAt(control, true);
         };
 
         var applySubMenu = new MenuFlyoutSubItem { Text = Strings.ApplyTemplate };

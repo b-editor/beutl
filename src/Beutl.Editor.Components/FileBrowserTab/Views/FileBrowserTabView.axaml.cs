@@ -193,7 +193,7 @@ public partial class FileBrowserTabView : UserControl
         var target = (Control?)sourceControl?.FindLogicalAncestorOfType<TreeViewItem>()
                      ?? (Control?)sourceControl?.FindLogicalAncestorOfType<ListBoxItem>()
                      ?? this;
-        flyout.ShowAt(target);
+        flyout.ShowAt(target, true);
     }
 
     private void BreadcrumbBarItemClicked(BreadcrumbBar sender, BreadcrumbBarItemClickedEventArgs args)

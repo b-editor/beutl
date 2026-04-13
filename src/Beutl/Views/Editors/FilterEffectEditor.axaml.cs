@@ -199,7 +199,7 @@ public partial class FilterEffectEditor : UserControl
             pickerVm.Initialize(targets);
 
             var flyout = new TargetPickerFlyout(pickerVm);
-            flyout.ShowAt(this);
+            flyout.ShowAt(this, true);
 
             var tcs = new TaskCompletionSource<FilterEffect?>();
             flyout.Dismissed += (_, _) => tcs.TrySetResult(null);
