@@ -370,6 +370,27 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
 
     public virtual bool ApplyTemplate(ObjectTemplateItem template) => false;
 
+    public bool IsListItemAdapter => PropertyAdapter is IListItemAccessor;
+
+    public virtual bool IsTemplateGroup => false;
+
+    public virtual bool AddTemplateAsListItem(ObjectTemplateItem template)
+    {
+        if (PropertyAdapter is not IListItemAccessor accessor) return false;
+        if (template.CreateInstance() is not { } instance) return false;
+
+        try
+        {
+            accessor.List.Add(instance);
+            Commit(CommandNames.ApplyTemplate);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     public IEnumerable<ObjectTemplateItem> GetApplicableTemplates()
         => TemplateBaseType is { } t ? ObjectTemplateService.Instance.FindByBaseType(t) : [];
 

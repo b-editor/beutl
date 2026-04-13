@@ -303,6 +303,8 @@ public sealed class TransformEditorViewModel : ValueEditorViewModel<Transform?>,
 
     protected override ICoreSerializable? GetTemplateTarget() => GetCopyTarget();
 
+    public override bool IsTemplateGroup => Value.Value is TransformGroup;
+
     public override bool ApplyTemplate(ObjectTemplateItem template)
     {
         if (template.CreateInstance() is not Transform instance) return false;

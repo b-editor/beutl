@@ -190,6 +190,8 @@ public sealed class FilterEffectEditorViewModel : ValueEditorViewModel<FilterEff
 
     protected override ICoreSerializable? GetTemplateTarget() => GetCopyTarget();
 
+    public override bool IsTemplateGroup => Value.Value is FilterEffectGroup;
+
     public override bool ApplyTemplate(ObjectTemplateItem template)
     {
         if (template.CreateInstance() is not FilterEffect instance) return false;

@@ -214,6 +214,8 @@ public sealed class AudioEffectEditorViewModel : ValueEditorViewModel<AudioEffec
         return true;
     }
 
+    public override bool IsTemplateGroup => Value.Value is AudioEffectGroup;
+
     public override bool ApplyTemplate(ObjectTemplateItem template)
     {
         if (template.CreateInstance() is not AudioEffect instance) return false;
