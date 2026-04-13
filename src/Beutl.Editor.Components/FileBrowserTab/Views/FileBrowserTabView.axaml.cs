@@ -215,6 +215,8 @@ public partial class FileBrowserTabView : UserControl
         }
         else
         {
+            // 内部ドラッグでもソース側はCopyのみをアドバタイズしているため、ここではCopyを設定する。
+            // 実際の移動判定はドロップ時に IsInternalDragInProgress を見て行う。
             e.DragEffects = DragDropEffects.Copy;
         }
     }
@@ -240,6 +242,7 @@ public partial class FileBrowserTabView : UserControl
             return;
 
         var files = GetDroppedFiles(e);
+        bool isInternal = FileItemDragBehavior.IsInternalDragInProgress;
 
         // お気に入りセクション上にドロップ → お気に入りに追加
         if (IsDropOverElement(favoritesSection, e))
@@ -254,21 +257,29 @@ public partial class FileBrowserTabView : UserControl
             FileSystemItemViewModel? folderItem = FindFolderItemUnderCursor(e);
             if (folderItem != null && Directory.Exists(folderItem.FullPath))
             {
-                ViewModel.CopyFilesToDirectory(files.Select(f => (f.LocalPath, f.IsDirectory)), folderItem.FullPath);
+                TransferFiles(files, folderItem.FullPath, isInternal);
                 return;
             }
 
             string? targetDir = ViewModel.ProjectDirectory;
             if (!string.IsNullOrEmpty(targetDir) && Directory.Exists(targetDir))
             {
-                ViewModel.CopyFilesToDirectory(files.Select(f => (f.LocalPath, f.IsDirectory)), targetDir);
+                TransferFiles(files, targetDir, isInternal);
             }
 
             return;
         }
 
-        // メディアファイルセクション上にドロップ → resources フォルダにコピー
-        ViewModel.CopyFilesToResources(files.Select(f => (f.LocalPath, f.IsDirectory)));
+        // メディアファイルセクション上にドロップ → resources フォルダへ
+        var payload = files.Select(f => (f.LocalPath, f.IsDirectory));
+        if (isInternal)
+        {
+            ViewModel.MoveFilesToResources(payload);
+        }
+        else
+        {
+            ViewModel.CopyFilesToResources(payload);
+        }
     }
 
     private void HandleBrowseViewDrop(DragEventArgs e)
@@ -277,18 +288,35 @@ public partial class FileBrowserTabView : UserControl
             return;
 
         var files = GetDroppedFiles(e);
+        bool isInternal = FileItemDragBehavior.IsInternalDragInProgress;
 
         FileSystemItemViewModel? folderItem = FindFolderItemUnderCursor(e);
         if (folderItem != null && Directory.Exists(folderItem.FullPath))
         {
-            ViewModel.CopyFilesToDirectory(files.Select(f => (f.LocalPath, f.IsDirectory)), folderItem.FullPath);
+            TransferFiles(files, folderItem.FullPath, isInternal);
             return;
         }
 
         string? rootPath = ViewModel.RootPath.Value;
         if (!string.IsNullOrEmpty(rootPath) && Directory.Exists(rootPath))
         {
-            ViewModel.CopyFilesToDirectory(files.Select(f => (f.LocalPath, f.IsDirectory)), rootPath);
+            TransferFiles(files, rootPath, isInternal);
+        }
+    }
+
+    private void TransferFiles(List<(string LocalPath, bool IsDirectory)> files, string targetDir, bool isInternal)
+    {
+        if (ViewModel == null)
+            return;
+
+        var payload = files.Select(f => (f.LocalPath, f.IsDirectory));
+        if (isInternal)
+        {
+            ViewModel.MoveFilesToDirectory(payload, targetDir);
+        }
+        else
+        {
+            ViewModel.CopyFilesToDirectory(payload, targetDir);
         }
     }
 
