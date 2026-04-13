@@ -1,13 +1,9 @@
 ﻿using Avalonia;
-using Avalonia.Animation;
 using Avalonia.Controls;
-using Avalonia.Controls.Primitives;
 using Avalonia.Data.Converters;
 using Avalonia.Interactivity;
 using Beutl.Controls.PropertyEditors;
-using Beutl.Editor.Components.Views;
 using Beutl.Graphics.Transformation;
-using Beutl.Services;
 using Beutl.ViewModels.Editors;
 using FluentAvalonia.UI.Controls;
 
@@ -20,42 +16,12 @@ public partial class TransformListItemEditor : UserControl, IListItemEditor
             nameof(ReorderHandle),
             o => o.ReorderHandle);
 
-    private static readonly CrossFade s_transition = new(TimeSpan.FromMilliseconds(167));
-    private CancellationTokenSource? _lastTransitionCts;
-    private FallbackObjectView? _fallbackObjectView;
-
     public TransformListItemEditor()
     {
         Resources["TransformTypeToIconConverter"] = TransformTypeToIconConverter.Instance;
         InitializeComponent();
-        reorderHandle.GetObservable(ToggleButton.IsCheckedProperty)
-            .Subscribe(async v =>
-            {
-                _lastTransitionCts?.Cancel();
-                _lastTransitionCts = new CancellationTokenSource();
-                CancellationToken localToken = _lastTransitionCts.Token;
-
-                if (v == true)
-                {
-                    await s_transition.Start(null, content, localToken);
-                }
-                else
-                {
-                    await s_transition.Start(content, null, localToken);
-                }
-            });
-
-        this.GetObservable(DataContextProperty)
-            .Select(x => x as TransformEditorViewModel)
-            .Select(x => x?.IsFallback.Select(_ => x) ?? Observable.ReturnThenNever<TransformEditorViewModel?>(null))
-            .Switch()
-            .Where(v => v?.IsFallback.Value == true)
-            .Take(1)
-            .Subscribe(_ =>
-            {
-                _fallbackObjectView = new FallbackObjectView();
-                content.Children.Add(_fallbackObjectView);
-            });
+        ExpandTransitionHelper.Attach(reorderHandle, content, ExpandTransitionHelper.ListItemDuration);
+        FallbackObjectViewHelper.Attach(this, view => content.Children.Add(view));
 
         this.GetObservable(DataContextProperty)
             .Select(x => x as TransformEditorViewModel)
@@ -65,8 +31,7 @@ public partial class TransformListItemEditor : UserControl, IListItemEditor
             .Subscribe(t => UpdateReorderHandle(t.First, t.Second));
 
         reorderHandle.ContextFlyout = new FAMenuFlyout();
-        CopyPasteMenuHelper.AddMenus((FAMenuFlyout)reorderHandle.ContextFlyout!, this);
-        TemplateMenuHelper.AddMenus((FAMenuFlyout)reorderHandle.ContextFlyout!, this);
+        EditorMenuHelper.AttachCopyPasteAndTemplateMenus(this, (FAMenuFlyout)reorderHandle.ContextFlyout);
     }
 
     public Control? ReorderHandle

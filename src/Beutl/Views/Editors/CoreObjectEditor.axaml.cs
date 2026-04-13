@@ -1,12 +1,8 @@
-﻿using Avalonia;
-using Avalonia.Animation;
-using Avalonia.Controls;
-using Avalonia.Controls.Primitives;
+﻿using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
 using Beutl.Editor.Components.ObjectPropertyTab.ViewModels;
-using Beutl.Editor.Components.Views;
 using Beutl.Engine;
 using Beutl.Services;
 using Beutl.ViewModels;
@@ -19,47 +15,18 @@ namespace Beutl.Views.Editors;
 
 public partial class CoreObjectEditor : UserControl
 {
-    private static readonly CrossFade s_transition = new(TimeSpan.FromMilliseconds(250));
-    private CancellationTokenSource? _lastTransitionCts;
-    private FallbackObjectView? _fallbackObjectView;
     private bool _flyoutOpen;
 
     public CoreObjectEditor()
     {
         InitializeComponent();
-        expandToggle.GetObservable(ToggleButton.IsCheckedProperty)
-            .Subscribe(async v =>
-            {
-                _lastTransitionCts?.Cancel();
-                _lastTransitionCts = new CancellationTokenSource();
-                CancellationToken localToken = _lastTransitionCts.Token;
+        ExpandTransitionHelper.Attach(expandToggle, content);
+        FallbackObjectViewHelper.Attach(this, view => content.Children.Add(view));
 
-                if (v == true)
-                {
-                    await s_transition.Start(null, content, localToken);
-                }
-                else
-                {
-                    await s_transition.Start(content, null, localToken);
-                }
-            });
-
-        this.GetObservable(DataContextProperty)
-            .Select(x => x as IFallbackObjectViewModel)
-            .Select(x => x?.IsFallback.Select(_ => x) ?? Observable.ReturnThenNever<IFallbackObjectViewModel?>(null))
-            .Switch()
-            .Where(v => v?.IsFallback.Value == true)
-            .Take(1)
-            .Subscribe(_ =>
-            {
-                _fallbackObjectView = new FallbackObjectView();
-                content.Children.Add(_fallbackObjectView);
-            });
-
-        CopyPasteMenuHelper.AddMenus((FAMenuFlyout)expandToggle.ContextFlyout!, this);
-        TemplateMenuHelper.AddMenus((FAMenuFlyout)expandToggle.ContextFlyout!, this);
-        CopyPasteMenuHelper.AddMenus((FAMenuFlyout)ReferenceMenuButton.Flyout!, this);
-        TemplateMenuHelper.AddMenus((FAMenuFlyout)ReferenceMenuButton.Flyout!, this);
+        EditorMenuHelper.AttachCopyPasteAndTemplateMenus(
+            this,
+            (FAMenuFlyout)expandToggle.ContextFlyout!,
+            (FAMenuFlyout)ReferenceMenuButton.Flyout!);
 
         DragDrop.SetAllowDrop(this, true);
         AddHandler(DragDrop.DragOverEvent, DragOver);
@@ -157,32 +124,7 @@ public partial class CoreObjectEditor : UserControl
                 selectVm.InitializeReferences(targets);
             }
 
-            var dialog = new LibraryItemPickerFlyout(selectVm);
-            dialog.ShowAt(this);
-            var tcs = new TaskCompletionSource<object?>();
-            dialog.Pinned += (_, item) => selectVm.Pin(item);
-            dialog.Unpinned += (_, item) => selectVm.Unpin(item);
-            dialog.Dismissed += (_, _) => tcs.SetResult(null);
-            dialog.Confirmed += (_, _) =>
-            {
-                switch (selectVm.SelectedItem.Value?.UserData)
-                {
-                    case TargetObjectInfo target:
-                        tcs.SetResult(target.Object);
-                        break;
-                    case SingleTypeLibraryItem single:
-                        tcs.SetResult(single.ImplementationType);
-                        break;
-                    case MultipleTypeLibraryItem multi:
-                        tcs.SetResult(multi.Types.GetValueOrDefault(format));
-                        break;
-                    default:
-                        tcs.SetResult(null);
-                        break;
-                }
-            };
-
-            return await tcs.Task;
+            return await LibraryItemPickerHelper.ShowAsync(this, selectVm, format);
         }
         finally
         {

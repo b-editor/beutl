@@ -1,14 +1,11 @@
 ﻿using Avalonia;
-using Avalonia.Animation;
 using Avalonia.Controls;
-using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
 using Beutl.Controls;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Editor.Components.ObjectPropertyTab.ViewModels;
-using Beutl.Editor.Components.Views;
 using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Media;
@@ -30,50 +27,19 @@ public sealed partial class BrushEditor : UserControl
     public static readonly StyledProperty<Media.Brush?> OriginalBrushProperty =
         AvaloniaProperty.Register<BrushEditor, Media.Brush?>(nameof(OriginalBrush));
 
-    private static readonly CrossFade s_transition = new(TimeSpan.FromMilliseconds(250));
-
-    private CancellationTokenSource? _lastTransitionCts;
-
     private BrushEditorFlyout? _flyout;
-    private FallbackObjectView? _fallbackObjectView;
     private bool _flyoutOpen;
 
     public BrushEditor()
     {
         InitializeComponent();
-        expandToggle.GetObservable(ToggleButton.IsCheckedProperty)
-            .Subscribe(async v =>
-            {
-                _lastTransitionCts?.Cancel();
-                _lastTransitionCts = new CancellationTokenSource();
-                CancellationToken localToken = _lastTransitionCts.Token;
+        ExpandTransitionHelper.Attach(expandToggle, content);
+        FallbackObjectViewHelper.Attach(this, view => (content.Child as Panel)?.Children.Add(view));
 
-                if (v == true)
-                {
-                    await s_transition.Start(null, content, localToken);
-                }
-                else
-                {
-                    await s_transition.Start(content, null, localToken);
-                }
-            });
-
-        this.GetObservable(DataContextProperty)
-            .Select(x => x as BrushEditorViewModel)
-            .Select(x => x?.IsFallback.Select(_ => x) ?? Observable.ReturnThenNever<BrushEditorViewModel?>(null))
-            .Switch()
-            .Where(v => v?.IsFallback.Value == true)
-            .Take(1)
-            .Subscribe(_ =>
-            {
-                _fallbackObjectView = new FallbackObjectView();
-                (content.Child as Panel)?.Children.Add(_fallbackObjectView);
-            });
-
-        CopyPasteMenuHelper.AddMenus((FAMenuFlyout)ExpandMenuButton.ContextFlyout!, this);
-        TemplateMenuHelper.AddMenus((FAMenuFlyout)ExpandMenuButton.ContextFlyout!, this);
-        CopyPasteMenuHelper.AddMenus((FAMenuFlyout)ReferenceMenuButton.Flyout!, this);
-        TemplateMenuHelper.AddMenus((FAMenuFlyout)ReferenceMenuButton.Flyout!, this);
+        EditorMenuHelper.AttachCopyPasteAndTemplateMenus(
+            this,
+            (FAMenuFlyout)ExpandMenuButton.ContextFlyout!,
+            (FAMenuFlyout)ReferenceMenuButton.Flyout!);
 
         DragDrop.SetAllowDrop(this, true);
         AddHandler(DragDrop.DragOverEvent, DragOver);
@@ -189,32 +155,7 @@ public sealed partial class BrushEditor : UserControl
                 selectVm.InitializeReferences(targets);
             }
 
-            var dialog = new LibraryItemPickerFlyout(selectVm);
-            dialog.ShowAt(this);
-            var tcs = new TaskCompletionSource<object?>();
-            dialog.Pinned += (_, item) => selectVm.Pin(item);
-            dialog.Unpinned += (_, item) => selectVm.Unpin(item);
-            dialog.Dismissed += (_, _) => tcs.SetResult(null);
-            dialog.Confirmed += (_, _) =>
-            {
-                switch (selectVm.SelectedItem.Value?.UserData)
-                {
-                    case TargetObjectInfo target:
-                        tcs.SetResult(target.Object);
-                        break;
-                    case SingleTypeLibraryItem single:
-                        tcs.SetResult(single.ImplementationType);
-                        break;
-                    case MultipleTypeLibraryItem multi:
-                        tcs.SetResult(multi.Types.GetValueOrDefault(KnownLibraryItemFormats.Drawable));
-                        break;
-                    default:
-                        tcs.SetResult(null);
-                        break;
-                }
-            };
-
-            return await tcs.Task;
+            return await LibraryItemPickerHelper.ShowAsync(this, selectVm, KnownLibraryItemFormats.Drawable);
         }
         finally
         {
