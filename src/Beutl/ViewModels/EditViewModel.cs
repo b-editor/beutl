@@ -321,12 +321,6 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
 
     public IKnownEditorCommands? Commands { get; private set; }
 
-    public IReactiveProperty<TimelineOptions> Options => _timelineOptionsProvider.Options;
-
-    public IObservable<float> Scale => _timelineOptionsProvider.Scale;
-
-    public IObservable<Vector2> Offset => _timelineOptionsProvider.Offset;
-
     IReactiveProperty<bool> IEditorContext.IsEnabled => IsEnabled;
 
     public DockHostViewModel DockHost { get; }
@@ -394,15 +388,15 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
         var json = new JsonObject
         {
             ["selected-object"] = SelectedObject.Value?.Id,
-            ["max-layer-count"] = Options.Value.MaxLayerCount,
-            ["scale"] = Options.Value.Scale,
-            ["offset"] = new JsonObject { ["x"] = Options.Value.Offset.X, ["y"] = Options.Value.Offset.Y, },
+            ["max-layer-count"] = _timelineOptionsProvider.Options.Value.MaxLayerCount,
+            ["scale"] = _timelineOptionsProvider.Options.Value.Scale,
+            ["offset"] = new JsonObject { ["x"] = _timelineOptionsProvider.Options.Value.Offset.X, ["y"] = _timelineOptionsProvider.Options.Value.Offset.Y, },
             ["bpm-grid"] = new JsonObject
             {
-                ["bpm"] = Options.Value.BpmGrid.Bpm,
-                ["subdivisions"] = Options.Value.BpmGrid.Subdivisions,
-                ["offset"] = Options.Value.BpmGrid.Offset.ToString("c"),
-                ["is-enabled"] = Options.Value.BpmGrid.IsEnabled,
+                ["bpm"] = _timelineOptionsProvider.Options.Value.BpmGrid.Bpm,
+                ["subdivisions"] = _timelineOptionsProvider.Options.Value.BpmGrid.Subdivisions,
+                ["offset"] = _timelineOptionsProvider.Options.Value.BpmGrid.Offset.ToString("c"),
+                ["is-enabled"] = _timelineOptionsProvider.Options.Value.BpmGrid.IsEnabled,
             }
         };
 
@@ -487,7 +481,7 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
                 timelineOptions = timelineOptions with { BpmGrid = bpmGrid };
             }
 
-            Options.Value = timelineOptions;
+            _timelineOptionsProvider.Options.Value = timelineOptions;
 
             DockHost.ReadFromJson(jsonObject);
 

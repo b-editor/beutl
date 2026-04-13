@@ -3,7 +3,7 @@
 using Avalonia.Threading;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Models;
-
+using Microsoft.Extensions.DependencyInjection;
 using Reactive.Bindings;
 
 namespace Beutl.ViewModels;
@@ -17,13 +17,14 @@ public sealed class BufferStatusViewModel : IBufferStatus, IDisposable
     public BufferStatusViewModel(EditViewModel editViewModel)
     {
         _editViewModel = editViewModel;
+        var timelineOptionsProvider = editViewModel.GetRequiredService<ITimelineOptionsProvider>();
 
-        Start = StartTime.CombineLatest(editViewModel.Scale)
+        Start = StartTime.CombineLatest(timelineOptionsProvider.Scale)
             .Select(v => v.First.TimeToPixel(v.Second))
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        End = EndTime.CombineLatest(editViewModel.Scale)
+        End = EndTime.CombineLatest(timelineOptionsProvider.Scale)
             .Select(v => v.First.TimeToPixel(v.Second))
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
