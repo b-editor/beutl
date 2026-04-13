@@ -1,4 +1,4 @@
-using Beutl.Audio;
+﻿using Beutl.Audio;
 using Beutl.Composition;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.TimelineTab.ViewModels;

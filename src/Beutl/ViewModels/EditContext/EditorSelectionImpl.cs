@@ -1,4 +1,4 @@
-using Beutl.Logging;
+﻿using Beutl.Logging;
 using Beutl.ProjectSystem;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;

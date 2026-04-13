@@ -1,4 +1,4 @@
-using System.ComponentModel;
+﻿using System.ComponentModel;
 using Beutl.Media;
 using Beutl.ProjectSystem;
 using Reactive.Bindings;
