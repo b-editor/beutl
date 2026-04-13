@@ -35,7 +35,10 @@ public sealed partial class EngineObjectPropertyView : UserControl
     {
         if (DataContext is not EngineObjectPropertyViewModel viewModel) return;
 
-        var flyout = new SaveAsTemplateFlyout();
+        string defaultName = TypeDisplayHelpers.GetLocalizedName(viewModel.Model.GetType());
+        string uniqueName = ObjectTemplateService.Instance.GetUniqueName(defaultName);
+
+        var flyout = new SaveAsTemplateFlyout { Text = uniqueName };
         flyout.Confirmed += (_, name) =>
         {
             if (!string.IsNullOrWhiteSpace(name))

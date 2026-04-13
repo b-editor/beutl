@@ -32,14 +32,53 @@ public sealed class ObjectTemplateService
 
     public ObjectTemplateItem AddFromInstance(ICoreSerializable instance, string name)
     {
-        var item = ObjectTemplateItem.CreateFromInstance(instance, name);
         lock (_lock)
         {
+            string uniqueName = GetUniqueNameLocked(name);
+            var item = ObjectTemplateItem.CreateFromInstance(instance, uniqueName);
             SaveItemToFile(item);
             _items.Add(item);
+            _logger.LogInformation("Added new ObjectTemplateItem: {Name}", uniqueName);
+            return item;
         }
-        _logger.LogInformation("Added new ObjectTemplateItem: {Name}", name);
-        return item;
+    }
+
+    public string GetUniqueName(string baseName)
+    {
+        lock (_lock)
+        {
+            return GetUniqueNameLocked(baseName);
+        }
+    }
+
+    private string GetUniqueNameLocked(string baseName)
+    {
+        if (string.IsNullOrWhiteSpace(baseName))
+            baseName = "Template";
+
+        string candidate = baseName;
+        int counter = 2;
+        while (NameExistsLocked(candidate))
+        {
+            candidate = $"{baseName} ({counter})";
+            counter++;
+        }
+
+        return candidate;
+    }
+
+    private bool NameExistsLocked(string name)
+    {
+        string filePath = Path.Combine(_directoryPath, name + ".json");
+        if (File.Exists(filePath)) return true;
+
+        foreach (ObjectTemplateItem item in _items)
+        {
+            if (string.Equals(item.Name.Value, name, StringComparison.OrdinalIgnoreCase))
+                return true;
+        }
+
+        return false;
     }
 
     public void Remove(ObjectTemplateItem item)

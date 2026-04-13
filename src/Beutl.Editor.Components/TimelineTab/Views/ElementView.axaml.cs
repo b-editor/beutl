@@ -194,7 +194,12 @@ public sealed partial class ElementView : UserControl
     {
         if (DataContext is not ElementViewModel viewModel) return;
 
-        var flyout = new SaveAsTemplateFlyout();
+        string defaultName = !string.IsNullOrWhiteSpace(viewModel.Model.Name)
+            ? viewModel.Model.Name
+            : TypeDisplayHelpers.GetLocalizedName(viewModel.Model.GetType());
+        string uniqueName = ObjectTemplateService.Instance.GetUniqueName(defaultName);
+
+        var flyout = new SaveAsTemplateFlyout { Text = uniqueName };
         flyout.Confirmed += (_, name) =>
         {
             if (!string.IsNullOrWhiteSpace(name))

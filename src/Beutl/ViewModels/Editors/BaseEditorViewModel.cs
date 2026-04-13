@@ -394,6 +394,13 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
     public IEnumerable<ObjectTemplateItem> GetApplicableTemplates()
         => TemplateBaseType is { } t ? ObjectTemplateService.Instance.FindByBaseType(t) : [];
 
+    public virtual string GetTemplateDefaultName()
+    {
+        if (GetTemplateTarget() is { } target)
+            return TypeDisplayHelpers.GetLocalizedName(target.GetType());
+        return string.Empty;
+    }
+
     public ValueTask<bool> SaveAsTemplateAsync(string name)
     {
         if (GetTemplateTarget() is not { } target) return new(false);

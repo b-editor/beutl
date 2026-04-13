@@ -22,7 +22,11 @@ public static class TemplateMenuHelper
         saveMenu.Click += (_, _) =>
         {
             if (control.DataContext is not BaseEditorViewModel { IsDisposed: false } vm) return;
-            var flyout = new SaveAsTemplateFlyout();
+
+            string defaultName = vm.GetTemplateDefaultName();
+            string uniqueName = ObjectTemplateService.Instance.GetUniqueName(defaultName);
+
+            var flyout = new SaveAsTemplateFlyout { Text = uniqueName };
             flyout.Confirmed += async (_, name) =>
             {
                 if (!string.IsNullOrWhiteSpace(name))
