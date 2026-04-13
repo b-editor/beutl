@@ -338,19 +338,30 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                 _editViewModel.SceneId, rate, startFrame, durationFrame);
             playerImpl.Start();
 
-            var audioTask = PlayAudio(Scene);
+            var clock = new AudioPlaybackClock();
+            var audioTask = PlayAudio(Scene, clock, startTime);
 
             DateTime startDateTime = DateTime.UtcNow;
             var tcs = new TaskCompletionSource<bool>();
             int nextExpectedFrame = startFrame + 1;
             bool processing = false;
+
+            int ComputeExpectFrame()
+            {
+                TimeSpan elapsed = clock.GetTime() is { } audioTime
+                    ? audioTime - startTime
+                    : DateTime.UtcNow - startDateTime;
+                if (elapsed < TimeSpan.Zero) elapsed = TimeSpan.Zero;
+                return (int)(elapsed.Ticks / tick.Ticks) + startFrame;
+            }
+
             await using var timer = new Timer(_ =>
             {
                 if (processing) return;
                 processing = true;
                 try
                 {
-                    var expectFrame = (int)((DateTime.UtcNow - startDateTime).Ticks / tick.Ticks) + startFrame;
+                    var expectFrame = ComputeExpectFrame();
                     if (!IsPlaying.Value || expectFrame >= endFrame)
                     {
                         tcs.TrySetResult(true);
@@ -387,8 +398,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                         // 期待していたフレームよりも前のフレームが来た場合
                     }
 
-                    playerImpl.Skipped(
-                        (int)((DateTime.UtcNow - startDateTime).Ticks / tick.Ticks) + startFrame + 1);
+                    playerImpl.Skipped(ComputeExpectFrame() + 1);
                 }
                 finally
                 {
@@ -424,21 +434,21 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
         return rate;
     }
 
-    private async Task PlayAudio(Scene scene)
+    private async Task PlayAudio(Scene scene, AudioPlaybackClock clock, TimeSpan startTime)
     {
         try
         {
             if (OperatingSystem.IsWindows())
             {
                 using var audioContext = new XAudioContext();
-                await PlayWithXA2(audioContext, scene).ConfigureAwait(false);
+                await PlayWithXA2(audioContext, scene, clock, startTime).ConfigureAwait(false);
             }
             else
             {
                 await Task.Run(async () =>
                 {
                     using var audioContext = new AudioContext();
-                    await PlayWithOpenAL(audioContext, scene);
+                    await PlayWithOpenAL(audioContext, scene, clock, startTime);
                 });
             }
         }
@@ -448,6 +458,10 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                 MessageStrings.AudioPlaybackException);
             _logger.LogError(ex, "An exception occurred during audio playback.");
             IsPlaying.Value = false;
+        }
+        finally
+        {
+            clock.Pause();
         }
     }
 
@@ -473,25 +487,41 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
         (y, x) = (x, y);
     }
 
-    private async Task PlayWithXA2(XAudioContext audioContext, Scene scene)
+    private async Task PlayWithXA2(XAudioContext audioContext, Scene scene,
+        AudioPlaybackClock clock, TimeSpan startTime)
     {
         var composer = EditViewModel.Composer.Value;
         int sampleRate = composer.SampleRate;
-        TimeSpan cur = _editorClock.CurrentTime.Value;
+        TimeSpan cur = startTime;
         var fmt = new WaveFormat(sampleRate, 32, 2);
         var source = new XAudioSource(audioContext);
         var primaryBuffer = new XAudioBuffer();
         var secondaryBuffer = new XAudioBuffer();
+        bool hasAudio = false;
 
         void PrepareBuffer(XAudioBuffer buffer)
         {
             Pcm<Stereo32BitFloat>? pcm = FillAudioData(cur, composer);
             if (pcm != null)
             {
+                if (!hasAudio)
+                {
+                    sampleRate = pcm.SampleRate;
+                    fmt = new WaveFormat(sampleRate, 32, 2);
+                }
+
                 buffer.BufferData(pcm.DataSpan, fmt);
+                hasAudio = true;
             }
 
             source.QueueBuffer(buffer);
+        }
+
+        void AnchorClock()
+        {
+            if (!hasAudio) return;
+            double seconds = (double)source.SamplesPlayed / sampleRate;
+            clock.Anchor(startTime + TimeSpan.FromSeconds(seconds));
         }
 
         var cts = new CancellationTokenSource();
@@ -513,8 +543,10 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
             PrepareBuffer(secondaryBuffer);
 
             source.Play();
+            AnchorClock();
 
             await Task.Delay(1000, cts.Token).ConfigureAwait(false);
+            AnchorClock();
 
             // primaryBufferが終了、secondaryが開始
 
@@ -534,6 +566,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                 Swap(ref primaryBuffer, ref secondaryBuffer);
 
                 await Task.Delay(1000, cts.Token).ConfigureAwait(false);
+                AnchorClock();
             }
         }
         catch (OperationCanceledException)
@@ -550,7 +583,8 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
         }
     }
 
-    private async Task PlayWithOpenAL(AudioContext audioContext, Scene scene)
+    private async Task PlayWithOpenAL(AudioContext audioContext, Scene scene,
+        AudioPlaybackClock clock, TimeSpan startTime)
     {
         var cts = new CancellationTokenSource();
         IDisposable revoker = IsPlaying.Where(v => !v)
@@ -562,25 +596,48 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
             audioContext.MakeCurrent();
 
             var composer = EditViewModel.Composer.Value;
-            TimeSpan cur = _editorClock.CurrentTime.Value;
+            int sampleRate = composer.SampleRate;
+            TimeSpan cur = startTime;
             uint[] buffers = audioContext.GenBuffers(2);
             uint source = audioContext.GenSource();
+            long totalProcessedSamples = 0;
+            var queuedBufferSamples = new Queue<int>();
+            bool hasAudio = false;
+
+            void AnchorClock()
+            {
+                if (!hasAudio) return;
+                audioContext.GetSource(source, GetSourceInteger.SampleOffset, out int sampleOffset);
+                long pos = totalProcessedSamples + sampleOffset;
+                double seconds = (double)pos / sampleRate;
+                clock.Anchor(startTime + TimeSpan.FromSeconds(seconds));
+            }
 
             foreach (uint buffer in buffers)
             {
                 using Pcm<Stereo32BitFloat>? pcmf = FillAudioData(cur, composer);
                 cur += s_second;
+                int fillSamples = 0;
                 if (pcmf != null)
                 {
                     using Pcm<Stereo16BitInteger> pcm = pcmf.Convert<Stereo16BitInteger>();
 
+                    if (!hasAudio)
+                    {
+                        sampleRate = pcm.SampleRate;
+                    }
+
                     audioContext.BufferData(buffer, BufferFormat.Stereo16, pcm.DataSpan, pcm.SampleRate);
+                    fillSamples = pcm.DataSpan.Length;
+                    hasAudio = true;
                 }
 
                 audioContext.SourceQueueBuffer(source, buffer);
+                queuedBufferSamples.Enqueue(fillSamples);
             }
 
             audioContext.SourcePlay(source);
+            AnchorClock();
 
             try
             {
@@ -593,14 +650,25 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                         using Pcm<Stereo32BitFloat>? pcmf = FillAudioData(cur, composer);
                         cur += s_second;
                         uint buffer = audioContext.SourceUnqueueBuffer(source);
+                        int fillSamples = 0;
                         if (pcmf != null)
                         {
                             using Pcm<Stereo16BitInteger> pcm = pcmf.Convert<Stereo16BitInteger>();
 
+                            if (!hasAudio)
+                            {
+                                sampleRate = pcm.SampleRate;
+                            }
+
                             audioContext.BufferData(buffer, BufferFormat.Stereo16, pcm.DataSpan, pcm.SampleRate);
+                            fillSamples = pcm.DataSpan.Length;
+                            hasAudio = true;
                         }
 
                         audioContext.SourceQueueBuffer(source, buffer);
+
+                        totalProcessedSamples += queuedBufferSamples.Dequeue();
+                        queuedBufferSamples.Enqueue(fillSamples);
                         processed--;
                     }
 
@@ -609,6 +677,8 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                         audioContext.SourcePlay(source);
                     }
 
+                    AnchorClock();
+
                     await Task.Delay(100, cts.Token).ConfigureAwait(false);
                     if (cur > scene.Duration)
                         break;
@@ -616,6 +686,15 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
 
                 while (audioContext.GetSourceState(source) == SourceState.Playing && IsPlaying.Value)
                 {
+                    audioContext.MakeCurrent();
+                    audioContext.GetSource(source, GetSourceInteger.BuffersProcessed, out int drainProcessed);
+                    while (drainProcessed > 0 && queuedBufferSamples.Count > 0)
+                    {
+                        audioContext.SourceUnqueueBuffer(source);
+                        totalProcessedSamples += queuedBufferSamples.Dequeue();
+                        drainProcessed--;
+                    }
+                    AnchorClock();
                     await Task.Delay(100, cts.Token).ConfigureAwait(false);
                 }
             }
