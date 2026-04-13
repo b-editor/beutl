@@ -35,6 +35,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
     private readonly ReactivePropertySlim<bool> _isEnabled;
     private readonly EditViewModel _editViewModel;
     private readonly IEditorClock _editorClock;
+    private readonly IEditorSelection _editorSelection;
     private IDisposable? _currentFrameSubscription;
     private CancellationTokenSource? _cts;
     private Size _maxFrameSize;
@@ -44,6 +45,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
     {
         _editViewModel = editViewModel;
         _editorClock = editViewModel.GetRequiredService<IEditorClock>();
+        _editorSelection = editViewModel.GetRequiredService<IEditorSelection>();
         Scene = editViewModel.Scene;
         _isEnabled = editViewModel.IsEnabled;
         PlayPause = new AsyncReactiveCommand(_isEnabled.AsObservable())
@@ -653,8 +655,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
 
     private void DrawBoundaries(Renderer renderer, SKCanvas canvas, Size canvasSize, bool recalculate = false)
     {
-        var editorSelection = EditViewModel.GetRequiredService<IEditorSelection>();
-        int? selected = editorSelection.SelectedLayerNumber.Value;
+        int? selected = _editorSelection.SelectedLayerNumber.Value;
         if (selected.HasValue)
         {
             var frameSize = new Size(renderer.FrameSize.Width, renderer.FrameSize.Height);
