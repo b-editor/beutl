@@ -1,4 +1,4 @@
-#nullable enable
+﻿#nullable enable
 
 using System.ComponentModel;
 using Avalonia.Controls;

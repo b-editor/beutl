@@ -381,7 +381,8 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
 
         try
         {
-            accessor.List.Add(instance);
+            int insertIndex = Math.Clamp(accessor.Index, 0, accessor.List.Count);
+            accessor.List.Insert(insertIndex, instance);
             Commit(CommandNames.ApplyTemplate);
             return true;
         }
@@ -391,7 +392,7 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
         }
     }
 
-    public IEnumerable<ObjectTemplateItem> GetApplicableTemplates()
+    public virtual IEnumerable<ObjectTemplateItem> GetApplicableTemplates()
         => TemplateBaseType is { } t ? ObjectTemplateService.Instance.FindByBaseType(t) : [];
 
     public virtual string GetTemplateDefaultName()
@@ -404,8 +405,7 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
     public ValueTask<bool> SaveAsTemplateAsync(string name)
     {
         if (GetTemplateTarget() is not { } target) return new(false);
-        ObjectTemplateService.Instance.AddFromInstance(target, name);
-        return new(true);
+        return new(ObjectTemplateService.Instance.AddFromInstance(target, name) != null);
     }
 
     public async ValueTask RefreshCanPasteAsync()

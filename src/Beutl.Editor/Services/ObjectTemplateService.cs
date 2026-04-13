@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using System.Text.Json.Nodes;
 using Beutl.Collections;
 using Beutl.Logging;
@@ -30,13 +30,17 @@ public sealed class ObjectTemplateService
 
     public string DirectoryPath => _directoryPath;
 
-    public ObjectTemplateItem AddFromInstance(ICoreSerializable instance, string name)
+    public ObjectTemplateItem? AddFromInstance(ICoreSerializable instance, string name)
     {
         lock (_lock)
         {
             string uniqueName = GetUniqueNameLocked(name);
             var item = ObjectTemplateItem.CreateFromInstance(instance, uniqueName);
-            SaveItemToFile(item);
+            if (!SaveItemToFile(item))
+            {
+                return null;
+            }
+
             _items.Add(item);
             _logger.LogInformation("Added new ObjectTemplateItem: {Name}", uniqueName);
             return item;
@@ -81,43 +85,6 @@ public sealed class ObjectTemplateService
         return false;
     }
 
-    public void Remove(ObjectTemplateItem item)
-    {
-        lock (_lock)
-        {
-            _items.Remove(item);
-            DeleteItemFile(item);
-        }
-        _logger.LogInformation("Removed ObjectTemplateItem: {Name}", item.Name.Value);
-    }
-
-    public void Rename(ObjectTemplateItem item, string newName)
-    {
-        string oldName = item.Name.Value;
-        lock (_lock)
-        {
-            string? oldPath = item.FilePath;
-
-            if (oldPath != null && File.Exists(oldPath))
-            {
-                try
-                {
-                    string directory = Path.GetDirectoryName(oldPath)!;
-                    string newPath = Path.Combine(directory, newName + ".json");
-                    File.Move(oldPath, newPath);
-                    item.FilePath = newPath;
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Failed to rename template file: {OldName} -> {NewName}", oldName, newName);
-                }
-            }
-
-            item.Name.Value = newName;
-        }
-        _logger.LogInformation("Renamed ObjectTemplateItem from {OldName} to {NewName}", oldName, newName);
-    }
-
     public ObjectTemplateItem? FindById(Guid id)
     {
         lock (_lock)
@@ -145,26 +112,34 @@ public sealed class ObjectTemplateService
         }
     }
 
-    public IEnumerable<ObjectTemplateItem> FindByCategory(string categoryFormat)
-    {
-        lock (_lock)
-        {
-            var result = new List<ObjectTemplateItem>();
-            foreach (ObjectTemplateItem item in _items)
-            {
-                if (item.CategoryFormat == categoryFormat)
-                    result.Add(item);
-            }
-            return result;
-        }
-    }
-
     public ObjectTemplateItem? TryLoadFromFile(string filePath)
     {
         lock (_lock)
         {
-            ObjectTemplateItem? item = FindByFilePathLocked(filePath);
-            if (item != null) return item;
+            ObjectTemplateItem? cached = FindByFilePathLocked(filePath);
+            if (cached != null)
+            {
+                DateTime diskTime = GetLastWriteTimeOrDefault(filePath);
+                if (diskTime != default && diskTime <= cached.LastWriteTimeUtc)
+                {
+                    return cached;
+                }
+
+                // 外部変更されているので再読み込み
+                ObjectTemplateItem? reloaded = LoadFromFile(filePath);
+                if (reloaded != null)
+                {
+                    int index = _items.IndexOf(cached);
+                    if (index >= 0)
+                    {
+                        _items[index] = reloaded;
+                    }
+
+                    return reloaded;
+                }
+
+                return cached;
+            }
         }
 
         return LoadFromFile(filePath);
@@ -177,11 +152,18 @@ public sealed class ObjectTemplateService
             if (!File.Exists(filePath)) return null;
 
             string name = Path.GetFileNameWithoutExtension(filePath);
+            DateTime lastWriteTime = File.GetLastWriteTimeUtc(filePath);
             using FileStream stream = File.Open(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
             var jsonNode = JsonNode.Parse(stream);
             if (jsonNode == null) return null;
 
-            return ObjectTemplateItem.FromJson(jsonNode, name, filePath, _logger);
+            ObjectTemplateItem? item = ObjectTemplateItem.FromJson(jsonNode, name, filePath, _logger);
+            if (item != null)
+            {
+                item.LastWriteTimeUtc = lastWriteTime;
+            }
+
+            return item;
         }
         catch (Exception ex)
         {
@@ -190,7 +172,19 @@ public sealed class ObjectTemplateService
         }
     }
 
-    private void SaveItemToFile(ObjectTemplateItem item)
+    private static DateTime GetLastWriteTimeOrDefault(string filePath)
+    {
+        try
+        {
+            return File.Exists(filePath) ? File.GetLastWriteTimeUtc(filePath) : default;
+        }
+        catch
+        {
+            return default;
+        }
+    }
+
+    private bool SaveItemToFile(ObjectTemplateItem item)
     {
         try
         {
@@ -198,33 +192,21 @@ public sealed class ObjectTemplateService
             string filePath = Path.Combine(_directoryPath, item.Name.Value + ".json");
             JsonNode json = ObjectTemplateItem.ToJson(item);
 
-            using FileStream stream = File.Create(filePath);
-            using var writer = new Utf8JsonWriter(stream, new JsonWriterOptions { Indented = true });
-            json.WriteTo(writer);
+            using (FileStream stream = File.Create(filePath))
+            using (var writer = new Utf8JsonWriter(stream, new JsonWriterOptions { Indented = true }))
+            {
+                json.WriteTo(writer);
+            }
 
             item.FilePath = filePath;
+            item.LastWriteTimeUtc = File.GetLastWriteTimeUtc(filePath);
             _logger.LogInformation("Saved ObjectTemplateItem to file: {FilePath}", filePath);
+            return true;
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to save ObjectTemplateItem: {Name}", item.Name.Value);
-        }
-    }
-
-    private void DeleteItemFile(ObjectTemplateItem item)
-    {
-        try
-        {
-            string? filePath = item.FilePath;
-            if (filePath != null && File.Exists(filePath))
-            {
-                File.Delete(filePath);
-                _logger.LogInformation("Deleted ObjectTemplateItem file: {FilePath}", filePath);
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to delete ObjectTemplateItem file: {Name}", item.Name.Value);
+            return false;
         }
     }
 
@@ -344,12 +326,25 @@ public sealed class ObjectTemplateService
                     }
                 }
 
-                // 既に読み込まれているファイルパスを集める
+                // 外部変更を検知したら再読み込み、既読パスを収集
                 var loadedPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                foreach (ObjectTemplateItem item in _items)
+                for (int i = 0; i < _items.Count; i++)
                 {
-                    if (item.FilePath != null)
-                        loadedPaths.Add(item.FilePath);
+                    ObjectTemplateItem item = _items[i];
+                    if (item.FilePath == null) continue;
+
+                    loadedPaths.Add(item.FilePath);
+
+                    DateTime diskTime = GetLastWriteTimeOrDefault(item.FilePath);
+                    if (diskTime == default || diskTime <= item.LastWriteTimeUtc)
+                        continue;
+
+                    ObjectTemplateItem? reloaded = LoadFromFile(item.FilePath);
+                    if (reloaded != null)
+                    {
+                        _items[i] = reloaded;
+                        _logger.LogInformation("Reloaded template (file changed): {FilePath}", item.FilePath);
+                    }
                 }
 
                 // 新しいファイルを読み込んで追加

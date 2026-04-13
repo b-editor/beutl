@@ -505,6 +505,8 @@ public sealed partial class TimelineTabView : UserControl
                     viewModel.ClickedFrame, TimeSpan.FromSeconds(5), viewModel.CalculateClickedLayer(),
                     InitialObject: template.ActualType));
             }
+
+            e.Handled = true;
         }
         else if (e.DataTransfer.TryGetValue(BeutlDataFormats.EngineObject) is { } typeName
             && TypeFormat.ToType(typeName) is { } type)
@@ -512,12 +514,16 @@ public sealed partial class TimelineTabView : UserControl
             viewModel.AddElement.Execute(new ElementDescription(
                 viewModel.ClickedFrame, TimeSpan.FromSeconds(5), viewModel.CalculateClickedLayer(),
                 InitialObject: type));
+
+            e.Handled = true;
         }
         else if (e.DataTransfer.TryGetFile()?.TryGetLocalPath() is { } fileName)
         {
             viewModel.AddElement.Execute(new ElementDescription(
                 viewModel.ClickedFrame, TimeSpan.FromSeconds(5), viewModel.CalculateClickedLayer(),
                 FileName: fileName));
+
+            e.Handled = true;
         }
     }
 

@@ -1,4 +1,4 @@
-using System.Text.Json.Nodes;
+﻿using System.Text.Json.Nodes;
 using Beutl.Serialization;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
@@ -27,6 +27,8 @@ public sealed class ObjectTemplateItem(
     public string CategoryFormat { get; } = categoryFormat;
 
     public string? FilePath { get; internal set; } = filePath;
+
+    public DateTime LastWriteTimeUtc { get; internal set; }
 
     public ICoreSerializable? CreateInstance()
     {
