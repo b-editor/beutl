@@ -500,6 +500,75 @@ public sealed class FileBrowserTabViewModel : IToolContext
         CopyFilesToDirectory(files, resourcesDir);
     }
 
+    public void MoveFilesToDirectory(IEnumerable<(string LocalPath, bool IsDirectory)> files, string targetDir)
+    {
+        string normalizedTargetDir = Path.GetFullPath(targetDir);
+        string targetDirWithSep = normalizedTargetDir.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+
+        foreach (var (localPath, isDir) in files)
+        {
+            string normalizedSource = Path.GetFullPath(localPath);
+
+            // 同じ親ディレクトリ内での自己ドロップはスキップ
+            string? sourceParent = Path.GetDirectoryName(normalizedSource);
+            if (sourceParent != null
+                && string.Equals(
+                    Path.GetFullPath(sourceParent).TrimEnd(Path.DirectorySeparatorChar),
+                    normalizedTargetDir.TrimEnd(Path.DirectorySeparatorChar),
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            // ディレクトリを自身または子孫に移動することはできない
+            if (isDir)
+            {
+                string sourceWithSep = normalizedSource.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+                if (targetDirWithSep.StartsWith(sourceWithSep, StringComparison.OrdinalIgnoreCase))
+                {
+                    _logger.LogError("Cannot move {Source} into itself or a descendant directory.", normalizedSource);
+                    NotificationService.ShowError(Strings.Move, MessageStrings.OperationFailed);
+                    continue;
+                }
+            }
+
+            string destPath = Path.Combine(normalizedTargetDir, Path.GetFileName(normalizedSource));
+
+            try
+            {
+                if (!isDir)
+                {
+                    if (!File.Exists(destPath))
+                    {
+                        File.Move(normalizedSource, destPath);
+                    }
+                }
+                else if (Directory.Exists(normalizedSource))
+                {
+                    if (!Directory.Exists(destPath))
+                    {
+                        Directory.Move(normalizedSource, destPath);
+                    }
+                }
+            }
+            catch (IOException ex)
+            {
+                _logger.LogError(ex, "Failed to move {Source} to {Dest}", normalizedSource, destPath);
+                NotificationService.ShowError(Strings.Move, MessageStrings.OperationFailed);
+            }
+        }
+    }
+
+    public void MoveFilesToResources(IEnumerable<(string LocalPath, bool IsDirectory)> files)
+    {
+        if (string.IsNullOrEmpty(_projectDirectory))
+            return;
+
+        string resourcesDir = Path.Combine(_projectDirectory, "resources");
+        Directory.CreateDirectory(resourcesDir);
+        MoveFilesToDirectory(files, resourcesDir);
+    }
+
     public void WriteToJson(JsonObject json)
     {
         json["RootPath"] = RootPath.Value;

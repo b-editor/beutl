@@ -16,6 +16,10 @@ public class FileItemDragBehavior : Behavior<Control>
     private FileSystemItemViewModel? _dragItem;
     private bool _isDragStarting;
 
+    // FileBrowserTab内部から開始されたドラッグ操作が進行中かどうかを示す。
+    // ドロップ時にコピーではなく移動として扱うべきかの判定に用いる。
+    public static bool IsInternalDragInProgress { get; private set; }
+
     protected override void OnAttached()
     {
         base.OnAttached();
@@ -73,6 +77,7 @@ public class FileItemDragBehavior : Behavior<Control>
             return;
 
         _isDragStarting = true;
+        IsInternalDragInProgress = true;
         try
         {
             var data = new DataTransfer();
@@ -96,13 +101,14 @@ public class FileItemDragBehavior : Behavior<Control>
                 }
             }
 
-            await DragDrop.DoDragDropAsync(e, data, DragDropEffects.Copy);
+            await DragDrop.DoDragDropAsync(e, data, DragDropEffects.Move | DragDropEffects.Copy);
         }
         finally
         {
             _dragStartPoint = null;
             _dragItem = null;
             _isDragStarting = false;
+            IsInternalDragInProgress = false;
         }
     }
 
