@@ -1,4 +1,5 @@
 ﻿using Avalonia.Threading;
+using Beutl.Editor.Services;
 using Beutl.Logging;
 using Microsoft.Extensions.Logging;
 
@@ -51,6 +52,12 @@ internal sealed class DirectoryWatcherService : IDisposable
     // プロジェクト、シーン、要素のファイルは頻繁に変更されるため除外
     private bool ShouldExcludePath(string path)
     {
+        // templatesディレクトリは例外
+        if (path.StartsWith(ObjectTemplateService.Instance.DirectoryPath, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
         return path.EndsWith(".bep", StringComparison.OrdinalIgnoreCase) ||
                path.EndsWith(".scene", StringComparison.OrdinalIgnoreCase) ||
                path.EndsWith(".belm", StringComparison.OrdinalIgnoreCase) ||

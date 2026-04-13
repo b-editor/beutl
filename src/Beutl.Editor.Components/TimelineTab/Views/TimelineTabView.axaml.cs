@@ -55,8 +55,10 @@ public sealed partial class TimelineTabView : UserControl
 
         PopulateAddElementSubMenu();
 
-        PopulateAddFromTemplateSubMenu();
-        ObjectTemplateService.Instance.Items.CollectionChanged += (_, _) => PopulateAddFromTemplateSubMenu();
+        if (TimelinePanel.ContextFlyout is FAMenuFlyout contextFlyout)
+        {
+            contextFlyout.Opening += (_, _) => PopulateAddFromTemplateSubMenu();
+        }
     }
 
     private void OnDataContextDetached(TimelineTabViewModel obj)
