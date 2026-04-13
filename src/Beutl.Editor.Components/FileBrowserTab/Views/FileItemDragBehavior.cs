@@ -101,7 +101,9 @@ public class FileItemDragBehavior : Behavior<Control>
                 }
             }
 
-            await DragDrop.DoDragDropAsync(e, data, DragDropEffects.Move | DragDropEffects.Copy);
+            // 外部アプリ（Finder/Explorer等）にMoveを要求させないため、ソース側ではCopyのみを許可する。
+            // FileBrowserTab内部での移動は、ドロップハンドラ側で IsInternalDragInProgress を見て実施する。
+            await DragDrop.DoDragDropAsync(e, data, DragDropEffects.Copy);
         }
         finally
         {

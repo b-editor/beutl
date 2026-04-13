@@ -551,7 +551,7 @@ public sealed class FileBrowserTabViewModel : IToolContext
                     }
                 }
             }
-            catch (IOException ex)
+            catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to move {Source} to {Dest}", normalizedSource, destPath);
                 NotificationService.ShowError(Strings.Move, MessageStrings.OperationFailed);

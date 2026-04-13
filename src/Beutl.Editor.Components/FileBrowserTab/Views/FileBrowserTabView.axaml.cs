@@ -213,12 +213,10 @@ public partial class FileBrowserTabView : UserControl
         {
             e.DragEffects = DragDropEffects.Link;
         }
-        else if (FileItemDragBehavior.IsInternalDragInProgress)
-        {
-            e.DragEffects = DragDropEffects.Move;
-        }
         else
         {
+            // 内部ドラッグでもソース側はCopyのみをアドバタイズしているため、ここではCopyを設定する。
+            // 実際の移動判定はドロップ時に IsInternalDragInProgress を見て行う。
             e.DragEffects = DragDropEffects.Copy;
         }
     }
