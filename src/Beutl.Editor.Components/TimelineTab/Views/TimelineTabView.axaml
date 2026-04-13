@@ -124,6 +124,7 @@
                 <Panel.ContextFlyout>
                     <ui:FAMenuFlyout>
                         <ui:MenuFlyoutSubItem x:Name="AddElementSubMenu" Text="{x:Static lang:Strings.AddElement}" />
+                        <ui:MenuFlyoutSubItem x:Name="AddFromTemplateSubMenu" Text="{x:Static lang:Strings.AddFromTemplate}" />
                         <ui:MenuFlyoutItem Command="{CompiledBinding Paste}"
                                            InputGesture="{h:GetCommandGesture Paste}"
                                            Text="{x:Static lang:Strings.Paste}">

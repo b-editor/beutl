@@ -7,7 +7,14 @@ using Reactive.Bindings;
 
 namespace Beutl.ViewModels.Editors;
 
-public sealed class ListItemAccessorImpl<T> : IPropertyAdapter<T>
+public interface IListItemAccessor
+{
+    int Index { get; }
+
+    System.Collections.IList List { get; }
+}
+
+public sealed class ListItemAccessorImpl<T> : IPropertyAdapter<T>, IListItemAccessor
 {
     private readonly ReactivePropertySlim<T?> _inner = new();
 
@@ -19,6 +26,8 @@ public sealed class ListItemAccessorImpl<T> : IPropertyAdapter<T>
     }
 
     public IList<T?> List { get; }
+
+    System.Collections.IList IListItemAccessor.List => (System.Collections.IList)List;
 
     public Type ImplementedType => throw new InvalidOperationException();
 

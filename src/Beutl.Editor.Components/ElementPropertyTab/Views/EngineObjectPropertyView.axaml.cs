@@ -6,9 +6,11 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Xaml.Interactivity;
+using Beutl.Controls;
 using Beutl.Controls.Behaviors;
 using Beutl.Editor.Components.ElementPropertyTab.ViewModels;
 using Beutl.Editor.Components.Views;
+using Beutl.Editor.Services;
 using Beutl.Engine;
 using Beutl.ProjectSystem;
 using Microsoft.Extensions.DependencyInjection;
@@ -27,6 +29,24 @@ public sealed partial class EngineObjectPropertyView : UserControl
         ]);
         AddHandler(DragDrop.DragOverEvent, DragOver);
         AddHandler(DragDrop.DropEvent, Drop);
+    }
+
+    private void SaveAsTemplate_Click(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not EngineObjectPropertyViewModel viewModel) return;
+
+        string defaultName = TypeDisplayHelpers.GetLocalizedName(viewModel.Model.GetType());
+        string uniqueName = ObjectTemplateService.Instance.GetUniqueName(defaultName);
+
+        var flyout = new SaveAsTemplateFlyout { Text = uniqueName };
+        flyout.Confirmed += (_, name) =>
+        {
+            if (!string.IsNullOrWhiteSpace(name))
+            {
+                ObjectTemplateService.Instance.AddFromInstance(viewModel.Model, name);
+            }
+        };
+        flyout.ShowAt(this);
     }
 
     public void Remove_Click(object? sender, RoutedEventArgs e)

@@ -127,6 +127,12 @@
                     </ui:ToggleMenuFlyoutItem.Styles>
                 </ui:ToggleMenuFlyoutItem>
                 <ui:MenuFlyoutSeparator />
+                <ui:MenuFlyoutItem Click="SaveAsTemplate_Click" Text="{x:Static lang:Strings.SaveAsTemplate}">
+                    <ui:MenuFlyoutItem.IconSource>
+                        <icons:SymbolIconSource Symbol="DocumentCopy" />
+                    </ui:MenuFlyoutItem.IconSource>
+                </ui:MenuFlyoutItem>
+                <ui:MenuFlyoutSeparator />
                 <ui:MenuFlyoutSubItem Text="{x:Static lang:Strings.Animation}">
                     <ui:MenuFlyoutItem Command="{Binding FinishEditingAnimation}" Text="{x:Static lang:Strings.FinishEditing}" />
                     <ui:MenuFlyoutItem Command="{Binding BringAnimationToTop}" Text="{x:Static lang:Strings.BringToTop}" />

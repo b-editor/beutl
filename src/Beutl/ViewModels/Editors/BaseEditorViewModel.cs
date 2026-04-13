@@ -361,6 +361,53 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
         return json != null && TryPasteJson(json);
     }
 
+    // テンプレート保存・適用対応
+    public virtual IReadOnlyReactiveProperty<bool> CanSaveAsTemplate => s_alwaysFalse;
+
+    protected virtual Type? TemplateBaseType => null;
+
+    protected virtual ICoreSerializable? GetTemplateTarget() => null;
+
+    public virtual bool ApplyTemplate(ObjectTemplateItem template) => false;
+
+    public bool IsListItemAdapter => PropertyAdapter is IListItemAccessor;
+
+    public virtual bool IsTemplateGroup => false;
+
+    public virtual bool AddTemplateAsListItem(ObjectTemplateItem template)
+    {
+        if (PropertyAdapter is not IListItemAccessor accessor) return false;
+        if (template.CreateInstance() is not { } instance) return false;
+
+        try
+        {
+            int insertIndex = Math.Clamp(accessor.Index, 0, accessor.List.Count);
+            accessor.List.Insert(insertIndex, instance);
+            Commit(CommandNames.ApplyTemplate);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    public virtual IEnumerable<ObjectTemplateItem> GetApplicableTemplates()
+        => TemplateBaseType is { } t ? ObjectTemplateService.Instance.FindByBaseType(t) : [];
+
+    public virtual string GetTemplateDefaultName()
+    {
+        if (GetTemplateTarget() is { } target)
+            return TypeDisplayHelpers.GetLocalizedName(target.GetType());
+        return string.Empty;
+    }
+
+    public ValueTask<bool> SaveAsTemplateAsync(string name)
+    {
+        if (GetTemplateTarget() is not { } target) return new(false);
+        return new(ObjectTemplateService.Instance.AddFromInstance(target, name) != null);
+    }
+
     public async ValueTask RefreshCanPasteAsync()
     {
         if (PasteFormat is not { } format)

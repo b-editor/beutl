@@ -839,6 +839,55 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
         _logger.LogInformation("Element added successfully.");
     }
 
+    public void AddElementFromTemplate(ObjectTemplateItem template, TimeSpan start, int layer)
+    {
+        _logger.LogInformation("Adding element from template: {TemplateName}", template.Name.Value);
+
+        ICoreSerializable? instance = template.CreateInstance();
+        Element newElement;
+        if (instance is Element templateElement)
+        {
+            // ObjectRegenerator で ID を再生成
+            ObjectRegenerator.Regenerate(templateElement, out newElement);
+
+            newElement.Start = start;
+            newElement.ZIndex = layer;
+        }
+        else if (instance is EngineObject templateEngineObject)
+        {
+            ObjectRegenerator.Regenerate(
+                templateEngineObject, templateEngineObject.GetType(), out ICoreSerializable regenerated);
+            var newEngineObject = (EngineObject)regenerated;
+
+            newElement = new Element
+            {
+                Start = start,
+                Length = TimeSpan.FromSeconds(5),
+                ZIndex = layer,
+                Name = template.Name.Value,
+                AccentColor = ColorGenerator.GenerateColor(
+                    template.ActualType.FullName ?? template.ActualType.Name),
+            };
+            newElement.AddObject(newEngineObject);
+        }
+        else
+        {
+            _logger.LogWarning("Failed to create element from template.");
+            return;
+        }
+
+        newElement.Uri = RandomFileNameGenerator.GenerateUri(Scene.Uri!, Constants.ElementFileExtension);
+
+        CoreSerializer.StoreToUri(newElement, newElement.Uri!);
+        Scene.AddChild(newElement);
+        HistoryManager.Commit(CommandNames.AddElementFromTemplate);
+
+        TimelineTabViewModel? timeline = FindToolTab<TimelineTabViewModel>();
+        timeline?.ScrollTo.Execute((newElement.Range, newElement.ZIndex));
+
+        _logger.LogInformation("Element from template added successfully.");
+    }
+
     private static bool MatchFileExtensions(string filePath, IEnumerable<string> extensions)
     {
         string ext = Path.GetExtension(filePath);

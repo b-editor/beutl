@@ -13,6 +13,7 @@ using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.SceneSettingsTab.ViewModels;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Services;
+using Beutl.Engine;
 using Beutl.Logging;
 using Beutl.Media;
 using Beutl.ProjectSystem;
@@ -53,6 +54,11 @@ public sealed partial class TimelineTabView : UserControl
         this.SubscribeDataContextChange<TimelineTabViewModel>(OnDataContextAttached, OnDataContextDetached);
 
         PopulateAddElementSubMenu();
+
+        if (TimelinePanel.ContextFlyout is FAMenuFlyout contextFlyout)
+        {
+            contextFlyout.Opening += (_, _) => PopulateAddFromTemplateSubMenu();
+        }
     }
 
     private void OnDataContextDetached(TimelineTabViewModel obj)
@@ -463,24 +469,60 @@ public sealed partial class TimelineTabView : UserControl
             .RoundToRate(viewModel.Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30);
         viewModel.ClickedPosition = pt;
 
-        if (e.DataTransfer.TryGetValue(BeutlDataFormats.EngineObject) is { } typeName
+        // テンプレート経路（優先）
+        ObjectTemplateItem? template = null;
+        if (e.DataTransfer.TryGetValue(BeutlDataFormats.ObjectTemplate) is { } idStr
+            && Guid.TryParse(idStr, out Guid templateId))
+        {
+            template = ObjectTemplateService.Instance.FindById(templateId);
+        }
+
+        // テンプレートファイルのドロップもテンプレート経路で処理
+        if (template == null && e.DataTransfer.TryGetFile()?.TryGetLocalPath() is { } droppedFile
+            && string.Equals(Path.GetExtension(droppedFile), ".json", StringComparison.OrdinalIgnoreCase))
+        {
+            template = ObjectTemplateService.Instance.TryLoadFromFile(droppedFile);
+        }
+
+        if (template != null)
+        {
+            if (viewModel.EditorContext.GetService(typeof(IElementAdder))
+                is IElementAdder adder
+                && (template.BaseType == typeof(Element)
+                    || template.BaseType.IsAssignableTo(typeof(EngineObject))))
+            {
+                // Element テンプレート、もしくは EngineObject テンプレート → 新しい Element を作って配置
+                adder.AddElementFromTemplate(
+                    template,
+                    viewModel.ClickedFrame,
+                    viewModel.CalculateClickedLayer());
+            }
+
+            e.Handled = true;
+        }
+        else if (e.DataTransfer.TryGetValue(BeutlDataFormats.EngineObject) is { } typeName
             && TypeFormat.ToType(typeName) is { } type)
         {
             viewModel.AddElement.Execute(new ElementDescription(
                 viewModel.ClickedFrame, TimeSpan.FromSeconds(5), viewModel.CalculateClickedLayer(),
                 InitialObject: type));
+
+            e.Handled = true;
         }
         else if (e.DataTransfer.TryGetFile()?.TryGetLocalPath() is { } fileName)
         {
             viewModel.AddElement.Execute(new ElementDescription(
                 viewModel.ClickedFrame, TimeSpan.FromSeconds(5), viewModel.CalculateClickedLayer(),
                 FileName: fileName));
+
+            e.Handled = true;
         }
     }
 
     private void TimelinePanel_DragOver(object? sender, DragEventArgs e)
     {
-        if (e.DataTransfer.Contains(BeutlDataFormats.EngineObject)
+        if (e.DataTransfer.Contains(BeutlDataFormats.ObjectTemplate)
+            || e.DataTransfer.Contains(BeutlDataFormats.EngineObject)
             || e.DataTransfer.Contains(DataFormat.File))
         {
             e.DragEffects = DragDropEffects.Copy;
@@ -555,6 +597,35 @@ public sealed partial class TimelineTabView : UserControl
             TimeSpan.FromSeconds(5),
             ViewModel.CalculateClickedLayer(),
             InitialObject: operatorType));
+    }
+
+    private void PopulateAddFromTemplateSubMenu()
+    {
+        AddFromTemplateSubMenu.Items.Clear();
+        foreach (ObjectTemplateItem template in ObjectTemplateService.Instance
+            .FindByBaseType(typeof(Element)))
+        {
+            var menuItem = new MenuFlyoutItem { Text = template.Name.Value, Tag = template };
+            menuItem.Click += AddElementFromTemplateClick;
+            AddFromTemplateSubMenu.Items.Add(menuItem);
+        }
+
+        AddFromTemplateSubMenu.IsEnabled = AddFromTemplateSubMenu.Items.Count > 0;
+    }
+
+    private void AddElementFromTemplateClick(object? sender, RoutedEventArgs e)
+    {
+        if (ViewModel == null) return;
+        if (sender is not MenuFlyoutItem { Tag: ObjectTemplateItem template }) return;
+
+        if (ViewModel.EditorContext.GetService(typeof(IElementAdder))
+            is IElementAdder adder)
+        {
+            adder.AddElementFromTemplate(
+                template,
+                ViewModel.ClickedFrame,
+                ViewModel.CalculateClickedLayer());
+        }
     }
 
     private void ShowSceneSettings(object? sender, RoutedEventArgs e)

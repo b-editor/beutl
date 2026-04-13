@@ -196,6 +196,21 @@ public sealed class CoreObjectEditorViewModel<T> : BaseEditorViewModel<T>, ICore
     protected override ICoreSerializable? GetCopyTarget()
         => Value.Value is T obj and not IFallback ? obj : null;
 
+    public override IReadOnlyReactiveProperty<bool> CanSaveAsTemplate => CanCopy;
+
+    protected override Type? TemplateBaseType => typeof(T);
+
+    protected override ICoreSerializable? GetTemplateTarget() => GetCopyTarget();
+
+    public override bool ApplyTemplate(ObjectTemplateItem template)
+    {
+        if (template.CreateInstance() is not T instance) return false;
+        IsExpanded.Value = true;
+        PropertyAdapter.SetValue(instance);
+        Commit(CommandNames.ApplyTemplate);
+        return true;
+    }
+
     public override bool TryPasteJson(string json)
     {
         if (!CoreObjectClipboard.TryDeserializeJson<T>(json, out var pasted)) return false;

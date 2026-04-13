@@ -4,6 +4,8 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Platform.Storage;
+using Beutl.Audio.Effects;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.Views;
 using Beutl.Services;
@@ -58,11 +60,32 @@ public partial class AudioEffectEditor : UserControl
         AddHandler(DragDrop.DropEvent, Drop);
 
         CopyPasteMenuHelper.AddMenus((FAMenuFlyout)expandToggle.ContextFlyout!, this);
+        TemplateMenuHelper.AddMenus((FAMenuFlyout)expandToggle.ContextFlyout!, this);
     }
 
     private void Drop(object? sender, DragEventArgs e)
     {
         if (DataContext is not AudioEffectEditorViewModel { IsDisposed: false } viewModel) return;
+
+        // テンプレートファイルのドロップ
+        if (e.DataTransfer.TryGetFile()?.TryGetLocalPath() is { } droppedFile
+            && string.Equals(Path.GetExtension(droppedFile), ".json", StringComparison.OrdinalIgnoreCase)
+            && ObjectTemplateService.Instance.TryLoadFromFile(droppedFile) is { } template
+            && template.CreateInstance() is AudioEffect instance)
+        {
+            if (viewModel.IsGroup.Value)
+            {
+                viewModel.AddItem(instance);
+            }
+            else
+            {
+                viewModel.ChangeAudioEffect(instance);
+            }
+
+            e.Handled = true;
+            return;
+        }
+
         if (e.DataTransfer.TryGetValue(BeutlDataFormats.AudioEffect) is not { } data) return;
 
         if (CoreObjectClipboard.IsJsonData(data))
@@ -89,7 +112,8 @@ public partial class AudioEffectEditor : UserControl
 
     private void DragOver(object? sender, DragEventArgs e)
     {
-        if (e.DataTransfer.Contains(BeutlDataFormats.AudioEffect))
+        if (e.DataTransfer.Contains(BeutlDataFormats.AudioEffect)
+            || e.DataTransfer.Contains(DataFormat.File))
         {
             e.DragEffects = DragDropEffects.Copy | DragDropEffects.Link;
             e.Handled = true;

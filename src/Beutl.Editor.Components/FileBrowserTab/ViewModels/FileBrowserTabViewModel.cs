@@ -74,6 +74,7 @@ public sealed class FileBrowserTabViewModel : IToolContext
         {
             if (isHome)
             {
+                RootPath.Value = string.Empty;
                 RefreshHomeView();
                 _directoryWatcher.Watch(_projectDirectory);
             }

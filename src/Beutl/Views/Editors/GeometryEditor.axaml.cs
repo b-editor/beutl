@@ -2,7 +2,9 @@
 using Avalonia.Animation;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
+using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Platform.Storage;
 using Beutl.Editor.Components.Views;
 using Beutl.Language;
 using Beutl.Logging;
@@ -55,6 +57,33 @@ public partial class GeometryEditor : UserControl
             });
 
         CopyPasteMenuHelper.AddMenus((FAMenuFlyout)expandToggle.ContextFlyout!, this);
+        TemplateMenuHelper.AddMenus((FAMenuFlyout)expandToggle.ContextFlyout!, this);
+
+        DragDrop.SetAllowDrop(this, true);
+        AddHandler(DragDrop.DragOverEvent, DragOver);
+        AddHandler(DragDrop.DropEvent, Drop);
+    }
+
+    private void Drop(object? sender, DragEventArgs e)
+    {
+        if (DataContext is not GeometryEditorViewModel { IsDisposed: false } viewModel) return;
+
+        if (e.DataTransfer.TryGetFile()?.TryGetLocalPath() is { } droppedFile
+            && string.Equals(Path.GetExtension(droppedFile), ".json", StringComparison.OrdinalIgnoreCase)
+            && ObjectTemplateService.Instance.TryLoadFromFile(droppedFile) is { } template
+            && viewModel.ApplyTemplate(template))
+        {
+            e.Handled = true;
+        }
+    }
+
+    private void DragOver(object? sender, DragEventArgs e)
+    {
+        if (e.DataTransfer.Contains(DataFormat.File))
+        {
+            e.DragEffects = DragDropEffects.Copy | DragDropEffects.Link;
+            e.Handled = true;
+        }
     }
 
     private void Tag_Click(object? sender, RoutedEventArgs e)
