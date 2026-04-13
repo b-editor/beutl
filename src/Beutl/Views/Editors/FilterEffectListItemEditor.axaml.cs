@@ -28,7 +28,7 @@ public partial class FilterEffectListItemEditor : UserControl, IListItemEditor
             .CombineLatest(presenterEditor.GetObservable(PropertyEditor.ReorderHandleProperty))
             .Subscribe(t => UpdateReorderHandle(t.First, t.Second));
 
-        reorderHandle.ContextFlyout = new FAMenuFlyout();
+        reorderHandle.ContextFlyout = new FAMenuFlyout { Placement = PlacementMode.Pointer };
         EditorMenuHelper.AttachCopyPasteAndTemplateMenus(this, (FAMenuFlyout)reorderHandle.ContextFlyout);
     }
 
