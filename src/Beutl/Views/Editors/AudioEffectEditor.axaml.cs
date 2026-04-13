@@ -118,29 +118,7 @@ public partial class AudioEffectEditor : UserControl
         {
             _flyoutOpen = true;
             var viewModel = new SelectAudioEffectTypeViewModel();
-            var dialog = new LibraryItemPickerFlyout(viewModel);
-            dialog.ShowAt(this);
-            var tcs = new TaskCompletionSource<Type?>();
-            dialog.Pinned += (_, item) => viewModel.Pin(item);
-            dialog.Unpinned += (_, item) => viewModel.Unpin(item);
-            dialog.Dismissed += (_, _) => tcs.SetResult(null);
-            dialog.Confirmed += (_, _) =>
-            {
-                switch (viewModel.SelectedItem.Value?.UserData)
-                {
-                    case SingleTypeLibraryItem single:
-                        tcs.SetResult(single.ImplementationType);
-                        break;
-                    case MultipleTypeLibraryItem multi:
-                        tcs.SetResult(multi.Types.GetValueOrDefault(KnownLibraryItemFormats.AudioEffect));
-                        break;
-                    default:
-                        tcs.SetResult(null);
-                        break;
-                }
-            };
-
-            return await tcs.Task;
+            return await LibraryItemPickerHelper.ShowTypeOnlyAsync(this, viewModel, KnownLibraryItemFormats.AudioEffect);
         }
         finally
         {
