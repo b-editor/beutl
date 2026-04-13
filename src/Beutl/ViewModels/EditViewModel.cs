@@ -1,47 +1,35 @@
 ﻿using System.ComponentModel;
 using System.Numerics;
 using System.Text.Json.Nodes;
-using Beutl.Animation;
-using Beutl.Audio;
-using Beutl.Composition;
 using Beutl.Configuration;
 using Beutl.Editor;
-using Beutl.Editor.Components.GraphEditorTab.ViewModels;
-using Beutl.Editor.Components.Helpers;
-using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Observers;
 using Beutl.Editor.Operations;
-using Beutl.Engine;
-using Beutl.Graphics;
-using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Cache;
-using Beutl.Graphics.Transformation;
-using Beutl.Helpers;
 using Beutl.Logging;
 using Beutl.Media;
-using Beutl.Media.Decoding;
-using Beutl.Media.Source;
 using Beutl.Models;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
 using Beutl.Services;
 using Beutl.Services.PrimitiveImpls;
-using Beutl.Threading;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
 using Dispatcher = Avalonia.Threading.Dispatcher;
-using LibraryService = Beutl.Services.LibraryService;
 
 namespace Beutl.ViewModels;
 
-public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProvider,
-    ISupportAutoSaveEditorContext, IEditorClock, IEditorSelection, IElementAdder
+public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEditorContext
 {
     private readonly ILogger _logger = Log.CreateLogger<EditViewModel>();
     private readonly AutoSaveService _autoSaveService = new();
 
     private readonly CompositeDisposable _disposables = [];
+    private readonly TimelineOptionsProviderImpl _timelineOptionsProvider;
+    private readonly EditorClockImpl _editorClock;
+    private readonly EditorSelectionImpl _editorSelection;
+    private readonly ElementAdderImpl _elementAdder;
 
     public EditViewModel(Scene scene)
     {
@@ -49,13 +37,14 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
 
         Scene = scene;
         SceneId = scene.Id.ToString();
-        Scene.Children.Attached += OnElementAttached;
-        Scene.Children.Detached += OnElementDetached;
-        CurrentTime = new ReactivePropertySlim<TimeSpan>()
+
+        _timelineOptionsProvider = new TimelineOptionsProviderImpl(scene)
             .DisposeWith(_disposables);
-        MaximumTime = new ReactivePropertySlim<TimeSpan>()
+        _editorClock = new EditorClockImpl(scene)
             .DisposeWith(_disposables);
-        CalculateMaximumTime();
+        _editorSelection = new EditorSelectionImpl()
+            .DisposeWith(_disposables);
+
         Renderer = scene.GetObservable(Scene.FrameSizeProperty).Select(_ => new SceneRenderer(Scene))
             .DisposePreviousValue()
             .ToReadOnlyReactivePropertySlim()
@@ -73,28 +62,6 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
             .DisposeWith(_disposables)!;
 
         config.PropertyChanged += OnEditorConfigPropertyChanged;
-
-        SelectedObject = new ReactiveProperty<CoreObject?>()
-            .DisposeWith(_disposables);
-
-        Scale = Options.Select(o => o.Scale);
-        Offset = Options.Select(o => o.Offset);
-        SelectedObject.CombineWithPrevious()
-            .Subscribe(v =>
-            {
-                if (v.OldValue is IHierarchical oldHierarchical)
-                    oldHierarchical.DetachedFromHierarchy -= OnSelectedObjectDetachedFromHierarchy;
-
-                if (v.NewValue is IHierarchical newHierarchical)
-                    newHierarchical.DetachedFromHierarchy += OnSelectedObjectDetachedFromHierarchy;
-            })
-            .DisposeWith(_disposables);
-
-        SelectedLayerNumber = SelectedObject.Select(v =>
-                (v as Element)?.GetObservable(Element.ZIndexProperty).Select(i => (int?)i) ??
-                Observable.ReturnThenNever<int?>(null))
-            .Switch()
-            .ToReadOnlyReactivePropertySlim();
 
         Player = new PlayerViewModel(this);
         Commands = new KnownCommandsImpl(scene, this);
@@ -116,6 +83,8 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
         DockHost = new DockHostViewModel(SceneId, this)
             .DisposeWith(_disposables);
 
+        _elementAdder = new ElementAdderImpl(this);
+
         _autoSaveService.SaveError
             .Subscribe(_ =>
                 NotificationService.ShowError(string.Empty, MessageStrings.FileSaveException))
@@ -125,67 +94,6 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
         RestoreState();
 
         _logger.LogInformation("Initialized EditViewModel for Scene ({SceneId}).", SceneId);
-    }
-
-    private void OnElementDetached(Element obj)
-    {
-        obj.PropertyChanged -= OnElementPropertyChanged;
-
-        if (MaximumTime.Value < obj.Range.End)
-        {
-            MaximumTime.Value = obj.Range.End;
-        }
-        else
-        {
-            CalculateMaximumTime();
-        }
-    }
-
-    private void OnElementAttached(Element obj)
-    {
-        obj.PropertyChanged += OnElementPropertyChanged;
-
-        if (MaximumTime.Value < obj.Range.End)
-        {
-            MaximumTime.Value = obj.Range.End;
-        }
-        else
-        {
-            CalculateMaximumTime();
-        }
-    }
-
-    private void CalculateMaximumTime()
-    {
-        MaximumTime.Value = Scene.Children.Count > 0
-            ? Scene.Children.Max(i => i.Range.End)
-            : TimeSpan.Zero;
-    }
-
-    private void OnElementPropertyChanged(object? sender, PropertyChangedEventArgs e)
-    {
-        if (e is CorePropertyChangedEventArgs<TimeSpan> typedArgs)
-        {
-            bool startChanged = typedArgs.Property.Id == Element.StartProperty.Id;
-            bool lengthChanged = typedArgs.Property.Id == Element.LengthProperty.Id;
-
-            if (sender is Element element && (startChanged || lengthChanged))
-            {
-                // 変更前の値を取得
-                TimeRange oldRange = element.Range;
-                if (startChanged) oldRange = oldRange.WithStart(typedArgs.OldValue);
-                if (lengthChanged) oldRange = oldRange.WithDuration(typedArgs.OldValue);
-
-                if (MaximumTime.Value < element.Range.End)
-                {
-                    MaximumTime.Value = element.Range.End;
-                }
-                else if (MaximumTime.Value == oldRange.End)
-                {
-                    CalculateMaximumTime();
-                }
-            }
-        }
     }
 
     private static FrameCacheOptions CreateFrameCacheOptions()
@@ -379,31 +287,25 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
         return null;
     }
 
-    private void OnSelectedObjectDetachedFromHierarchy(object? sender, HierarchyAttachmentEventArgs e)
-    {
-        _logger.LogInformation("Selected object detached from hierarchy, clearing selection.");
-        SelectedObject.Value = null;
-    }
-
     // Telemetryで使う
     public string SceneId { get; }
 
     public Scene Scene { get; private set; }
 
-    public ReactivePropertySlim<TimeSpan> CurrentTime { get; }
+    public ReactivePropertySlim<TimeSpan> CurrentTime => _editorClock.CurrentTime;
 
     // Timelineの横幅をmax(MaximumTime, start+duration)で決める
-    public ReactivePropertySlim<TimeSpan> MaximumTime { get; }
+    public ReactivePropertySlim<TimeSpan> MaximumTime => _editorClock.MaximumTime;
 
     public ReadOnlyReactivePropertySlim<SceneRenderer> Renderer { get; }
 
     public ReadOnlyReactivePropertySlim<SceneComposer> Composer { get; }
 
-    public ReactiveProperty<CoreObject?> SelectedObject { get; }
+    public ReactiveProperty<CoreObject?> SelectedObject => _editorSelection.SelectedObject;
 
     public ReactivePropertySlim<bool> IsEnabled { get; } = new(true);
 
-    public ReadOnlyReactivePropertySlim<int?> SelectedLayerNumber { get; }
+    public ReadOnlyReactivePropertySlim<int?> SelectedLayerNumber => _editorSelection.SelectedLayerNumber;
 
     public PlayerViewModel Player { get; private set; }
 
@@ -419,45 +321,28 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
 
     public IKnownEditorCommands? Commands { get; private set; }
 
-    public IReactiveProperty<TimelineOptions> Options { get; } =
-        new ReactiveProperty<TimelineOptions>(new TimelineOptions());
+    public IReactiveProperty<TimelineOptions> Options => _timelineOptionsProvider.Options;
 
-    public IObservable<float> Scale { get; }
+    public IObservable<float> Scale => _timelineOptionsProvider.Scale;
 
-    public IObservable<Vector2> Offset { get; }
+    public IObservable<Vector2> Offset => _timelineOptionsProvider.Offset;
 
     IReactiveProperty<bool> IEditorContext.IsEnabled => IsEnabled;
-
-    IReactiveProperty<TimeSpan> IEditorClock.CurrentTime => CurrentTime;
-
-    IReadOnlyReactiveProperty<TimeSpan> IEditorClock.MaximumTime => MaximumTime;
-
-    IReactiveProperty<CoreObject?> IEditorSelection.SelectedObject => SelectedObject;
-
-    IReadOnlyReactiveProperty<int?> IEditorSelection.SelectedLayerNumber => SelectedLayerNumber;
 
     public DockHostViewModel DockHost { get; }
 
     public async ValueTask DisposeAsync()
     {
         _logger.LogInformation("Disposing EditViewModel ({SceneId}).", SceneId);
-        foreach (Element element in Scene.Children)
-        {
-            element.PropertyChanged -= OnElementPropertyChanged;
-        }
 
-        Scene.Children.Attached -= OnElementAttached;
-        Scene.Children.Detached -= OnElementDetached;
         GlobalConfiguration.Instance.EditorConfig.PropertyChanged -= OnEditorConfigPropertyChanged;
         SaveState();
+        SelectedObject.Value = null;
         await Player.DisposeAsync();
         _disposables.Dispose();
-        Options.Dispose();
         IsEnabled.Dispose();
         Player = null!;
         BufferStatus = null!;
-
-        SelectedObject.Value = null;
 
         Scene = null!;
         Commands = null!;
@@ -631,16 +516,16 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
             return HistoryManager;
 
         if (serviceType.IsAssignableTo(typeof(ITimelineOptionsProvider)))
-            return this;
+            return _timelineOptionsProvider;
 
         if (serviceType.IsAssignableTo(typeof(IEditorClock)))
-            return this;
+            return _editorClock;
 
         if (serviceType.IsAssignableTo(typeof(IEditorSelection)))
-            return this;
+            return _editorSelection;
 
         if (serviceType.IsAssignableTo(typeof(IElementAdder)))
-            return this;
+            return _elementAdder;
 
         if (serviceType == typeof(PlayerViewModel) || serviceType.IsAssignableTo(typeof(IPreviewPlayer)))
             return Player;
@@ -660,284 +545,10 @@ public sealed partial class EditViewModel : IEditorContext, ITimelineOptionsProv
         return null;
     }
 
-    public void AddElement(ElementDescription desc)
-    {
-        _logger.LogInformation("Adding new element with description: {Description}", desc);
-
-        Element CreateElement()
-        {
-            _logger.LogDebug("Creating new element with start: {Start}, length: {Length}, layer: {Layer}", desc.Start,
-                desc.Length, desc.Layer);
-            return new Element()
-            {
-                Start = desc.Start,
-                Length = desc.Length,
-                ZIndex = desc.Layer,
-                Uri = RandomFileNameGenerator.GenerateUri(Scene.Uri!, Constants.ElementFileExtension)
-            };
-        }
-
-        void SetAccentColor(Element element, string str)
-        {
-            _logger.LogDebug("Setting accent color for element: {Element}, color string: {ColorString}", element, str);
-            element.AccentColor = ColorGenerator.GenerateColor(str);
-        }
-
-        void SetTransform(Drawable drawable)
-        {
-            if (!desc.Position.IsDefault)
-            {
-                _logger.LogDebug(
-                    "Setting transform for drawable: {Drawable}, position: {Position}",
-                    drawable, desc.Position);
-                Transform? transform = drawable.Transform.CurrentValue;
-                AddOrSetHelper.AddOrSet(
-                    ref transform,
-                    new TranslateTransform(desc.Position));
-                drawable.Transform.CurrentValue = transform;
-            }
-        }
-
-        T? TrySetDuration<T>(Element element, Func<T> init, Func<T, TimeSpan> getDuration)
-        {
-            try
-            {
-                var state = init();
-                element.Length = getDuration(state);
-                return state;
-            }
-            catch
-            {
-                return default;
-            }
-        }
-
-        TimelineTabViewModel? timeline = FindToolTab<TimelineTabViewModel>();
-        using var compositeDisposable = new CompositeDisposable();
-
-        if (desc.FileName != null)
-        {
-            _logger.LogInformation("Adding element from file: {FileName}", desc.FileName);
-            (TimeRange Range, int ZIndex)? scrollPos = null;
-
-            Element CreateElementFor<TValue>(out TValue value)
-                where TValue : EngineObject, new()
-            {
-                Element element = CreateElement();
-                element.Name = Path.GetFileName(desc.FileName);
-                SetAccentColor(element, typeof(TValue).FullName!);
-
-                value = new TValue();
-                element.AddObject(value);
-                if (value is Drawable drawable)
-                {
-                    SetTransform(drawable);
-                }
-
-                return element;
-            }
-
-            if (MatchFileImage(desc.FileName))
-            {
-                _logger.LogDebug("File is an image.");
-                Element element = CreateElementFor<SourceImage>(out var t);
-                t.Source.CurrentValue = ImageSource.Open(desc.FileName);
-
-                CoreSerializer.StoreToUri(element, element.Uri!);
-                Scene.AddChild(element);
-                scrollPos = (element.Range, element.ZIndex);
-            }
-            else if (MatchFileVideoOnly(desc.FileName))
-            {
-                _logger.LogDebug("File is a video.");
-                Element element1 = CreateElementFor<SourceVideo>(out var t1);
-                Element element2 = CreateElementFor<SourceSound>(out var t2);
-                element2.ZIndex++;
-                var video = VideoSource.Open(desc.FileName);
-                t1.Source.CurrentValue = video;
-                var videoResource = TrySetDuration(
-                    element1,
-                    () => video.ToResource(CompositionContext.Default),
-                    v => v.Duration);
-
-                var sound = SoundSource.Open(desc.FileName);
-                t2.Source.CurrentValue = sound;
-                var soundResource = TrySetDuration(
-                    element2,
-                    () => sound.ToResource(CompositionContext.Default),
-                    v => v.Duration);
-                // VideoSource.Resource, SoundSource.ResourceのMediaReaderは参照カウンターで管理され、Resource間で共有される
-                // すぐに解放してしまうとこのDuration設定時とレンダリング時の2回MediaReaderが生成されてしまう
-                // 作成 -> 参照カウントを引く -> 解放 -> レンダラ側で作成 のようになってしまう
-                // これを以下のようにさせる
-                // 作成 -> レンダラ側で参照カウントを追加 -> 以下のDisposeで参照カウントを引く -> 実体は解放されない
-                compositeDisposable.Add(Disposable.Create(() => RenderThread.Dispatcher.Dispatch(() =>
-                {
-                    videoResource?.Dispose();
-                    soundResource?.Dispose();
-                }, DispatchPriority.Low)));
-
-                CoreSerializer.StoreToUri(element1, element1.Uri!);
-                CoreSerializer.StoreToUri(element2, element2.Uri!);
-                Scene.AddChild(element1);
-                Scene.AddChild(element2);
-                // グループ化
-                Scene.Groups.Add([element1.Id, element2.Id]);
-                scrollPos = (element1.Range, element1.ZIndex);
-            }
-            else if (MatchFileAudioOnly(desc.FileName))
-            {
-                _logger.LogDebug("File is an audio.");
-                Element element = CreateElementFor<SourceSound>(out var t);
-                var sound = SoundSource.Open(desc.FileName);
-                t.Source.CurrentValue = sound;
-                var soundResource = TrySetDuration(
-                    element,
-                    () => sound.ToResource(CompositionContext.Default),
-                    v => v.Duration);
-                compositeDisposable.Add(Disposable.Create(() =>
-                    RenderThread.Dispatcher.Dispatch(() => soundResource?.Dispose(), DispatchPriority.Low)));
-
-                CoreSerializer.StoreToUri(element, element.Uri!);
-                Scene.AddChild(element);
-                scrollPos = (element.Range, element.ZIndex);
-            }
-
-            HistoryManager.Commit(CommandNames.AddElement);
-
-            if (scrollPos.HasValue && timeline != null)
-            {
-                _logger.LogDebug("Scrolling to position: {ScrollPosition}", scrollPos.Value);
-                timeline?.ScrollTo.Execute(scrollPos.Value);
-            }
-        }
-        else
-        {
-            _logger.LogInformation("Adding new element without file.");
-            Element element = CreateElement();
-            if (desc.InitialObject != null)
-            {
-                element.Name = TypeDisplayHelpers.GetLocalizedName(desc.InitialObject);
-
-                element.AccentColor =
-                    ColorGenerator.GenerateColor(desc.InitialObject.FullName ?? desc.InitialObject.Name);
-                var engineObject = (EngineObject)Activator.CreateInstance(desc.InitialObject)!;
-                element.AddObject(engineObject);
-                if (engineObject is Drawable drawable)
-                {
-                    SetTransform(drawable);
-                }
-            }
-
-            CoreSerializer.StoreToUri(element, element.Uri!);
-            Scene.AddChild(element);
-            HistoryManager.Commit(CommandNames.AddElement);
-
-            timeline?.ScrollTo.Execute((element.Range, element.ZIndex));
-        }
-
-        _logger.LogInformation("Element added successfully.");
-    }
+    public void AddElement(ElementDescription desc) => _elementAdder.AddElement(desc);
 
     public void AddElementFromTemplate(ObjectTemplateItem template, TimeSpan start, int layer)
-    {
-        _logger.LogInformation("Adding element from template: {TemplateName}", template.Name.Value);
-
-        ICoreSerializable? instance = template.CreateInstance();
-        Element newElement;
-        if (instance is Element templateElement)
-        {
-            // ObjectRegenerator で ID を再生成
-            ObjectRegenerator.Regenerate(templateElement, out newElement);
-
-            newElement.Start = start;
-            newElement.ZIndex = layer;
-        }
-        else if (instance is EngineObject templateEngineObject)
-        {
-            ObjectRegenerator.Regenerate(
-                templateEngineObject, templateEngineObject.GetType(), out ICoreSerializable regenerated);
-            var newEngineObject = (EngineObject)regenerated;
-
-            newElement = new Element
-            {
-                Start = start,
-                Length = TimeSpan.FromSeconds(5),
-                ZIndex = layer,
-                Name = template.Name.Value,
-                AccentColor = ColorGenerator.GenerateColor(
-                    template.ActualType.FullName ?? template.ActualType.Name),
-            };
-            newElement.AddObject(newEngineObject);
-        }
-        else
-        {
-            _logger.LogWarning("Failed to create element from template.");
-            return;
-        }
-
-        newElement.Uri = RandomFileNameGenerator.GenerateUri(Scene.Uri!, Constants.ElementFileExtension);
-
-        CoreSerializer.StoreToUri(newElement, newElement.Uri!);
-        Scene.AddChild(newElement);
-        HistoryManager.Commit(CommandNames.AddElementFromTemplate);
-
-        TimelineTabViewModel? timeline = FindToolTab<TimelineTabViewModel>();
-        timeline?.ScrollTo.Execute((newElement.Range, newElement.ZIndex));
-
-        _logger.LogInformation("Element from template added successfully.");
-    }
-
-    private static bool MatchFileExtensions(string filePath, IEnumerable<string> extensions)
-    {
-        string ext = Path.GetExtension(filePath);
-        return extensions
-            .Select(x =>
-            {
-                int idx = x.LastIndexOf('.');
-                if (0 <= idx)
-                    return x.Substring(idx);
-                else
-                    return x;
-            })
-            .Contains(ext, StringComparer.OrdinalIgnoreCase);
-    }
-
-    private static bool MatchFileAudioOnly(string filePath)
-    {
-        return MatchFileExtensions(filePath, DecoderRegistry.EnumerateDecoder()
-            .SelectMany(x => x.AudioExtensions())
-            .Distinct());
-    }
-
-    private static bool MatchFileVideoOnly(string filePath)
-    {
-        return MatchFileExtensions(filePath, DecoderRegistry.EnumerateDecoder()
-            .SelectMany(x => x.VideoExtensions())
-            .Distinct());
-    }
-
-    private static bool MatchFileImage(string filePath)
-    {
-        string[] extensions =
-        [
-            "*.bmp",
-            "*.gif",
-            "*.ico",
-            "*.jpg",
-            "*.jpeg",
-            "*.png",
-            "*.wbmp",
-            "*.webp",
-            "*.pkm",
-            "*.ktx",
-            "*.astc",
-            "*.dng",
-            "*.heif",
-            "*.avif",
-        ];
-        return MatchFileExtensions(filePath, extensions);
-    }
+        => _elementAdder.AddElementFromTemplate(template, start, layer);
 
     private sealed class KnownCommandsImpl(Scene scene, EditViewModel viewModel) : IKnownEditorCommands
     {
