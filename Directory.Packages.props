@@ -68,7 +68,7 @@
     <PackageVersion Include="PanelExtension" Version="1.0.0" />
     <PackageVersion Include="ReactiveProperty" Version="9.8.0" />
     <PackageVersion Include="Dock.Avalonia" Version="11.3.11.22" />
-    <PackageVersion Include="Dock.Model.Inpc" Version="11.3.11.22" />
+    <PackageVersion Include="Dock.Model.Inpc" Version="12.0.0.1" />
     <PackageVersion Include="Dock.Avalonia.Themes.Fluent" Version="11.3.11.22" />
     <PackageVersion Include="Dock.Serializer.SystemTextJson" Version="11.3.11.22" />
     <PackageVersion Include="Refit" Version="10.1.6" />
