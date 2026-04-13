@@ -34,6 +34,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
     private readonly CompositeDisposable _disposables = [];
     private readonly ReactivePropertySlim<bool> _isEnabled;
     private readonly EditViewModel _editViewModel;
+    private readonly IEditorClock _editorClock;
     private IDisposable? _currentFrameSubscription;
     private CancellationTokenSource? _cts;
     private Size _maxFrameSize;
@@ -42,6 +43,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
     public PlayerViewModel(EditViewModel editViewModel)
     {
         _editViewModel = editViewModel;
+        _editorClock = editViewModel.GetRequiredService<IEditorClock>();
         Scene = editViewModel.Scene;
         _isEnabled = editViewModel.IsEnabled;
         PlayPause = new AsyncReactiveCommand(_isEnabled.AsObservable())
@@ -62,7 +64,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
             .WithSubscribe(() =>
             {
                 int rate = GetFrameRate();
-                UpdateCurrentFrame(EditViewModel.CurrentTime.Value + TimeSpan.FromSeconds(1d / rate));
+                UpdateCurrentFrame(_editorClock.CurrentTime.Value + TimeSpan.FromSeconds(1d / rate));
             })
             .DisposeWith(_disposables);
 
@@ -70,7 +72,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
             .WithSubscribe(() =>
             {
                 int rate = GetFrameRate();
-                UpdateCurrentFrame(EditViewModel.CurrentTime.Value - TimeSpan.FromSeconds(1d / rate));
+                UpdateCurrentFrame(_editorClock.CurrentTime.Value - TimeSpan.FromSeconds(1d / rate));
             })
             .DisposeWith(_disposables);
 
@@ -80,10 +82,10 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                 int rate = GetFrameRate();
                 var endTime = Scene.Start + Scene.Duration - TimeSpan.FromSeconds(1d / rate);
                 // 現在の時間がスタートと同じ場合、0に移動
-                EditViewModel.CurrentTime.Value =
-                    EditViewModel.CurrentTime.Value > endTime
+                _editorClock.CurrentTime.Value =
+                    _editorClock.CurrentTime.Value > endTime
                         ? endTime
-                        : EditViewModel.CurrentTime.Value > Scene.Start
+                        : _editorClock.CurrentTime.Value > Scene.Start
                             ? Scene.Start
                             : TimeSpan.Zero;
             })
@@ -94,10 +96,10 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
             {
                 int rate = GetFrameRate();
                 var endTime = Scene.Start + Scene.Duration - TimeSpan.FromSeconds(1d / rate);
-                EditViewModel.CurrentTime.Value =
-                    EditViewModel.CurrentTime.Value < Scene.Start
+                _editorClock.CurrentTime.Value =
+                    _editorClock.CurrentTime.Value < Scene.Start
                         ? Scene.Start
-                        : EditViewModel.CurrentTime.Value < endTime
+                        : _editorClock.CurrentTime.Value < endTime
                             ? endTime
                             : Scene.Children.Count > 0
                                 ? Scene.Children.Max(i => i.Start + i.Length) - TimeSpan.FromSeconds(1d / rate)
@@ -116,12 +118,12 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
             })
             .DisposeWith(_disposables);
 
-        CurrentFrame = EditViewModel.CurrentTime
+        CurrentFrame = _editorClock.CurrentTime
             .ToReactiveProperty()
             .DisposeWith(_disposables);
         _currentFrameSubscription = CurrentFrame.Subscribe(UpdateCurrentFrame);
 
-        Duration = editViewModel.MaximumTime
+        Duration = _editorClock.MaximumTime
             .CombineLatest(Scene.GetObservable(Scene.DurationProperty), Scene.GetObservable(Scene.StartProperty),
                 CurrentFrame)
             .Select(i =>
@@ -200,7 +202,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
     {
         if (e is ElementEditedEventArgs elementEdited)
         {
-            TimeSpan time = EditViewModel.CurrentTime.Value;
+            TimeSpan time = _editorClock.CurrentTime.Value;
             if (!elementEdited.AffectedRange.Any(v => v.Contains(time)))
             {
                 return;
@@ -316,7 +318,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
             int rate = GetFrameRate();
 
             TimeSpan tick = TimeSpan.FromSeconds(1d / rate);
-            TimeSpan startTime = EditViewModel.CurrentTime.Value;
+            TimeSpan startTime = _editorClock.CurrentTime.Value;
             TimeSpan durationTime = Scene.Duration;
             int startFrame = (int)startTime.ToFrameNumber(rate);
             int durationFrame = (int)Math.Ceiling(durationTime.ToFrameNumber(rate));
@@ -366,7 +368,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
 
                             if (Scene != null)
                             {
-                                EditViewModel.CurrentTime.Value = frame.Time.ToTimeSpan(rate);
+                                _editorClock.CurrentTime.Value = frame.Time.ToTimeSpan(rate);
                                 EditViewModel.FrameCacheManager.Value.CurrentFrame = frame.Time;
                             }
                         }
@@ -473,7 +475,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
     {
         var composer = EditViewModel.Composer.Value;
         int sampleRate = composer.SampleRate;
-        TimeSpan cur = EditViewModel.CurrentTime.Value;
+        TimeSpan cur = _editorClock.CurrentTime.Value;
         var fmt = new WaveFormat(sampleRate, 32, 2);
         var source = new XAudioSource(audioContext);
         var primaryBuffer = new XAudioBuffer();
@@ -558,7 +560,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
             audioContext.MakeCurrent();
 
             var composer = EditViewModel.Composer.Value;
-            TimeSpan cur = EditViewModel.CurrentTime.Value;
+            TimeSpan cur = _editorClock.CurrentTime.Value;
             uint[] buffers = audioContext.GenBuffers(2);
             uint source = audioContext.GenSource();
 
@@ -710,7 +712,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                         return;
 
                     int rate = GetFrameRate();
-                    TimeSpan time = EditViewModel.CurrentTime.Value;
+                    TimeSpan time = _editorClock.CurrentTime.Value;
                     int frame = (int)Math.Round(time.ToFrameNumber(rate), MidpointRounding.AwayFromZero);
                     time = frame.ToTimeSpan(rate);
                     Ref<Bitmap>? bitmapRef;
@@ -778,7 +780,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
 
         if (Scene == null) return;
 
-        if (EditViewModel.CurrentTime.Value != timeSpan)
+        if (_editorClock.CurrentTime.Value != timeSpan)
         {
             //int rate = Project.GetFrameRate();
             //timeSpan = timeSpan.FloorToRate(rate);
@@ -792,7 +794,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
             //    timeSpan = TimeSpan.Zero;
             //}
 
-            EditViewModel.CurrentTime.Value = timeSpan;
+            _editorClock.CurrentTime.Value = timeSpan;
         }
     }
 

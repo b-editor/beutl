@@ -12,6 +12,7 @@ using Beutl.ProjectSystem;
 using Beutl.Services.PrimitiveImpls;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Editors;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.Services.Tutorials;
 
@@ -142,6 +143,9 @@ public static class TimelineBasicsTutorial
                         EditViewModel? editVm = TutorialHelpers.GetEditViewModel();
                         if (editVm == null) return;
 
+                        var clock = editVm.GetService<IEditorClock>();
+                        if (clock == null) return;
+
                         Element? element = TutorialHelpers.FindElementWithObject<EllipseShape>(editVm.Scene);
                         EllipseShape? ellipseOp = TutorialHelpers.GetObject<EllipseShape>(element);
                         if (ellipseOp == null || element == null) return;
@@ -152,12 +156,12 @@ public static class TimelineBasicsTutorial
                         // すでにキーフレームが2つ以上ある場合は現在時間を変更し、次のステップに進む
                         if (animation.KeyFrames.Count >= 2)
                         {
-                            editVm.CurrentTime.Value = animation.KeyFrames[1].KeyTime + element.Start;
+                            clock.CurrentTime.Value = animation.KeyFrames[1].KeyTime + element.Start;
                             Dispatcher.UIThread.Post(() => TutorialService.Current.AdvanceStep());
                         }
                         else
                         {
-                            editVm.CurrentTime.Value = element.Start + TimeSpan.FromSeconds(2);
+                            clock.CurrentTime.Value = element.Start + TimeSpan.FromSeconds(2);
                             step4Subscription = TutorialHelpers.SubscribeToKeyFrameAdded(
                                 animation,
                                 2,

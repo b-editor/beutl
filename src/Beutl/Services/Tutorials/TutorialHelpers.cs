@@ -179,11 +179,12 @@ public static class TutorialHelpers
         Element? element,
         TimeSpan? additionalDuration = null)
     {
-        if (editVm == null || element == null) return;
+        var clock = editVm?.GetService<IEditorClock>();
+        if (editVm == null || element == null || clock == null) return;
 
         var duration = additionalDuration ?? TimeSpan.FromSeconds(1);
         editVm.Scene.Duration = element.Range.End + duration;
-        editVm.CurrentTime.Value = element.Start;
+        clock.CurrentTime.Value = element.Start;
         editVm.HistoryManager.Commit(CommandNames.ChangeSceneDuration);
     }
 

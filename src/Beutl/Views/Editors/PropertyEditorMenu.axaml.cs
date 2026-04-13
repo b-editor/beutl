@@ -64,9 +64,9 @@ public sealed partial class PropertyEditorMenu : UserControl
             {
                 EditExpression_Click(sender, e);
             }
-            else if (viewModel.HasAnimation.Value && viewModel.GetService<EditViewModel>() is { } editViewModel)
+            else if (viewModel.HasAnimation.Value && viewModel.GetService<IEditorClock>() is { } editorClock)
             {
-                TimeSpan keyTime = editViewModel.CurrentTime.Value;
+                TimeSpan keyTime = editorClock.CurrentTime.Value;
                 if (symbolIcon.IsFilled)
                 {
                     viewModel.RemoveKeyFrame(keyTime);

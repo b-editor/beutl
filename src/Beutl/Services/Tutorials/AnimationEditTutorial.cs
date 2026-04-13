@@ -188,6 +188,9 @@ public static class AnimationEditTutorial
                         EditViewModel? editVm = TutorialHelpers.GetEditViewModel();
                         if (editVm == null) return;
 
+                        var editorClock = editVm.GetService<IEditorClock>();
+                        if (editorClock == null) return;
+
                         Element? element = TutorialHelpers.FindElementWithObject<EllipseShape>(editVm.Scene);
                         if (element == null) return;
 
@@ -200,12 +203,12 @@ public static class AnimationEditTutorial
                         // Move playhead forward
                         if (animation.KeyFrames.Count >= 2)
                         {
-                            editVm.CurrentTime.Value = animation.KeyFrames[1].KeyTime + element.Start;
+                            editorClock.CurrentTime.Value = animation.KeyFrames[1].KeyTime + element.Start;
                             Dispatcher.UIThread.Post(() => TutorialService.Current.AdvanceStep());
                         }
                         else
                         {
-                            editVm.CurrentTime.Value = element.Start + TimeSpan.FromSeconds(2);
+                            editorClock.CurrentTime.Value = element.Start + TimeSpan.FromSeconds(2);
                             step4Subscription = TutorialHelpers.SubscribeToKeyFrameAdded(
                                 animation,
                                 2,
@@ -400,9 +403,10 @@ public static class AnimationEditTutorial
                     {
                         EditViewModel? editVm = TutorialHelpers.GetEditViewModel();
                         Element? element = TutorialHelpers.FindElementWithObject<EllipseShape>(editVm?.Scene);
-                        if (editVm != null && element != null)
+                        var clock = editVm?.GetService<IEditorClock>();
+                        if (editVm != null && element != null && clock != null)
                         {
-                            editVm.CurrentTime.Value = element.Start;
+                            clock.CurrentTime.Value = element.Start;
                         }
                     },
                 },

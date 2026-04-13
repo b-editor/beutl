@@ -292,11 +292,6 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
 
     public Scene Scene { get; private set; }
 
-    public ReactivePropertySlim<TimeSpan> CurrentTime => _editorClock.CurrentTime;
-
-    // Timelineの横幅をmax(MaximumTime, start+duration)で決める
-    public ReactivePropertySlim<TimeSpan> MaximumTime => _editorClock.MaximumTime;
-
     public ReadOnlyReactivePropertySlim<SceneRenderer> Renderer { get; }
 
     public ReadOnlyReactivePropertySlim<SceneComposer> Composer { get; }
@@ -398,7 +393,7 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
 
         DockHost.WriteToJson(json);
 
-        json["current-time"] = JsonValue.Create(CurrentTime.Value);
+        json["current-time"] = JsonValue.Create(_editorClock.CurrentTime.Value);
 
         string name = Path.GetFileNameWithoutExtension(Scene.Uri!.LocalPath);
         json.JsonSave(Path.Combine(viewStateDir, $"{name}.config"));
@@ -484,7 +479,7 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
             if (jsonObject.TryGetPropertyValueAsJsonValue("current-time", out string? currentTimeStr)
                 && TimeSpan.TryParse(currentTimeStr, out TimeSpan currentTime))
             {
-                CurrentTime.Value = currentTime;
+                _editorClock.CurrentTime.Value = currentTime;
             }
         }
         else

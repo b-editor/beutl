@@ -32,6 +32,7 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
     private bool _skipKeyFrameIndexSubscription;
     private Element? _element;
     private EditViewModel? _editViewModel;
+    private IEditorClock? _clock;
     private IServiceProvider? _parentServices;
 
     protected BaseEditorViewModel(IPropertyAdapter property)
@@ -100,7 +101,7 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
                         (float oldIndex, _) = t.OldValue;
                         (float newIndex, KeyFrames? keyframes) = t.NewValue;
 
-                        if (_editViewModel != null && keyframes is { Count: > 0 })
+                        if (_clock != null && keyframes is { Count: > 0 })
                         {
                             int newCeiled = (int)Math.Clamp(MathF.Ceiling(newIndex), 0, keyframes.Count - 1);
                             EditingKeyFrame.Value = keyframes[newCeiled];
@@ -110,7 +111,7 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
                                 TimeSpan start = _element?.Start ?? default;
                                 TimeSpan keyTime = EditingKeyFrame.Value.KeyTime;
 
-                                _editViewModel.CurrentTime.Value = animation.UseGlobalClock ? keyTime : keyTime + start;
+                                _clock.CurrentTime.Value = animation.UseGlobalClock ? keyTime : keyTime + start;
                             }
                         }
                         else
@@ -212,15 +213,16 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
             _parentServices = serviceProvider;
             _element = serviceProvider.GetService<Element>();
             _editViewModel = serviceProvider.GetService<EditViewModel>();
+            _clock = serviceProvider.GetService<IEditorClock>();
 
-            if (_editViewModel != null)
+            if (_clock != null)
             {
                 _currentFrameRevoker?.Dispose();
                 _currentFrameRevoker = null;
 
                 if (PropertyAdapter is IAnimatablePropertyAdapter animatableProperty)
                 {
-                    _currentFrameRevoker = _editViewModel.CurrentTime
+                    _currentFrameRevoker = _clock.CurrentTime
                         .Do(_currentTime.OnNext)
                         .CombineLatest(animatableProperty.ObserveAnimation
                             .Select(x => (x as IKeyFrameAnimation)?.KeyFrames)
@@ -258,7 +260,7 @@ public abstract class BaseEditorViewModel : IPropertyEditorContext, IServiceProv
                 }
                 else
                 {
-                    _currentFrameRevoker = _editViewModel.CurrentTime
+                    _currentFrameRevoker = _clock.CurrentTime
                         .Subscribe(_currentTime.OnNext);
                 }
             }
