@@ -486,24 +486,16 @@ public sealed partial class TimelineTabView : UserControl
 
         if (template != null)
         {
-            if (template.BaseType == typeof(Element))
+            if (viewModel.EditorContext.GetService(typeof(IElementAdder))
+                is IElementAdder adder
+                && (template.BaseType == typeof(Element)
+                    || template.BaseType.IsAssignableTo(typeof(EngineObject))))
             {
-                // Element テンプレート → Element として配置
-                if (viewModel.EditorContext.GetService(typeof(IElementAdder))
-                    is IElementAdder adder)
-                {
-                    adder.AddElementFromTemplate(
-                        template,
-                        viewModel.ClickedFrame,
-                        viewModel.CalculateClickedLayer());
-                }
-            }
-            else if (template.CreateInstance() is EngineObject)
-            {
-                // EngineObject テンプレート → 新しい Element を作って配置
-                viewModel.AddElement.Execute(new ElementDescription(
-                    viewModel.ClickedFrame, TimeSpan.FromSeconds(5), viewModel.CalculateClickedLayer(),
-                    InitialObject: template.ActualType));
+                // Element テンプレート、もしくは EngineObject テンプレート → 新しい Element を作って配置
+                adder.AddElementFromTemplate(
+                    template,
+                    viewModel.ClickedFrame,
+                    viewModel.CalculateClickedLayer());
             }
 
             e.Handled = true;
