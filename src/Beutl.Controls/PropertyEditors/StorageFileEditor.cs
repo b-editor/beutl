@@ -72,7 +72,7 @@ public class StorageFileEditor : StringEditor
         }
     }
 
-    protected override void OnTextBoxGotFocus(GotFocusEventArgs e)
+    protected override void OnTextBoxGotFocus(FocusChangedEventArgs e)
     {
         if (!DataValidationErrors.GetHasErrors(InnerTextBox))
         {
