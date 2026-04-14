@@ -46,7 +46,7 @@ public partial class KeyMapSettingsPage : UserControl
     }
 }
 
-public sealed class KeyMapFlyout : PickerFlyoutBase
+public sealed class KeyMapFlyout : FAPickerFlyoutBase
 {
     public static readonly StyledProperty<KeyGesture?> GestureProperty =
         AvaloniaProperty.Register<KeyMapFlyout, KeyGesture?>(nameof(Gesture));
@@ -61,7 +61,7 @@ public sealed class KeyMapFlyout : PickerFlyoutBase
 
     protected override Control CreatePresenter()
     {
-        var pfp = new PickerFlyoutPresenter();
+        var pfp = new FAPickerFlyoutPresenter();
         pfp.Padding = new Thickness(8);
         var textBox = new TextBox();
         textBox.Bind(TextBox.TextProperty, this.GetObservable(GestureProperty)
@@ -69,7 +69,7 @@ public sealed class KeyMapFlyout : PickerFlyoutBase
         textBox.IsReadOnly = true;
         var deleteButton = new Button
         {
-            Content = new SymbolIcon { Symbol = Symbol.Delete },
+            Content = new FASymbolIcon { Symbol = FASymbol.Delete },
             Theme = Application.Current?.FindResource("TransparentButton") as ControlTheme,
             Margin = new(4, 0, 0, 0)
         };
@@ -113,7 +113,7 @@ public sealed class KeyMapFlyout : PickerFlyoutBase
         Hide();
     }
 
-    private void OnFlyoutConfirmed(PickerFlyoutPresenter sender, object args)
+    private void OnFlyoutConfirmed(FAPickerFlyoutPresenter sender, object args)
     {
         OnConfirmed();
     }

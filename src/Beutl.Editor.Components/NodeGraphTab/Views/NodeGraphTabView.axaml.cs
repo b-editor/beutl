@@ -13,7 +13,7 @@ public partial class NodeGraphTabView : UserControl
         InitializeComponent();
     }
 
-    private void BreadcrumbBarItemClicked(BreadcrumbBar sender, BreadcrumbBarItemClickedEventArgs args)
+    private void BreadcrumbBarItemClicked(FABreadcrumbBar sender, FABreadcrumbBarItemClickedEventArgs args)
     {
         if (DataContext is NodeGraphTabViewModel viewModel)
         {

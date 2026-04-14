@@ -9,7 +9,7 @@ using FluentAvalonia.UI.Controls.Primitives;
 
 namespace Beutl.Controls;
 
-public sealed class RenameFlyout : PickerFlyoutBase
+public sealed class RenameFlyout : FAPickerFlyoutBase
 {
     public static readonly StyledProperty<string?> TextProperty
         = TextBox.TextProperty.AddOwner<RenameFlyout>();
@@ -27,7 +27,7 @@ public sealed class RenameFlyout : PickerFlyoutBase
     protected override Control CreatePresenter()
     {
         _textBox ??= new TextBox();
-        var pfp = new PickerFlyoutPresenter()
+        var pfp = new FAPickerFlyoutPresenter()
         {
             Width = 240,
             Padding = new(8, 4),
@@ -63,12 +63,12 @@ public sealed class RenameFlyout : PickerFlyoutBase
         _textBox.Text = Text;
     }
 
-    private void OnFlyoutDismissed(PickerFlyoutPresenter sender, object args)
+    private void OnFlyoutDismissed(FAPickerFlyoutPresenter sender, object args)
     {
         Hide();
     }
 
-    private void OnFlyoutConfirmed(PickerFlyoutPresenter sender, object args)
+    private void OnFlyoutConfirmed(FAPickerFlyoutPresenter sender, object args)
     {
         OnConfirmed();
     }

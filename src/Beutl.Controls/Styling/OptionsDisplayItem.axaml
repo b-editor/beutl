@@ -96,7 +96,7 @@
                                     VerticalAlignment="Center"
                                     CornerRadius="{DynamicResource ControlCornerRadius}">
 
-                                <ui:SymbolIcon Name="Chevron"
+                                <ui:FASymbolIcon Name="Chevron"
                                                Margin="4,4"
                                                FontSize="20" />
                             </Border>
@@ -121,7 +121,7 @@
         <Style Selector="^ /template/ Viewbox#IconHost">
             <Setter Property="IsVisible" Value="False" />
         </Style>
-        <Style Selector="^ /template/ ui|SymbolIcon#Chevron">
+        <Style Selector="^ /template/ ui|FASymbolIcon#Chevron">
             <Setter Property="IsVisible" Value="False" />
         </Style>
         <Style Selector="^ /template/ ContentPresenter#ExpandedContentPresenter">
@@ -146,7 +146,7 @@
         </Style>
 
         <Style Selector="^:navigates">
-            <Style Selector="^ /template/ ui|SymbolIcon#Chevron">
+            <Style Selector="^ /template/ ui|FASymbolIcon#Chevron">
                 <Setter Property="IsVisible" Value="True" />
                 <Setter Property="Symbol" Value="ChevronRight" />
             </Style>
@@ -157,7 +157,7 @@
         </Style>
 
         <Style Selector="^:expands">
-            <Style Selector="^ /template/ ui|SymbolIcon#Chevron">
+            <Style Selector="^ /template/ ui|FASymbolIcon#Chevron">
                 <Setter Property="IsVisible" Value="True" />
                 <Setter Property="Symbol" Value="ChevronDown" />
                 <Setter Property="RenderTransform" Value="rotate(0deg)" />
@@ -170,7 +170,7 @@
         </Style>
 
         <Style Selector="^:expanded">
-            <Style Selector="^ /template/ ui|SymbolIcon#Chevron">
+            <Style Selector="^ /template/ ui|FASymbolIcon#Chevron">
                 <!--<Setter Property="Symbol" Value="ChevronUp" />-->
                 <Setter Property="RenderTransform" Value="rotate(180deg)" />
             </Style>

@@ -13,10 +13,10 @@ public partial class DisplayPackagesPage : PackageToolPage
     public DisplayPackagesPage()
     {
         InitializeComponent();
-        AddHandler(Frame.NavigatedToEvent, OnNavigatedTo, RoutingStrategies.Direct);
+        AddHandler(FAFrame.NavigatedToEvent, OnNavigatedTo, RoutingStrategies.Direct);
     }
 
-    private void OnNavigatedTo(object? sender, NavigationEventArgs e)
+    private void OnNavigatedTo(object? sender, FANavigationEventArgs e)
     {
         if (e.Parameter is MainViewModel viewModel)
         {
@@ -26,7 +26,7 @@ public partial class DisplayPackagesPage : PackageToolPage
 
     private void OnNextClick(object? sender, RoutedEventArgs e)
     {
-        Frame? frame = this.FindAncestorOfType<Frame>();
+        FAFrame? frame = this.FindAncestorOfType<FAFrame>();
         if (frame == null) return;
 
         if (frame.CanGoForward)

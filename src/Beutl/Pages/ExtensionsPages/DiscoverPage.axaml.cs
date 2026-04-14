@@ -16,10 +16,10 @@ public sealed partial class DiscoverPage : UserControl
     public DiscoverPage()
     {
         InitializeComponent();
-        AddHandler(Frame.NavigatedToEvent, OnNavigatedTo, RoutingStrategies.Direct);
+        AddHandler(FAFrame.NavigatedToEvent, OnNavigatedTo, RoutingStrategies.Direct);
     }
 
-    private void OnNavigatedTo(object? sender, NavigationEventArgs e)
+    private void OnNavigatedTo(object? sender, FANavigationEventArgs e)
     {
         if (e.Parameter is DiscoverPageViewModel viewModel)
         {
@@ -30,7 +30,7 @@ public sealed partial class DiscoverPage : UserControl
     private void Package_Click(object? sender, RoutedEventArgs e)
     {
         if (sender is Button { DataContext: Package package }
-            && this.FindLogicalAncestorOfType<Frame>() is { } frame)
+            && this.FindLogicalAncestorOfType<FAFrame>() is { } frame)
         {
             frame.Navigate(typeof(PackageDetailsPage), package);
         }

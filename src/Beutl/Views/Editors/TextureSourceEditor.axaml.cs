@@ -32,7 +32,7 @@ public partial class TextureSourceEditor : UserControl
     private void ChangeTextureSourceType(object? sender, RoutedEventArgs e)
     {
         if (DataContext is not TextureSourceEditorViewModel { IsDisposed: false } vm) return;
-        if (sender is not RadioMenuFlyoutItem { Tag: string tag }) return;
+        if (sender is not FARadioMenuFlyoutItem { Tag: string tag }) return;
 
         switch (tag)
         {

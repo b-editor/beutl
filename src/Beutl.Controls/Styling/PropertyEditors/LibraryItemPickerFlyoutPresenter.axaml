@@ -50,12 +50,12 @@
                             <int:Interaction.Behaviors>
                                 <behaviors:LibraryItemPickerItemBehavior />
                             </int:Interaction.Behaviors>
-                            <ui:SymbolIcon Symbol="Pin" />
+                            <ui:FASymbolIcon Symbol="Pin" />
                         </ToggleButton>
 
                         <!--
-                            added 1px left margin, otherwise we can get strange artifacts while
-                            animating, I'm guessing from bad invalidation rects?
+                        added 1px left margin, otherwise we can get strange artifacts while
+                        animating, I'm guessing from bad invalidation rects?
                         -->
                         <Rectangle Name="SelectionIndicator"
                                    Width="3"
@@ -186,15 +186,15 @@
                               ColumnDefinitions="*,Auto">
                             <WrapPanel Name="TabLayout" Margin="4,4,0,4">
                                 <ToggleButton Name="ShowSearchBoxButton" IsChecked="{TemplateBinding ShowSearchBox, Mode=TwoWay}">
-                                    <ui:SymbolIcon Symbol="Find" />
+                                    <ui:FASymbolIcon Symbol="Find" />
                                 </ToggleButton>
                                 <ToggleButton Name="ShowAllButton" IsChecked="{TemplateBinding ShowAll, Mode=TwoWay}">
-                                    <ui:SymbolIcon Symbol="More" />
+                                    <ui:FASymbolIcon Symbol="More" />
                                 </ToggleButton>
                                 <ToggleButton Name="ShowReferencesButton"
                                               IsVisible="False"
                                               IsChecked="{TemplateBinding ShowReferences, Mode=TwoWay}">
-                                    <ui:SymbolIcon Symbol="Link" />
+                                    <ui:FASymbolIcon Symbol="Link" />
                                 </ToggleButton>
                             </WrapPanel>
 
@@ -208,7 +208,7 @@
                                     HorizontalContentAlignment="Center"
                                     VerticalContentAlignment="Center"
                                     Theme="{StaticResource TransparentButton}">
-                                <ui:FontIcon FontFamily="{DynamicResource SymbolThemeFontFamily}" Glyph="&#xE711;" />
+                                <ui:FAFontIcon FontFamily="{DynamicResource SymbolThemeFontFamily}" Glyph="&#xE711;" />
                             </Button>
                         </Grid>
 
@@ -225,7 +225,7 @@
                                             HorizontalAlignment="Stretch"
                                             VerticalAlignment="Stretch"
                                             Theme="{StaticResource FlyoutAcceptDismiss}">
-                                        <ui:SymbolIcon FontSize="18" Symbol="Checkmark" />
+                                        <ui:FASymbolIcon FontSize="18" Symbol="Checkmark" />
                                     </Button>
                                     <Button Name="DismissButton"
                                             Grid.Column="1"
@@ -233,7 +233,7 @@
                                             HorizontalAlignment="Stretch"
                                             VerticalAlignment="Stretch"
                                             Theme="{StaticResource FlyoutAcceptDismiss}">
-                                        <ui:SymbolIcon FontSize="16" Symbol="Dismiss" />
+                                        <ui:FASymbolIcon FontSize="16" Symbol="Dismiss" />
                                     </Button>
                                 </Grid>
 
@@ -246,7 +246,7 @@
                                      Classes="clearButton"
                                      IsVisible="False"
                                      Text="{TemplateBinding SearchText, Mode=TwoWay}"
-                                     Watermark="{x:Static lang:Strings.Search}" />
+                                     PlaceholderText="{x:Static lang:Strings.Search}" />
 
                             <ListBox x:Name="PART_ListBox"
                                      Height="250"
@@ -327,7 +327,7 @@
                 <Setter Property="Margin" Value="0,0,4,0" />
                 <Setter Property="Theme" Value="{StaticResource ColorPickerTypeTransparentToggleButtonStyle}" />
 
-                <Style Selector="^ > ui|FontIcon">
+                <Style Selector="^ > ui|FAFontIcon">
                     <Setter Property="FontFamily" Value="{DynamicResource SymbolThemeFontFamily}" />
                 </Style>
             </Style>

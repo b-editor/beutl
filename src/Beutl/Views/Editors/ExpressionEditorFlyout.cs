@@ -7,7 +7,7 @@ using FluentAvalonia.UI.Controls.Primitives;
 
 namespace Beutl.Views.Editors;
 
-public sealed class ExpressionEditorFlyout : PickerFlyoutBase
+public sealed class ExpressionEditorFlyout : FAPickerFlyoutBase
 {
     private ExpressionEditorFlyoutPresenter? _presenter;
 

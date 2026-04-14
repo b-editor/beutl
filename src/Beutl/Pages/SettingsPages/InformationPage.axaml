@@ -37,7 +37,7 @@
                         Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                         Theme="{StaticResource TransparentButton}">
                     <StackPanel Orientation="Horizontal" Spacing="4">
-                        <ui:SymbolIcon Symbol="Copy" />
+                        <ui:FASymbolIcon Symbol="Copy" />
                         <TextBlock Text="{x:Static lang:SettingsStrings.CopyVersionInfo}" Theme="{StaticResource CaptionTextBlockStyle}" />
                     </StackPanel>
                 </Button>

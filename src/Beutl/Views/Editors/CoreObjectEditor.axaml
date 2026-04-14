@@ -23,11 +23,11 @@
                       ToolTip.Tip="{Binding Description.Value}">
             <ToggleButton.ContextFlyout>
                 <ui:FAMenuFlyout>
-                    <ui:MenuFlyoutItem Click="NewClick"
-                                       IconSource="New"
-                                       Text="{x:Static lang:Strings.Change}" />
-                    <ui:MenuFlyoutItem Click="SetNullClick" Text="{x:Static lang:Strings.Null}" />
-                    <ui:MenuFlyoutItem Click="Navigate_Click" Text="{x:Static lang:Strings.OpenInTab}" />
+                    <ui:FAMenuFlyoutItem Click="NewClick"
+                                         IconSource="New"
+                                         Text="{x:Static lang:Strings.Change}" />
+                    <ui:FAMenuFlyoutItem Click="SetNullClick" Text="{x:Static lang:Strings.Null}" />
+                    <ui:FAMenuFlyoutItem Click="Navigate_Click" Text="{x:Static lang:Strings.OpenInTab}" />
                 </ui:FAMenuFlyout>
             </ToggleButton.ContextFlyout>
             <ToggleButton.Tag>
@@ -56,10 +56,10 @@
                         Theme="{StaticResource TransparentButton}">
                     <Button.Flyout>
                         <ui:FAMenuFlyout>
-                            <ui:MenuFlyoutItem Click="NewClick"
-                                               IconSource="New"
-                                               Text="{x:Static lang:Strings.Change}" />
-                            <ui:MenuFlyoutItem Click="SetNullClick" Text="{x:Static lang:Strings.Null}" />
+                            <ui:FAMenuFlyoutItem Click="NewClick"
+                                                 IconSource="New"
+                                                 Text="{x:Static lang:Strings.Change}" />
+                            <ui:FAMenuFlyoutItem Click="SetNullClick" Text="{x:Static lang:Strings.Null}" />
                         </ui:FAMenuFlyout>
                     </Button.Flyout>
                     <icons:SymbolIcon Symbol="MoreVertical" />
@@ -79,7 +79,7 @@
                 <local:PropertiesEditor Padding="0"
                                         DataContext="{Binding Properties.Value}"
                                         IsVisible="{ReflectionBinding #root.DataContext.Properties.Value,
-                                                                      Converter={x:Static ObjectConverters.IsNotNull}}" />
+                                        Converter={x:Static ObjectConverters.IsNotNull}}" />
             </controls:TreeLineDecorator>
         </Panel>
     </Grid>

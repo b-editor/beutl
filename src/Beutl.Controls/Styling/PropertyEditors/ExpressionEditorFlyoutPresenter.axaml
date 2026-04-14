@@ -37,11 +37,11 @@
                                 <RadioButton Name="InputTabButton"
                                              IsChecked="True"
                                              ToolTip.Tip="{x:Static lang:Strings.Expression_Input}">
-                                    <ui:SymbolIcon Symbol="Edit" />
+                                    <ui:FASymbolIcon Symbol="Edit" />
                                 </RadioButton>
                                 <RadioButton Name="HelpTabButton"
                                              ToolTip.Tip="{x:Static lang:Strings.Expression_Help}">
-                                    <ui:SymbolIcon Symbol="Help" />
+                                    <ui:FASymbolIcon Symbol="Help" />
                                 </RadioButton>
                             </WrapPanel>
 
@@ -55,7 +55,7 @@
                                     HorizontalContentAlignment="Center"
                                     VerticalContentAlignment="Center"
                                     Theme="{StaticResource TransparentButton}">
-                                <ui:FontIcon FontFamily="{DynamicResource SymbolThemeFontFamily}" Glyph="&#xE711;" />
+                                <ui:FAFontIcon FontFamily="{DynamicResource SymbolThemeFontFamily}" Glyph="&#xE711;" />
                             </Button>
                         </Grid>
 
@@ -144,7 +144,7 @@
                                             HorizontalAlignment="Stretch"
                                             VerticalAlignment="Stretch"
                                             Theme="{StaticResource FlyoutAcceptDismiss}">
-                                        <ui:SymbolIcon FontSize="18" Symbol="Checkmark" />
+                                        <ui:FASymbolIcon FontSize="18" Symbol="Checkmark" />
                                     </Button>
                                     <Button Name="DismissButton"
                                             Grid.Column="1"
@@ -152,7 +152,7 @@
                                             HorizontalAlignment="Stretch"
                                             VerticalAlignment="Stretch"
                                             Theme="{StaticResource FlyoutAcceptDismiss}">
-                                        <ui:SymbolIcon FontSize="16" Symbol="Dismiss" />
+                                        <ui:FASymbolIcon FontSize="16" Symbol="Dismiss" />
                                     </Button>
                                 </Grid>
                             </Panel>
@@ -189,7 +189,7 @@
                 <Setter Property="Margin" Value="0,0,4,0" />
                 <Setter Property="Theme" Value="{StaticResource ColorPickerTypeTransparentToggleButtonStyle}" />
 
-                <Style Selector="^ > ui|FontIcon">
+                <Style Selector="^ > ui|FAFontIcon">
                     <Setter Property="FontFamily" Value="{DynamicResource SymbolThemeFontFamily}" />
                 </Style>
             </Style>

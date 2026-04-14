@@ -99,16 +99,16 @@ public sealed partial class MainView : UserControl
         var cm = App.GetContextCommandManager();
         cm?.Attach(this, MainViewExtension.Instance);
 
-        if (sender is AppWindow cw)
+        if (sender is FAAppWindow cw)
         {
-            AppWindowTitleBar titleBar = cw.TitleBar;
+            FAAppWindowTitleBar titleBar = cw.TitleBar;
             if (titleBar != null)
             {
                 titleBar.ExtendsContentIntoTitleBar = true;
 
                 Titlebar.Margin = new Thickness(0, 0, titleBar.LeftInset, 0);
-                AppWindow.SetAllowInteractionInTitleBar(MenuBar, true);
-                AppWindow.SetAllowInteractionInTitleBar(OpenNotificationsButton, true);
+                FAAppWindow.SetAllowInteractionInTitleBar(MenuBar, true);
+                FAAppWindow.SetAllowInteractionInTitleBar(OpenNotificationsButton, true);
                 NotificationPanel.Margin = new(0, titleBar.Height + 8, 8, 0);
             }
         }
@@ -133,7 +133,7 @@ public sealed partial class MainView : UserControl
             {
                 if (lastStartedVersion < currentVersion)
                 {
-                    var dialog = new ContentDialog
+                    var dialog = new FAContentDialog
                     {
                         Title = MessageStrings.CheckDifferentVersion_Title,
                         Content = MessageStrings.CheckDifferentVersion_Content,
@@ -155,7 +155,7 @@ public sealed partial class MainView : UserControl
         {
             var dialog = new TelemetryDialog();
 
-            bool result = await dialog.ShowAsync() == ContentDialogResult.Primary;
+            bool result = await dialog.ShowAsync() == FAContentDialogResult.Primary;
             tconfig.Beutl_Api_Client = result;
             tconfig.Beutl_Application = result;
             tconfig.Beutl_PackageManagement = result;

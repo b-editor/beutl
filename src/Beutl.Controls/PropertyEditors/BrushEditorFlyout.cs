@@ -28,7 +28,7 @@ public enum BrushType
     Presenter
 }
 
-public sealed class BrushEditorFlyout : PickerFlyoutBase
+public sealed class BrushEditorFlyout : FAPickerFlyoutBase
 {
     public static readonly StyledProperty<Brush?> BrushProperty =
         AvaloniaProperty.Register<BrushEditorFlyout, Brush?>(nameof(Brush));

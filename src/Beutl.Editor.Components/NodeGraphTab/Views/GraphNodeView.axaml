@@ -35,18 +35,18 @@
                 Focusable="True">
             <Border.ContextFlyout>
                 <ui:FAMenuFlyout>
-                    <ui:MenuFlyoutItem Command="{Binding Delete}"
+                    <ui:FAMenuFlyoutItem Command="{Binding Delete}"
                                        InputGesture="Delete"
                                        Text="{x:Static lang:Strings.Delete}">
-                        <ui:MenuFlyoutItem.IconSource>
+                        <ui:FAMenuFlyoutItem.IconSource>
                             <icons:SymbolIconSource Symbol="Delete" />
-                        </ui:MenuFlyoutItem.IconSource>
-                    </ui:MenuFlyoutItem>
-                    <ui:MenuFlyoutItem Click="RenameClick" Text="{x:Static lang:Strings.Rename}">
-                        <ui:MenuFlyoutItem.IconSource>
+                        </ui:FAMenuFlyoutItem.IconSource>
+                    </ui:FAMenuFlyoutItem>
+                    <ui:FAMenuFlyoutItem Click="RenameClick" Text="{x:Static lang:Strings.Rename}">
+                        <ui:FAMenuFlyoutItem.IconSource>
                             <icons:SymbolIconSource Symbol="Rename" />
-                        </ui:MenuFlyoutItem.IconSource>
-                    </ui:MenuFlyoutItem>
+                        </ui:FAMenuFlyoutItem.IconSource>
+                    </ui:FAMenuFlyoutItem>
                 </ui:FAMenuFlyout>
             </Border.ContextFlyout>
             <Border.KeyBindings>
