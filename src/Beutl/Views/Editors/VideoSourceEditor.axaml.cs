@@ -34,8 +34,7 @@ public partial class VideoSourceEditor : UserControl
         if (DataContext is not VideoSourceEditorViewModel { IsDisposed: false } vm) return;
         if (e.NewValue is not FileInfo fi) return;
 
-        VideoSource? oldValue = vm.PropertyAdapter.GetValue();
-        vm.SetValueAndDispose(oldValue, VideoSource.Open(fi.FullName));
+        vm.SetValue(VideoSource.Open(fi.FullName));
 
         // 動画の長さに要素の長さを合わせる
         if (vm.GetService<Element>() is not { } element) return;

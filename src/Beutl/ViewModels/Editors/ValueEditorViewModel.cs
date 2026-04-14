@@ -32,25 +32,6 @@ public class ValueEditorViewModel<T> : BaseEditorViewModel<T>
 
     public ReadOnlyReactiveProperty<T> Value { get; }
 
-    public void SetValueAndDispose(T oldValue, T newValue)
-    {
-        if (EqualityComparer<T>.Default.Equals(oldValue, newValue))
-        {
-            return;
-        }
-
-        if (EditingKeyFrame.Value is { } kf)
-        {
-            kf.Value = newValue;
-        }
-        else
-        {
-            PropertyAdapter.SetValue(newValue);
-        }
-
-        Commit();
-    }
-
     protected void AttachValueBindings<TEditor>(
         TEditor editor,
         AvaloniaProperty valueProperty,

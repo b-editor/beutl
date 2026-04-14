@@ -19,7 +19,6 @@ public partial class ImageSourceEditor : UserControl
         if (DataContext is not ImageSourceEditorViewModel { IsDisposed: false } vm) return;
         if (e.NewValue is not FileInfo fi) return;
 
-        ImageSource? oldValue = vm.PropertyAdapter.GetValue();
-        vm.SetValueAndDispose(oldValue, ImageSource.Open(fi.FullName));
+        vm.SetValue(ImageSource.Open(fi.FullName));
     }
 }
