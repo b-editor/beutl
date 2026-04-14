@@ -5,6 +5,8 @@
              xmlns:icons="using:FluentIcons.FluentAvalonia"
              xmlns:lang="using:Beutl.Language"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:viewModel="using:Beutl.ViewModels.Editors"
+             x:DataType="viewModel:PropertyEditorGroupContext"
              d:DesignHeight="450"
              d:DesignWidth="800"
              mc:Ignorable="d">

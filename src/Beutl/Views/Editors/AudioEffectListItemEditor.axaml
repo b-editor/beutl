@@ -8,6 +8,7 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:viewModel="using:Beutl.ViewModels.Editors"
+             x:DataType="viewModel:AudioEffectEditorViewModel"
              d:DesignHeight="450"
              d:DesignWidth="400"
              mc:Ignorable="d">
