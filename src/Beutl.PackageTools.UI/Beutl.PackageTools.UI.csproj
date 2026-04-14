@@ -23,7 +23,8 @@
     <PackageReference Include="Avalonia.Desktop" />
     <PackageReference Include="ReactiveUI.Avalonia" />
     <PackageReference Include="Avalonia.Themes.Fluent" />
-    <PackageReference Condition="'$(Configuration)' == 'Debug'" Include="Avalonia.Diagnostics" />
+    <PackageReference Condition="'$(Configuration)' == 'Debug'"
+      Include="AvaloniaUI.DiagnosticsSupport" />
     <PackageReference Include="DynamicData" />
     <PackageReference Include="FluentAvaloniaUI" />
     <PackageReference Include="FluentIcons.FluentAvalonia" />
@@ -43,7 +44,8 @@
     <ProjectReference Include="..\Beutl.Controls\Beutl.Controls.csproj" />
   </ItemGroup>
 
-  <!--<ItemGroup Condition="'$(Configuration)' == 'Debug'">
+  <!--<ItemGroup
+  Condition="'$(Configuration)' == 'Debug'">
     <ProjectReference Include="..\Beutl\Beutl.csproj" />
   </ItemGroup>-->
 

@@ -83,6 +83,7 @@ internal static class Program
                 DefaultFamilyName = Media.FontManager.Instance.DefaultTypeface.FontFamily.Name
             })
             .AfterSetup(_ => Telemetry.CompressLogFiles())
+            .WithDeveloperTools()
 #if DEBUG
             .LogToTrace();
 #else
