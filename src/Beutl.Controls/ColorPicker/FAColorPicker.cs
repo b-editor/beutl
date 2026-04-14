@@ -95,43 +95,43 @@ public partial class FAColorPicker : TemplatedControl
             _blueButton.IsCheckedChanged += OnComponentRBChecked;
         }
 
-        _hueBox = e.NameScope.Find<NumberBox>("HueBox");
+        _hueBox = e.NameScope.Find<FANumberBox>("HueBox");
         if (_hueBox != null)
         {
             _hueBox.ValueChanged += OnComponentBoxValueChanged;
         }
 
-        _satBox = e.NameScope.Find<NumberBox>("SatBox");
+        _satBox = e.NameScope.Find<FANumberBox>("SatBox");
         if (_satBox != null)
         {
             _satBox.ValueChanged += OnComponentBoxValueChanged;
         }
 
-        _valBox = e.NameScope.Find<NumberBox>("ValBox");
+        _valBox = e.NameScope.Find<FANumberBox>("ValBox");
         if (_valBox != null)
         {
             _valBox.ValueChanged += OnComponentBoxValueChanged;
         }
 
-        _redBox = e.NameScope.Find<NumberBox>("RedBox");
+        _redBox = e.NameScope.Find<FANumberBox>("RedBox");
         if (_redBox != null)
         {
             _redBox.ValueChanged += OnComponentBoxValueChanged;
         }
 
-        _greenBox = e.NameScope.Find<NumberBox>("GreenBox");
+        _greenBox = e.NameScope.Find<FANumberBox>("GreenBox");
         if (_greenBox != null)
         {
             _greenBox.ValueChanged += OnComponentBoxValueChanged;
         }
 
-        _blueBox = e.NameScope.Find<NumberBox>("BlueBox");
+        _blueBox = e.NameScope.Find<FANumberBox>("BlueBox");
         if (_blueBox != null)
         {
             _blueBox.ValueChanged += OnComponentBoxValueChanged;
         }
 
-        _alphaBox = e.NameScope.Find<NumberBox>("AlphaBox");
+        _alphaBox = e.NameScope.Find<FANumberBox>("AlphaBox");
         if (_alphaBox != null)
         {
             _alphaBox.ValueChanged += OnComponentBoxValueChanged;
@@ -683,7 +683,7 @@ public partial class FAColorPicker : TemplatedControl
             UpdateColorAndControls(args.NewColor, ColorUpdateReason.AlphaRamp);
     }
 
-    private void OnComponentBoxValueChanged(NumberBox sender, NumberBoxValueChangedEventArgs args)
+    private void OnComponentBoxValueChanged(FANumberBox sender, FANumberBoxValueChangedEventArgs args)
     {
         if (!_templateApplied || _ignoreColorChange)
             return;
@@ -1006,13 +1006,13 @@ public partial class FAColorPicker : TemplatedControl
     private ColorRamp _blueRamp;
     private ColorRamp _alphaRamp;
 
-    private NumberBox _hueBox;
-    private NumberBox _satBox;
-    private NumberBox _valBox;
-    private NumberBox _redBox;
-    private NumberBox _greenBox;
-    private NumberBox _blueBox;
-    private NumberBox _alphaBox;
+    private FANumberBox _hueBox;
+    private FANumberBox _satBox;
+    private FANumberBox _valBox;
+    private FANumberBox _redBox;
+    private FANumberBox _greenBox;
+    private FANumberBox _blueBox;
+    private FANumberBox _alphaBox;
 
     private TextBox _hexBox;
 

@@ -15,10 +15,10 @@ public sealed partial class LibraryPage : UserControl
     public LibraryPage()
     {
         InitializeComponent();
-        AddHandler(Frame.NavigatedToEvent, OnNavigatedTo, RoutingStrategies.Direct);
+        AddHandler(FAFrame.NavigatedToEvent, OnNavigatedTo, RoutingStrategies.Direct);
     }
 
-    private void OnNavigatedTo(object? sender, NavigationEventArgs e)
+    private void OnNavigatedTo(object? sender, FANavigationEventArgs e)
     {
         if (e.Parameter is LibraryPageViewModel viewModel)
         {
@@ -28,7 +28,7 @@ public sealed partial class LibraryPage : UserControl
 
     private void Package_Click(object? sender, RoutedEventArgs e)
     {
-        if (this.FindLogicalAncestorOfType<Frame>() is { } frame
+        if (this.FindLogicalAncestorOfType<FAFrame>() is { } frame
             && DataContext is LibraryPageViewModel viewModel
             && sender is Button button)
         {
@@ -47,7 +47,7 @@ public sealed partial class LibraryPage : UserControl
         Button button,
         LocalUserPackageViewModel localPackage,
         LibraryPageViewModel viewModel,
-        Frame frame)
+        FAFrame frame)
     {
         button.IsEnabled = false;
         var package = await viewModel.TryFindPackage(localPackage.Package);
@@ -58,7 +58,7 @@ public sealed partial class LibraryPage : UserControl
         }
         else
         {
-            var dialog = new ContentDialog
+            var dialog = new FAContentDialog
             {
                 Title = ExtensionsStrings.LocalPackage,
                 Content = $"{string.Format(ExtensionsStrings.Could_not_find_a_package_from_remote, localPackage.Name)}\n" +

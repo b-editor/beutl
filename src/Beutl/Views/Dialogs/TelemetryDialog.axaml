@@ -1,19 +1,19 @@
-<ui:ContentDialog x:Class="Beutl.Views.Dialogs.TelemetryDialog"
-                  xmlns="https://github.com/avaloniaui"
-                  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-                  xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-                  xmlns:lang="using:Beutl.Language"
-                  xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-                  xmlns:ui="using:FluentAvalonia.UI.Controls"
-                  Title="{x:Static lang:SettingsStrings.Telemetry}"
-                  d:DesignHeight="450"
-                  d:DesignWidth="800"
-                  CloseButtonText="{x:Static lang:Strings.Disagree}"
-                  PrimaryButtonText="{x:Static lang:Strings.Agree}"
-                  mc:Ignorable="d">
-    <ui:ContentDialog.Resources>
+<ui:FAContentDialog x:Class="Beutl.Views.Dialogs.TelemetryDialog"
+                    xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+                    xmlns:lang="using:Beutl.Language"
+                    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+                    xmlns:ui="using:FluentAvalonia.UI.Controls"
+                    Title="{x:Static lang:SettingsStrings.Telemetry}"
+                    d:DesignHeight="450"
+                    d:DesignWidth="800"
+                    CloseButtonText="{x:Static lang:Strings.Disagree}"
+                    PrimaryButtonText="{x:Static lang:Strings.Agree}"
+                    mc:Ignorable="d">
+    <ui:FAContentDialog.Resources>
         <x:Double x:Key="ContentDialogMaxWidth">400</x:Double>
-    </ui:ContentDialog.Resources>
+    </ui:FAContentDialog.Resources>
     <StackPanel Spacing="16">
         <SelectableTextBlock TextWrapping="WrapWithOverflow" Text="{x:Static lang:SettingsStrings.Telemetry_Description}" />
 
@@ -23,7 +23,7 @@
                 Click="ShowDetail_Click"
                 ToolTip.Tip="https://beutl.beditor.net/about/telemetry">
             <Grid ColumnDefinitions="48,*">
-                <ui:SymbolIcon Height="48"
+                <ui:FASymbolIcon Height="48"
                                FontSize="16"
                                Symbol="Open" />
 
@@ -34,4 +34,4 @@
             </Grid>
         </Button>
     </StackPanel>
-</ui:ContentDialog>
+</ui:FAContentDialog>

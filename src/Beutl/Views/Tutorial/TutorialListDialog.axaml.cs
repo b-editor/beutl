@@ -7,7 +7,7 @@ using FluentAvalonia.UI.Controls;
 
 namespace Beutl.Views.Tutorial;
 
-public partial class TutorialListDialog : ContentDialog
+public partial class TutorialListDialog : FAContentDialog
 {
     public TutorialListDialog()
     {
@@ -15,7 +15,7 @@ public partial class TutorialListDialog : ContentDialog
         LoadTutorials();
     }
 
-    protected override Type StyleKeyOverride => typeof(ContentDialog);
+    protected override Type StyleKeyOverride => typeof(FAContentDialog);
 
     private void LoadTutorials()
     {

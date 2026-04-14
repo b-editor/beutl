@@ -12,13 +12,13 @@
              x:DataType="vm:FontSettingsPageViewModel"
              mc:Ignorable="d">
     <StackPanel Margin="10,0">
-        <ui:CommandBar DefaultLabelPosition="Right">
-            <ui:CommandBar.PrimaryCommands>
-                <ui:CommandBarButton Click="AddClick"
-                                     IconSource="Add"
-                                     Label="{x:Static lang:Strings.Add}" />
-            </ui:CommandBar.PrimaryCommands>
-        </ui:CommandBar>
+        <ui:FACommandBar DefaultLabelPosition="Right">
+            <ui:FACommandBar.PrimaryCommands>
+                <ui:FACommandBarButton Click="AddClick"
+                                       IconSource="Add"
+                                       Label="{x:Static lang:Strings.Add}" />
+            </ui:FACommandBar.PrimaryCommands>
+        </ui:FACommandBar>
 
         <ListBox ItemsSource="{CompiledBinding FontDirectories}" SelectedItem="{CompiledBinding SelectFont.Value, Mode=TwoWay}">
             <ListBox.ItemTemplate>
@@ -26,11 +26,11 @@
                     <Panel>
                         <TextBlock VerticalAlignment="Center" Text="{Binding}" />
 
-                        <ui:CommandBarButton HorizontalAlignment="Right"
-                                             Command="{Binding #root.DataContext.Remove, Mode=OneTime}"
-                                             CommandParameter="{Binding $self.DataContext}"
-                                             IconSource="Delete"
-                                             Label="{x:Static lang:Strings.Remove}" />
+                        <ui:FACommandBarButton HorizontalAlignment="Right"
+                                               Command="{Binding #root.DataContext.Remove, Mode=OneTime}"
+                                               CommandParameter="{Binding $self.DataContext}"
+                                               IconSource="Delete"
+                                               Label="{x:Static lang:Strings.Remove}" />
                     </Panel>
                 </DataTemplate>
             </ListBox.ItemTemplate>

@@ -51,18 +51,18 @@
                            Offset="{Binding #ContentScroll.Offset, Mode=OneWay}">
             <ecv:TimelineScale.ContextFlyout>
                 <ui:FAMenuFlyout>
-                    <ui:MenuFlyoutItem Command="{Binding DeleteAllFrameCache}" Text="{x:Static lang:Strings.DeleteAll}" />
-                    <ui:MenuFlyoutItem Command="{Binding DeleteFrameCache}" Text="{x:Static lang:Strings.Delete}" />
-                    <ui:MenuFlyoutItem Command="{Binding LockFrameCache}" Text="{x:Static lang:Strings.Lock}" />
-                    <ui:MenuFlyoutItem Command="{Binding UnlockFrameCache}" Text="{x:Static lang:Strings.Unlock}" />
+                    <ui:FAMenuFlyoutItem Command="{Binding DeleteAllFrameCache}" Text="{x:Static lang:Strings.DeleteAll}" />
+                    <ui:FAMenuFlyoutItem Command="{Binding DeleteFrameCache}" Text="{x:Static lang:Strings.Delete}" />
+                    <ui:FAMenuFlyoutItem Command="{Binding LockFrameCache}" Text="{x:Static lang:Strings.Lock}" />
+                    <ui:FAMenuFlyoutItem Command="{Binding UnlockFrameCache}" Text="{x:Static lang:Strings.Unlock}" />
                 </ui:FAMenuFlyout>
             </ecv:TimelineScale.ContextFlyout>
         </ecv:TimelineScale>
 
-        <ui:TeachingTip x:Name="CacheTip"
-                        Title="{x:Static lang:Strings.FrameCache}"
-                        Subtitle="{x:Static lang:Strings.RightClickToOperateCache}"
-                        Target="{Binding #Scale}" />
+        <ui:FATeachingTip x:Name="CacheTip"
+                          Title="{x:Static lang:Strings.FrameCache}"
+                          Subtitle="{x:Static lang:Strings.RightClickToOperateCache}"
+                          Target="{Binding #Scale}" />
 
         <Grid ClipToBounds="True">
             <Grid.ColumnDefinitions>
@@ -123,65 +123,65 @@
                    PointerReleased="TimelinePanel_PointerReleased">
                 <Panel.ContextFlyout>
                     <ui:FAMenuFlyout>
-                        <ui:MenuFlyoutSubItem x:Name="AddElementSubMenu" Text="{x:Static lang:Strings.AddElement}" />
-                        <ui:MenuFlyoutSubItem x:Name="AddFromTemplateSubMenu" Text="{x:Static lang:Strings.AddFromTemplate}" />
-                        <ui:MenuFlyoutItem Command="{CompiledBinding Paste}"
-                                           InputGesture="{h:GetCommandGesture Paste}"
-                                           Text="{x:Static lang:Strings.Paste}">
-                            <ui:MenuFlyoutItem.IconSource>
+                        <ui:FAMenuFlyoutSubItem x:Name="AddElementSubMenu" Text="{x:Static lang:Strings.AddElement}" />
+                        <ui:FAMenuFlyoutSubItem x:Name="AddFromTemplateSubMenu" Text="{x:Static lang:Strings.AddFromTemplate}" />
+                        <ui:FAMenuFlyoutItem Command="{CompiledBinding Paste}"
+                                             InputGesture="{h:GetCommandGesture Paste}"
+                                             Text="{x:Static lang:Strings.Paste}">
+                            <ui:FAMenuFlyoutItem.IconSource>
                                 <icons:SymbolIconSource Symbol="ClipboardPaste" />
-                            </ui:MenuFlyoutItem.IconSource>
-                        </ui:MenuFlyoutItem>
-                        <ui:MenuFlyoutSeparator />
-                        <ui:MenuFlyoutItem Command="{Binding SetStartTimeToPointerPosition}"
-                                           InputGesture="{h:GetCommandGesture SetStartTime}"
-                                           Text="{x:Static lang:Strings.SetStartTime}" />
-                        <ui:MenuFlyoutItem Command="{Binding SetEndTimeToPointerPosition}"
-                                           InputGesture="{h:GetCommandGesture SetEndTime}"
-                                           Text="{x:Static lang:Strings.SetEndTime}" />
-                        <ui:ToggleMenuFlyoutItem IsChecked="{Binding AutoAdjustSceneDuration.Value, Mode=TwoWay}" Text="{x:Static lang:SettingsStrings.AutoAdjustSceneDuration}" />
-                        <ui:MenuFlyoutSeparator />
-                        <ui:MenuFlyoutItem Click="ShowSceneSettings" Text="{x:Static lang:Strings.Settings}">
-                            <ui:MenuFlyoutItem.IconSource>
+                            </ui:FAMenuFlyoutItem.IconSource>
+                        </ui:FAMenuFlyoutItem>
+                        <ui:FAMenuFlyoutSeparator />
+                        <ui:FAMenuFlyoutItem Command="{Binding SetStartTimeToPointerPosition}"
+                                             InputGesture="{h:GetCommandGesture SetStartTime}"
+                                             Text="{x:Static lang:Strings.SetStartTime}" />
+                        <ui:FAMenuFlyoutItem Command="{Binding SetEndTimeToPointerPosition}"
+                                             InputGesture="{h:GetCommandGesture SetEndTime}"
+                                             Text="{x:Static lang:Strings.SetEndTime}" />
+                        <ui:FAToggleMenuFlyoutItem IsChecked="{Binding AutoAdjustSceneDuration.Value, Mode=TwoWay}" Text="{x:Static lang:SettingsStrings.AutoAdjustSceneDuration}" />
+                        <ui:FAMenuFlyoutSeparator />
+                        <ui:FAMenuFlyoutItem Click="ShowSceneSettings" Text="{x:Static lang:Strings.Settings}">
+                            <ui:FAMenuFlyoutItem.IconSource>
                                 <icons:SymbolIconSource Symbol="Settings" />
-                            </ui:MenuFlyoutItem.IconSource>
-                        </ui:MenuFlyoutItem>
-                        <ui:MenuFlyoutItem x:Name="BpmGridMenuItem"
-                                           Click="ShowBpmGridFlyout"
-                                           Text="{x:Static lang:Strings.BpmGrid}">
-                            <ui:MenuFlyoutItem.IconSource>
+                            </ui:FAMenuFlyoutItem.IconSource>
+                        </ui:FAMenuFlyoutItem>
+                        <ui:FAMenuFlyoutItem x:Name="BpmGridMenuItem"
+                                             Click="ShowBpmGridFlyout"
+                                             Text="{x:Static lang:Strings.BpmGrid}">
+                            <ui:FAMenuFlyoutItem.IconSource>
                                 <icons:SymbolIconSource Symbol="MusicNote1" />
-                            </ui:MenuFlyoutItem.IconSource>
-                        </ui:MenuFlyoutItem>
-                        <ui:MenuFlyoutSubItem Text="{x:Static lang:Strings.TimelineZoom}">
-                            <ui:MenuFlyoutSubItem.IconSource>
+                            </ui:FAMenuFlyoutItem.IconSource>
+                        </ui:FAMenuFlyoutItem>
+                        <ui:FAMenuFlyoutSubItem Text="{x:Static lang:Strings.TimelineZoom}">
+                            <ui:FAMenuFlyoutSubItem.IconSource>
                                 <icons:SymbolIconSource Symbol="ZoomIn" />
-                            </ui:MenuFlyoutSubItem.IconSource>
-                            <ui:MenuFlyoutItem Click="ZoomClick"
-                                               CommandParameter="2.0"
-                                               Text="200%" />
-                            <ui:MenuFlyoutItem Click="ZoomClick"
-                                               CommandParameter="1.7"
-                                               Text="170%" />
-                            <ui:MenuFlyoutItem Click="ZoomClick"
-                                               CommandParameter="1.5"
-                                               Text="150%" />
-                            <ui:MenuFlyoutItem Click="ZoomClick"
-                                               CommandParameter="1.2"
-                                               Text="120%" />
-                            <ui:MenuFlyoutItem Click="ZoomClick"
-                                               CommandParameter="1.0"
-                                               Text="100%" />
-                            <ui:MenuFlyoutItem Click="ZoomClick"
-                                               CommandParameter="0.7"
-                                               Text="70%" />
-                            <ui:MenuFlyoutItem Click="ZoomClick"
-                                               CommandParameter="0.5"
-                                               Text="50%" />
-                            <ui:MenuFlyoutItem Click="ZoomClick"
-                                               CommandParameter="0.2"
-                                               Text="20%" />
-                        </ui:MenuFlyoutSubItem>
+                            </ui:FAMenuFlyoutSubItem.IconSource>
+                            <ui:FAMenuFlyoutItem Click="ZoomClick"
+                                                 CommandParameter="2.0"
+                                                 Text="200%" />
+                            <ui:FAMenuFlyoutItem Click="ZoomClick"
+                                                 CommandParameter="1.7"
+                                                 Text="170%" />
+                            <ui:FAMenuFlyoutItem Click="ZoomClick"
+                                                 CommandParameter="1.5"
+                                                 Text="150%" />
+                            <ui:FAMenuFlyoutItem Click="ZoomClick"
+                                                 CommandParameter="1.2"
+                                                 Text="120%" />
+                            <ui:FAMenuFlyoutItem Click="ZoomClick"
+                                                 CommandParameter="1.0"
+                                                 Text="100%" />
+                            <ui:FAMenuFlyoutItem Click="ZoomClick"
+                                                 CommandParameter="0.7"
+                                                 Text="70%" />
+                            <ui:FAMenuFlyoutItem Click="ZoomClick"
+                                                 CommandParameter="0.5"
+                                                 Text="50%" />
+                            <ui:FAMenuFlyoutItem Click="ZoomClick"
+                                                 CommandParameter="0.2"
+                                                 Text="20%" />
+                        </ui:FAMenuFlyoutSubItem>
                     </ui:FAMenuFlyout>
                 </Panel.ContextFlyout>
 

@@ -105,7 +105,7 @@ public sealed class CheckForUpdatesTask : StartupTask
         await App.WaitWindowOpened();
         await Dispatcher.UIThread.InvokeAsync(async () =>
         {
-            var dialog = new ContentDialog
+            var dialog = new FAContentDialog
             {
                 Title = MessageStrings.UpgradeRequired,
                 Content = MessageStrings.VersionDiscontinued,

@@ -88,7 +88,7 @@ public sealed class LoadInstalledExtensionTask : StartupTask
             await App.WaitWindowOpened();
             return await Dispatcher.UIThread.InvokeAsync(async () =>
             {
-                var dialog = new ContentDialog()
+                var dialog = new FAContentDialog()
                 {
                     Title = MessageStrings.PreviousSessionErrorTitle,
                     Content = MessageStrings.RestrictedModePrompt,
@@ -96,7 +96,7 @@ public sealed class LoadInstalledExtensionTask : StartupTask
                     CloseButtonText = Strings.No
                 };
 
-                return await dialog.ShowAsync() == ContentDialogResult.Primary;
+                return await dialog.ShowAsync() == FAContentDialogResult.Primary;
             });
         }
         else

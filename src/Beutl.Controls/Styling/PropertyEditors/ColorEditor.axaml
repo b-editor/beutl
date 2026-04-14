@@ -48,11 +48,11 @@
                                         BorderThickness="1"
                                         CornerRadius="{DynamicResource ControlCornerRadius}" />
 
-                                <ui:SymbolIcon Grid.Column="1"
-                                               Margin="4,6,8,6"
-                                               HorizontalAlignment="Right"
-                                               FontSize="18"
-                                               Symbol="ChevronDown" />
+                                <ui:FASymbolIcon Grid.Column="1"
+                                                 Margin="4,6,8,6"
+                                                 HorizontalAlignment="Right"
+                                                 FontSize="18"
+                                                 Symbol="ChevronDown" />
                             </Grid>
                         </Button>
 
@@ -107,11 +107,11 @@
                                             BorderThickness="1"
                                             CornerRadius="{DynamicResource ControlCornerRadius}" />
 
-                                    <ui:SymbolIcon Grid.Column="1"
-                                                   Margin="4,6,8,6"
-                                                   HorizontalAlignment="Right"
-                                                   FontSize="18"
-                                                   Symbol="ChevronDown" />
+                                    <ui:FASymbolIcon Grid.Column="1"
+                                                     Margin="4,6,8,6"
+                                                     HorizontalAlignment="Right"
+                                                     FontSize="18"
+                                                     Symbol="ChevronDown" />
                                 </Grid>
                             </Button>
 
@@ -162,11 +162,11 @@
                                             BorderThickness="1"
                                             CornerRadius="{DynamicResource ControlCornerRadius}" />
 
-                                    <ui:SymbolIcon Grid.Column="1"
-                                                   Margin="4,6,8,6"
-                                                   HorizontalAlignment="Right"
-                                                   FontSize="18"
-                                                   Symbol="ChevronDown" />
+                                    <ui:FASymbolIcon Grid.Column="1"
+                                                     Margin="4,6,8,6"
+                                                     HorizontalAlignment="Right"
+                                                     FontSize="18"
+                                                     Symbol="ChevronDown" />
                                 </Grid>
                             </Button>
                         </OptionsDisplayItem.ActionButton>

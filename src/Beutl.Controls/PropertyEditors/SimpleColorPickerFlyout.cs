@@ -8,7 +8,7 @@ using FluentAvalonia.UI.Controls.Primitives;
 
 namespace Beutl.Controls.PropertyEditors;
 
-public sealed class SimpleColorPickerFlyout : PickerFlyoutBase
+public sealed class SimpleColorPickerFlyout : FAPickerFlyoutBase
 {
     public SimpleColorPicker ColorPicker => _picker ??= new SimpleColorPicker();
 

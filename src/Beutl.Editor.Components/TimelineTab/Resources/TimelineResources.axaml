@@ -23,11 +23,11 @@
                                 BorderThickness="1"
                                 CornerRadius="{TemplateBinding CornerRadius}" />
 
-                        <ui:SymbolIcon Grid.Column="1"
-                                       Margin="0,0,8,0"
-                                       HorizontalAlignment="Right"
-                                       FontSize="18"
-                                       Symbol="ChevronDown" />
+                        <ui:FASymbolIcon Grid.Column="1"
+                                         Margin="0,0,8,0"
+                                         HorizontalAlignment="Right"
+                                         FontSize="18"
+                                         Symbol="ChevronDown" />
                     </Grid>
                 </Button>
             </ControlTemplate>

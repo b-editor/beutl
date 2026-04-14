@@ -24,18 +24,18 @@ public partial class CleanPage : PackageToolPage
     {
         _backButton = new(() =>
         {
-            var panel = new TaskDialogButtonsPanel
+            var panel = new FATaskDialogButtonsPanel
             {
                 [KeyboardNavigation.TabNavigationProperty] = KeyboardNavigationMode.Continue,
                 Spacing = 8
             };
-            var backButton = new TaskDialogButtonHost()
+            var backButton = new FATaskDialogButtonHost()
             {
                 Content = Strings.Back
             };
             backButton.Click += (s, e) =>
             {
-                Frame? frame = this.FindAncestorOfType<Frame>();
+                FAFrame? frame = this.FindAncestorOfType<FAFrame>();
                 frame?.GoBack();
             };
             panel.Children.Add(backButton);
@@ -45,17 +45,17 @@ public partial class CleanPage : PackageToolPage
 
         _buttons = new(() =>
         {
-            var panel = new TaskDialogButtonsPanel
+            var panel = new FATaskDialogButtonsPanel
             {
                 [KeyboardNavigation.TabNavigationProperty] = KeyboardNavigationMode.Continue,
                 Spacing = 8
             };
-            var cancelButton = new TaskDialogButtonHost()
+            var cancelButton = new FATaskDialogButtonHost()
             {
                 Content = Strings.Cancel,
                 IsEnabled = false
             };
-            var runButton = new TaskDialogButtonHost()
+            var runButton = new FATaskDialogButtonHost()
             {
                 Content = Strings.Start,
                 Classes = { "accent" }
@@ -76,7 +76,7 @@ public partial class CleanPage : PackageToolPage
                         cancelButton.IsEnabled = true;
                         runButton.IsEnabled = false;
                         await Task.Run(() => viewModel.Run(token));
-                        Frame? frame = this.FindAncestorOfType<Frame>();
+                        FAFrame? frame = this.FindAncestorOfType<FAFrame>();
                         if (frame is { DataContext: MainViewModel main })
                         {
                             object? nextViewModel = main.Result();
@@ -96,11 +96,11 @@ public partial class CleanPage : PackageToolPage
             return panel;
         });
 
-        AddHandler(Frame.NavigatedToEvent, OnNavigatedTo, RoutingStrategies.Direct);
+        AddHandler(FAFrame.NavigatedToEvent, OnNavigatedTo, RoutingStrategies.Direct);
         InitializeComponent();
     }
 
-    private void OnNavigatedTo(object? sender, NavigationEventArgs e)
+    private void OnNavigatedTo(object? sender, FANavigationEventArgs e)
     {
         Scroll.SetCurrentValue(ScrollViewer.OffsetProperty, new Vector(0, 0));
         if (e.Parameter is CleanViewModel)

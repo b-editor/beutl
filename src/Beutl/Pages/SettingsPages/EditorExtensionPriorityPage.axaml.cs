@@ -19,12 +19,12 @@ public sealed partial class EditorExtensionPriorityPage : UserControl
     {
         if (DataContext is EditorExtensionPriorityPageViewModel viewModel)
         {
-            var dialog = new ContentDialog
+            var dialog = new FAContentDialog
             {
                 DataContext = viewModel,
                 Title = SettingsStrings.Add_file_extension,
                 PrimaryButtonText = Strings.Add,
-                [!ContentDialog.IsPrimaryButtonEnabledProperty] = new Binding("CanAddFileExtension.Value"),
+                [!FAContentDialog.IsPrimaryButtonEnabledProperty] = new Binding("CanAddFileExtension.Value"),
                 PrimaryButtonCommand = viewModel.AddFileExtension,
                 CloseButtonText = Strings.Cancel,
                 Content = new TextBox

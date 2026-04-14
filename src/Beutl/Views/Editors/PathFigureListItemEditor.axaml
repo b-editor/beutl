@@ -49,11 +49,11 @@
                               Theme="{StaticResource TransparentToggleButton}">
                     <ToggleButton.ContextFlyout>
                         <ui:FAMenuFlyout>
-                            <ui:MenuFlyoutItem Click="EditInFrameClicked" Text="{x:Static lang:Strings.EditInFrame}" />
-                            <ui:MenuFlyoutItem Click="EditInTabClicked" Text="{x:Static lang:Strings.EditInTab}" />
+                            <ui:FAMenuFlyoutItem Click="EditInFrameClicked" Text="{x:Static lang:Strings.EditInFrame}" />
+                            <ui:FAMenuFlyoutItem Click="EditInTabClicked" Text="{x:Static lang:Strings.EditInTab}" />
                         </ui:FAMenuFlyout>
                     </ToggleButton.ContextFlyout>
-                    <ui:FontIcon FontFamily="{DynamicResource SymbolThemeFontFamily}" Glyph="&#xEDFB;" />
+                    <ui:FAFontIcon FontFamily="{DynamicResource SymbolThemeFontFamily}" Glyph="&#xEDFB;" />
                 </ToggleButton>
                 <Button Padding="0"
                         HorizontalContentAlignment="Center"
@@ -64,21 +64,21 @@
                     <icons:SymbolIcon Symbol="Add" />
                     <Button.ContextFlyout>
                         <ui:FAMenuFlyout>
-                            <ui:MenuFlyoutItem Click="AddClick"
-                                               Tag="Cubic"
-                                               Text="{x:Static lang:GraphicsStrings.CubicBezierSegment}" />
-                            <ui:MenuFlyoutItem Click="AddClick"
-                                               Tag="Quad"
-                                               Text="{x:Static lang:GraphicsStrings.QuadraticBezierSegment}" />
-                            <ui:MenuFlyoutItem Click="AddClick"
-                                               Tag="Line"
-                                               Text="{x:Static lang:GraphicsStrings.LineSegment}" />
-                            <ui:MenuFlyoutItem Click="AddClick"
-                                               Tag="Arc"
-                                               Text="{x:Static lang:GraphicsStrings.ArcSegment}" />
-                            <ui:MenuFlyoutItem Click="AddClick"
-                                               Tag="Conic"
-                                               Text="{x:Static lang:GraphicsStrings.ConicSegment}" />
+                            <ui:FAMenuFlyoutItem Click="AddClick"
+                                                 Tag="Cubic"
+                                                 Text="{x:Static lang:GraphicsStrings.CubicBezierSegment}" />
+                            <ui:FAMenuFlyoutItem Click="AddClick"
+                                                 Tag="Quad"
+                                                 Text="{x:Static lang:GraphicsStrings.QuadraticBezierSegment}" />
+                            <ui:FAMenuFlyoutItem Click="AddClick"
+                                                 Tag="Line"
+                                                 Text="{x:Static lang:GraphicsStrings.LineSegment}" />
+                            <ui:FAMenuFlyoutItem Click="AddClick"
+                                                 Tag="Arc"
+                                                 Text="{x:Static lang:GraphicsStrings.ArcSegment}" />
+                            <ui:FAMenuFlyoutItem Click="AddClick"
+                                                 Tag="Conic"
+                                                 Text="{x:Static lang:GraphicsStrings.ConicSegment}" />
                         </ui:FAMenuFlyout>
                     </Button.ContextFlyout>
                 </Button>

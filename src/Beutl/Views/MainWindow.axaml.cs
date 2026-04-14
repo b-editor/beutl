@@ -9,7 +9,7 @@ using FluentAvalonia.UI.Windowing;
 
 namespace Beutl.Views;
 
-public sealed partial class MainWindow : AppWindow
+public sealed partial class MainWindow : FAAppWindow
 {
     public MainWindow()
     {

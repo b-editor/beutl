@@ -4,14 +4,14 @@ using FluentAvalonia.UI.Controls;
 
 namespace Beutl.Views.Dialogs;
 
-public sealed partial class TelemetryDialog : ContentDialog
+public sealed partial class TelemetryDialog : FAContentDialog
 {
     public TelemetryDialog()
     {
         InitializeComponent();
     }
 
-    protected override Type StyleKeyOverride => typeof(ContentDialog);
+    protected override Type StyleKeyOverride => typeof(FAContentDialog);
 
     private void ShowDetail_Click(object? sender, RoutedEventArgs e)
     {

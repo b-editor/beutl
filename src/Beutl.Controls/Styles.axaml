@@ -163,7 +163,7 @@
         </Style>
     </Style>
 
-    <Style Selector="ui|ContentDialog /template/ ContentControl#Title">
+    <Style Selector="ui|FAContentDialog /template/ ContentControl#Title">
         <Setter Property="FontFamily" Value="{DynamicResource ContentControlThemeFontFamily}" />
     </Style>
 

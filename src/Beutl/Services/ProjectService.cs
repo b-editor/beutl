@@ -64,7 +64,7 @@ public sealed class ProjectService
             if (minVersion > NuGetVersion.Parse(BeutlApplication.Version) &&
                 !Preferences.Default.Get("ProjectService.SkipVersionCheck", false))
             {
-                var dialog = new ContentDialog
+                var dialog = new FAContentDialog
                 {
                     Title = MessageStrings.ProjectVersionMismatch_Title,
                     Content = string.Format(MessageStrings.ProjectVersionMismatch_Content, minVersion),

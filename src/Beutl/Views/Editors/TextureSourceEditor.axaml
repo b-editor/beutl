@@ -30,18 +30,18 @@
                         Theme="{StaticResource TransparentButton}">
                     <Button.ContextFlyout>
                         <ui:FAMenuFlyout>
-                            <ui:RadioMenuFlyoutItem Click="ChangeTextureSourceType"
-                                                    IsChecked="{Binding IsImageTextureSource.Value, Mode=OneWay}"
-                                                    Tag="Image"
-                                                    Text="{x:Static lang:GraphicsStrings.ImageTextureSource}" />
-                            <ui:RadioMenuFlyoutItem Click="ChangeTextureSourceType"
-                                                    IsChecked="{Binding IsDrawableTextureSource.Value, Mode=OneWay}"
-                                                    Tag="Drawable"
-                                                    Text="{x:Static lang:GraphicsStrings.DrawableTextureSource}" />
-                            <ui:RadioMenuFlyoutItem Click="ChangeTextureSourceType"
-                                                    IsChecked="{Binding !Value.Value, Mode=OneWay}"
-                                                    Tag="Null"
-                                                    Text="{x:Static lang:Strings.Null}" />
+                            <ui:FARadioMenuFlyoutItem Click="ChangeTextureSourceType"
+                                                      IsChecked="{Binding IsImageTextureSource.Value, Mode=OneWay}"
+                                                      Tag="Image"
+                                                      Text="{x:Static lang:GraphicsStrings.ImageTextureSource}" />
+                            <ui:FARadioMenuFlyoutItem Click="ChangeTextureSourceType"
+                                                      IsChecked="{Binding IsDrawableTextureSource.Value, Mode=OneWay}"
+                                                      Tag="Drawable"
+                                                      Text="{x:Static lang:GraphicsStrings.DrawableTextureSource}" />
+                            <ui:FARadioMenuFlyoutItem Click="ChangeTextureSourceType"
+                                                      IsChecked="{Binding !Value.Value, Mode=OneWay}"
+                                                      Tag="Null"
+                                                      Text="{x:Static lang:Strings.Null}" />
                         </ui:FAMenuFlyout>
                     </Button.ContextFlyout>
                     <icons:SymbolIcon Symbol="Compose" />

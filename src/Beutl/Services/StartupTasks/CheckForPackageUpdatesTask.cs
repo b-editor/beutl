@@ -75,7 +75,7 @@ public sealed class CheckForPackageUpdatesTask : StartupTask
                 window.DataContext = context;
                 if (window is Pages.ExtensionsPage page)
                 {
-                    page.nav.SelectedItem = page.nav.MenuItemsSource.Cast<NavigationViewItem>().ElementAtOrDefault(1);
+                    page.nav.SelectedItem = page.nav.MenuItemsSource.Cast<FANavigationViewItem>().ElementAtOrDefault(1);
                 }
 
                 try

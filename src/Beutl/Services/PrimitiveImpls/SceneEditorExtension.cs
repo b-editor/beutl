@@ -75,7 +75,7 @@ public sealed class SceneEditorExtension : EditorExtension
         }
     }
 
-    public override IconSource? GetIcon()
+    public override FAIconSource? GetIcon()
     {
         return new SymbolIconSource { Symbol = Symbol.Document };
     }

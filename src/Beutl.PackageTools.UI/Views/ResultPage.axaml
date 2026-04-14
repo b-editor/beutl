@@ -15,9 +15,9 @@
                        x:DataType="viewModels:ResultViewModel"
                        mc:Ignorable="d">
     <local:PackageToolPage.ButtonsContainer>
-        <uip:TaskDialogButtonsPanel KeyboardNavigation.TabNavigation="Continue" Spacing="8">
-            <uip:TaskDialogButtonHost Click="OnCloseButtonClick" Content="{x:Static res:Strings.Close}" />
-        </uip:TaskDialogButtonsPanel>
+        <uip:FATaskDialogButtonsPanel KeyboardNavigation.TabNavigation="Continue" Spacing="8">
+            <uip:FATaskDialogButtonHost Click="OnCloseButtonClick" Content="{x:Static res:Strings.Close}" />
+        </uip:FATaskDialogButtonsPanel>
     </local:PackageToolPage.ButtonsContainer>
     <local:PackageToolPage.Resources>
         <DataTemplate x:Key="PackageItemDataTemplate" DataType="viewModels:ActionViewModel">
@@ -40,12 +40,12 @@
                                                     RenderOptions.BitmapInterpolationMode="HighQuality"
                                                     Source="{Binding LogoUrl}" />
 
-                    <ui:InfoBadge HorizontalAlignment="Right"
-                                  VerticalAlignment="Bottom"
-                                  Classes="Icon"
-                                  Classes.Caution="{Binding Canceled.Value}"
-                                  Classes.Critical="{Binding Failed.Value}"
-                                  Classes.Success="{Binding Succeeded.Value}" />
+                    <ui:FAInfoBadge HorizontalAlignment="Right"
+                                    VerticalAlignment="Bottom"
+                                    Classes="Icon"
+                                    Classes.Caution="{Binding Canceled.Value}"
+                                    Classes.Critical="{Binding Failed.Value}"
+                                    Classes.Success="{Binding Succeeded.Value}" />
                 </Panel>
 
                 <Grid Grid.Column="2"
@@ -128,19 +128,19 @@
                         <StackPanel IsVisible="{Binding Succeeded.Value}"
                                     Orientation="Horizontal"
                                     Spacing="4">
-                            <ui:InfoBadge Classes="Success Icon" />
+                            <ui:FAInfoBadge Classes="Success Icon" />
                             <TextBlock Text="{x:Static res:Strings.Succeeded}" />
                         </StackPanel>
                         <StackPanel IsVisible="{Binding Failed.Value}"
                                     Orientation="Horizontal"
                                     Spacing="4">
-                            <ui:InfoBadge Classes="Critical Icon" />
+                            <ui:FAInfoBadge Classes="Critical Icon" />
                             <TextBlock Text="{x:Static res:Strings.Failed}" />
                         </StackPanel>
                         <StackPanel IsVisible="{Binding Canceled.Value}"
                                     Orientation="Horizontal"
                                     Spacing="4">
-                            <ui:InfoBadge Classes="Caution Icon" />
+                            <ui:FAInfoBadge Classes="Caution Icon" />
                             <TextBlock Text="{x:Static res:Strings.Canceled}" />
                         </StackPanel>
 

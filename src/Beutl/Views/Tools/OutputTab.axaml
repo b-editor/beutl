@@ -47,20 +47,20 @@
                             Theme="{StaticResource TransparentButton}">
                         <Button.Flyout>
                             <ui:FAMenuFlyout>
-                                <ui:MenuFlyoutItem Click="OnRemoveClick"
-                                                   CommandParameter="{Binding}"
-                                                   IconSource="Delete"
-                                                   Text="{x:Static lang:Strings.Remove}" />
-                                <ui:MenuFlyoutItem Click="OnRenameClick"
-                                                   CommandParameter="{Binding}"
-                                                   Tag="{Binding #ItemMoreButton}"
-                                                   Text="{x:Static lang:Strings.Rename}" />
-                                <ui:MenuFlyoutItem Click="OnConvertPresetClick"
-                                                   CommandParameter="{Binding}"
-                                                   Text="{x:Static lang:Strings.Convert_to_preset}" />
+                                <ui:FAMenuFlyoutItem Click="OnRemoveClick"
+                                                     CommandParameter="{Binding}"
+                                                     IconSource="Delete"
+                                                     Text="{x:Static lang:Strings.Remove}" />
+                                <ui:FAMenuFlyoutItem Click="OnRenameClick"
+                                                     CommandParameter="{Binding}"
+                                                     Tag="{Binding #ItemMoreButton}"
+                                                     Text="{x:Static lang:Strings.Rename}" />
+                                <ui:FAMenuFlyoutItem Click="OnConvertPresetClick"
+                                                     CommandParameter="{Binding}"
+                                                     Text="{x:Static lang:Strings.Convert_to_preset}" />
                             </ui:FAMenuFlyout>
                         </Button.Flyout>
-                        <ui:SymbolIcon Symbol="MoreVertical" />
+                        <ui:FASymbolIcon Symbol="MoreVertical" />
                     </Button>
                 </Grid>
             </ComboBoxItem>
@@ -89,17 +89,17 @@
                             Theme="{StaticResource TransparentButton}">
                         <Button.Flyout>
                             <ui:FAMenuFlyout>
-                                <ui:MenuFlyoutItem Click="OnRemoveClick"
-                                                   CommandParameter="{Binding}"
-                                                   IconSource="Delete"
-                                                   Text="{x:Static lang:Strings.Remove}" />
-                                <ui:MenuFlyoutItem Click="OnRenameClick"
-                                                   CommandParameter="{Binding}"
-                                                   Tag="{Binding #ItemMoreButton}"
-                                                   Text="{x:Static lang:Strings.Rename}" />
+                                <ui:FAMenuFlyoutItem Click="OnRemoveClick"
+                                                     CommandParameter="{Binding}"
+                                                     IconSource="Delete"
+                                                     Text="{x:Static lang:Strings.Remove}" />
+                                <ui:FAMenuFlyoutItem Click="OnRenameClick"
+                                                     CommandParameter="{Binding}"
+                                                     Tag="{Binding #ItemMoreButton}"
+                                                     Text="{x:Static lang:Strings.Rename}" />
                             </ui:FAMenuFlyout>
                         </Button.Flyout>
-                        <ui:SymbolIcon Symbol="MoreVertical" />
+                        <ui:FASymbolIcon Symbol="MoreVertical" />
                     </Button>
                 </Grid>
             </ComboBoxItem>
@@ -146,7 +146,7 @@
                         Click="OnAddClick"
                         Theme="{StaticResource TransparentButton}"
                         ToolTip.Tip="{x:Static lang:Strings.Add}">
-                    <ui:SymbolIcon Symbol="Add" />
+                    <ui:FASymbolIcon Symbol="Add" />
                 </Button>
                 <Button Name="MoreButton"
                         Grid.Column="4"
@@ -154,22 +154,22 @@
                         Theme="{StaticResource TransparentButton}">
                     <Button.Flyout>
                         <ui:FAMenuFlyout>
-                            <ui:MenuFlyoutItem Click="OnRemoveClick"
-                                               CommandParameter="{Binding SelectedItem.Value}"
-                                               IconSource="Delete"
-                                               IsEnabled="{Binding CanRemove.Value}"
-                                               Text="{x:Static lang:Strings.Remove}" />
-                            <ui:MenuFlyoutItem Click="OnRenameClick"
-                                               CommandParameter="{Binding SelectedItem.Value}"
-                                               IsEnabled="{Binding !!SelectedItem.Value}"
-                                               Text="{x:Static lang:Strings.Rename}" />
-                            <ui:MenuFlyoutItem Click="OnConvertPresetClick"
-                                               CommandParameter="{Binding SelectedItem.Value}"
-                                               IsEnabled="{Binding !!SelectedItem.Value}"
-                                               Text="{x:Static lang:Strings.Convert_to_preset}" />
+                            <ui:FAMenuFlyoutItem Click="OnRemoveClick"
+                                                 CommandParameter="{Binding SelectedItem.Value}"
+                                                 IconSource="Delete"
+                                                 IsEnabled="{Binding CanRemove.Value}"
+                                                 Text="{x:Static lang:Strings.Remove}" />
+                            <ui:FAMenuFlyoutItem Click="OnRenameClick"
+                                                 CommandParameter="{Binding SelectedItem.Value}"
+                                                 IsEnabled="{Binding !!SelectedItem.Value}"
+                                                 Text="{x:Static lang:Strings.Rename}" />
+                            <ui:FAMenuFlyoutItem Click="OnConvertPresetClick"
+                                                 CommandParameter="{Binding SelectedItem.Value}"
+                                                 IsEnabled="{Binding !!SelectedItem.Value}"
+                                                 Text="{x:Static lang:Strings.Convert_to_preset}" />
                         </ui:FAMenuFlyout>
                     </Button.Flyout>
-                    <ui:SymbolIcon Symbol="MoreVertical" />
+                    <ui:FASymbolIcon Symbol="MoreVertical" />
                 </Button>
             </Grid>
 

@@ -12,11 +12,11 @@
              mc:Ignorable="d">
     <Grid ColumnDefinitions="16,8,*">
         <Grid HorizontalAlignment="Center" RowDefinitions="Auto,*">
-            <ui:InfoBadge Classes="step"
-                          Classes.Critical="{Binding Failed.Value, FallbackValue=False}"
-                          Classes.Informational="{Binding !IsRunning.Value, FallbackValue=True}"
-                          Classes.Success="{Binding Succeeded.Value, FallbackValue=False}"
-                          Value="4" />
+            <ui:FAInfoBadge Classes="step"
+                            Classes.Critical="{Binding Failed.Value, FallbackValue=False}"
+                            Classes.Informational="{Binding !IsRunning.Value, FallbackValue=True}"
+                            Classes.Success="{Binding Succeeded.Value, FallbackValue=False}"
+                            Value="4" />
             <Border Grid.Row="1"
                     Width="2"
                     Background="Gray"

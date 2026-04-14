@@ -70,7 +70,7 @@
                                     Navigates="True"
                                     NavigationRequested="StartTutorial_Click">
                     <OptionsDisplayItem.Icon>
-                        <ui:SymbolIcon Symbol="Help" />
+                        <ui:FASymbolIcon Symbol="Help" />
                     </OptionsDisplayItem.Icon>
                 </OptionsDisplayItem>
             </WrapPanel>
@@ -158,10 +158,10 @@
             <Button Click="SocialClick"
                     Tag="Url"
                     ToolTip.Tip="{x:Static lang:Strings.Website}">
-                <ui:SymbolIcon Width="24"
-                               Height="24"
-                               FontSize="20"
-                               Symbol="Link" />
+                <ui:FASymbolIcon Width="24"
+                                 Height="24"
+                                 FontSize="20"
+                                 Symbol="Link" />
             </Button>
         </StackPanel>
     </Grid>

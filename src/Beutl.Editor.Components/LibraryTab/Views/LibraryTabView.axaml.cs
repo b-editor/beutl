@@ -50,9 +50,9 @@ public sealed partial class LibraryTabView : UserControl
                         new TextBlock { Text = item.Text }
                     }
                 };
-                var switchMenu = new ToggleMenuFlyoutItem
+                var switchMenu = new FAToggleMenuFlyoutItem
                 {
-                    [!ToggleMenuFlyoutItem.IsCheckedProperty] = binding,
+                    [!FAToggleMenuFlyoutItem.IsCheckedProperty] = binding,
                     Text = Strings.AlwaysDisplay
                 };
                 switchMenu.Click += (s, e) =>
@@ -80,9 +80,9 @@ public sealed partial class LibraryTabView : UserControl
                 {
                     Converter = new FuncValueConverter<LibraryTabDisplayMode, bool>(v => v == LibraryTabDisplayMode.Show)
                 };
-                var switchMenu = new ToggleMenuFlyoutItem
+                var switchMenu = new FAToggleMenuFlyoutItem
                 {
-                    [!ToggleMenuFlyoutItem.IsCheckedProperty] = binding,
+                    [!FAToggleMenuFlyoutItem.IsCheckedProperty] = binding,
                     Text = item.Text
                 };
                 switchMenu.Click += (s, e) =>

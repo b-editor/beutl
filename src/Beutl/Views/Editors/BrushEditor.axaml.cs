@@ -345,7 +345,7 @@ public sealed partial class BrushEditor : UserControl
     private void ChangeBrushType(object? sender, RoutedEventArgs e)
     {
         if (DataContext is not BrushEditorViewModel { IsDisposed: false } viewModel) return;
-        if (sender is not RadioMenuFlyoutItem { Tag: string tag }) return;
+        if (sender is not FARadioMenuFlyoutItem { Tag: string tag }) return;
 
         if (tag is "PerlinNoise")
         {
