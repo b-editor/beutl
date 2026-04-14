@@ -20,21 +20,4 @@ public sealed class ModelSourceEditorViewModel : ValueEditorViewModel<ModelSourc
     public ReadOnlyReactivePropertySlim<string?> FullName { get; }
 
     public ReadOnlyReactivePropertySlim<FileInfo?> FileInfo { get; }
-
-    public void SetValueAndDispose(ModelSource? oldValue, ModelSource? newValue)
-    {
-        if (!EqualityComparer<ModelSource?>.Default.Equals(oldValue, newValue))
-        {
-            if (EditingKeyFrame.Value is { } kf)
-            {
-                kf.Value = newValue;
-            }
-            else
-            {
-                PropertyAdapter.SetValue(newValue);
-            }
-
-            Commit();
-        }
-    }
 }

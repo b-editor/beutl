@@ -20,21 +20,4 @@ public sealed class VideoSourceEditorViewModel : ValueEditorViewModel<VideoSourc
     public ReadOnlyReactivePropertySlim<string?> FullName { get; }
 
     public ReadOnlyReactivePropertySlim<FileInfo?> FileInfo { get; }
-
-    public void SetValueAndDispose(VideoSource? oldValue, VideoSource? newValue)
-    {
-        if (!EqualityComparer<VideoSource?>.Default.Equals(oldValue, newValue))
-        {
-            if (EditingKeyFrame.Value is { } kf)
-            {
-                kf.Value = newValue;
-            }
-            else
-            {
-                PropertyAdapter.SetValue(newValue);
-            }
-
-            Commit();
-        }
-    }
 }

@@ -1,6 +1,5 @@
 ﻿using Beutl.Animation;
 using Beutl.Composition;
-using Beutl.Graphics.Rendering;
 using Beutl.PropertyAdapters;
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
@@ -29,4 +28,23 @@ public class ValueEditorViewModel<T> : BaseEditorViewModel<T>
     }
 
     public ReadOnlyReactiveProperty<T> Value { get; }
+
+    public void SetValueAndDispose(T oldValue, T newValue)
+    {
+        if (EqualityComparer<T>.Default.Equals(oldValue, newValue))
+        {
+            return;
+        }
+
+        if (EditingKeyFrame.Value is { } kf)
+        {
+            kf.Value = newValue;
+        }
+        else
+        {
+            PropertyAdapter.SetValue(newValue);
+        }
+
+        Commit();
+    }
 }

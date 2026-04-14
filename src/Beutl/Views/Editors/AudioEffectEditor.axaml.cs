@@ -32,57 +32,33 @@ public partial class AudioEffectEditor : UserControl
     {
         if (DataContext is not AudioEffectEditorViewModel { IsDisposed: false } viewModel) return;
 
-        // テンプレートファイルのドロップ
-        if (e.DataTransfer.TryGetFile()?.TryGetLocalPath() is { } droppedFile
-            && string.Equals(Path.GetExtension(droppedFile), ".json", StringComparison.OrdinalIgnoreCase)
-            && ObjectTemplateService.Instance.TryLoadFromFile(droppedFile) is { } template
-            && template.CreateInstance() is AudioEffect instance)
+        if (EditorDragDropHelper.TryHandleEditorDrop<AudioEffect>(
+                e,
+                BeutlDataFormats.AudioEffect,
+                tryPasteJson: viewModel.TryPasteJson,
+                onTemplateInstance: instance =>
+                {
+                    if (viewModel.IsGroup.Value)
+                        viewModel.AddItem(instance);
+                    else
+                        viewModel.ChangeAudioEffect(instance);
+                },
+                onTypePayload: type =>
+                {
+                    if (viewModel.IsGroup.Value)
+                        viewModel.AddItem(type);
+                    else
+                        viewModel.ChangeFilterType(type);
+                    return true;
+                }))
         {
-            if (viewModel.IsGroup.Value)
-            {
-                viewModel.AddItem(instance);
-            }
-            else
-            {
-                viewModel.ChangeAudioEffect(instance);
-            }
-
-            e.Handled = true;
-            return;
-        }
-
-        if (e.DataTransfer.TryGetValue(BeutlDataFormats.AudioEffect) is not { } data) return;
-
-        if (CoreObjectClipboard.IsJsonData(data))
-        {
-            if (viewModel.TryPasteJson(data))
-            {
-                e.Handled = true;
-            }
-        }
-        else if (TypeFormat.ToType(data) is { } type)
-        {
-            if (viewModel.IsGroup.Value)
-            {
-                viewModel.AddItem(type);
-            }
-            else
-            {
-                viewModel.ChangeFilterType(type);
-            }
-
             e.Handled = true;
         }
     }
 
     private void DragOver(object? sender, DragEventArgs e)
     {
-        if (e.DataTransfer.Contains(BeutlDataFormats.AudioEffect)
-            || e.DataTransfer.Contains(DataFormat.File))
-        {
-            e.DragEffects = DragDropEffects.Copy | DragDropEffects.Link;
-            e.Handled = true;
-        }
+        EditorDragDropHelper.HandleEditorDragOver(e, BeutlDataFormats.AudioEffect);
     }
 
     private async void Tag_Click(object? sender, RoutedEventArgs e)
