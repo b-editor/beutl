@@ -36,9 +36,10 @@ public sealed partial class LibraryTabView : UserControl
             .Select(item =>
             {
                 var tabItem = new TabStripItem();
-                var binding = new Binding($"{nameof(LibraryTabViewModel.LibraryTabDisplayModes)}[{item.Id}]", BindingMode.OneWay)
+                var binding = new ReflectionBinding($"{nameof(LibraryTabViewModel.LibraryTabDisplayModes)}[{item.Id}]")
                 {
-                    Converter = new FuncValueConverter<LibraryTabDisplayMode, bool>(v => v == LibraryTabDisplayMode.Show)
+                    Converter = new FuncValueConverter<LibraryTabDisplayMode, bool>(v => v == LibraryTabDisplayMode.Show),
+                    Mode = BindingMode.OneWay
                 };
                 tabItem.Bind(IsVisibleProperty, binding);
                 tabItem.Content = new StackPanel
@@ -75,9 +76,10 @@ public sealed partial class LibraryTabView : UserControl
         {
             ItemsSource = s_tabItems.Select(item =>
             {
-                var binding = new Binding($"{nameof(LibraryTabViewModel.LibraryTabDisplayModes)}[{item.Id}]", BindingMode.OneWay)
+                var binding = new ReflectionBinding($"{nameof(LibraryTabViewModel.LibraryTabDisplayModes)}[{item.Id}]")
                 {
-                    Converter = new FuncValueConverter<LibraryTabDisplayMode, bool>(v => v == LibraryTabDisplayMode.Show)
+                    Converter = new FuncValueConverter<LibraryTabDisplayMode, bool>(v => v == LibraryTabDisplayMode.Show),
+                    Mode = BindingMode.OneWay
                 };
                 var switchMenu = new FAToggleMenuFlyoutItem
                 {

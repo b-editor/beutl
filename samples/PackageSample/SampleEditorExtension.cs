@@ -81,7 +81,10 @@ public class TextEditor : TextBox
 {
     public TextEditor()
     {
-        this[!TextProperty] = new Binding("Text.Value", BindingMode.TwoWay);
+        this[!TextProperty] = new ReflectionBinding("Text.Value")
+        {
+            Mode = BindingMode.TwoWay
+        };
     }
 
     protected override Type StyleKeyOverride => typeof(TextBox);
