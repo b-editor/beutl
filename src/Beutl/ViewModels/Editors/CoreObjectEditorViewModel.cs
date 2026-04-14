@@ -23,6 +23,8 @@ public interface ICoreObjectEditorViewModel : IServiceProvider
 
     ReactivePropertySlim<bool> IsExpanded { get; }
 
+    ReactiveProperty<bool> IsEnabled { get; }
+
     ReadOnlyReactivePropertySlim<bool> CanEdit { get; }
 
     ReadOnlyReactivePropertySlim<bool> IsNull { get; }
@@ -128,6 +130,9 @@ public sealed class CoreObjectEditorViewModel<T> : BaseEditorViewModel<T>, ICore
     public ReadOnlyReactivePropertySlim<PropertiesEditorViewModel?> Properties { get; }
 
     public ReactivePropertySlim<bool> IsExpanded { get; } = new();
+
+    // TODO: EngineObject.IsEnabledと同期する
+    public ReactiveProperty<bool> IsEnabled { get; }
 
     public ReadOnlyReactivePropertySlim<bool> IsNull { get; }
 
