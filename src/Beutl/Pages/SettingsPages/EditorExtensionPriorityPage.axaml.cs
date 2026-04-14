@@ -29,7 +29,10 @@ public sealed partial class EditorExtensionPriorityPage : UserControl
                 CloseButtonText = Strings.Cancel,
                 Content = new TextBox
                 {
-                    [!TextBox.TextProperty] = new Binding("FileExtensionInput.Value", BindingMode.TwoWay)
+                    [!TextBox.TextProperty] = new ReflectionBinding("FileExtensionInput.Value")
+                    {
+                        Mode = BindingMode.TwoWay
+                    }
                 }
             };
             await dialog.ShowAsync();
