@@ -93,7 +93,7 @@
 
     <SolidColorBrush x:Key="DockChromeButtonDangerHoverBrush" Color="{DynamicResource SystemFillColorCriticalBackground}" />
 
-    <!--  ===== Typography (match Beutl BcTabItemFontSize=12) =====  -->
+    <!--  ===== Typography =====  -->
     <sys:Double x:Key="DockFontSizeNormal">12</sys:Double>
 
     <!--  ===== Geometry / density =====  -->
