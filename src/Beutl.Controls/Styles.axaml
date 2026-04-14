@@ -26,8 +26,6 @@
                 <ResourceInclude Source="/Styling/LiteNav.axaml" />
                 <ResourceInclude Source="/Styling/FlipButton.axaml" />
                 <ResourceInclude Source="/Styling/OptionsDisplayItem.axaml" />
-                <ResourceInclude Source="/Styling/BcTabItem.axaml" />
-                <ResourceInclude Source="/Styling/BcTabView.axaml" />
                 <ResourceInclude Source="/Styling/Player.axaml" />
 
                 <ResourceInclude Source="/Styling/PropertyEditors/PropertyEditorResources.axaml" />
