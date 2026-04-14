@@ -28,7 +28,7 @@
                          Margin="8,0"
                          HorizontalAlignment="Right"
                          VerticalAlignment="Center"
-                         Watermark="{x:Static lang:Strings.Search}">
+                         PlaceholderText="{x:Static lang:Strings.Search}">
                     <TextBox.InnerRightContent>
                         <Button Click="Search_Click" Theme="{StaticResource TransparentButton}">
                             <ui:FASymbolIcon Symbol="Find" />

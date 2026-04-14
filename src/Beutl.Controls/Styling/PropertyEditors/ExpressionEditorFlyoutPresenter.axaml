@@ -72,7 +72,7 @@
                                          MinHeight="100"
                                          MaxHeight="200"
                                          TextWrapping="Wrap"
-                                         Watermark="Sin(Time * 2 * PI) * 100"
+                                         PlaceholderText="Sin(Time * 2 * PI) * 100"
                                          Text="{TemplateBinding ExpressionText, Mode=TwoWay}"
                                          VerticalContentAlignment="Top" />
                                 <TextBlock Name="ErrorTextBlock"
