@@ -22,8 +22,6 @@ public sealed partial class MacWindow : Window
         {
             ExtendClientAreaToDecorationsHint = true;
             ExtendClientAreaTitleBarHeightHint = 40;
-            ExtendClientAreaChromeHints = ExtendClientAreaChromeHints.OSXThickTitleBar |
-                                          ExtendClientAreaChromeHints.PreferSystemChrome;
         }
 
         InitializeComponent();
