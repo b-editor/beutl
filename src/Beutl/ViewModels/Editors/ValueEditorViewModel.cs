@@ -1,5 +1,8 @@
-﻿using Beutl.Animation;
+﻿using Avalonia;
+using Avalonia.Interactivity;
+using Beutl.Animation;
 using Beutl.Composition;
+using Beutl.Controls.PropertyEditors;
 using Beutl.PropertyAdapters;
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
@@ -46,5 +49,38 @@ public class ValueEditorViewModel<T> : BaseEditorViewModel<T>
         }
 
         Commit();
+    }
+
+    protected void AttachValueBindings<TEditor>(
+        TEditor editor,
+        AvaloniaProperty valueProperty,
+        Func<TEditor, T> getValue,
+        Action<TEditor, T> setValue)
+        where TEditor : PropertyEditor
+    {
+        editor.Bind(valueProperty, Value.ToBinding())
+            .DisposeWith(Disposables);
+
+        editor.AddDisposableHandler(
+                PropertyEditor.ValueChangedEvent,
+                (s, _) =>
+                {
+                    if (s is TEditor ed)
+                    {
+                        setValue(ed, SetCurrentValueAndGetCoerced(getValue(ed))!);
+                    }
+                })
+            .DisposeWith(Disposables);
+
+        editor.AddDisposableHandler(
+                PropertyEditor.ValueConfirmedEvent,
+                (_, e) =>
+                {
+                    if (e is PropertyEditorValueChangedEventArgs<T> args)
+                    {
+                        SetValue(args.OldValue, args.NewValue);
+                    }
+                })
+            .DisposeWith(Disposables);
     }
 }
