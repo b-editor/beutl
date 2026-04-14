@@ -59,7 +59,7 @@
     <PackageReference Include="Dotnet.Bundle" />
     <PackageReference Include="DynamicData" />
     <PackageReference Include="FluentAvaloniaUI" />
-    <PackageReference Include="FluentIcons.FluentAvalonia" />
+    <PackageReference Include="Beutl.FluentIcons.FluentAvalonia" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
     <PackageReference Include="Microsoft.Extensions.Logging" />
     <PackageReference Include="OpenTelemetry" />

@@ -35,7 +35,7 @@
     <PackageVersion Include="FFmpeg.AutoGen.Abstractions" Version="8.0.0" />
     <PackageVersion Include="FFmpeg4Sharp" Version="7.0.1" />
     <PackageVersion Include="FluentAvaloniaUI" Version="3.0.0-preview1" />
-    <PackageVersion Include="FluentIcons.FluentAvalonia" Version="1.1.224" />
+    <PackageVersion Include="Beutl.FluentIcons.FluentAvalonia" Version="1.1.324" />
     <PackageVersion Include="Microsoft.Extensions.TimeProvider.Testing" Version="10.5.0" />
     <PackageVersion Include="Microsoft.Windows.CsWin32" Version="0.3.275" />
     <PackageVersion Include="Moq" Version="4.20.72" />

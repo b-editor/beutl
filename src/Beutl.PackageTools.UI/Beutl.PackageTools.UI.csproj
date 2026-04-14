@@ -27,7 +27,7 @@
       Include="AvaloniaUI.DiagnosticsSupport" />
     <PackageReference Include="DynamicData" />
     <PackageReference Include="FluentAvaloniaUI" />
-    <PackageReference Include="FluentIcons.FluentAvalonia" />
+    <PackageReference Include="Beutl.FluentIcons.FluentAvalonia" />
     <PackageReference Include="AsyncImageLoader.Avalonia" />
     <PackageReference Include="OpenTelemetry" />
     <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" />

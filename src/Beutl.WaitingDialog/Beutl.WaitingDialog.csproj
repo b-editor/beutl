@@ -22,7 +22,7 @@
     <PackageReference Condition="'$(Configuration)' == 'Debug'"
       Include="AvaloniaUI.DiagnosticsSupport" />
     <PackageReference Include="FluentAvaloniaUI" />
-    <PackageReference Include="FluentIcons.FluentAvalonia" />
+    <PackageReference Include="Beutl.FluentIcons.FluentAvalonia" />
     <PackageReference Include="System.Reactive" />
   </ItemGroup>
 
