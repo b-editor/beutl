@@ -29,7 +29,6 @@ public sealed partial class SettingsDialog : FAAppWindow
         {
             nav.Margin = new Thickness(0, 22, 0, 0);
             ExtendClientAreaToDecorationsHint = true;
-            ExtendClientAreaChromeHints = ExtendClientAreaChromeHints.PreferSystemChrome;
         }
 
         _pageResolver = new PageResolver();
