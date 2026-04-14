@@ -1,6 +1,7 @@
 ﻿#pragma warning disable CS0436
 
 using Avalonia.Controls;
+using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
 using Beutl.ViewModels.SettingsPages;
 
