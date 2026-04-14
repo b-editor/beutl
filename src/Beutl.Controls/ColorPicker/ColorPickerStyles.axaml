@@ -61,10 +61,10 @@
                              FontSize="{TemplateBinding FontSize}"
                              FontWeight="{TemplateBinding FontWeight}"
                              Foreground="{TemplateBinding Foreground}"
+                             PlaceholderText="{TemplateBinding PlaceholderText}"
                              SelectionBrush="{TemplateBinding SelectionHighlightColor}"
                              TextAlignment="{TemplateBinding TextAlignment}"
-                             Theme="{StaticResource NumberBoxTextBoxStyle}"
-                             Watermark="{TemplateBinding PlaceholderText}">
+                             Theme="{StaticResource NumberBoxTextBoxStyle}">
                         <TextBox.InnerLeftContent>
                             <Border Name="Label"
                                     Width="32"
@@ -470,8 +470,8 @@
                                             <!--  IsVisible="{TemplateBinding UseColorWheel}"  -->
                                             <TabItem.Header>
                                                 <ui:FAFontIcon FontFamily="{DynamicResource SymbolThemeFontFamily}"
-                                                             FontSize="20"
-                                                             Glyph="&#xE790;" />
+                                                               FontSize="20"
+                                                               Glyph="&#xE790;" />
                                             </TabItem.Header>
                                         </TabItem>
                                         <TabItem Name="TriangleTab" IsVisible="False">
@@ -487,8 +487,8 @@
                                         <TabItem Name="PaletteTab" IsVisible="{TemplateBinding UseColorPalette}">
                                             <TabItem.Header>
                                                 <ui:FAFontIcon FontFamily="{DynamicResource SymbolThemeFontFamily}"
-                                                             FontSize="20"
-                                                             Glyph="&#xF0E2;" />
+                                                               FontSize="20"
+                                                               Glyph="&#xF0E2;" />
 
                                             </TabItem.Header>
                                             <Panel Name="PaletteContent"
@@ -500,8 +500,8 @@
                                                     <ui:FAItemsRepeater Margin="5" ItemsSource="{TemplateBinding CustomPaletteColors}">
                                                         <ui:FAItemsRepeater.Layout>
                                                             <ui:FAUniformGridLayout ItemsStretch="Fill"
-                                                                                  MaximumRowsOrColumns="{Binding RelativeSource={RelativeSource TemplatedParent}, Path=PaletteColumnCount}"
-                                                                                  Orientation="Horizontal" />
+                                                                                    MaximumRowsOrColumns="{Binding RelativeSource={RelativeSource TemplatedParent}, Path=PaletteColumnCount}"
+                                                                                    Orientation="Horizontal" />
                                                         </ui:FAItemsRepeater.Layout>
                                                         <ui:FAItemsRepeater.ItemTemplate>
                                                             <DataTemplate x:DataType="Color">
