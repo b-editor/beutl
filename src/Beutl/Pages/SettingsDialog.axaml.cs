@@ -1,4 +1,6 @@
 ﻿using Avalonia;
+using Avalonia.Controls.Primitives;
+using Avalonia.LogicalTree;
 using Avalonia.Platform;
 using Beutl.Controls.Navigation;
 using Beutl.Logging;
@@ -45,18 +47,18 @@ public sealed partial class SettingsDialog : FAAppWindow
         nav.SelectedItem = selected;
     }
 
-    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    protected override void OnAttachedToLogicalTree(LogicalTreeAttachmentEventArgs e)
     {
-        base.OnAttachedToVisualTree(e);
+        base.OnAttachedToLogicalTree(e);
         if (nav.SelectedItem is FANavigationViewItem selected)
         {
             OnItemInvoked(selected);
         }
     }
 
-    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    protected override void OnDetachedFromLogicalTree(LogicalTreeAttachmentEventArgs e)
     {
-        base.OnDetachedFromVisualTree(e);
+        base.OnDetachedFromLogicalTree(e);
         frame.SetNavigationState("|\n0\n0");
     }
 
