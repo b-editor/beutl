@@ -28,7 +28,7 @@ public sealed class SaveAsTemplateFlyout : FAPickerFlyoutBase
 
     protected override Control CreatePresenter()
     {
-        _textBox ??= new TextBox { Watermark = Strings.EnterTemplateName };
+        _textBox ??= new TextBox { PlaceholderText = Strings.EnterTemplateName };
         _textBox.Text = _text;
         var pfp = new FAPickerFlyoutPresenter()
         {
@@ -62,7 +62,7 @@ public sealed class SaveAsTemplateFlyout : FAPickerFlyoutBase
     protected override void OnOpening(CancelEventArgs args)
     {
         base.OnOpening(args);
-        _textBox ??= new TextBox { Watermark = Strings.EnterTemplateName };
+        _textBox ??= new TextBox { PlaceholderText = Strings.EnterTemplateName };
         _textBox.Text = _text;
         _textBox.SelectAll();
         _textBox.Focus();
