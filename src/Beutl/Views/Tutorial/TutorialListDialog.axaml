@@ -19,11 +19,11 @@
                     <Button HorizontalAlignment="Stretch"
                             HorizontalContentAlignment="Stretch"
                             Click="OnTutorialItemClick"
-                            Tag="{Binding Id}">
+                            Tag="{ReflectionBinding Id}">
                         <StackPanel Spacing="4">
-                            <TextBlock FontWeight="SemiBold" Text="{Binding Title}" />
+                            <TextBlock FontWeight="SemiBold" Text="{ReflectionBinding Title}" />
                             <TextBlock Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                                       Text="{Binding Description}"
+                                       Text="{ReflectionBinding Description}"
                                        TextWrapping="Wrap" />
                         </StackPanel>
                     </Button>
