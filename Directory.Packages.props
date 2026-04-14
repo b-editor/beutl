@@ -5,7 +5,7 @@
   <ItemGroup>
     <PackageVersion Include="Aigamo.ResXGenerator" Version="4.3.0" />
     <PackageVersion Include="AsyncImageLoader.Avalonia" Version="3.7.0" />
-    <PackageVersion Include="Avalonia" Version="11.3.13" />
+    <PackageVersion Include="Avalonia" Version="12.0.1" />
     <PackageVersion Include="Avalonia.Controls.ItemsRepeater" Version="11.1.5" />
     <PackageVersion Include="PanAndZoom" Version="11.3.9.1" />
     <PackageVersion Include="Avalonia.Desktop" Version="11.3.13" />
@@ -23,7 +23,7 @@
     <PackageVersion Include="Silk.NET.Shaderc.Native" Version="2.23.0" />
     <PackageVersion Include="Silk.NET.Assimp" Version="2.23.0" />
     <PackageVersion Include="Svg.Controls.Skia.Avalonia" Version="11.3.9.5" />
-    <PackageVersion Include="Avalonia.Themes.Fluent" Version="11.3.13" />
+    <PackageVersion Include="Avalonia.Themes.Fluent" Version="12.0.1" />
     <PackageVersion Include="Xaml.Behaviors.Avalonia" Version="11.3.9.5" />
     <PackageVersion Include="Xaml.Behaviors.Interactivity" Version="11.3.9.5" />
     <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.15.2" />
