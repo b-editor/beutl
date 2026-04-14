@@ -44,9 +44,6 @@ public sealed partial class SettingsDialog : AppWindow
         nav.BackRequested += Nav_BackRequested;
 
         nav.SelectedItem = selected;
-#if DEBUG
-        this.AttachDevTools();
-#endif
     }
 
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
