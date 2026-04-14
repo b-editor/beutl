@@ -9,7 +9,7 @@ using FluentAvalonia.UI.Controls.Primitives;
 
 namespace Beutl.Views.Editors;
 
-public sealed class TargetPickerFlyout(TargetPickerFlyoutViewModel viewModel) : PickerFlyoutBase
+public sealed class TargetPickerFlyout(TargetPickerFlyoutViewModel viewModel) : FAPickerFlyoutBase
 {
     public event TypedEventHandler<TargetPickerFlyout, EventArgs>? Confirmed;
 

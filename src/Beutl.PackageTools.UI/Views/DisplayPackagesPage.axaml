@@ -71,12 +71,12 @@
         </DataTemplate>
     </local:PackageToolPage.Resources>
     <local:PackageToolPage.ButtonsContainer>
-        <uip:TaskDialogButtonsPanel KeyboardNavigation.TabNavigation="Continue" Spacing="8">
-            <uip:TaskDialogButtonHost Classes="accent"
-                                      Click="OnNextClick"
-                                      Content="{x:Static res:Strings.Start}"
-                                      IsEnabled="{Binding !IsBusy.Value}" />
-        </uip:TaskDialogButtonsPanel>
+        <uip:FATaskDialogButtonsPanel KeyboardNavigation.TabNavigation="Continue" Spacing="8">
+            <uip:FATaskDialogButtonHost Classes="accent"
+                                        Click="OnNextClick"
+                                        Content="{x:Static res:Strings.Start}"
+                                        IsEnabled="{Binding !IsBusy.Value}" />
+        </uip:FATaskDialogButtonsPanel>
     </local:PackageToolPage.ButtonsContainer>
 
     <Grid Margin="18,9" RowDefinitions="Auto,*">

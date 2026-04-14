@@ -14,7 +14,7 @@
                   mc:Ignorable="d">
     <ui:ContentDialog.Resources>
         <x:Double x:Key="ContentDialogMaxWidth">400</x:Double>
-    </ui:ContentDialog.Resources>
+    </ui:FAContentDialog.Resources>
     <StackPanel Spacing="16">
         <SelectableTextBlock TextWrapping="WrapWithOverflow" Text="{x:Static lang:SettingsStrings.Telemetry_Description}" />
 
@@ -35,4 +35,4 @@
             </Grid>
         </Button>
     </StackPanel>
-</ui:ContentDialog>
+</ui:FAContentDialog>

@@ -35,4 +35,4 @@
                    Text="{x:Static lang:TutorialStrings.NoTutorialsAvailable}" />
     </StackPanel>
 
-</ui:ContentDialog>
+</ui:FAContentDialog>

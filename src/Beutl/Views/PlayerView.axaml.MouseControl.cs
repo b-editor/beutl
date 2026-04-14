@@ -998,12 +998,12 @@ public partial class PlayerView
 
                 if (ViewModel.TcsForCrop == null)
                 {
-                    var copyAsString = new MenuFlyoutItem()
+                    var copyAsString = new FAMenuFlyoutItem()
                     {
                         Text = Strings.Copy,
                         IconSource = new FluentIconSource() { Icon = Icon.Copy }
                     };
-                    var saveAsImage = new MenuFlyoutItem()
+                    var saveAsImage = new FAMenuFlyoutItem()
                     {
                         Text = Strings.SaveAsImage,
                         IconSource = new FluentIconSource() { Icon = Icon.SaveImage }
@@ -1041,10 +1041,10 @@ public partial class PlayerView
                         }
                     };
 
-                    var list = new List<MenuFlyoutItem>();
+                    var list = new List<FAMenuFlyoutItem>();
                     if (OperatingSystem.IsWindows())
                     {
-                        var copyAsImage = new MenuFlyoutItem()
+                        var copyAsImage = new FAMenuFlyoutItem()
                         {
                             Text = Strings.CopyAsImage,
                             IconSource = new FluentIconSource() { Icon = Icon.ImageCopy }

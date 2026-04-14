@@ -56,18 +56,18 @@
                            Offset="{Binding #ContentScroll.Offset, Mode=OneWay}">
             <ecv:TimelineScale.ContextFlyout>
                 <ui:FAMenuFlyout>
-                    <ui:MenuFlyoutItem Command="{Binding DeleteAllFrameCache}" Text="{x:Static lang:Strings.DeleteAll}" />
-                    <ui:MenuFlyoutItem Command="{Binding DeleteFrameCache}" Text="{x:Static lang:Strings.Delete}" />
-                    <ui:MenuFlyoutItem Command="{Binding LockFrameCache}" Text="{x:Static lang:Strings.Lock}" />
-                    <ui:MenuFlyoutItem Command="{Binding UnlockFrameCache}" Text="{x:Static lang:Strings.Unlock}" />
+                    <ui:FAMenuFlyoutItem Command="{Binding DeleteAllFrameCache}" Text="{x:Static lang:Strings.DeleteAll}" />
+                    <ui:FAMenuFlyoutItem Command="{Binding DeleteFrameCache}" Text="{x:Static lang:Strings.Delete}" />
+                    <ui:FAMenuFlyoutItem Command="{Binding LockFrameCache}" Text="{x:Static lang:Strings.Lock}" />
+                    <ui:FAMenuFlyoutItem Command="{Binding UnlockFrameCache}" Text="{x:Static lang:Strings.Unlock}" />
                 </ui:FAMenuFlyout>
             </ecv:TimelineScale.ContextFlyout>
         </ecv:TimelineScale>
 
-        <ui:TeachingTip x:Name="CacheTip"
-                        Title="{x:Static lang:Strings.FrameCache}"
-                        Subtitle="{x:Static lang:Strings.RightClickToOperateCache}"
-                        Target="{Binding #Scale}" />
+        <ui:FATeachingTip x:Name="CacheTip"
+                          Title="{x:Static lang:Strings.FrameCache}"
+                          Subtitle="{x:Static lang:Strings.RightClickToOperateCache}"
+                          Target="{Binding #Scale}" />
 
         <ScrollViewer x:Name="PaneScroll"
                       Grid.Row="1"

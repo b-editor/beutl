@@ -15,7 +15,7 @@ using Icon = FluentIcons.Common.Icon;
 
 namespace Beutl.WaitingDialog;
 
-public partial class MainWindow : AppWindow
+public partial class MainWindow : FAAppWindow
 {
     private bool _closable;
     private Process? _parentProcess;

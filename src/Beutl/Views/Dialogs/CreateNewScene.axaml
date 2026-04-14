@@ -37,4 +37,4 @@
         <TextBlock Margin="0,8,0,0" Text="{x:Static lang:Strings.Size}" />
         <TextBox Text="{CompiledBinding Size.Value, Mode=TwoWay, Converter={x:Static converters:AvaloniaPixelSizeConverter.Instance}}" />
     </StackPanel>
-</ui:ContentDialog>
+</ui:FAContentDialog>

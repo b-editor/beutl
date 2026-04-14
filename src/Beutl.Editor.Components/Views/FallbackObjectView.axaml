@@ -20,27 +20,27 @@
         <SelectableTextBlock Text="{Binding ActualTypeName.Value}" />
 
         <WrapPanel Margin="-6">
-            <ui:CommandBar DefaultLabelPosition="Right">
-                <ui:CommandBar.Styles>
-                    <Style Selector="ui|CommandBarButton /template/ TextBlock#TextLabel">
+            <ui:FACommandBar DefaultLabelPosition="Right">
+                <ui:FACommandBar.Styles>
+                    <Style Selector="ui|FACommandBarButton /template/ TextBlock#TextLabel">
                         <Setter Property="VerticalAlignment" Value="Center" />
                         <Setter Property="Margin" Value="8,0,12,0" />
                     </Style>
-                    <Style Selector="ui|CommandBarToggleButton /template/ TextBlock#TextLabel">
+                    <Style Selector="ui|FACommandBarToggleButton /template/ TextBlock#TextLabel">
                         <Setter Property="VerticalAlignment" Value="Center" />
                         <Setter Property="Margin" Value="8,0,12,0" />
                     </Style>
-                </ui:CommandBar.Styles>
-                <ui:CommandBar.PrimaryCommands>
-                    <ui:CommandBarToggleButton x:Name="editJsonToggle"
-                                               IconSource="Edit"
-                                               Label="{x:Static lang:Strings.EditJson}" />
+                </ui:FACommandBar.Styles>
+                <ui:FACommandBar.PrimaryCommands>
+                    <ui:FACommandBarToggleButton x:Name="editJsonToggle"
+                                                 IconSource="Edit"
+                                                 Label="{x:Static lang:Strings.EditJson}" />
 
-                    <ui:CommandBarButton x:Name="jsonSaveButton"
-                                         IconSource="Save"
-                                         Label="{x:Static lang:Strings.Save}" />
-                </ui:CommandBar.PrimaryCommands>
-            </ui:CommandBar>
+                    <ui:FACommandBarButton x:Name="jsonSaveButton"
+                                           IconSource="Save"
+                                           Label="{x:Static lang:Strings.Save}" />
+                </ui:FACommandBar.PrimaryCommands>
+            </ui:FACommandBar>
         </WrapPanel>
         <TextBox x:Name="jsonTextBox"
                  MinHeight="80"

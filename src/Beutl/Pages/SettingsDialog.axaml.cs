@@ -13,7 +13,7 @@ using FluentIconSource = FluentIcons.Avalonia.Fluent.FluentIconSource;
 
 namespace Beutl.Pages;
 
-public sealed partial class SettingsDialog : AppWindow
+public sealed partial class SettingsDialog : FAAppWindow
 {
     private readonly PageResolver _pageResolver;
     private readonly ILogger _logger = Log.CreateLogger<SettingsDialog>();
@@ -36,9 +36,9 @@ public sealed partial class SettingsDialog : AppWindow
         _pageResolver = new PageResolver();
         _ = new NavigationProvider(frame, _pageResolver);
 
-        List<NavigationViewItem> items = GetItems();
+        List<FANavigationViewItem> items = GetItems();
         nav.MenuItemsSource = items;
-        NavigationViewItem selected = items[0];
+        FANavigationViewItem selected = items[0];
 
         frame.Navigated += Frame_Navigated;
         nav.ItemInvoked += Nav_ItemInvoked;
@@ -50,7 +50,7 @@ public sealed partial class SettingsDialog : AppWindow
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnAttachedToVisualTree(e);
-        if (nav.SelectedItem is NavigationViewItem selected)
+        if (nav.SelectedItem is FANavigationViewItem selected)
         {
             OnItemInvoked(selected);
         }
@@ -75,45 +75,45 @@ public sealed partial class SettingsDialog : AppWindow
     {
         Type pageType = _pageResolver.GetPageType(obj.GetType());
 
-        NavigationTransitionInfo transitionInfo = SharedNavigationTransitionInfo.Instance;
+        FANavigationTransitionInfo transitionInfo = SharedNavigationTransitionInfo.Instance;
         frame.Navigate(pageType, obj, transitionInfo);
     }
 
-    private static List<NavigationViewItem> GetItems()
+    private static List<FANavigationViewItem> GetItems()
     {
         return
         [
-            new NavigationViewItem()
+            new FANavigationViewItem()
             {
                 Content = SettingsStrings.Account,
                 Tag = typeof(AccountSettingsPage),
                 IconSource = new FluentIconSource { Icon = FluentIcons.Common.Icon.People }
             },
-            new NavigationViewItem()
+            new FANavigationViewItem()
             {
                 Content = Strings.View,
                 Tag = typeof(ViewSettingsPage),
                 IconSource = new FluentIconSource { Icon = FluentIcons.Common.Icon.Eye }
             },
-            new NavigationViewItem()
+            new FANavigationViewItem()
             {
                 Content = Strings.Editor,
                 Tag = typeof(EditorSettingsPage),
                 IconSource = new FluentIconSource { Icon = FluentIcons.Common.Icon.Edit }
             },
-            new NavigationViewItem()
+            new FANavigationViewItem()
             {
                 Content = SettingsStrings.Keymap,
                 Tag = typeof(KeyMapSettingsPage),
                 IconSource = new FluentIconSource { Icon = FluentIcons.Common.Icon.Keyboard }
             },
-            new NavigationViewItem()
+            new FANavigationViewItem()
             {
                 Content = SettingsStrings.Font,
                 Tag = typeof(FontSettingsPage),
                 IconSource = new FluentIconSource { Icon = FluentIcons.Common.Icon.TextFont }
             },
-            new NavigationViewItem()
+            new FANavigationViewItem()
             {
                 Content = Strings.Extensions,
                 Tag = typeof(ExtensionsSettingsPage),
@@ -131,7 +131,7 @@ public sealed partial class SettingsDialog : AppWindow
                     Symbol = FluentIcons.Common.Symbol.Chat
                 }
             },
-            new NavigationViewItem()
+            new FANavigationViewItem()
             {
                 Content = Strings.Info,
                 Tag = typeof(InformationPage),
@@ -143,25 +143,25 @@ public sealed partial class SettingsDialog : AppWindow
         ];
     }
 
-    private void Nav_BackRequested(object? sender, NavigationViewBackRequestedEventArgs e)
+    private void Nav_BackRequested(object? sender, FANavigationViewBackRequestedEventArgs e)
     {
         frame.GoBack();
     }
 
-    private void Nav_ItemInvoked(object? sender, NavigationViewItemInvokedEventArgs e)
+    private void Nav_ItemInvoked(object? sender, FANavigationViewItemInvokedEventArgs e)
     {
-        if (e.InvokedItemContainer is NavigationViewItem nvi)
+        if (e.InvokedItemContainer is FANavigationViewItem nvi)
         {
             OnItemInvoked(nvi);
         }
     }
 
-    private void OnItemInvoked(NavigationViewItem nvi)
+    private void OnItemInvoked(FANavigationViewItem nvi)
     {
         if (nvi.Tag is Type typ
             && DataContext is SettingsDialogViewModel settingsPage)
         {
-            NavigationTransitionInfo transitionInfo = SharedNavigationTransitionInfo.Instance;
+            FANavigationTransitionInfo transitionInfo = SharedNavigationTransitionInfo.Instance;
             object? parameter = typ.Name switch
             {
                 "AccountSettingsPage" => settingsPage.Account,
@@ -179,11 +179,11 @@ public sealed partial class SettingsDialog : AppWindow
         }
     }
 
-    private void Frame_Navigated(object sender, NavigationEventArgs e)
+    private void Frame_Navigated(object sender, FANavigationEventArgs e)
     {
         _logger.LogInformation("Navigate to '{PageName}'.", e.SourcePageType.Name);
 
-        foreach (NavigationViewItem nvi in nav.MenuItemsSource)
+        foreach (FANavigationViewItem nvi in nav.MenuItemsSource)
         {
             if (nvi.Tag is Type tag)
             {

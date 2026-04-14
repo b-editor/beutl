@@ -102,11 +102,11 @@ public sealed class SampleEditorExtension : EditorExtension
         };
     }
 
-    public override IconSource? GetIcon()
+    public override FAIconSource? GetIcon()
     {
-        return new SymbolIconSource
+        return new FASymbolIconSource
         {
-            Symbol = Symbol.Add
+            Symbol = FASymbol.Add
         };
     }
 

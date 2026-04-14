@@ -68,4 +68,4 @@
             </StackPanel>
         </Carousel.Items>
     </Carousel>
-</ui:ContentDialog>
+</ui:FAContentDialog>

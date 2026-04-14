@@ -54,16 +54,15 @@
         </Border.Styles>
         <Border.ContextFlyout>
             <ui:FAMenuFlyout>
-                <ui:ToggleMenuFlyoutItem x:Name="enableElement"
-                                         Click="EnableElementClick"
+                <ui:FAToggleMenuFlyoutItem Click="EnableElementClick"
                                          IsChecked="{Binding IsEnabled.Value}"
                                          Text="{x:Static lang:Strings.EnableElement}">
-                    <ui:ToggleMenuFlyoutItem.Styles>
-                        <Style Selector="ui|ToggleMenuFlyoutItem /template/ Viewbox#IconRoot">
+                    <ui:FAToggleMenuFlyoutItem.Styles>
+                        <Style Selector="ui|FAToggleMenuFlyoutItem /template/ Viewbox#IconRoot">
                             <Setter Property="Width" Value="0" />
                         </Style>
-                    </ui:ToggleMenuFlyoutItem.Styles>
-                </ui:ToggleMenuFlyoutItem>
+                    </ui:FAToggleMenuFlyoutItem.Styles>
+                </ui:FAToggleMenuFlyoutItem>
                 <ui:ToggleMenuFlyoutItem x:Name="lockElement"
                                          Click="LockElement_Click"
                                          IsChecked="{Binding IsLocked.Value}"
@@ -155,7 +154,7 @@
                 <ui:MenuFlyoutItem x:Name="groupSelectedElements"
                                    Command="{Binding GroupSelectedElements}"
                                    Text="{x:Static lang:Strings.GroupSelectedElements}" />
-                <ui:MenuFlyoutItem x:Name="ungroupSelectedElements"
+                <ui:FAMenuFlyoutItem x:Name="ungroupSelectedElements"
                                    Command="{Binding UngroupSelectedElements}"
                                    Text="{x:Static lang:Strings.UngroupSelectedElements}" />
                 <ui:MenuFlyoutItem x:Name="rename"

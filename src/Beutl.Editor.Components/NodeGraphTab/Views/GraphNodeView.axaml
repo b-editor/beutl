@@ -35,7 +35,7 @@
                 Focusable="True">
             <Border.ContextFlyout>
                 <ui:FAMenuFlyout>
-                    <ui:MenuFlyoutItem Command="{Binding Delete}"
+                    <ui:FAMenuFlyoutItem Command="{Binding Delete}"
                                        InputGesture="Delete"
                                        Text="{x:Static lang:Strings.Delete}">
                         <ui:MenuFlyoutItem.IconSource>

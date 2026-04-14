@@ -245,7 +245,7 @@ public sealed class RemoteUserPackageViewModel : BaseViewModel, IUserPackageView
                     if (!Package.Paid.Value && Package.FormattedPrice.Value != null)
                     {
                         string priceText = Package.FormattedPrice.Value;
-                        var dialog = new ContentDialog
+                        var dialog = new FAContentDialog
                         {
                             Title = ExtensionsStrings.RemoveFromLibrary_Title,
                             Content = new TextBlock
@@ -257,7 +257,7 @@ public sealed class RemoteUserPackageViewModel : BaseViewModel, IUserPackageView
                             CloseButtonText = Strings.Cancel
                         };
 
-                        if (await dialog.ShowAsync() is not ContentDialogResult.Primary)
+                        if (await dialog.ShowAsync() is not FAContentDialogResult.Primary)
                             return;
                     }
 
