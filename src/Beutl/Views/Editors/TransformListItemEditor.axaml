@@ -10,6 +10,7 @@
              xmlns:pe="using:Beutl.Controls.PropertyEditors"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:viewModel="using:Beutl.ViewModels.Editors"
+             x:DataType="viewModel:TransformEditorViewModel"
              d:DesignHeight="450"
              d:DesignWidth="400"
              mc:Ignorable="d">
