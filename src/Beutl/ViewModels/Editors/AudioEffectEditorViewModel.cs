@@ -118,37 +118,11 @@ public sealed class AudioEffectEditorViewModel : ValueEditorViewModel<AudioEffec
 
     public IReadOnlyReactiveProperty<string> FallbackMessage { get; }
 
-    public IObservable<string?> GetJsonString()
-    {
-        return Value.Select(v =>
-        {
-            if (v is FallbackAudioEffect { Json: JsonObject json })
-            {
-                return json.ToJsonString(JsonHelper.SerializerOptions);
-            }
-
-            return null;
-        });
-    }
+    public IObservable<string?> GetJsonString() => FallbackHelper.GetFallbackJson(Value);
 
     public void SetJsonString(string? str)
     {
-        string message = MessageStrings.InvalidJson;
-        _ = str ?? throw new Exception(message);
-        JsonObject json = (JsonNode.Parse(str) as JsonObject) ?? throw new Exception(message);
-
-        Type? type = json.GetDiscriminator();
-        AudioEffect? instance = null;
-        if (type?.IsAssignableTo(typeof(AudioEffect)) ?? false)
-        {
-            instance = Activator.CreateInstance(type) as AudioEffect;
-        }
-
-        if (instance == null) throw new Exception(message);
-
-        CoreSerializer.PopulateFromJsonObject(instance, type!, json);
-
-        SetValue(Value.Value, instance);
+        SetValue(Value.Value, FallbackHelper.DeserializeInstance<AudioEffect>(str));
     }
 
     public override void Accept(IPropertyEditorContextVisitor visitor)

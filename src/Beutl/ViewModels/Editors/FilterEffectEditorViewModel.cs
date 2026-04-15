@@ -352,37 +352,11 @@ public sealed class FilterEffectEditorViewModel : ValueEditorViewModel<FilterEff
         }
     }
 
-    public IObservable<string?> GetJsonString()
-    {
-        return Value.Select(v =>
-        {
-            if (v is FallbackFilterEffect { Json: JsonObject json })
-            {
-                return json.ToJsonString(JsonHelper.SerializerOptions);
-            }
-
-            return null;
-        });
-    }
+    public IObservable<string?> GetJsonString() => FallbackHelper.GetFallbackJson(Value);
 
     public void SetJsonString(string? str)
     {
-        string message = MessageStrings.InvalidJson;
-        _ = str ?? throw new Exception(message);
-        JsonObject json = (JsonNode.Parse(str) as JsonObject) ?? throw new Exception(message);
-
-        Type? type = json.GetDiscriminator();
-        FilterEffect? instance = null;
-        if (type?.IsAssignableTo(typeof(FilterEffect)) ?? false)
-        {
-            instance = Activator.CreateInstance(type) as FilterEffect;
-        }
-
-        if (instance == null) throw new Exception(message);
-
-        CoreSerializer.PopulateFromJsonObject(instance, type!, json);
-
-        SetValue(Value.Value, instance);
+        SetValue(Value.Value, FallbackHelper.DeserializeInstance<FilterEffect>(str));
     }
 
     protected override void Dispose(bool disposing)
