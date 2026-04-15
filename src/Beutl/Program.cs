@@ -19,6 +19,7 @@ internal static class Program
         config.Restore(GlobalConfiguration.DefaultFilePath);
         ViewConfig view = config.ViewConfig;
         CultureInfo.CurrentUICulture = view.UICulture;
+        CultureInfo.CurrentCulture = view.UICulture;
 
         using IDisposable _ = Telemetry.GetDisposable();
 
