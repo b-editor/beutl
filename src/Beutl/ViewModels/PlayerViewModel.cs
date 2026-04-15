@@ -494,18 +494,21 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
     }
 
     // オーディオバックエンドが最初のサンプルを出力するまで短いポーリングで待機する。
-    // バックエンド起動レイテンシ分だけアンカーを遅らせることで、映像側のウォールクロック
-    // 基準点を実際の音声進行に揃える。タイムアウトは設けず、停止操作による
-    // cts.Cancel() でのみ抜ける (低速なバックエンドで 0 アンカーしないため)。
-    private static async Task WaitForFirstSampleAsync(
+    // true を返した場合は実サンプルの観測に成功しており、呼び出し側は安全に AnchorClock できる。
+    // 期限内に進行が観測できなかった場合は false を返し、呼び出し側は音声クロックを諦めて
+    // 壁時計にフォールバックする (サスペンド/切断中のデバイスで無期限ハングするのを防ぐため)。
+    private static async Task<bool> WaitForFirstSampleAsync(
         Func<bool> hasProgressed, bool hasAudio, CancellationToken token)
     {
-        if (!hasAudio) return;
+        if (!hasAudio) return false;
+        long deadline = Stopwatch.GetTimestamp() + Stopwatch.Frequency * 2; // 2s
         while (!token.IsCancellationRequested)
         {
-            if (hasProgressed()) return;
+            if (hasProgressed()) return true;
+            if (Stopwatch.GetTimestamp() >= deadline) return false;
             await Task.Delay(1, token).ConfigureAwait(false);
         }
+        return false;
     }
 
     private async Task PlayWithXA2(XAudioContext audioContext, Scene scene,
@@ -519,6 +522,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
         var primaryBuffer = new XAudioBuffer();
         var secondaryBuffer = new XAudioBuffer();
         bool hasAudio = false;
+        bool audioClockValid = false;
 
         void PrepareBuffer(XAudioBuffer buffer)
         {
@@ -540,7 +544,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
 
         void AnchorClock()
         {
-            if (!hasAudio) return;
+            if (!hasAudio || !audioClockValid) return;
             double seconds = (double)source.SamplesPlayed / sampleRate;
             clock.Anchor(startTime + TimeSpan.FromSeconds(seconds));
         }
@@ -567,10 +571,19 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
             // Play() 直後は SamplesPlayed が 0 のままで、その時点でアンカーすると
             // 映像がウォールクロックで先行し、後続の AnchorClock で巻き戻しが発生する。
             // 実際のサンプル出力が始まるのを観測してからアンカーする。
-            await WaitForFirstSampleAsync(() => source.SamplesPlayed > 0, hasAudio, cts.Token)
+            // タイムアウトした場合はバックエンドがハングしている可能性が高いので、
+            // 音声クロックを諦めて壁時計にフォールバックする。
+            audioClockValid = await WaitForFirstSampleAsync(
+                    () => source.SamplesPlayed > 0, hasAudio, cts.Token)
                 .ConfigureAwait(false);
+            if (hasAudio && !audioClockValid)
+            {
+                _logger.LogWarning(
+                    "XAudio2 backend did not advance SamplesPlayed within the startup deadline; falling back to wall-clock timing.");
+            }
             AnchorClock();
-            // 音声なしの場合 AnchorClock は何もしないため、ここで明示的にシグナルする。
+            // 壁時計フォールバック時や音声なしの場合は AnchorClock が no-op のため、
+            // ここで明示的に StartedTask をシグナルする。
             clock.SignalStarted();
 
             await Task.Delay(1000, cts.Token).ConfigureAwait(false);
@@ -631,10 +644,11 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
             long totalProcessedSamples = 0;
             var queuedBufferSamples = new Queue<int>();
             bool hasAudio = false;
+            bool audioClockValid = false;
 
             void AnchorClock()
             {
-                if (!hasAudio) return;
+                if (!hasAudio || !audioClockValid) return;
                 audioContext.GetSource(source, GetSourceInteger.SampleOffset, out int sampleOffset);
                 long pos = totalProcessedSamples + sampleOffset;
                 double seconds = (double)pos / sampleRate;
@@ -671,7 +685,9 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                 // SourcePlay() 直後は SampleOffset が 0 のままで、その時点でアンカーすると
                 // 映像がウォールクロックで先行し、後続の AnchorClock で巻き戻しが発生する。
                 // 実際のサンプル出力が始まるのを観測してからアンカーする。
-                await WaitForFirstSampleAsync(
+                // タイムアウトした場合はバックエンドがハングしている可能性が高いので、
+                // 音声クロックを諦めて壁時計にフォールバックする。
+                audioClockValid = await WaitForFirstSampleAsync(
                         () =>
                         {
                             audioContext.MakeCurrent();
@@ -684,8 +700,14 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                 // await 後は別のプールスレッドで継続する可能性があり、
                 // OpenAL コンテキストはスレッド固有のため再バインドが必要。
                 audioContext.MakeCurrent();
+                if (hasAudio && !audioClockValid)
+                {
+                    _logger.LogWarning(
+                        "OpenAL backend did not advance SampleOffset within the startup deadline; falling back to wall-clock timing.");
+                }
                 AnchorClock();
-                // 音声なしの場合 AnchorClock は何もしないため、ここで明示的にシグナルする。
+                // 壁時計フォールバック時や音声なしの場合は AnchorClock が no-op のため、
+                // ここで明示的に StartedTask をシグナルする。
                 clock.SignalStarted();
 
                 while (IsPlaying.Value)
