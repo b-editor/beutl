@@ -31,14 +31,21 @@
                 </ui:FAMenuFlyout>
             </ToggleButton.ContextFlyout>
             <ToggleButton.Tag>
-                <Button Padding="0"
-                        HorizontalContentAlignment="Center"
-                        VerticalContentAlignment="Center"
-                        Classes="size-24x24"
-                        Click="NewClick"
-                        Theme="{StaticResource TransparentButton}">
-                    <icons:SymbolIcon Symbol="New" />
-                </Button>
+                <StackPanel Orientation="Horizontal" Spacing="4">
+                    <ToggleButton Padding="0"
+                                  Classes="size-24x24"
+                                  IsChecked="{Binding IsEnabled.Value}"
+                                  IsVisible="{Binding IsEngineObject.Value}"
+                                  Theme="{StaticResource VisibilityToggleButtonStyle}" />
+                    <Button Padding="0"
+                            HorizontalContentAlignment="Center"
+                            VerticalContentAlignment="Center"
+                            Classes="size-24x24"
+                            Click="NewClick"
+                            Theme="{StaticResource TransparentButton}">
+                        <icons:SymbolIcon Symbol="New" />
+                    </Button>
+                </StackPanel>
             </ToggleButton.Tag>
             <TextBlock Text="{Binding Header}" />
         </ToggleButton>

@@ -25,6 +25,8 @@ public interface ICoreObjectEditorViewModel : IServiceProvider
 
     ReactiveProperty<bool> IsEnabled { get; }
 
+    IReadOnlyReactiveProperty<bool> IsEngineObject { get; }
+
     ReadOnlyReactivePropertySlim<bool> CanEdit { get; }
 
     ReadOnlyReactivePropertySlim<bool> IsNull { get; }
@@ -119,6 +121,29 @@ public sealed class CoreObjectEditorViewModel<T> : BaseEditorViewModel<T>, ICore
         FallbackMessage = Value.Select(FallbackHelper.GetFallbackMessage)
             .ToReadOnlyReactivePropertySlim(MessageStrings.RestoreFailedTypeNotFound)
             .DisposeWith(Disposables);
+
+        IsEngineObject = Value.Select(v => v is EngineObject)
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(Disposables);
+
+        IsEnabled = Value.Select(x =>
+                x is EngineObject eo
+                    ? eo.GetObservable(EngineObject.IsEnabledProperty)
+                    : Observable.ReturnThenNever(false))
+            .Switch()
+            .ToReactiveProperty()
+            .DisposeWith(Disposables);
+
+        IsEnabled.Skip(1)
+            .Subscribe(v =>
+            {
+                if (Value.Value is EngineObject eo && eo.IsEnabled != v)
+                {
+                    eo.IsEnabled = v;
+                    Commit();
+                }
+            })
+            .DisposeWith(Disposables);
     }
 
     public ReadOnlyReactivePropertySlim<T?> Value { get; }
@@ -131,8 +156,9 @@ public sealed class CoreObjectEditorViewModel<T> : BaseEditorViewModel<T>, ICore
 
     public ReactivePropertySlim<bool> IsExpanded { get; } = new();
 
-    // TODO: EngineObject.IsEnabledと同期する
     public ReactiveProperty<bool> IsEnabled { get; }
+
+    public IReadOnlyReactiveProperty<bool> IsEngineObject { get; }
 
     public ReadOnlyReactivePropertySlim<bool> IsNull { get; }
 
