@@ -341,6 +341,12 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
             var clock = new AudioPlaybackClock();
             var audioTask = PlayAudio(Scene, clock, startTime);
 
+            // 音声バッファの準備に1フレーム以上かかると、映像だけが先に進んでしまい、
+            // その後音声がアンカーされた瞬間に「映像が先行した状態」で止まってしまう。
+            // 音声側が再生を開始（または音声なしと判明して終了）するまで待ってから
+            // ウォールクロックの基準点を取得する。
+            await clock.StartedTask;
+
             DateTime startDateTime = DateTime.UtcNow;
             var tcs = new TaskCompletionSource<bool>();
             int nextExpectedFrame = startFrame + 1;
@@ -487,6 +493,21 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
         (y, x) = (x, y);
     }
 
+    // オーディオバックエンドが最初のサンプルを出力するまで短いポーリングで待機する。
+    // バックエンド起動レイテンシ分だけアンカーを遅らせることで、映像側のウォールクロック
+    // 基準点を実際の音声進行に揃える。タイムアウトは設けず、停止操作による
+    // cts.Cancel() でのみ抜ける (低速なバックエンドで 0 アンカーしないため)。
+    private static async Task WaitForFirstSampleAsync(
+        Func<bool> hasProgressed, bool hasAudio, CancellationToken token)
+    {
+        if (!hasAudio) return;
+        while (!token.IsCancellationRequested)
+        {
+            if (hasProgressed()) return;
+            await Task.Delay(1, token).ConfigureAwait(false);
+        }
+    }
+
     private async Task PlayWithXA2(XAudioContext audioContext, Scene scene,
         AudioPlaybackClock clock, TimeSpan startTime)
     {
@@ -543,7 +564,14 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
             PrepareBuffer(secondaryBuffer);
 
             source.Play();
+            // Play() 直後は SamplesPlayed が 0 のままで、その時点でアンカーすると
+            // 映像がウォールクロックで先行し、後続の AnchorClock で巻き戻しが発生する。
+            // 実際のサンプル出力が始まるのを観測してからアンカーする。
+            await WaitForFirstSampleAsync(() => source.SamplesPlayed > 0, hasAudio, cts.Token)
+                .ConfigureAwait(false);
             AnchorClock();
+            // 音声なしの場合 AnchorClock は何もしないため、ここで明示的にシグナルする。
+            clock.SignalStarted();
 
             await Task.Delay(1000, cts.Token).ConfigureAwait(false);
             AnchorClock();
@@ -637,7 +665,22 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
             }
 
             audioContext.SourcePlay(source);
+            // SourcePlay() 直後は SampleOffset が 0 のままで、その時点でアンカーすると
+            // 映像がウォールクロックで先行し、後続の AnchorClock で巻き戻しが発生する。
+            // 実際のサンプル出力が始まるのを観測してからアンカーする。
+            await WaitForFirstSampleAsync(
+                    () =>
+                    {
+                        audioContext.MakeCurrent();
+                        audioContext.GetSource(source, GetSourceInteger.SampleOffset, out int offset);
+                        return offset > 0;
+                    },
+                    hasAudio,
+                    cts.Token)
+                .ConfigureAwait(false);
             AnchorClock();
+            // 音声なしの場合 AnchorClock は何もしないため、ここで明示的にシグナルする。
+            clock.SignalStarted();
 
             try
             {
