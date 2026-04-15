@@ -133,16 +133,7 @@ public sealed class AudioEffectEditorViewModel : ValueEditorViewModel<AudioEffec
 
     private void AcceptChild()
     {
-        var visitor = new Visitor(this);
-        Group.Value?.Accept(visitor);
-
-        if (Properties.Value != null)
-        {
-            foreach (IPropertyEditorContext item in Properties.Value.Properties)
-            {
-                item.Accept(visitor);
-            }
-        }
+        NestedEditorContextHelper.AcceptChildren(new ChildVisitor(this), Group.Value, Properties.Value);
     }
 
     public void ChangeAudioEffect(AudioEffect instance)
@@ -235,55 +226,12 @@ public sealed class AudioEffectEditorViewModel : ValueEditorViewModel<AudioEffec
     public override void ReadFromJson(JsonObject json)
     {
         base.ReadFromJson(json);
-        try
-        {
-            if (json.TryGetPropertyValue(nameof(IsExpanded), out var isExpandedNode)
-                && isExpandedNode is JsonValue isExpanded)
-            {
-                IsExpanded.Value = (bool)isExpanded;
-            }
-            Properties.Value?.ReadFromJson(json);
-
-            if (Group.Value != null
-                && json.TryGetPropertyValue(nameof(Group), out var groupNode)
-                && groupNode is JsonObject group)
-            {
-                Group.Value.ReadFromJson(group);
-            }
-        }
-        catch
-        {
-        }
+        NestedEditorContextHelper.ReadNestedJson(json, IsExpanded, Properties.Value, Group.Value);
     }
 
     public override void WriteToJson(JsonObject json)
     {
         base.WriteToJson(json);
-        try
-        {
-            json[nameof(IsExpanded)] = IsExpanded.Value;
-            Properties.Value?.WriteToJson(json);
-            if (Group.Value != null)
-            {
-                var group = new JsonObject();
-                Group.Value.WriteToJson(group);
-                json[nameof(Group)] = group;
-            }
-        }
-        catch
-        {
-        }
-    }
-
-    private sealed record Visitor(AudioEffectEditorViewModel Obj) : IServiceProvider, IPropertyEditorContextVisitor
-    {
-        public object? GetService(Type serviceType)
-        {
-            return Obj.GetService(serviceType);
-        }
-
-        public void Visit(IPropertyEditorContext context)
-        {
-        }
+        NestedEditorContextHelper.WriteNestedJson(json, IsExpanded.Value, Properties.Value, Group.Value);
     }
 }

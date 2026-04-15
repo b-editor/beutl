@@ -223,16 +223,7 @@ public sealed class TransformEditorViewModel : ValueEditorViewModel<Transform?>,
 
     private void AcceptChild()
     {
-        var visitor = new Visitor(this);
-        Group.Value?.Accept(visitor);
-
-        if (Properties.Value != null)
-        {
-            foreach (IPropertyEditorContext item in Properties.Value.Properties)
-            {
-                item.Accept(visitor);
-            }
-        }
+        NestedEditorContextHelper.AcceptChildren(new ChildVisitor(this), Group.Value, Properties.Value);
     }
 
     public void ChangeTransform(Transform instance)
@@ -359,45 +350,13 @@ public sealed class TransformEditorViewModel : ValueEditorViewModel<Transform?>,
     public override void ReadFromJson(JsonObject json)
     {
         base.ReadFromJson(json);
-        try
-        {
-            if (json.TryGetPropertyValue(nameof(IsExpanded), out var isExpandedNode)
-                && isExpandedNode is JsonValue isExpanded)
-            {
-                IsExpanded.Value = (bool)isExpanded;
-            }
-
-            Properties.Value?.ReadFromJson(json);
-
-            if (Group.Value != null
-                && json.TryGetPropertyValue(nameof(Group), out var groupNode)
-                && groupNode is JsonObject group)
-            {
-                Group.Value.ReadFromJson(group);
-            }
-        }
-        catch
-        {
-        }
+        NestedEditorContextHelper.ReadNestedJson(json, IsExpanded, Properties.Value, Group.Value);
     }
 
     public override void WriteToJson(JsonObject json)
     {
         base.WriteToJson(json);
-        try
-        {
-            json[nameof(IsExpanded)] = IsExpanded.Value;
-            Properties.Value?.WriteToJson(json);
-            if (Group.Value != null)
-            {
-                var group = new JsonObject();
-                Group.Value.WriteToJson(group);
-                json[nameof(Group)] = group;
-            }
-        }
-        catch
-        {
-        }
+        NestedEditorContextHelper.WriteNestedJson(json, IsExpanded.Value, Properties.Value, Group.Value);
     }
 
     protected override void Dispose(bool disposing)
@@ -407,15 +366,4 @@ public sealed class TransformEditorViewModel : ValueEditorViewModel<Transform?>,
         Group.Value?.Dispose();
     }
 
-    private sealed record Visitor(TransformEditorViewModel Obj) : IServiceProvider, IPropertyEditorContextVisitor
-    {
-        public object? GetService(Type serviceType)
-        {
-            return Obj.GetService(serviceType);
-        }
-
-        public void Visit(IPropertyEditorContext context)
-        {
-        }
-    }
 }

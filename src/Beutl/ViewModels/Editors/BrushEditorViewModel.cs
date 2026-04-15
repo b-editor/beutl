@@ -103,14 +103,7 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel, IFallbackObjectV
 
     private void AcceptChildren(PropertiesEditorViewModel? obj)
     {
-        if (obj != null)
-        {
-            var visitor = new Visitor(this);
-            foreach (IPropertyEditorContext item in obj.Properties)
-            {
-                item.Accept(visitor);
-            }
-        }
+        NestedEditorContextHelper.AcceptChildren(new ChildVisitor(this), null, obj);
     }
 
     public ReadOnlyReactiveProperty<Brush?> Value { get; }
@@ -340,32 +333,13 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel, IFallbackObjectV
     public override void ReadFromJson(JsonObject json)
     {
         base.ReadFromJson(json);
-        try
-        {
-            if (json.TryGetPropertyValue(nameof(IsExpanded), out JsonNode? isExpandedNode)
-                && isExpandedNode is JsonValue isExpanded)
-            {
-                IsExpanded.Value = (bool)isExpanded;
-            }
-
-            ChildContext.Value?.ReadFromJson(json);
-        }
-        catch
-        {
-        }
+        NestedEditorContextHelper.ReadNestedJson(json, IsExpanded, ChildContext.Value);
     }
 
     public override void WriteToJson(JsonObject json)
     {
         base.WriteToJson(json);
-        try
-        {
-            json[nameof(IsExpanded)] = IsExpanded.Value;
-            ChildContext.Value?.WriteToJson(json);
-        }
-        catch
-        {
-        }
+        NestedEditorContextHelper.WriteNestedJson(json, IsExpanded.Value, ChildContext.Value);
     }
 
     protected override void Dispose(bool disposing)
@@ -373,17 +347,5 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel, IFallbackObjectV
         base.Dispose(disposing);
         ChildContext.Value?.Dispose();
         _revoker?.Dispose();
-    }
-
-    private sealed record Visitor(BrushEditorViewModel Obj) : IServiceProvider, IPropertyEditorContextVisitor
-    {
-        public object? GetService(Type serviceType)
-        {
-            return Obj.GetService(serviceType);
-        }
-
-        public void Visit(IPropertyEditorContext context)
-        {
-        }
     }
 }
