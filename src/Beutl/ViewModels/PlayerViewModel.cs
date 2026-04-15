@@ -665,25 +665,29 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
             }
 
             audioContext.SourcePlay(source);
-            // SourcePlay() 直後は SampleOffset が 0 のままで、その時点でアンカーすると
-            // 映像がウォールクロックで先行し、後続の AnchorClock で巻き戻しが発生する。
-            // 実際のサンプル出力が始まるのを観測してからアンカーする。
-            await WaitForFirstSampleAsync(
-                    () =>
-                    {
-                        audioContext.MakeCurrent();
-                        audioContext.GetSource(source, GetSourceInteger.SampleOffset, out int offset);
-                        return offset > 0;
-                    },
-                    hasAudio,
-                    cts.Token)
-                .ConfigureAwait(false);
-            AnchorClock();
-            // 音声なしの場合 AnchorClock は何もしないため、ここで明示的にシグナルする。
-            clock.SignalStarted();
 
             try
             {
+                // SourcePlay() 直後は SampleOffset が 0 のままで、その時点でアンカーすると
+                // 映像がウォールクロックで先行し、後続の AnchorClock で巻き戻しが発生する。
+                // 実際のサンプル出力が始まるのを観測してからアンカーする。
+                await WaitForFirstSampleAsync(
+                        () =>
+                        {
+                            audioContext.MakeCurrent();
+                            audioContext.GetSource(source, GetSourceInteger.SampleOffset, out int offset);
+                            return offset > 0;
+                        },
+                        hasAudio,
+                        cts.Token)
+                    .ConfigureAwait(false);
+                // await 後は別のプールスレッドで継続する可能性があり、
+                // OpenAL コンテキストはスレッド固有のため再バインドが必要。
+                audioContext.MakeCurrent();
+                AnchorClock();
+                // 音声なしの場合 AnchorClock は何もしないため、ここで明示的にシグナルする。
+                clock.SignalStarted();
+
                 while (IsPlaying.Value)
                 {
                     audioContext.MakeCurrent();
