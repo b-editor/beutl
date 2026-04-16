@@ -8,6 +8,8 @@ public sealed class XAudioSource(XAudioContext context) : IDisposable
 
     public int BuffersQueued => (int?)_sourceVoice?.State.BuffersQueued ?? -1;
 
+    public ulong SamplesPlayed => _sourceVoice?.State.SamplesPlayed ?? 0UL;
+
     public void Dispose()
     {
         _sourceVoice?.DestroyVoice();
