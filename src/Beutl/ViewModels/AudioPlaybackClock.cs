@@ -1,4 +1,4 @@
-namespace Beutl.ViewModels;
+﻿namespace Beutl.ViewModels;
 
 internal sealed class AudioPlaybackClock
 {
