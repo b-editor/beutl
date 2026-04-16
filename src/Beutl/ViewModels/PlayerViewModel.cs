@@ -350,7 +350,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
             DateTime startDateTime = DateTime.UtcNow;
             var tcs = new TaskCompletionSource<bool>();
             int nextExpectedFrame = startFrame + 1;
-            bool processing = false;
+            int processing = 0;
 
             int ComputeExpectFrame()
             {
@@ -363,8 +363,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
 
             await using var timer = new Timer(_ =>
             {
-                if (processing) return;
-                processing = true;
+                if (Interlocked.Exchange(ref processing, 1) != 0) return;
                 try
                 {
                     var expectFrame = ComputeExpectFrame();
@@ -408,7 +407,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                 }
                 finally
                 {
-                    processing = false;
+                    Interlocked.Exchange(ref processing, 0);
                 }
             }, null, tick, tick);
 
@@ -506,7 +505,14 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
         {
             if (hasProgressed()) return true;
             if (Stopwatch.GetTimestamp() >= deadline) return false;
-            await Task.Delay(1, token).ConfigureAwait(false);
+            try
+            {
+                await Task.Delay(1, token).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                return false;
+            }
         }
         return false;
     }

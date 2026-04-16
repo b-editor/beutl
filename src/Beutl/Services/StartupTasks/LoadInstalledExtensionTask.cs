@@ -50,7 +50,7 @@ public sealed class LoadInstalledExtensionTask : StartupTask
                                 item.Name);
                             Failures.Add((item, new InvalidOperationException(
                                 $"Dependency re-resolution failed for package '{item.Name}'.")));
-                            continue;
+                            return;
                         }
 
                         try
