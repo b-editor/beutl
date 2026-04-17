@@ -233,19 +233,7 @@ public sealed class CoreObjectEditorViewModel<T> : BaseEditorViewModel<T>, ICore
     }
 
     public IReadOnlyList<TargetObjectInfo> GetAvailableTargets()
-    {
-        var scene = this.GetService<EditViewModel>()?.Scene;
-        if (scene == null) return [];
-
-        var searcher = new ObjectSearcher(scene, obj =>
-            obj is T && obj is not IPresenter<T>);
-
-        return searcher.SearchAll()
-            .Cast<T>()
-            .Select(obj =>
-                new TargetObjectInfo(CoreObjectHelper.GetDisplayName(obj), obj, CoreObjectHelper.GetOwnerElement(obj)))
-            .ToList();
-    }
+        => TargetObjectSearchHelper.GetAvailableTargets<T>(this);
 
     private void AcceptProperties(PropertiesEditorViewModel? obj)
     {

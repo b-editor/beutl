@@ -294,32 +294,10 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel, IFallbackObjectV
     }
 
     public IReadOnlyList<TargetObjectInfo> GetAvailableTargets()
-    {
-        var scene = this.GetService<EditViewModel>()?.Scene;
-        if (scene == null) return [];
-
-        var searcher = new ObjectSearcher(scene, obj =>
-            obj is Brush && obj is not IPresenter<Brush>);
-
-        return searcher.SearchAll()
-            .Cast<Brush>()
-            .Select(b => new TargetObjectInfo(CoreObjectHelper.GetDisplayName(b), b, CoreObjectHelper.GetOwnerElement(b)))
-            .ToList();
-    }
+        => TargetObjectSearchHelper.GetAvailableTargets<Brush>(this);
 
     public IReadOnlyList<TargetObjectInfo> GetAvailableDrawableTargets()
-    {
-        var scene = this.GetService<EditViewModel>()?.Scene;
-        if (scene == null) return [];
-
-        var searcher = new ObjectSearcher(scene, obj =>
-            obj is Drawable && obj is not IPresenter<Drawable>);
-
-        return searcher.SearchAll()
-            .Cast<Drawable>()
-            .Select(b => new TargetObjectInfo(CoreObjectHelper.GetDisplayName(b), b, CoreObjectHelper.GetOwnerElement(b)))
-            .ToList();
-    }
+        => TargetObjectSearchHelper.GetAvailableTargets<Drawable>(this);
 
     public override void Accept(IPropertyEditorContextVisitor visitor)
     {

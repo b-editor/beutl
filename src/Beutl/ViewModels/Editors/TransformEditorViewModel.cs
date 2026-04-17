@@ -309,18 +309,7 @@ public sealed class TransformEditorViewModel : ValueEditorViewModel<Transform?>,
     }
 
     public IReadOnlyList<TargetObjectInfo> GetAvailableTargets()
-    {
-        var scene = this.GetService<EditViewModel>()?.Scene;
-        if (scene == null) return [];
-
-        var searcher = new ObjectSearcher(scene, obj =>
-            obj is Transform && obj is not IPresenter<Transform>);
-
-        return searcher.SearchAll()
-            .Cast<Transform>()
-            .Select(t => new TargetObjectInfo(CoreObjectHelper.GetDisplayName(t), t, CoreObjectHelper.GetOwnerElement(t)))
-            .ToList();
-    }
+        => TargetObjectSearchHelper.GetAvailableTargets<Transform>(this);
 
 
 

@@ -260,18 +260,7 @@ public sealed class FilterEffectEditorViewModel : ValueEditorViewModel<FilterEff
     }
 
     public IReadOnlyList<TargetObjectInfo> GetAvailableTargets()
-    {
-        var scene = this.GetService<EditViewModel>()?.Scene;
-        if (scene == null) return [];
-
-        var searcher = new ObjectSearcher(scene, obj =>
-            obj is FilterEffect && obj is not IPresenter<FilterEffect>);
-
-        return searcher.SearchAll()
-            .Cast<FilterEffect>()
-            .Select(fe => new TargetObjectInfo(CoreObjectHelper.GetDisplayName(fe), fe, CoreObjectHelper.GetOwnerElement(fe)))
-            .ToList();
-    }
+        => TargetObjectSearchHelper.GetAvailableTargets<FilterEffect>(this);
 
 
 
