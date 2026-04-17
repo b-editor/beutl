@@ -139,43 +139,11 @@ public partial class PathEditorTabView : UserControl, IPathEditorView
     {
         if (DataContext is PathEditorTabViewModel viewModel)
         {
-            Control[] controlPoints = canvas.Children.Where(i => i.Classes.Contains("control")).ToArray();
-            foreach (Control item in controlPoints)
-            {
-                item.IsVisible = false;
-            }
-
-            if (viewModel.SelectedOperation.Value is { } op
-                && viewModel.PathFigure.Value is { } figure)
-            {
-                bool isClosed = viewModel.IsClosed.Value;
-                int index = figure.Segments.IndexOf(op);
-                int nextIndex = (index + 1) % figure.Segments.Count;
-
-                if (isClosed || index != 0)
-                {
-                    foreach (Control? item in controlPoints.Where(v => v.DataContext == op))
-                    {
-                        if (Equals(item.Tag, "ControlPoint2") || Equals(item.Tag, "ControlPoint"))
-                        {
-                            item.IsVisible = true;
-                        }
-                    }
-                }
-
-                if (isClosed || nextIndex != 0)
-                {
-                    if (0 <= nextIndex && nextIndex < figure.Segments.Count)
-                    {
-                        PathSegment next = figure.Segments[nextIndex];
-                        foreach (Control? item in controlPoints.Where(v => v.DataContext == next))
-                        {
-                            if (Equals(item.Tag, "ControlPoint1") || Equals(item.Tag, "ControlPoint"))
-                                item.IsVisible = true;
-                        }
-                    }
-                }
-            }
+            ControlPointVisibilityHelper.Update(
+                canvas,
+                viewModel.SelectedOperation.Value,
+                viewModel.PathFigure.Value,
+                viewModel.IsClosed.Value);
         }
     }
 
