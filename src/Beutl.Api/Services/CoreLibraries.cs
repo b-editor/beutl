@@ -71,9 +71,9 @@ internal static class CoreLibraries
                             case "Beutl.Configuration":
                             case "Beutl.Controls":
                             case "Beutl.Core":
-                            case "Beutl.Embedding.FFmpeg":
+                            case "Beutl.Extensions.FFmpeg":
                             case "Beutl.Embedding.MediaFoundation" when OperatingSystem.IsWindows():
-                            case "Beutl.Embedding.AVFoundation" when OperatingSystem.IsMacOS():
+                            case "Beutl.Extensions.AVFoundation" when OperatingSystem.IsMacOS():
                             case "Beutl.Engine":
                             case "Beutl.Extensibility":
                             case "Beutl.Language":
@@ -84,6 +84,9 @@ internal static class CoreLibraries
                             case "Beutl.WaitingDialog":
                             case "Beutl.PackageTools.UI":
                             case "Beutl.ExceptionHandler":
+                            case "Beutl.Editor":
+                            case "Beutl.Editor.Components":
+                            case "Beutl.Engine.SourceGenerators":
                                 version = BeutlApplication.Version;
                                 break;
                             default:
