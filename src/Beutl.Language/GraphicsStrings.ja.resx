@@ -1354,11 +1354,14 @@
   <data name="FilterEffect" xml:space="preserve">
     <value>フィルターエフェクト</value>
   </data>
-  <data name="AudioVisualizer" xml:space="preserve">
-    <value>オーディオビジュアライザ</value>
+  <data name="AudioWaveform" xml:space="preserve">
+    <value>音声波形</value>
   </data>
-  <data name="AudioVisualizer_DisplayMode" xml:space="preserve">
-    <value>表示モード</value>
+  <data name="AudioSpectrum" xml:space="preserve">
+    <value>スペクトラム</value>
+  </data>
+  <data name="AudioSpectrogram" xml:space="preserve">
+    <value>スペクトログラム</value>
   </data>
   <data name="AudioVisualizer_WaveformStyle" xml:space="preserve">
     <value>波形スタイル</value>

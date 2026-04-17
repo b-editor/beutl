@@ -1356,11 +1356,14 @@
   <data name="FilterEffect" xml:space="preserve">
     <value>Filter Effect</value>
   </data>
-  <data name="AudioVisualizer" xml:space="preserve">
-    <value>Audio Visualizer</value>
+  <data name="AudioWaveform" xml:space="preserve">
+    <value>Audio Waveform</value>
   </data>
-  <data name="AudioVisualizer_DisplayMode" xml:space="preserve">
-    <value>Display Mode</value>
+  <data name="AudioSpectrum" xml:space="preserve">
+    <value>Audio Spectrum</value>
+  </data>
+  <data name="AudioSpectrogram" xml:space="preserve">
+    <value>Audio Spectrogram</value>
   </data>
   <data name="AudioVisualizer_WaveformStyle" xml:space="preserve">
     <value>Waveform Style</value>

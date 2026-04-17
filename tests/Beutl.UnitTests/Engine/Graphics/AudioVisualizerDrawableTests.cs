@@ -1,5 +1,6 @@
-﻿using Beutl.Composition;
+using Beutl.Composition;
 using Beutl.Graphics;
+using Beutl.Graphics.AudioVisualizers;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
 
@@ -7,16 +8,35 @@ namespace Beutl.UnitTests.Engine.Graphics;
 
 public class AudioVisualizerDrawableTests
 {
-    [Test]
-    public void ToResource_NoSource_HasEmptyCache()
+    private static AudioWaveformDrawable CreateWaveform() => new()
     {
-        var drawable = new AudioVisualizerDrawable();
-        drawable.Width.CurrentValue = 320f;
-        drawable.Height.CurrentValue = 80f;
-        drawable.ForegroundColor.CurrentValue = Colors.White;
-        drawable.BackgroundColor.CurrentValue = Colors.Black;
+        Width = { CurrentValue = 320f },
+        Height = { CurrentValue = 80f },
+        ForegroundColor = { CurrentValue = Colors.White },
+        BackgroundColor = { CurrentValue = Colors.Transparent }
+    };
 
-        using var resource = (AudioVisualizerDrawable.Resource)drawable.ToResource(CompositionContext.Default);
+    private static AudioSpectrumDrawable CreateSpectrum() => new()
+    {
+        Width = { CurrentValue = 320f },
+        Height = { CurrentValue = 80f },
+        ForegroundColor = { CurrentValue = Colors.White },
+        BackgroundColor = { CurrentValue = Colors.Transparent }
+    };
+
+    private static AudioSpectrogramDrawable CreateSpectrogram() => new()
+    {
+        Width = { CurrentValue = 320f },
+        Height = { CurrentValue = 80f },
+        ForegroundColor = { CurrentValue = Colors.White },
+        BackgroundColor = { CurrentValue = Colors.Transparent }
+    };
+
+    [Test]
+    public void Waveform_NoSource_HasEmptyCache()
+    {
+        var drawable = CreateWaveform();
+        using var resource = (AudioWaveformDrawable.Resource)drawable.ToResource(CompositionContext.Default);
 
         Assert.That(resource.Width, Is.EqualTo(320f));
         Assert.That(resource.Height, Is.EqualTo(80f));
@@ -24,36 +44,34 @@ public class AudioVisualizerDrawableTests
     }
 
     [Test]
-    public void MeasureCore_ReturnsWidthHeight()
+    public void Waveform_Render_NoSource_DoesNotThrow()
     {
-        var drawable = new AudioVisualizerDrawable();
-        drawable.Width.CurrentValue = 640f;
-        drawable.Height.CurrentValue = 120f;
-
-        using var resource = (AudioVisualizerDrawable.Resource)drawable.ToResource(CompositionContext.Default);
+        var drawable = CreateWaveform();
+        using var resource = (AudioWaveformDrawable.Resource)drawable.ToResource(CompositionContext.Default);
 
         using var container = new ContainerRenderNode();
-        using var context = new GraphicsContext2D(container, new PixelSize(1280, 720));
-        drawable.Render(context, resource);
+        using var context = new GraphicsContext2D(container, new PixelSize(400, 200));
 
-        Assert.That(resource.Width, Is.EqualTo(640f));
-        Assert.That(resource.Height, Is.EqualTo(120f));
+        Assert.DoesNotThrow(() => drawable.Render(context, resource));
     }
 
-    [TestCase(AudioVisualizerMode.Waveform)]
-    [TestCase(AudioVisualizerMode.Spectrum)]
-    [TestCase(AudioVisualizerMode.Spectrogram)]
-    public void Render_NoSource_DoesNotThrow(AudioVisualizerMode mode)
+    [Test]
+    public void Spectrum_Render_NoSource_DoesNotThrow()
     {
-        var drawable = new AudioVisualizerDrawable
-        {
-            Width = { CurrentValue = 200f },
-            Height = { CurrentValue = 100f },
-            DisplayMode = { CurrentValue = mode },
-            BackgroundColor = { CurrentValue = Colors.Transparent }
-        };
+        var drawable = CreateSpectrum();
+        using var resource = (AudioSpectrumDrawable.Resource)drawable.ToResource(CompositionContext.Default);
 
-        using var resource = (AudioVisualizerDrawable.Resource)drawable.ToResource(CompositionContext.Default);
+        using var container = new ContainerRenderNode();
+        using var context = new GraphicsContext2D(container, new PixelSize(400, 200));
+
+        Assert.DoesNotThrow(() => drawable.Render(context, resource));
+    }
+
+    [Test]
+    public void Spectrogram_Render_NoSource_DoesNotThrow()
+    {
+        var drawable = CreateSpectrogram();
+        using var resource = (AudioSpectrogramDrawable.Resource)drawable.ToResource(CompositionContext.Default);
 
         using var container = new ContainerRenderNode();
         using var context = new GraphicsContext2D(container, new PixelSize(400, 200));
