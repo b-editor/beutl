@@ -185,41 +185,17 @@ public sealed class FilterEffectEditorViewModel : ValueEditorViewModel<FilterEff
 
     public override bool ApplyTemplate(ObjectTemplateItem template)
     {
-        if (template.CreateInstance() is not FilterEffect instance) return false;
-        IsExpanded.Value = true;
-        if (Value.Value is FilterEffectGroup group)
-            AddItem(instance);
-        else
-            ChangeFilter(instance);
-        Commit(CommandNames.ApplyTemplate);
-        return true;
+        return GroupedEditorHelper.ApplyTemplate(
+            template, this, IsExpanded,
+            Value.Value is FilterEffectGroup,
+            AddItem, ChangeFilter);
     }
 
-    // Drop時にも利用できる、JSON文字列からの貼り付け処理
     public override bool TryPasteJson(string json)
     {
-        if (!CoreObjectClipboard.TryDeserializeJson<FilterEffect>(json, out var pasted)) return false;
-
-        IsExpanded.Value = true;
-        if (Value.Value is FilterEffectGroup group)
-        {
-            group.Children.Add(pasted);
-        }
-        else if (EditingKeyFrame.Value is { } kf)
-        {
-            kf.Value = pasted;
-        }
-        else if (PropertyAdapter is ListItemAccessorImpl<FilterEffect> listItemAccessor)
-        {
-            listItemAccessor.List.Insert(listItemAccessor.Index, pasted);
-        }
-        else
-        {
-            PropertyAdapter.SetValue(pasted);
-        }
-
-        Commit(CommandNames.PasteObject);
-        return true;
+        return GroupedEditorHelper.TryPasteJson(
+            json, this, IsExpanded,
+            (Value.Value as FilterEffectGroup)?.Children);
     }
 
     public void AddItem(FilterEffect instance)

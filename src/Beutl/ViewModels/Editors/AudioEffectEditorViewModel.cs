@@ -155,42 +155,19 @@ public sealed class AudioEffectEditorViewModel : ValueEditorViewModel<AudioEffec
 
     public override bool TryPasteJson(string json)
     {
-        if (!CoreObjectClipboard.TryDeserializeJson<AudioEffect>(json, out var pasted)) return false;
-
-        IsExpanded.Value = true;
-        if (Value.Value is AudioEffectGroup group)
-        {
-            group.Children.Add(pasted);
-        }
-        else if (EditingKeyFrame.Value is { } kf)
-        {
-            kf.Value = pasted;
-        }
-        else if (PropertyAdapter is ListItemAccessorImpl<AudioEffect> listItemAccessor)
-        {
-            listItemAccessor.List.Insert(listItemAccessor.Index, pasted);
-        }
-        else
-        {
-            PropertyAdapter.SetValue(pasted);
-        }
-
-        Commit(CommandNames.PasteObject);
-        return true;
+        return GroupedEditorHelper.TryPasteJson(
+            json, this, IsExpanded,
+            (Value.Value as AudioEffectGroup)?.Children);
     }
 
     public override bool IsTemplateGroup => Value.Value is AudioEffectGroup;
 
     public override bool ApplyTemplate(ObjectTemplateItem template)
     {
-        if (template.CreateInstance() is not AudioEffect instance) return false;
-        IsExpanded.Value = true;
-        if (Value.Value is AudioEffectGroup)
-            AddItem(instance);
-        else
-            ChangeAudioEffect(instance);
-        Commit(CommandNames.ApplyTemplate);
-        return true;
+        return GroupedEditorHelper.ApplyTemplate(
+            template, this, IsExpanded,
+            Value.Value is AudioEffectGroup,
+            AddItem, ChangeAudioEffect);
     }
 
     public void AddItem(AudioEffect instance)
