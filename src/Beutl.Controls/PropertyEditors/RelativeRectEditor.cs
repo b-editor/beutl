@@ -206,39 +206,7 @@ public class RelativeRectEditor : Vector4Editor
     }
 
     private static bool TryParse(string s, out float result, out Graphics.RelativeUnit unit)
-    {
-        if (s == null)
-        {
-            result = default;
-            unit = default;
-            return false;
-        }
-
-        result = 1f;
-        float scale = 1f;
-        ReadOnlySpan<char> span = s;
-
-        if (s.EndsWith('%'))
-        {
-            scale = 0.01f;
-            span = s.AsSpan()[0..^1];
-            unit = Graphics.RelativeUnit.Relative;
-        }
-        else
-        {
-            unit = Graphics.RelativeUnit.Absolute;
-        }
-
-        if (float.TryParse(span, out float value))
-        {
-            result = value * scale;
-            return true;
-        }
-        else
-        {
-            return false;
-        }
-    }
+        => RelativeUnitParser.TryParse(s, out result, out unit);
 
     private void OnInnerTextBoxTextChanged(TextBox sender, string newValue, string oldValue)
     {
