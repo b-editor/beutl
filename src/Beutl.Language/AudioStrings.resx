@@ -60,4 +60,10 @@
   <data name="SceneSound" xml:space="preserve">
     <value>Scene Reference (Audio)</value>
   </data>
+  <data name="Pitch" xml:space="preserve">
+    <value>Pitch</value>
+  </data>
+  <data name="PitchSemitones" xml:space="preserve">
+    <value>Semitones</value>
+  </data>
 </root>

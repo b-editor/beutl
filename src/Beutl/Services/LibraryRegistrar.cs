@@ -196,6 +196,7 @@ public static class LibraryRegistrar
         LibraryService.Current
             .RegisterGroup(AudioStrings.AudioEffect, g => g
                 .AddAudioEffect<DelayEffect>(AudioStrings.DelayEffect)
+                .AddAudioEffect<PitchEffect>(AudioStrings.Pitch)
             );
     }
 }
