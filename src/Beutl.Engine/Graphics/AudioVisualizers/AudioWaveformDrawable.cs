@@ -41,7 +41,7 @@ public sealed partial class AudioWaveformDrawable : AudioVisualizerDrawable
             return (currentTime - TimeSpan.FromTicks(window.Ticks / 2), window);
         }
 
-        protected override void RenderForeground(GraphicsContext2D context, Rect bounds)
+        protected override void RenderForeground(ImmediateCanvas canvas, Rect bounds)
         {
             float[] samples = CachedSamples;
             if (samples.Length == 0 || ForegroundBrush is null) return;
@@ -69,7 +69,7 @@ public sealed partial class AudioWaveformDrawable : AudioVisualizerDrawable
                         float bottomY = centerY - min * centerY;
                         float barHeight = Math.Max(1f, bottomY - topY);
                         float x = i * slotWidth;
-                        context.DrawRectangle(new Rect(x, topY, barWidth, barHeight), ForegroundBrush, null);
+                        canvas.DrawRectangle(new Rect(x, topY, barWidth, barHeight), ForegroundBrush, null);
                     }
                     break;
 
@@ -85,7 +85,7 @@ public sealed partial class AudioWaveformDrawable : AudioVisualizerDrawable
                         float y = centerY - value * centerY;
                         float x = i * slotWidth;
 
-                        context.DrawRectangle(new Rect(x, y - halfThick, barWidth, lineThickness), ForegroundBrush, null);
+                        canvas.DrawRectangle(new Rect(x, y - halfThick, barWidth, lineThickness), ForegroundBrush, null);
 
                         if (prevY.HasValue)
                         {
@@ -93,7 +93,7 @@ public sealed partial class AudioWaveformDrawable : AudioVisualizerDrawable
                             float maxY = Math.Max(prevY.Value, y);
                             if (maxY - minY > lineThickness)
                             {
-                                context.DrawRectangle(new Rect(x - halfThick, minY, lineThickness, maxY - minY), ForegroundBrush, null);
+                                canvas.DrawRectangle(new Rect(x - halfThick, minY, lineThickness, maxY - minY), ForegroundBrush, null);
                             }
                         }
                         prevY = y;
@@ -110,7 +110,7 @@ public sealed partial class AudioWaveformDrawable : AudioVisualizerDrawable
                         float topY = centerY - halfHeight;
                         float barHeight = Math.Max(1f, halfHeight * 2f);
                         float x = i * slotWidth;
-                        context.DrawRectangle(new Rect(x, topY, barWidth, barHeight), ForegroundBrush, null);
+                        canvas.DrawRectangle(new Rect(x, topY, barWidth, barHeight), ForegroundBrush, null);
                     }
                     break;
             }

@@ -44,7 +44,7 @@ public sealed partial class AudioSpectrumDrawable : AudioVisualizerDrawable
             return (currentTime - duration, duration);
         }
 
-        protected override void RenderForeground(GraphicsContext2D context, Rect bounds)
+        protected override void RenderForeground(ImmediateCanvas canvas, Rect bounds)
         {
             float[] samples = CachedSamples;
             if (samples.Length == 0 || ForegroundBrush is null || CachedSampleRate <= 0) return;
@@ -135,7 +135,7 @@ public sealed partial class AudioSpectrumDrawable : AudioVisualizerDrawable
                 float barHeight = Math.Max(1f, normalized * height);
                 float x = i * slotWidth;
                 float y = height - barHeight;
-                context.DrawRectangle(new Rect(bounds.X + x, bounds.Y + y, barWidth, barHeight), ForegroundBrush, null);
+                canvas.DrawRectangle(new Rect(bounds.X + x, bounds.Y + y, barWidth, barHeight), ForegroundBrush, null);
             }
         }
     }

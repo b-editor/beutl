@@ -48,7 +48,10 @@ public abstract partial class AudioVisualizerDrawable : Drawable
     protected override void OnDraw(GraphicsContext2D context, Drawable.Resource resource)
     {
         var r = (Resource)resource;
-        r.Render(context);
+        context.DrawNode(
+            r,
+            p => new AudioVisualizerRenderNode(p),
+            (node, p) => node.Update(p));
     }
 
     public abstract partial class Resource
@@ -122,21 +125,19 @@ public abstract partial class AudioVisualizerDrawable : Drawable
 
         protected abstract (TimeSpan Start, TimeSpan Duration) ComputeSampleWindow(TimeSpan currentTime);
 
-        internal void Render(GraphicsContext2D context)
+        internal void RenderToCanvas(ImmediateCanvas canvas, Rect bounds)
         {
-            var bounds = new Rect(0, 0, Math.Max(1f, Width), Math.Max(1f, Height));
-
             if (_backgroundBrushResource != null && BackgroundColor.A > 0)
             {
-                context.DrawRectangle(bounds, _backgroundBrushResource, null);
+                canvas.DrawRectangle(bounds, _backgroundBrushResource, null);
             }
 
             if (_foregroundBrushResource == null) return;
 
-            RenderForeground(context, bounds);
+            RenderForeground(canvas, bounds);
         }
 
-        protected abstract void RenderForeground(GraphicsContext2D context, Rect bounds);
+        protected abstract void RenderForeground(ImmediateCanvas canvas, Rect bounds);
 
         private void EnsureBrushes(CompositionContext context)
         {

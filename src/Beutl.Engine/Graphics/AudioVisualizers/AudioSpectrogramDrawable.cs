@@ -95,7 +95,7 @@ public sealed partial class AudioSpectrogramDrawable : AudioVisualizerDrawable
             return _intensityBrushes[idx];
         }
 
-        protected override void RenderForeground(GraphicsContext2D context, Rect bounds)
+        protected override void RenderForeground(ImmediateCanvas canvas, Rect bounds)
         {
             float[] samples = CachedSamples;
             if (samples.Length == 0 || CachedSampleRate <= 0) return;
@@ -143,7 +143,7 @@ public sealed partial class AudioSpectrogramDrawable : AudioVisualizerDrawable
 
                     // 高い周波数を上側に配置
                     float y = bounds.Y + height - (bin + 1) * binHeight;
-                    context.DrawRectangle(
+                    canvas.DrawRectangle(
                         new Rect(colX, y, drawColWidth, Math.Max(1f, binHeight + 0.5f)),
                         brush,
                         null);
