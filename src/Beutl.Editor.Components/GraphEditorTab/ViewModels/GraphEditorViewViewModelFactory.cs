@@ -3,13 +3,69 @@ using System.Runtime.CompilerServices;
 
 namespace Beutl.Editor.Components.GraphEditorTab.ViewModels;
 
-public abstract partial class GraphEditorViewViewModelFactory
+public abstract class GraphEditorViewViewModelFactory
 {
     private static readonly Dictionary<Type, GraphEditorViewViewModelFactory> s_registry = [];
 
     static GraphEditorViewViewModelFactory()
     {
-        InitializeGenerated();
+        // Vector2 (int)
+        Register<Media.PixelPoint>(int.MinValue, int.MaxValue,
+            new("X", v => v.X, (v, n) => new Media.PixelPoint(int.CreateTruncating(n), v.Y)),
+            new("Y", v => v.Y, (v, n) => new Media.PixelPoint(v.X, int.CreateTruncating(n))));
+        Register<Media.PixelSize>(int.MinValue, int.MaxValue,
+            new("Width", v => v.Width, (v, n) => new Media.PixelSize(int.CreateTruncating(n), v.Height)),
+            new("Height", v => v.Height, (v, n) => new Media.PixelSize(v.Width, int.CreateTruncating(n))));
+
+        // Vector2 (float)
+        Register<Graphics.Point>(float.MinValue, float.MaxValue,
+            new("X", v => v.X, (v, n) => new Graphics.Point(float.CreateTruncating(n), v.Y)),
+            new("Y", v => v.Y, (v, n) => new Graphics.Point(v.X, float.CreateTruncating(n))));
+        Register<Graphics.Size>(float.MinValue, float.MaxValue,
+            new("Width", v => v.Width, (v, n) => new Graphics.Size(float.CreateTruncating(n), v.Height)),
+            new("Height", v => v.Height, (v, n) => new Graphics.Size(v.Width, float.CreateTruncating(n))));
+        Register<Graphics.Vector>(float.MinValue, float.MaxValue,
+            new("X", v => v.X, (v, n) => new Graphics.Vector(float.CreateTruncating(n), v.Y)),
+            new("Y", v => v.Y, (v, n) => new Graphics.Vector(v.X, float.CreateTruncating(n))));
+        Register<Vector2>(float.MinValue, float.MaxValue,
+            new("X", v => v.X, (v, n) => new Vector2(float.CreateTruncating(n), v.Y)),
+            new("Y", v => v.Y, (v, n) => new Vector2(v.X, float.CreateTruncating(n))));
+
+        // Vector3 (float)
+        Register<Vector3>(float.MinValue, float.MaxValue,
+            new("X", v => v.X, (v, n) => new Vector3(float.CreateTruncating(n), v.Y, v.Z)),
+            new("Y", v => v.Y, (v, n) => new Vector3(v.X, float.CreateTruncating(n), v.Z)),
+            new("Z", v => v.Z, (v, n) => new Vector3(v.X, v.Y, float.CreateTruncating(n))));
+
+        // Vector4 (int)
+        Register<Media.PixelRect>(int.MinValue, int.MaxValue,
+            new("X", v => v.X, (v, n) => new Media.PixelRect(int.CreateTruncating(n), v.Y, v.Width, v.Height)),
+            new("Y", v => v.Y, (v, n) => new Media.PixelRect(v.X, int.CreateTruncating(n), v.Width, v.Height)),
+            new("Width", v => v.Width, (v, n) => new Media.PixelRect(v.X, v.Y, int.CreateTruncating(n), v.Height)),
+            new("Height", v => v.Height, (v, n) => new Media.PixelRect(v.X, v.Y, v.Width, int.CreateTruncating(n))));
+
+        // Vector4 (float)
+        Register<Graphics.Rect>(float.MinValue, float.MaxValue,
+            new("X", v => v.X, (v, n) => new Graphics.Rect(float.CreateTruncating(n), v.Y, v.Width, v.Height)),
+            new("Y", v => v.Y, (v, n) => new Graphics.Rect(v.X, float.CreateTruncating(n), v.Width, v.Height)),
+            new("Width", v => v.Width, (v, n) => new Graphics.Rect(v.X, v.Y, float.CreateTruncating(n), v.Height)),
+            new("Height", v => v.Height, (v, n) => new Graphics.Rect(v.X, v.Y, v.Width, float.CreateTruncating(n))));
+        Register<Media.CornerRadius>(float.MinValue, float.MaxValue,
+            new("TopLeft", v => v.TopLeft, (v, n) => new Media.CornerRadius(float.CreateTruncating(n), v.TopRight, v.BottomRight, v.BottomLeft)),
+            new("TopRight", v => v.TopRight, (v, n) => new Media.CornerRadius(v.TopLeft, float.CreateTruncating(n), v.BottomRight, v.BottomLeft)),
+            new("BottomRight", v => v.BottomRight, (v, n) => new Media.CornerRadius(v.TopLeft, v.TopRight, float.CreateTruncating(n), v.BottomLeft)),
+            new("BottomLeft", v => v.BottomLeft, (v, n) => new Media.CornerRadius(v.TopLeft, v.TopRight, v.BottomRight, float.CreateTruncating(n))));
+        Register<Graphics.Thickness>(float.MinValue, float.MaxValue,
+            new("Left", v => v.Left, (v, n) => new Graphics.Thickness(float.CreateTruncating(n), v.Top, v.Right, v.Bottom)),
+            new("Top", v => v.Top, (v, n) => new Graphics.Thickness(v.Left, float.CreateTruncating(n), v.Right, v.Bottom)),
+            new("Right", v => v.Right, (v, n) => new Graphics.Thickness(v.Left, v.Top, float.CreateTruncating(n), v.Bottom)),
+            new("Bottom", v => v.Bottom, (v, n) => new Graphics.Thickness(v.Left, v.Top, v.Right, float.CreateTruncating(n))));
+        Register<Vector4>(float.MinValue, float.MaxValue,
+            new("X", v => v.X, (v, n) => new Vector4(float.CreateTruncating(n), v.Y, v.Z, v.W)),
+            new("Y", v => v.Y, (v, n) => new Vector4(v.X, float.CreateTruncating(n), v.Z, v.W)),
+            new("Z", v => v.Z, (v, n) => new Vector4(v.X, v.Y, float.CreateTruncating(n), v.W)),
+            new("W", v => v.W, (v, n) => new Vector4(v.X, v.Y, v.Z, float.CreateTruncating(n))));
+
         s_registry[typeof(Media.Color)] = new ColorFactory();
     }
 
@@ -60,6 +116,65 @@ public abstract partial class GraphEditorViewViewModelFactory
     }
 
     protected abstract GraphEditorViewViewModel[] CreateViewsCore(GraphEditorViewModel parent);
+
+    private static void Register<T>(double minValue, double maxValue, params VectorLikeFactory<T>.Field[] fields)
+        where T : struct
+    {
+        s_registry[typeof(T)] = new VectorLikeFactory<T>(minValue, maxValue, fields);
+    }
+
+    private sealed class VectorLikeFactory<T> : GraphEditorViewViewModelFactory where T : struct
+    {
+        public readonly record struct Field(string Name, Func<T, double> Get, Func<T, double, T> Set);
+
+        private readonly Field[] _fields;
+
+        public VectorLikeFactory(double minValue, double maxValue, Field[] fields)
+        {
+            MinValue = minValue;
+            MaxValue = maxValue;
+            _fields = fields;
+        }
+
+        public override double MaxValue { get; }
+
+        public override double MinValue { get; }
+
+        protected override GraphEditorViewViewModel[] CreateViewsCore(GraphEditorViewModel parent)
+        {
+            var result = new GraphEditorViewViewModel[_fields.Length];
+            for (int i = 0; i < _fields.Length; i++)
+            {
+                int index = i;
+                result[i] = new GraphEditorViewViewModel(
+                    parent,
+                    _fields[i].Name,
+                    obj => ConvertTo(index, obj),
+                    (object? old, double value, Type _, out object? obj) => TryConvertFrom(index, old, value, out obj));
+            }
+            return result;
+        }
+
+        private double ConvertTo(int fieldIndex, object? obj)
+        {
+            if (obj is T typed && (uint)fieldIndex < (uint)_fields.Length)
+            {
+                return _fields[fieldIndex].Get(typed);
+            }
+            return 1d;
+        }
+
+        private bool TryConvertFrom(int fieldIndex, object? oldValue, double value, out object? obj)
+        {
+            if (oldValue is T old && (uint)fieldIndex < (uint)_fields.Length)
+            {
+                obj = _fields[fieldIndex].Set(old, value);
+                return true;
+            }
+            obj = null;
+            return false;
+        }
+    }
 
     private sealed class NumberFactory<T> : GraphEditorViewViewModelFactory
         where T : INumber<T>, IMinMaxValue<T>

@@ -1,21 +1,8 @@
-﻿using System.Text.Json;
-using System.Text.Json.Serialization;
+﻿namespace Beutl.JsonConverters;
 
-namespace Beutl.JsonConverters;
-
-internal class FileInfoConverter : JsonConverter<FileInfo>
+internal class FileInfoConverter : StringJsonConverter<FileInfo>
 {
-    public override FileInfo Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
-    {
-        string? s = reader.GetString();
-        if (s == null)
-            throw new Exception("Invalid FileInfo.");
-
-        return new FileInfo(s);
-    }
-
-    public override void Write(Utf8JsonWriter writer, FileInfo value, JsonSerializerOptions options)
-    {
-        writer.WriteStringValue(value.FullName);
-    }
+    protected override string TypeName => "FileInfo";
+    protected override FileInfo Parse(string s) => new FileInfo(s);
+    protected override string Format(FileInfo value) => value.FullName;
 }

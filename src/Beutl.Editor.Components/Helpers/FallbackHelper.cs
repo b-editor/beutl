@@ -1,4 +1,5 @@
-﻿using Beutl.Serialization;
+﻿using System.Text.Json.Nodes;
+using Beutl.Serialization;
 
 namespace Beutl.Editor.Components.Helpers;
 
@@ -30,5 +31,39 @@ public static class FallbackHelper
         }
 
         return MessageStrings.RestoreFailedTypeNotFound;
+    }
+
+    public static IObservable<string?> GetFallbackJson<T>(IObservable<T?> value)
+        where T : class
+    {
+        return value.Select(v =>
+        {
+            if (v is IFallback { Json: JsonObject json })
+            {
+                return json.ToJsonString(JsonHelper.SerializerOptions);
+            }
+
+            return null;
+        });
+    }
+
+    public static T DeserializeInstance<T>(string? str)
+        where T : class, ICoreSerializable
+    {
+        string message = MessageStrings.InvalidJson;
+        _ = str ?? throw new Exception(message);
+        JsonObject json = (JsonNode.Parse(str) as JsonObject) ?? throw new Exception(message);
+
+        Type? type = json.GetDiscriminator();
+        T? instance = null;
+        if (type?.IsAssignableTo(typeof(T)) ?? false)
+        {
+            instance = Activator.CreateInstance(type) as T;
+        }
+
+        if (instance == null) throw new Exception(message);
+
+        CoreSerializer.PopulateFromJsonObject(instance, type!, json);
+        return instance;
     }
 }

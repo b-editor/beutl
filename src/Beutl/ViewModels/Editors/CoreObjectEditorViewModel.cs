@@ -147,37 +147,11 @@ public sealed class CoreObjectEditorViewModel<T> : BaseEditorViewModel<T>, ICore
 
     public IReadOnlyReactiveProperty<string> FallbackMessage { get; }
 
-    public IObservable<string?> GetJsonString()
-    {
-        return Value.Select(v =>
-        {
-            if (v is IFallback { Json: JsonObject json })
-            {
-                return json.ToJsonString(JsonHelper.SerializerOptions);
-            }
-
-            return null;
-        });
-    }
+    public IObservable<string?> GetJsonString() => FallbackHelper.GetFallbackJson(Value);
 
     public void SetJsonString(string? str)
     {
-        string message = MessageStrings.InvalidJson;
-        _ = str ?? throw new Exception(message);
-        JsonObject json = (JsonNode.Parse(str) as JsonObject) ?? throw new Exception(message);
-
-        Type? type = json.GetDiscriminator();
-        T? instance = null;
-        if (type?.IsAssignableTo(typeof(T)) ?? false)
-        {
-            instance = Activator.CreateInstance(type) as T;
-        }
-
-        if (instance == null) throw new Exception(message);
-
-        CoreSerializer.PopulateFromJsonObject(instance, type!, json);
-
-        SetValue(Value.Value, instance);
+        SetValue(Value.Value, FallbackHelper.DeserializeInstance<T>(str));
     }
 
     public void SetNull()
@@ -259,30 +233,11 @@ public sealed class CoreObjectEditorViewModel<T> : BaseEditorViewModel<T>, ICore
     }
 
     public IReadOnlyList<TargetObjectInfo> GetAvailableTargets()
-    {
-        var scene = this.GetService<EditViewModel>()?.Scene;
-        if (scene == null) return [];
-
-        var searcher = new ObjectSearcher(scene, obj =>
-            obj is T && obj is not IPresenter<T>);
-
-        return searcher.SearchAll()
-            .Cast<T>()
-            .Select(obj =>
-                new TargetObjectInfo(CoreObjectHelper.GetDisplayName(obj), obj, CoreObjectHelper.GetOwnerElement(obj)))
-            .ToList();
-    }
+        => TargetObjectSearchHelper.GetAvailableTargets<T>(this);
 
     private void AcceptProperties(PropertiesEditorViewModel? obj)
     {
-        if (obj != null)
-        {
-            var visitor = new Visitor(this);
-            foreach (IPropertyEditorContext item in obj.Properties)
-            {
-                item.Accept(visitor);
-            }
-        }
+        NestedEditorContextHelper.AcceptChildren(new ChildVisitor(this), null, obj);
     }
 
     public override void Accept(IPropertyEditorContextVisitor visitor)
@@ -297,49 +252,18 @@ public sealed class CoreObjectEditorViewModel<T> : BaseEditorViewModel<T>, ICore
     public override void ReadFromJson(JsonObject json)
     {
         base.ReadFromJson(json);
-        try
-        {
-            if (json.TryGetPropertyValue(nameof(IsExpanded), out JsonNode? isExpandedNode)
-                && isExpandedNode is JsonValue isExpanded)
-            {
-                IsExpanded.Value = (bool)isExpanded;
-            }
-
-            Properties.Value?.ReadFromJson(json);
-        }
-        catch
-        {
-        }
+        NestedEditorContextHelper.ReadNestedJson(json, IsExpanded, Properties.Value);
     }
 
     public override void WriteToJson(JsonObject json)
     {
         base.WriteToJson(json);
-        try
-        {
-            json[nameof(IsExpanded)] = IsExpanded.Value;
-            Properties.Value?.WriteToJson(json);
-        }
-        catch
-        {
-        }
+        NestedEditorContextHelper.WriteNestedJson(json, IsExpanded.Value, Properties.Value);
     }
 
     protected override void Dispose(bool disposing)
     {
         base.Dispose(disposing);
         Properties.Value?.Dispose();
-    }
-
-    private sealed record Visitor(CoreObjectEditorViewModel<T> Obj) : IServiceProvider, IPropertyEditorContextVisitor
-    {
-        public object? GetService(Type serviceType)
-        {
-            return Obj.GetService(serviceType);
-        }
-
-        public void Visit(IPropertyEditorContext context)
-        {
-        }
     }
 }

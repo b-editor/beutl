@@ -38,57 +38,33 @@ public partial class FilterEffectEditor : UserControl
     {
         if (DataContext is not FilterEffectEditorViewModel { IsDisposed: false } viewModel) return;
 
-        // テンプレートファイルのドロップ
-        if (e.DataTransfer.TryGetFile()?.TryGetLocalPath() is { } droppedFile
-            && string.Equals(Path.GetExtension(droppedFile), ".json", StringComparison.OrdinalIgnoreCase)
-            && ObjectTemplateService.Instance.TryLoadFromFile(droppedFile) is { } template
-            && template.CreateInstance() is FilterEffect instance)
+        if (EditorDragDropHelper.TryHandleEditorDrop<FilterEffect>(
+                e,
+                BeutlDataFormats.FilterEffect,
+                tryPasteJson: viewModel.TryPasteJson,
+                onTemplateInstance: instance =>
+                {
+                    if (viewModel.IsGroup.Value)
+                        viewModel.AddItem(instance);
+                    else
+                        viewModel.ChangeFilter(instance);
+                },
+                onTypePayload: type =>
+                {
+                    if (viewModel.IsGroup.Value)
+                        viewModel.AddItem(type);
+                    else
+                        viewModel.ChangeFilterType(type);
+                    return true;
+                }))
         {
-            if (viewModel.IsGroup.Value)
-            {
-                viewModel.AddItem(instance);
-            }
-            else
-            {
-                viewModel.ChangeFilter(instance);
-            }
-
-            e.Handled = true;
-            return;
-        }
-
-        if (e.DataTransfer.TryGetValue(BeutlDataFormats.FilterEffect) is not { } data) return;
-
-        if (CoreObjectClipboard.IsJsonData(data))
-        {
-            if (viewModel.TryPasteJson(data))
-            {
-                e.Handled = true;
-            }
-        }
-        else if (TypeFormat.ToType(data) is { } type)
-        {
-            if (viewModel.IsGroup.Value)
-            {
-                viewModel.AddItem(type);
-            }
-            else
-            {
-                viewModel.ChangeFilterType(type);
-            }
-
             e.Handled = true;
         }
     }
 
     private void DragOver(object? sender, DragEventArgs e)
     {
-        if (e.DataTransfer.Contains(BeutlDataFormats.FilterEffect)
-            || e.DataTransfer.Contains(DataFormat.File))
-        {
-            e.DragEffects = DragDropEffects.Copy | DragDropEffects.Link;
-            e.Handled = true;
-        }
+        EditorDragDropHelper.HandleEditorDragOver(e, BeutlDataFormats.FilterEffect);
     }
 
     private async void Tag_Click(object? sender, RoutedEventArgs e)
@@ -194,23 +170,11 @@ public partial class FilterEffectEditor : UserControl
         try
         {
             _flyoutOpen = true;
-            var targets = vm.GetAvailableTargets();
-            var pickerVm = new TargetPickerFlyoutViewModel();
-            pickerVm.Initialize(targets);
-
-            var flyout = new TargetPickerFlyout(pickerVm);
-            flyout.ShowAt(this, true);
-
-            var tcs = new TaskCompletionSource<FilterEffect?>();
-            flyout.Dismissed += (_, _) => tcs.TrySetResult(null);
-            flyout.Confirmed += (_, _) => tcs.TrySetResult(
-                (pickerVm.SelectedItem.Value?.UserData as TargetObjectInfo)?.Object as FilterEffect);
-
-            var result = await tcs.Task;
-            if (result != null)
-            {
-                vm.SetTarget(result);
-            }
+            await TargetSelectionHelper.HandleSelectTargetRequestAsync<FilterEffectEditorViewModel, FilterEffect>(
+                this,
+                vm,
+                vm => vm.GetAvailableTargets(),
+                (vm, target) => vm.SetTarget(target));
         }
         finally
         {

@@ -103,14 +103,7 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel, IFallbackObjectV
 
     private void AcceptChildren(PropertiesEditorViewModel? obj)
     {
-        if (obj != null)
-        {
-            var visitor = new Visitor(this);
-            foreach (IPropertyEditorContext item in obj.Properties)
-            {
-                item.Accept(visitor);
-            }
-        }
+        NestedEditorContextHelper.AcceptChildren(new ChildVisitor(this), null, obj);
     }
 
     public ReadOnlyReactiveProperty<Brush?> Value { get; }
@@ -151,37 +144,11 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel, IFallbackObjectV
 
     public IReadOnlyReactiveProperty<string> FallbackMessage { get; }
 
-    public IObservable<string?> GetJsonString()
-    {
-        return Value.Select(v =>
-        {
-            if (v is FallbackBrush { Json: JsonObject json })
-            {
-                return json.ToJsonString(JsonHelper.SerializerOptions);
-            }
-
-            return null;
-        });
-    }
+    public IObservable<string?> GetJsonString() => FallbackHelper.GetFallbackJson(Value);
 
     public void SetJsonString(string? str)
     {
-        string message = MessageStrings.InvalidJson;
-        _ = str ?? throw new Exception(message);
-        JsonObject json = (JsonNode.Parse(str) as JsonObject) ?? throw new Exception(message);
-
-        Type? type = json.GetDiscriminator();
-        Brush? instance = null;
-        if (type?.IsAssignableTo(typeof(Brush)) ?? false)
-        {
-            instance = Activator.CreateInstance(type) as Brush;
-        }
-
-        if (instance == null) throw new Exception(message);
-
-        CoreSerializer.PopulateFromJsonObject(instance, type!, json);
-
-        SetValue(Value.Value, instance);
+        SetValue(Value.Value, FallbackHelper.DeserializeInstance<Brush>(str));
     }
 
     public void UpdateBrushPreview()
@@ -327,32 +294,10 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel, IFallbackObjectV
     }
 
     public IReadOnlyList<TargetObjectInfo> GetAvailableTargets()
-    {
-        var scene = this.GetService<EditViewModel>()?.Scene;
-        if (scene == null) return [];
-
-        var searcher = new ObjectSearcher(scene, obj =>
-            obj is Brush && obj is not IPresenter<Brush>);
-
-        return searcher.SearchAll()
-            .Cast<Brush>()
-            .Select(b => new TargetObjectInfo(CoreObjectHelper.GetDisplayName(b), b, CoreObjectHelper.GetOwnerElement(b)))
-            .ToList();
-    }
+        => TargetObjectSearchHelper.GetAvailableTargets<Brush>(this);
 
     public IReadOnlyList<TargetObjectInfo> GetAvailableDrawableTargets()
-    {
-        var scene = this.GetService<EditViewModel>()?.Scene;
-        if (scene == null) return [];
-
-        var searcher = new ObjectSearcher(scene, obj =>
-            obj is Drawable && obj is not IPresenter<Drawable>);
-
-        return searcher.SearchAll()
-            .Cast<Drawable>()
-            .Select(b => new TargetObjectInfo(CoreObjectHelper.GetDisplayName(b), b, CoreObjectHelper.GetOwnerElement(b)))
-            .ToList();
-    }
+        => TargetObjectSearchHelper.GetAvailableTargets<Drawable>(this);
 
     public override void Accept(IPropertyEditorContextVisitor visitor)
     {
@@ -366,32 +311,13 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel, IFallbackObjectV
     public override void ReadFromJson(JsonObject json)
     {
         base.ReadFromJson(json);
-        try
-        {
-            if (json.TryGetPropertyValue(nameof(IsExpanded), out JsonNode? isExpandedNode)
-                && isExpandedNode is JsonValue isExpanded)
-            {
-                IsExpanded.Value = (bool)isExpanded;
-            }
-
-            ChildContext.Value?.ReadFromJson(json);
-        }
-        catch
-        {
-        }
+        NestedEditorContextHelper.ReadNestedJson(json, IsExpanded, ChildContext.Value);
     }
 
     public override void WriteToJson(JsonObject json)
     {
         base.WriteToJson(json);
-        try
-        {
-            json[nameof(IsExpanded)] = IsExpanded.Value;
-            ChildContext.Value?.WriteToJson(json);
-        }
-        catch
-        {
-        }
+        NestedEditorContextHelper.WriteNestedJson(json, IsExpanded.Value, ChildContext.Value);
     }
 
     protected override void Dispose(bool disposing)
@@ -399,17 +325,5 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel, IFallbackObjectV
         base.Dispose(disposing);
         ChildContext.Value?.Dispose();
         _revoker?.Dispose();
-    }
-
-    private sealed record Visitor(BrushEditorViewModel Obj) : IServiceProvider, IPropertyEditorContextVisitor
-    {
-        public object? GetService(Type serviceType)
-        {
-            return Obj.GetService(serviceType);
-        }
-
-        public void Visit(IPropertyEditorContext context)
-        {
-        }
     }
 }

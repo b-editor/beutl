@@ -20,21 +20,4 @@ public sealed class SoundSourceEditorViewModel : ValueEditorViewModel<SoundSourc
     public ReadOnlyReactivePropertySlim<string?> FullName { get; }
 
     public ReadOnlyReactivePropertySlim<FileInfo?> FileInfo { get; }
-
-    public void SetValueAndDispose(SoundSource? oldValue, SoundSource? newValue)
-    {
-        if (!EqualityComparer<SoundSource?>.Default.Equals(oldValue, newValue))
-        {
-            if (EditingKeyFrame.Value is { } kf)
-            {
-                kf.Value = newValue;
-            }
-            else
-            {
-                PropertyAdapter.SetValue(newValue);
-            }
-
-            Commit();
-        }
-    }
 }

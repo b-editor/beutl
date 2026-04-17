@@ -118,9 +118,8 @@ public partial class ModelSourceEditor : UserControl
         if (DataContext is not ModelSourceEditorViewModel { IsDisposed: false } vm) return;
         if (e.NewValue is not FileInfo fi) return;
 
-        ModelSource? oldValue = vm.PropertyAdapter.GetValue();
         var newValue = new ModelSource();
         newValue.ReadFrom(new Uri(fi.FullName));
-        vm.SetValueAndDispose(oldValue, newValue);
+        vm.SetValue(newValue);
     }
 }

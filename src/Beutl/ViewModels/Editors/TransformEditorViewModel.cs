@@ -208,37 +208,11 @@ public sealed class TransformEditorViewModel : ValueEditorViewModel<Transform?>,
 
     public IReadOnlyReactiveProperty<string> FallbackMessage { get; }
 
-    public IObservable<string?> GetJsonString()
-    {
-        return Value.Select(v =>
-        {
-            if (v is FallbackTransform { Json: JsonObject json })
-            {
-                return json.ToJsonString(JsonHelper.SerializerOptions);
-            }
-
-            return null;
-        });
-    }
+    public IObservable<string?> GetJsonString() => FallbackHelper.GetFallbackJson(Value);
 
     public void SetJsonString(string? str)
     {
-        string message = MessageStrings.InvalidJson;
-        _ = str ?? throw new Exception(message);
-        JsonObject json = (JsonNode.Parse(str) as JsonObject) ?? throw new Exception(message);
-
-        Type? type = json.GetDiscriminator();
-        Transform? instance = null;
-        if (type?.IsAssignableTo(typeof(Transform)) ?? false)
-        {
-            instance = Activator.CreateInstance(type) as Transform;
-        }
-
-        if (instance == null) throw new Exception(message);
-
-        CoreSerializer.PopulateFromJsonObject(instance, type!, json);
-
-        SetValue(Value.Value, instance);
+        SetValue(Value.Value, FallbackHelper.DeserializeInstance<Transform>(str));
     }
 
     public override void Accept(IPropertyEditorContextVisitor visitor)
@@ -249,16 +223,7 @@ public sealed class TransformEditorViewModel : ValueEditorViewModel<Transform?>,
 
     private void AcceptChild()
     {
-        var visitor = new Visitor(this);
-        Group.Value?.Accept(visitor);
-
-        if (Properties.Value != null)
-        {
-            foreach (IPropertyEditorContext item in Properties.Value.Properties)
-            {
-                item.Accept(visitor);
-            }
-        }
+        NestedEditorContextHelper.AcceptChildren(new ChildVisitor(this), Group.Value, Properties.Value);
     }
 
     public void ChangeTransform(Transform instance)
@@ -307,40 +272,17 @@ public sealed class TransformEditorViewModel : ValueEditorViewModel<Transform?>,
 
     public override bool ApplyTemplate(ObjectTemplateItem template)
     {
-        if (template.CreateInstance() is not Transform instance) return false;
-        IsExpanded.Value = true;
-        if (Value.Value is TransformGroup)
-            AddItem(instance);
-        else
-            ChangeTransform(instance);
-        Commit(CommandNames.ApplyTemplate);
-        return true;
+        return GroupedEditorHelper.ApplyTemplate(
+            template, this, IsExpanded,
+            Value.Value is TransformGroup,
+            AddItem, ChangeTransform);
     }
 
     public override bool TryPasteJson(string json)
     {
-        if (!CoreObjectClipboard.TryDeserializeJson<Transform>(json, out var pasted)) return false;
-
-        IsExpanded.Value = true;
-        if (Value.Value is TransformGroup group)
-        {
-            group.Children.Add(pasted);
-        }
-        else if (EditingKeyFrame.Value is { } kf)
-        {
-            kf.Value = pasted;
-        }
-        else if (PropertyAdapter is ListItemAccessorImpl<Transform> listItemAccessor)
-        {
-            listItemAccessor.List.Insert(listItemAccessor.Index, pasted);
-        }
-        else
-        {
-            PropertyAdapter.SetValue(pasted);
-        }
-
-        Commit(CommandNames.PasteObject);
-        return true;
+        return GroupedEditorHelper.TryPasteJson(
+            json, this, IsExpanded,
+            (Value.Value as TransformGroup)?.Children);
     }
 
     public void SetNull()
@@ -367,63 +309,20 @@ public sealed class TransformEditorViewModel : ValueEditorViewModel<Transform?>,
     }
 
     public IReadOnlyList<TargetObjectInfo> GetAvailableTargets()
-    {
-        var scene = this.GetService<EditViewModel>()?.Scene;
-        if (scene == null) return [];
-
-        var searcher = new ObjectSearcher(scene, obj =>
-            obj is Transform && obj is not IPresenter<Transform>);
-
-        return searcher.SearchAll()
-            .Cast<Transform>()
-            .Select(t => new TargetObjectInfo(CoreObjectHelper.GetDisplayName(t), t, CoreObjectHelper.GetOwnerElement(t)))
-            .ToList();
-    }
+        => TargetObjectSearchHelper.GetAvailableTargets<Transform>(this);
 
 
 
     public override void ReadFromJson(JsonObject json)
     {
         base.ReadFromJson(json);
-        try
-        {
-            if (json.TryGetPropertyValue(nameof(IsExpanded), out var isExpandedNode)
-                && isExpandedNode is JsonValue isExpanded)
-            {
-                IsExpanded.Value = (bool)isExpanded;
-            }
-
-            Properties.Value?.ReadFromJson(json);
-
-            if (Group.Value != null
-                && json.TryGetPropertyValue(nameof(Group), out var groupNode)
-                && groupNode is JsonObject group)
-            {
-                Group.Value.ReadFromJson(group);
-            }
-        }
-        catch
-        {
-        }
+        NestedEditorContextHelper.ReadNestedJson(json, IsExpanded, Properties.Value, Group.Value);
     }
 
     public override void WriteToJson(JsonObject json)
     {
         base.WriteToJson(json);
-        try
-        {
-            json[nameof(IsExpanded)] = IsExpanded.Value;
-            Properties.Value?.WriteToJson(json);
-            if (Group.Value != null)
-            {
-                var group = new JsonObject();
-                Group.Value.WriteToJson(group);
-                json[nameof(Group)] = group;
-            }
-        }
-        catch
-        {
-        }
+        NestedEditorContextHelper.WriteNestedJson(json, IsExpanded.Value, Properties.Value, Group.Value);
     }
 
     protected override void Dispose(bool disposing)
@@ -433,15 +332,4 @@ public sealed class TransformEditorViewModel : ValueEditorViewModel<Transform?>,
         Group.Value?.Dispose();
     }
 
-    private sealed record Visitor(TransformEditorViewModel Obj) : IServiceProvider, IPropertyEditorContextVisitor
-    {
-        public object? GetService(Type serviceType)
-        {
-            return Obj.GetService(serviceType);
-        }
-
-        public void Visit(IPropertyEditorContext context)
-        {
-        }
-    }
 }

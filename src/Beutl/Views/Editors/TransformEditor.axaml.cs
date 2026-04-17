@@ -16,6 +16,7 @@ public partial class TransformEditor : UserControl
 {
     private static FAMenuFlyout? s_flyout;
     private static EventHandler<RoutedEventArgs>? s_handler;
+    private bool _flyoutOpen;
 
     public TransformEditor()
     {
@@ -39,83 +40,50 @@ public partial class TransformEditor : UserControl
 
     private void Drop(object? sender, DragEventArgs e)
     {
-        KnownTransformType ToKnownType(Type type)
-        {
-            if (type == typeof(TransformGroup))
-                return KnownTransformType.Group;
-            else if (type == typeof(TranslateTransform))
-                return KnownTransformType.Translate;
-            else if (type == typeof(RotationTransform))
-                return KnownTransformType.Rotation;
-            else if (type == typeof(ScaleTransform))
-                return KnownTransformType.Scale;
-            else if (type == typeof(SkewTransform))
-                return KnownTransformType.Skew;
-            else if (type == typeof(Rotation3DTransform))
-                return KnownTransformType.Rotation3D;
-            else
-                return KnownTransformType.Unknown;
-        }
-
         if (DataContext is not TransformEditorViewModel { IsDisposed: false } viewModel) return;
 
-        // テンプレートファイルのドロップ
-        if (e.DataTransfer.TryGetFile()?.TryGetLocalPath() is { } droppedFile
-            && string.Equals(Path.GetExtension(droppedFile), ".json", StringComparison.OrdinalIgnoreCase)
-            && ObjectTemplateService.Instance.TryLoadFromFile(droppedFile) is { } template
-            && template.CreateInstance() is Transform instance)
+        if (EditorDragDropHelper.TryHandleEditorDrop<Transform>(
+                e,
+                BeutlDataFormats.Transform,
+                tryPasteJson: viewModel.TryPasteJson,
+                onTemplateInstance: instance =>
+                {
+                    if (viewModel.IsGroup.Value)
+                        viewModel.AddItem(instance);
+                    else
+                        viewModel.ChangeTransform(instance);
+                },
+                onTypePayload: type =>
+                {
+                    KnownTransformType knownType = ToKnownTransformType(type);
+                    if (knownType == KnownTransformType.Unknown)
+                        return false;
+
+                    if (viewModel.IsGroup.Value)
+                        viewModel.AddItem(knownType);
+                    else
+                        viewModel.ChangeType(knownType);
+                    return true;
+                }))
         {
-            if (viewModel.IsGroup.Value)
-            {
-                viewModel.AddItem(instance);
-            }
-            else
-            {
-                viewModel.ChangeTransform(instance);
-            }
-
-            e.Handled = true;
-            return;
-        }
-
-        if (e.DataTransfer.TryGetValue(BeutlDataFormats.Transform) is not { } data) return;
-
-        if (CoreObjectClipboard.IsJsonData(data))
-        {
-            if (viewModel.TryPasteJson(data))
-            {
-                e.Handled = true;
-            }
-            return;
-        }
-
-        if (TypeFormat.ToType(data) is { } type)
-        {
-            KnownTransformType knownType = ToKnownType(type);
-            if (knownType == KnownTransformType.Unknown)
-                return;
-
-            if (viewModel.IsGroup.Value)
-            {
-                viewModel.AddItem(knownType);
-            }
-            else
-            {
-                viewModel.ChangeType(knownType);
-            }
-
             e.Handled = true;
         }
     }
 
+    private static KnownTransformType ToKnownTransformType(Type type)
+    {
+        if (type == typeof(TransformGroup)) return KnownTransformType.Group;
+        if (type == typeof(TranslateTransform)) return KnownTransformType.Translate;
+        if (type == typeof(RotationTransform)) return KnownTransformType.Rotation;
+        if (type == typeof(ScaleTransform)) return KnownTransformType.Scale;
+        if (type == typeof(SkewTransform)) return KnownTransformType.Skew;
+        if (type == typeof(Rotation3DTransform)) return KnownTransformType.Rotation3D;
+        return KnownTransformType.Unknown;
+    }
+
     private void DragOver(object? sender, DragEventArgs e)
     {
-        if (e.DataTransfer.Contains(BeutlDataFormats.Transform)
-            || e.DataTransfer.Contains(DataFormat.File))
-        {
-            e.DragEffects = DragDropEffects.Copy | DragDropEffects.Link;
-            e.Handled = true;
-        }
+        EditorDragDropHelper.HandleEditorDragOver(e, BeutlDataFormats.Transform);
     }
 
     private static MenuFlyoutItem[] CreateMenuItems(EventHandler<RoutedEventArgs>? handler)
@@ -217,23 +185,20 @@ public partial class TransformEditor : UserControl
     private async void SelectTarget_Requested(object? sender, RoutedEventArgs e)
     {
         if (DataContext is not TransformEditorViewModel { IsDisposed: false } vm) return;
+        if (_flyoutOpen) return;
 
-        var targets = vm.GetAvailableTargets();
-        var pickerVm = new TargetPickerFlyoutViewModel();
-        pickerVm.Initialize(targets);
-
-        var flyout = new TargetPickerFlyout(pickerVm);
-        flyout.ShowAt(this, true);
-
-        var tcs = new TaskCompletionSource<Transform?>();
-        flyout.Dismissed += (_, _) => tcs.TrySetResult(null);
-        flyout.Confirmed += (_, _) => tcs.TrySetResult(
-            (pickerVm.SelectedItem.Value?.UserData as TargetObjectInfo)?.Object as Transform);
-
-        var result = await tcs.Task;
-        if (result != null)
+        try
         {
-            vm.SetTarget(result);
+            _flyoutOpen = true;
+            await TargetSelectionHelper.HandleSelectTargetRequestAsync<TransformEditorViewModel, Transform>(
+                this,
+                vm,
+                vm => vm.GetAvailableTargets(),
+                (vm, target) => vm.SetTarget(target));
+        }
+        finally
+        {
+            _flyoutOpen = false;
         }
     }
 }

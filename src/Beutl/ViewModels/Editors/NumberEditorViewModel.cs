@@ -1,9 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.Numerics;
-
-using Avalonia;
-using Avalonia.Interactivity;
-
 using Beutl.Controls.PropertyEditors;
 
 namespace Beutl.ViewModels.Editors;
@@ -29,28 +25,11 @@ public sealed class NumberEditorViewModel<T>(IPropertyAdapter<T> property) : Val
                 editor.NumberFormat = formatAttr.DataFormatString;
             }
 
-            editor.Bind(NumberEditor<T>.ValueProperty, Value.ToBinding())
-                .DisposeWith(Disposables);
-            editor.AddDisposableHandler(PropertyEditor.ValueChangedEvent, OnValueChanged)
-                .DisposeWith(Disposables);
-            editor.AddDisposableHandler(PropertyEditor.ValueConfirmedEvent, OnValueConfirmed)
-                .DisposeWith(Disposables);
-        }
-    }
-
-    private void OnValueConfirmed(object? sender, PropertyEditorValueChangedEventArgs e)
-    {
-        if (e is PropertyEditorValueChangedEventArgs<T> args)
-        {
-            SetValue(args.OldValue, args.NewValue);
-        }
-    }
-
-    private void OnValueChanged(object? sender, PropertyEditorValueChangedEventArgs e)
-    {
-        if (sender is NumberEditor<T> editor)
-        {
-            editor.Value = SetCurrentValueAndGetCoerced(editor.Value);
+            AttachValueBindings(
+                editor,
+                NumberEditor<T>.ValueProperty,
+                static ed => ed.Value,
+                static (ed, v) => ed.Value = v);
         }
     }
 }

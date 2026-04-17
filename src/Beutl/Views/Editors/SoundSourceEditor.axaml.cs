@@ -2,7 +2,6 @@
 using Avalonia.Platform.Storage;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
-using Beutl.Media.Decoding;
 using Beutl.Media.Source;
 using Beutl.ProjectSystem;
 using Beutl.ViewModels;
@@ -16,25 +15,8 @@ public partial class SoundSourceEditor : UserControl
     public SoundSourceEditor()
     {
         InitializeComponent();
-        string[] fileExtensions = DecoderRegistry.EnumerateDecoder()
-            .SelectMany(x => x.AudioExtensions().Concat(x.VideoExtensions()))
-            .Distinct()
-            .Select(x =>
-            {
-                if (x.Contains('*', StringComparison.Ordinal))
-                {
-                    return x;
-                }
-                else if (x.StartsWith('.'))
-                {
-                    return $"*{x}";
-                }
-                else
-                {
-                    return $"*.{x}";
-                }
-            })
-            .ToArray();
+        string[] fileExtensions = DecoderFileExtensions.GetFilePatterns(
+            x => x.AudioExtensions().Concat(x.VideoExtensions()));
         if (fileExtensions.Length == 0)
         {
             message.Text = MessageStrings.NoSupportedExtensionsFound;
@@ -56,8 +38,7 @@ public partial class SoundSourceEditor : UserControl
         if (DataContext is not SoundSourceEditorViewModel { IsDisposed: false } vm) return;
         if (e.NewValue is not FileInfo fi) return;
 
-        SoundSource? oldValue = vm.PropertyAdapter.GetValue();
-        vm.SetValueAndDispose(oldValue, SoundSource.Open(fi.FullName));
+        vm.SetValue(SoundSource.Open(fi.FullName));
 
         // 動画の長さに要素の長さを合わせる
         if (vm.GetService<Element>() is not { } element) return;
