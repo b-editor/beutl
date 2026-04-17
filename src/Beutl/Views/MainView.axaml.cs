@@ -340,13 +340,14 @@ public sealed partial class MainView : UserControl
         }
 
         var toolWindowSource = viewModel.ToolWindowExtensions.ToObservableChangeSet()
+            .ObserveOnUIDispatcher()
             .Transform<ToolWindowExtension, MenuItem>(CreateToolWindowMenuItem);
         var pageSource = viewModel.PageExtensions.ToObservableChangeSet()
+            .ObserveOnUIDispatcher()
             .Transform<PageExtension, MenuItem>(CreatePageMenuItem);
 #pragma warning restore CS0618
 
         toolWindowSource.Or(pageSource)
-            .ObserveOnUIDispatcher()
             .Bind(out ReadOnlyObservableCollection<MenuItem>? list3)
             .Subscribe()
             .DisposeWith(_disposables);
@@ -371,11 +372,14 @@ public sealed partial class MainView : UserControl
                 return;
             }
 
-            if (!extension.TryCreateContent(out Window? window))
-                return;
-
             if (!extension.TryCreateContext(out IToolWindowContext? context))
                 return;
+
+            if (!extension.TryCreateContent(out Window? window))
+            {
+                context.Dispose();
+                return;
+            }
 
             window.DataContext = context;
             if (string.IsNullOrEmpty(window.Title))
@@ -407,6 +411,10 @@ public sealed partial class MainView : UserControl
                     window.Closed += (_, _) =>
                     {
                         list.Remove(window);
+                        if (list.Count == 0)
+                        {
+                            _openToolWindows.Remove(extension);
+                        }
                         context.Dispose();
                     };
                     window.Show(topLevel);

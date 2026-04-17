@@ -63,9 +63,14 @@ public sealed class CheckForPackageUpdatesTask : StartupTask
                     return;
 
                 var extension = ExtensionsToolWindowExtension.Instance;
-                if (!extension.TryCreateContent(out Window? window)
-                    || !extension.TryCreateContext(out IToolWindowContext? context))
+                if (!extension.TryCreateContext(out IToolWindowContext? context))
                     return;
+
+                if (!extension.TryCreateContent(out Window? window))
+                {
+                    context.Dispose();
+                    return;
+                }
 
                 window.DataContext = context;
                 if (window is Pages.ExtensionsPage page)

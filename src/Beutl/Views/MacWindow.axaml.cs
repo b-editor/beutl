@@ -306,13 +306,14 @@ public sealed partial class MacWindow : Window
         }
 
         var toolWindowSource = viewModel.ToolWindowExtensions.ToObservableChangeSet()
+            .ObserveOnUIDispatcher()
             .Transform<ToolWindowExtension, NativeMenuItem>(CreateToolWindowMenuItem);
         var pageSource = viewModel.PageExtensions.ToObservableChangeSet()
+            .ObserveOnUIDispatcher()
             .Transform<PageExtension, NativeMenuItem>(CreatePageMenuItem);
 #pragma warning restore CS0618
 
         toolWindowSource.Or(pageSource)
-            .ObserveOnUIDispatcher()
             .Bind(out ReadOnlyObservableCollection<NativeMenuItem>? list3)
             .Subscribe();
 
@@ -335,11 +336,14 @@ public sealed partial class MacWindow : Window
                 return;
             }
 
-            if (!extension.TryCreateContent(out Window? window))
-                return;
-
             if (!extension.TryCreateContext(out IToolWindowContext? context))
                 return;
+
+            if (!extension.TryCreateContent(out Window? window))
+            {
+                context.Dispose();
+                return;
+            }
 
             window.DataContext = context;
             if (string.IsNullOrEmpty(window.Title))
@@ -371,6 +375,10 @@ public sealed partial class MacWindow : Window
                     window.Closed += (_, _) =>
                     {
                         list.Remove(window);
+                        if (list.Count == 0)
+                        {
+                            _openToolWindows.Remove(extension);
+                        }
                         context.Dispose();
                     };
                     window.Show(this);
