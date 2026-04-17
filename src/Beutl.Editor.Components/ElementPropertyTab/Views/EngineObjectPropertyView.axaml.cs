@@ -1,13 +1,12 @@
 ﻿using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Data;
-using Avalonia.Data.Converters;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Xaml.Interactivity;
 using Beutl.Controls;
 using Beutl.Controls.Behaviors;
+using Beutl.Controls.Converters;
 using Beutl.Editor.Components.ElementPropertyTab.ViewModels;
 using Beutl.Editor.Components.Views;
 using Beutl.Editor.Services;
@@ -21,7 +20,7 @@ public sealed partial class EngineObjectPropertyView : UserControl
 {
     public EngineObjectPropertyView()
     {
-        Resources["ViewModelToViewConverter"] = ViewModelToViewConverter.Instance;
+        Resources["ViewModelToViewConverter"] = PropertyEditorContextToViewConverter.Instance;
         InitializeComponent();
         Interaction.SetBehaviors(this,
         [
@@ -143,37 +142,4 @@ public sealed partial class EngineObjectPropertyView : UserControl
         }
     }
 
-    public sealed class ViewModelToViewConverter : IValueConverter
-    {
-        public static readonly ViewModelToViewConverter Instance = new();
-
-        public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
-        {
-            if (value is IPropertyEditorContext viewModel)
-            {
-                if (viewModel.Extension.TryCreateControl(viewModel, out var control))
-                {
-                    return control;
-                }
-                else
-                {
-                    return new Label
-                    {
-                        Height = 24,
-                        Margin = new Thickness(0, 4),
-                        Content = viewModel.Extension.DisplayName
-                    };
-                }
-            }
-            else
-            {
-                return BindingNotification.Null;
-            }
-        }
-
-        public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
-        {
-            return BindingNotification.Null;
-        }
-    }
 }
