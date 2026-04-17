@@ -85,7 +85,8 @@ public sealed partial class SceneSound : Sound
 
         partial void PostUpdate(SceneSound obj, CompositionContext context)
         {
-            if (_compositor?.Scene != ReferencedScene)
+            if (_compositor?.Scene != ReferencedScene
+                || _compositor?.DisableResourceShare != context.DisableResourceShare)
             {
                 _compositor?.Dispose();
                 _compositor = null;
@@ -93,7 +94,10 @@ public sealed partial class SceneSound : Sound
 
             if (ReferencedScene != null && _compositor == null)
             {
-                _compositor = new SceneCompositor(ReferencedScene);
+                _compositor = new SceneCompositor(ReferencedScene)
+                {
+                    DisableResourceShare = context.DisableResourceShare,
+                };
             }
         }
 

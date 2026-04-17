@@ -41,7 +41,7 @@ public class MediaSourceResourceShareTest
         var ctxEncode = new CompositionContext(TimeSpan.Zero) { DisableResourceShare = true };
 
         using var preview = videoSource.ToResource(ctxPreview);
-        using var encode = (VideoSource.Resource)videoSource.ToResource(ctxEncode);
+        using var encode = videoSource.ToResource(ctxEncode);
 
         Assert.That(preview.MediaReader, Is.Not.Null);
         Assert.That(encode.MediaReader, Is.Not.Null);
@@ -58,12 +58,45 @@ public class MediaSourceResourceShareTest
 
         // エンコード側が先に Resource を生成しても、プレビュー側 (共有モード) は
         // エンコード専用 MediaReader を掴まない
-        using var encode = (VideoSource.Resource)videoSource.ToResource(
+        using var encode = videoSource.ToResource(
             new CompositionContext(TimeSpan.Zero) { DisableResourceShare = true });
         using var preview = videoSource.ToResource(CompositionContext.Default);
 
         Assert.That(preview.MediaReader, Is.Not.SameAs(encode.MediaReader),
             "エンコード専用 MediaReader がプレビュー側に漏れてはならない");
+    }
+
+    [Test]
+    public void SoundSource_SharedByDefault_ReusesMediaReader()
+    {
+        var videoPath = TestMediaHelper.CreateTestVideoFile(80, 80, new Rational(30, 1), 60);
+        var soundSource = new SoundSource();
+        soundSource.ReadFrom(new Uri(videoPath));
+
+        using var a = soundSource.ToResource(CompositionContext.Default);
+        using var b = soundSource.ToResource(CompositionContext.Default);
+
+        Assert.That(a.MediaReader, Is.Not.Null);
+        Assert.That(b.MediaReader, Is.Not.Null);
+        Assert.That(b.MediaReader, Is.SameAs(a.MediaReader),
+            "DisableResourceShare=false では同じ MediaReader を共有するはず");
+    }
+
+    [Test]
+    public void SoundSource_DisableResourceShare_YieldsIndependentMediaReader()
+    {
+        var videoPath = TestMediaHelper.CreateTestVideoFile(80, 80, new Rational(30, 1), 60);
+        var soundSource = new SoundSource();
+        soundSource.ReadFrom(new Uri(videoPath));
+
+        using var preview = soundSource.ToResource(CompositionContext.Default);
+        using var encode = soundSource.ToResource(
+            new CompositionContext(TimeSpan.Zero) { DisableResourceShare = true });
+
+        Assert.That(preview.MediaReader, Is.Not.Null);
+        Assert.That(encode.MediaReader, Is.Not.Null);
+        Assert.That(encode.MediaReader, Is.Not.SameAs(preview.MediaReader),
+            "DisableResourceShare=true では専用の MediaReader が割り当てられるはず");
     }
 
     [Test]
