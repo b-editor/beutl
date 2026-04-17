@@ -34,6 +34,7 @@ public sealed partial class AudioVisualizerDrawable : Drawable
     }
 
     [Display(Name = nameof(GraphicsStrings.Source), ResourceType = typeof(GraphicsStrings))]
+    [SuppressResourceClassGeneration]
     public IProperty<Sound?> Source { get; } = Property.Create<Sound?>();
 
     [Display(Name = nameof(GraphicsStrings.Width), ResourceType = typeof(GraphicsStrings))]
@@ -108,6 +109,9 @@ public sealed partial class AudioVisualizerDrawable : Drawable
         private Color _intensityBrushBaseColor;
 
         private Composer? _composer;
+        private Sound.Resource? _source;
+
+        public Sound.Resource? Source => _source;
 
         // Cached mono PCM for the current window in absolute scene time.
         private float[] _cachedSamples = [];
@@ -131,7 +135,13 @@ public sealed partial class AudioVisualizerDrawable : Drawable
                 EnsureIntensityBrushes(context);
             }
 
-            Sound.Resource? soundResource = Source;
+            // 音声処理は専用コンテキストで実行し、MediaReader 等のリソース共有を無効化する。
+            // これにより、プレビュー/エンコード側が保持する共有カウンタを visualizer 側の読み出しで汚染しない。
+            var audioContext = new CompositionContext(context.Time) { DisableResourceShare = true };
+            bool sourceUpdateOnly = true;
+            CompareAndUpdateObject(audioContext, obj.Source, ref _source, ref sourceUpdateOnly);
+
+            Sound.Resource? soundResource = _source;
             if (soundResource == null || soundResource.IsDisposed)
             {
                 _cachedSamples = [];
@@ -142,7 +152,7 @@ public sealed partial class AudioVisualizerDrawable : Drawable
                 return;
             }
 
-            EnsureSamplesComposed(soundResource, context);
+            EnsureSamplesComposed(soundResource, audioContext);
             Version++;
         }
 
@@ -154,11 +164,13 @@ public sealed partial class AudioVisualizerDrawable : Drawable
                 _backgroundBrushResource?.Dispose();
                 DisposeIntensityBrushes();
                 _composer?.Dispose();
+                _source?.Dispose();
             }
             _foregroundBrushResource = null;
             _backgroundBrushResource = null;
             _intensityBrushes = null;
             _composer = null;
+            _source = null;
             _cachedSamples = [];
         }
 
