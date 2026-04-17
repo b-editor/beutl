@@ -35,6 +35,9 @@ public sealed partial class AudioWaveformDrawable : AudioVisualizerDrawable
 
     public new partial class Resource
     {
+        private float[] _minBuf = [];
+        private float[] _maxBuf = [];
+
         protected override (TimeSpan Start, TimeSpan Duration) ComputeSampleWindow(TimeSpan currentTime)
         {
             TimeSpan window = TimeSpan.FromSeconds(Math.Max(0.01, WindowSeconds));
@@ -43,13 +46,14 @@ public sealed partial class AudioWaveformDrawable : AudioVisualizerDrawable
 
         protected override void RenderForeground(ImmediateCanvas canvas, Rect bounds)
         {
-            float[] samples = CachedSamples;
-            if (samples.Length == 0 || ForegroundBrush is null) return;
+            if (CachedSampleLength == 0 || ForegroundBrush is null) return;
 
             int barCount = Math.Max(1, BarCount);
-            var minBuf = new float[barCount];
-            var maxBuf = new float[barCount];
-            SoundSamplingHelper.DownsampleMinMax(samples, minBuf, maxBuf);
+            if (_minBuf.Length < barCount) _minBuf = new float[barCount];
+            if (_maxBuf.Length < barCount) _maxBuf = new float[barCount];
+            Span<float> minBuf = _minBuf.AsSpan(0, barCount);
+            Span<float> maxBuf = _maxBuf.AsSpan(0, barCount);
+            SoundSamplingHelper.DownsampleMinMax(CachedSampleSpan, minBuf, maxBuf);
 
             float width = (float)bounds.Width;
             float height = (float)bounds.Height;

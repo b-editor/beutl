@@ -39,6 +39,9 @@ public sealed partial class AudioSpectrogramDrawable : AudioVisualizerDrawable
 
         private SolidColorBrush.Resource?[]? _intensityBrushes;
         private Color _intensityBrushBaseColor;
+        private float[] _fftReal = [];
+        private float[] _fftImag = [];
+        private float[] _fftMagnitudes = [];
 
         protected override (TimeSpan Start, TimeSpan Duration) ComputeSampleWindow(TimeSpan currentTime)
         {
@@ -97,8 +100,7 @@ public sealed partial class AudioSpectrogramDrawable : AudioVisualizerDrawable
 
         protected override void RenderForeground(ImmediateCanvas canvas, Rect bounds)
         {
-            float[] samples = CachedSamples;
-            if (samples.Length == 0 || CachedSampleRate <= 0) return;
+            if (CachedSampleLength == 0 || CachedSampleRate <= 0) return;
 
             int fftSize = Fft.ClampToPowerOfTwo(FftSize);
             if (fftSize < 2) return;
@@ -113,10 +115,14 @@ public sealed partial class AudioSpectrogramDrawable : AudioVisualizerDrawable
             float gain = Math.Max(0f, Gain);
             float floorDb = FloorDb;
 
-            var real = new float[fftSize];
-            var imag = new float[fftSize];
-            var mags = new float[bins];
+            if (_fftReal.Length < fftSize) _fftReal = new float[fftSize];
+            if (_fftImag.Length < fftSize) _fftImag = new float[fftSize];
+            if (_fftMagnitudes.Length < bins) _fftMagnitudes = new float[bins];
+            Span<float> real = _fftReal.AsSpan(0, fftSize);
+            Span<float> imag = _fftImag.AsSpan(0, fftSize);
+            Span<float> mags = _fftMagnitudes.AsSpan(0, bins);
 
+            ReadOnlySpan<float> samples = CachedSampleSpan;
             int sampleCount = samples.Length;
 
             for (int col = 0; col < columns; col++)
@@ -124,7 +130,7 @@ public sealed partial class AudioSpectrogramDrawable : AudioVisualizerDrawable
                 float normalizedT = (col + 0.5f) / columns;
                 int centerSample = (int)(normalizedT * sampleCount);
 
-                Array.Clear(imag, 0, fftSize);
+                imag.Clear();
                 SoundSamplingHelper.ExtractWindow(samples, centerSample, real);
                 Fft.ApplyHann(real);
                 Fft.Forward(real, imag);

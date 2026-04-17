@@ -67,19 +67,26 @@ public abstract partial class AudioVisualizerDrawable : Drawable
         private Sound.Resource? _source;
 
         private float[] _cachedSamples = [];
+        private int _cachedSampleLength;
         private int _cachedSampleRate;
         private TimeSpan _cachedStart;
         private TimeSpan _cachedDuration;
         private int _cachedSourceVersion = -1;
 
+        // CompositionFrame の Objects 配列は _source が変わった時だけ作り直す。
+        private ImmutableArray<EngineObject.Resource> _frameObjects;
+        private Sound.Resource? _frameObjectsSource;
+
         public Sound.Resource? Source => _source;
 
         internal float[] CachedSamples => _cachedSamples;
+        internal int CachedSampleLength => _cachedSampleLength;
         internal int CachedSampleRate => _cachedSampleRate;
         internal TimeSpan CachedStart => _cachedStart;
         internal TimeSpan CachedDuration => _cachedDuration;
         internal int ComposerSampleRate => _composer?.SampleRate ?? DefaultComposerSampleRate;
         internal SolidColorBrush.Resource? ForegroundBrush => _foregroundBrushResource;
+        internal ReadOnlySpan<float> CachedSampleSpan => _cachedSamples.AsSpan(0, _cachedSampleLength);
 
         partial void PostUpdate(AudioVisualizerDrawable obj, CompositionContext context)
         {
@@ -93,11 +100,14 @@ public abstract partial class AudioVisualizerDrawable : Drawable
 
             if (_source == null || _source.IsDisposed)
             {
-                _cachedSamples = [];
+                if (_cachedSampleLength != 0)
+                {
+                    _cachedSampleLength = 0;
+                    Version++;
+                }
                 _cachedSampleRate = 0;
                 _cachedDuration = TimeSpan.Zero;
                 _cachedSourceVersion = -1;
-                Version++;
                 return;
             }
 
@@ -146,6 +156,7 @@ public abstract partial class AudioVisualizerDrawable : Drawable
                 _foregroundBrushResource?.Dispose();
                 _foregroundBrushResource = new SolidColorBrush(ForegroundColor).ToResource(context) as SolidColorBrush.Resource;
                 _foregroundBrushColor = ForegroundColor;
+                Version++;
             }
 
             if (_backgroundBrushResource == null || _backgroundBrushColor != BackgroundColor)
@@ -153,6 +164,7 @@ public abstract partial class AudioVisualizerDrawable : Drawable
                 _backgroundBrushResource?.Dispose();
                 _backgroundBrushResource = new SolidColorBrush(BackgroundColor).ToResource(context) as SolidColorBrush.Resource;
                 _backgroundBrushColor = BackgroundColor;
+                Version++;
             }
         }
 
@@ -162,7 +174,11 @@ public abstract partial class AudioVisualizerDrawable : Drawable
 
             if (targetDuration <= TimeSpan.Zero)
             {
-                _cachedSamples = [];
+                if (_cachedSampleLength != 0)
+                {
+                    _cachedSampleLength = 0;
+                    Version++;
+                }
                 _cachedSampleRate = rate;
                 _cachedStart = targetStart;
                 _cachedDuration = TimeSpan.Zero;
@@ -179,36 +195,44 @@ public abstract partial class AudioVisualizerDrawable : Drawable
 
             var targetRange = new TimeRange(targetStart, targetDuration);
             Sound sound = _source.GetOriginal();
-            var frame = new CompositionFrame(
-                ImmutableArray.Create<EngineObject.Resource>(_source),
-                sound.TimeRange,
-                default);
+
+            if (!ReferenceEquals(_frameObjectsSource, _source))
+            {
+                _frameObjects = ImmutableArray.Create<EngineObject.Resource>(_source);
+                _frameObjectsSource = _source;
+            }
+
+            var frame = new CompositionFrame(_frameObjects, sound.TimeRange, default);
 
             AudioBuffer? buffer = _composer.Compose(targetRange, frame);
             try
             {
                 if (buffer == null || buffer.SampleCount == 0)
                 {
-                    _cachedSamples = [];
+                    _cachedSampleLength = 0;
                 }
                 else
                 {
                     int n = buffer.SampleCount;
-                    var mono = new float[n];
+                    if (_cachedSamples.Length < n)
+                    {
+                        _cachedSamples = new float[n];
+                    }
+                    Span<float> dst = _cachedSamples.AsSpan(0, n);
                     Span<float> leftChannel = buffer.GetChannelData(0);
                     if (buffer.ChannelCount >= 2)
                     {
                         Span<float> rightChannel = buffer.GetChannelData(1);
                         for (int i = 0; i < n; i++)
                         {
-                            mono[i] = (leftChannel[i] + rightChannel[i]) * 0.5f;
+                            dst[i] = (leftChannel[i] + rightChannel[i]) * 0.5f;
                         }
                     }
                     else
                     {
-                        leftChannel.CopyTo(mono);
+                        leftChannel.CopyTo(dst);
                     }
-                    _cachedSamples = mono;
+                    _cachedSampleLength = n;
                     rate = buffer.SampleRate;
                 }
             }
@@ -221,6 +245,7 @@ public abstract partial class AudioVisualizerDrawable : Drawable
             _cachedStart = targetStart;
             _cachedDuration = targetDuration;
             _cachedSourceVersion = _source.Version;
+            Version++;
         }
     }
 }

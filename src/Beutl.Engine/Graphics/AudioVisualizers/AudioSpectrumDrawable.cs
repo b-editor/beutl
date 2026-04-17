@@ -36,7 +36,11 @@ public sealed partial class AudioSpectrumDrawable : AudioVisualizerDrawable
 
     public new partial class Resource
     {
+        private float[] _fftReal = [];
+        private float[] _fftImag = [];
+        private float[] _fftMagnitudes = [];
         private float[] _smoothedMagnitudes = [];
+
         protected override (TimeSpan Start, TimeSpan Duration) ComputeSampleWindow(TimeSpan currentTime)
         {
             int effectiveFftSize = Fft.ClampToPowerOfTwo(FftSize);
@@ -46,29 +50,31 @@ public sealed partial class AudioSpectrumDrawable : AudioVisualizerDrawable
 
         protected override void RenderForeground(ImmediateCanvas canvas, Rect bounds)
         {
-            float[] samples = CachedSamples;
-            if (samples.Length == 0 || ForegroundBrush is null || CachedSampleRate <= 0) return;
+            if (CachedSampleLength == 0 || ForegroundBrush is null || CachedSampleRate <= 0) return;
 
             int fftSize = Fft.ClampToPowerOfTwo(FftSize);
             if (fftSize < 2) return;
 
-            var real = new float[fftSize];
-            var imag = new float[fftSize];
+            int bins = fftSize / 2;
+            if (_fftReal.Length < fftSize) _fftReal = new float[fftSize];
+            if (_fftImag.Length < fftSize) _fftImag = new float[fftSize];
+            if (_fftMagnitudes.Length < bins) _fftMagnitudes = new float[bins];
+            Span<float> real = _fftReal.AsSpan(0, fftSize);
+            Span<float> imag = _fftImag.AsSpan(0, fftSize);
+            Span<float> mags = _fftMagnitudes.AsSpan(0, bins);
 
+            real.Clear();
+            imag.Clear();
+
+            ReadOnlySpan<float> samples = CachedSampleSpan;
             int sampleCount = samples.Length;
             int copy = Math.Min(sampleCount, fftSize);
             int srcStart = Math.Max(0, sampleCount - copy);
             int dstStart = fftSize - copy;
-            for (int i = 0; i < copy; i++)
-            {
-                real[dstStart + i] = samples[srcStart + i];
-            }
+            samples.Slice(srcStart, copy).CopyTo(real.Slice(dstStart, copy));
 
             Fft.ApplyHann(real);
             Fft.Forward(real, imag);
-
-            int bins = fftSize / 2;
-            var mags = new float[bins];
             Fft.Magnitudes(real, imag, mags);
 
             float reference = fftSize * 0.5f;
@@ -85,10 +91,11 @@ public sealed partial class AudioSpectrumDrawable : AudioVisualizerDrawable
             float fMax = CachedSampleRate * 0.5f;
             float fMin = Math.Max(20f, fMax / bins);
 
-            if (_smoothedMagnitudes.Length != barCount)
+            if (_smoothedMagnitudes.Length < barCount)
             {
                 _smoothedMagnitudes = new float[barCount];
             }
+            Span<float> smoothed = _smoothedMagnitudes.AsSpan(0, barCount);
             float smoothing = Math.Clamp(Smoothing, 0f, 0.99f);
 
             for (int i = 0; i < barCount; i++)
@@ -122,11 +129,11 @@ public sealed partial class AudioSpectrumDrawable : AudioVisualizerDrawable
                 float rawMag = count > 0 ? MathF.Sqrt(sumSq / count) : 0f;
 
                 // 高速アタック + 緩やかリリース (ピークメーター方式)
-                float prev = _smoothedMagnitudes[i];
+                float prev = smoothed[i];
                 float smoothedMag = rawMag > prev
                     ? rawMag
                     : prev * smoothing + rawMag * (1f - smoothing);
-                _smoothedMagnitudes[i] = smoothedMag;
+                smoothed[i] = smoothedMag;
 
                 float db = Fft.MagnitudeToDb(smoothedMag * gain, reference);
                 float normalized = (db - floorDb) / (0f - floorDb);
