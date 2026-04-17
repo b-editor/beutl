@@ -1,0 +1,4 @@
+module CBeutlAVFTypes {
+    header "BeutlAVFTypes.h"
+    export *
+}

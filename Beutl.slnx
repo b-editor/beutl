@@ -27,6 +27,7 @@
   <Folder Name="/Tests/">
     <Project Path="tests/Beutl.Graphics3DTests/Beutl.Graphics3DTests.csproj" />
     <Project Path="tests\Beutl.Benchmarks\Beutl.Benchmarks.csproj" />
+    <Project Path="tests\Beutl.Extensions.AVFoundation.Tests\Beutl.Extensions.AVFoundation.Tests.csproj" />
     <Project Path="tests\Beutl.FFmpegBenchmarks\Beutl.FFmpegBenchmarks.csproj" />
     <Project Path="tests\Beutl.UnitTests\Beutl.UnitTests.csproj" />
     <Project Path="tests\DirectoryViewTest\DirectoryViewTest.csproj" />

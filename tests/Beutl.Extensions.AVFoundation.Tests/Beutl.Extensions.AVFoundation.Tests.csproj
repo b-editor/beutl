@@ -1,0 +1,47 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <!-- This test project exercises the AVFoundation dylib, which only loads on macOS. -->
+    <TargetFrameworks>net10.0</TargetFrameworks>
+    <NoWarn>$(NoWarn);CA1416</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="NUnit" />
+    <PackageReference Include="NUnit3TestAdapter" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="NUnit.Framework" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Beutl.Extensions.AVFoundation\Beutl.Extensions.AVFoundation.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="Fixtures\**\*.*" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <!-- The Swift dylib lives under the referenced project's runtimes/ folder. ProjectReferences
+       don't transitively copy native runtime assets the way NuGet packages do, so mirror them
+       into this project's output so the test host can resolve `BeutlAVF.dylib`. -->
+  <Target Name="CopyBeutlAVFDylibsForTests"
+          AfterTargets="Build"
+          Condition="'$([MSBuild]::IsOSPlatform(OSX))' == 'true'">
+    <PropertyGroup>
+      <_BeutlAVFSourceRuntimes>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)../../src/Beutl.Extensions.AVFoundation/runtimes'))</_BeutlAVFSourceRuntimes>
+    </PropertyGroup>
+    <ItemGroup>
+      <_BeutlAVFDylib Include="$(_BeutlAVFSourceRuntimes)/**/*.dylib" />
+    </ItemGroup>
+    <Copy SourceFiles="@(_BeutlAVFDylib)"
+          DestinationFiles="@(_BeutlAVFDylib->'$(OutDir)runtimes/%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true" />
+  </Target>
+
+</Project>

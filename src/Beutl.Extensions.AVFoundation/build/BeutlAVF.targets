@@ -1,0 +1,73 @@
+<Project>
+
+  <PropertyGroup>
+    <SwiftPackageRoot>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)../native/BeutlAVF'))</SwiftPackageRoot>
+    <SwiftRuntimesRoot>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)../runtimes'))</SwiftRuntimesRoot>
+    <SwiftDylibName>libBeutlAVF.dylib</SwiftDylibName>
+    <SwiftBuildConfig Condition="'$(SwiftBuildConfig)' == ''">release</SwiftBuildConfig>
+    <SkipSwiftBuild Condition="'$(SkipSwiftBuild)' == ''">false</SkipSwiftBuild>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <SwiftSourceFile Include="$(SwiftPackageRoot)/Package.swift" />
+    <SwiftSourceFile Include="$(SwiftPackageRoot)/Sources/**/*.swift" />
+  </ItemGroup>
+
+  <!-- Compile the Swift package (incremental on source changes) and publish the dylib
+       into the per-rid runtimes folder. -->
+  <Target Name="BuildSwiftDylib"
+          Condition="'$([MSBuild]::IsOSPlatform(OSX))' == 'true' and '$(SkipSwiftBuild)' != 'true'"
+          Inputs="@(SwiftSourceFile)"
+          Outputs="$(SwiftRuntimesRoot)/osx-arm64/native/$(SwiftDylibName);$(SwiftRuntimesRoot)/osx-x64/native/$(SwiftDylibName)">
+
+    <Message Importance="high" Text="Building Swift native library at $(SwiftPackageRoot) ($(SwiftBuildConfig))" />
+
+    <Exec Command="swift build -c $(SwiftBuildConfig) --arch arm64 --arch x86_64"
+          WorkingDirectory="$(SwiftPackageRoot)" />
+
+    <PropertyGroup>
+      <SwiftBuildOutputDir>$(SwiftPackageRoot)/.build/apple/Products/Release</SwiftBuildOutputDir>
+      <SwiftBuildOutputDir Condition="'$(SwiftBuildConfig)' == 'debug'">$(SwiftPackageRoot)/.build/apple/Products/Debug</SwiftBuildOutputDir>
+    </PropertyGroup>
+
+    <Copy SourceFiles="$(SwiftBuildOutputDir)/$(SwiftDylibName)"
+          DestinationFolder="$(SwiftRuntimesRoot)/osx-arm64/native"
+          SkipUnchangedFiles="true" />
+    <Copy SourceFiles="$(SwiftBuildOutputDir)/$(SwiftDylibName)"
+          DestinationFolder="$(SwiftRuntimesRoot)/osx-x64/native"
+          SkipUnchangedFiles="true" />
+  </Target>
+
+  <!-- Force MSBuild to reconsider the glob *after* BuildSwiftDylib has guaranteed the
+       files exist. Declaring the <None> set inside a Target (rather than at project root)
+       is what makes the first clean build include the dylib — a root-level ItemGroup is
+       evaluated once at load time, when the dylib still does not exist. -->
+  <Target Name="IncludeBeutlAVFDylibs"
+          BeforeTargets="AssignTargetPaths"
+          DependsOnTargets="BuildSwiftDylib"
+          Condition="'$([MSBuild]::IsOSPlatform(OSX))' == 'true'">
+    <ItemGroup>
+      <None Include="$(SwiftRuntimesRoot)/**/*.dylib">
+        <Link>runtimes/%(RecursiveDir)%(Filename)%(Extension)</Link>
+        <Pack>true</Pack>
+        <PackagePath>runtimes/%(RecursiveDir)%(Filename)%(Extension)</PackagePath>
+      </None>
+    </ItemGroup>
+  </Target>
+
+  <!-- Dynamic <None> items set via a target do not always participate in
+       GetCopyToOutputDirectoryItems, so copy the dylibs into $(OutDir) explicitly.
+       The earlier <None> entries still ensure `dotnet pack` picks them up. -->
+  <Target Name="CopyBeutlAVFDylibToOutput"
+          AfterTargets="Build"
+          DependsOnTargets="BuildSwiftDylib"
+          Condition="'$([MSBuild]::IsOSPlatform(OSX))' == 'true'">
+    <ItemGroup>
+      <_BeutlAVFDylib Include="$(SwiftRuntimesRoot)/**/*.dylib" />
+    </ItemGroup>
+    <Copy SourceFiles="@(_BeutlAVFDylib)"
+          DestinationFiles="@(_BeutlAVFDylib->'$(OutDir)runtimes/%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true" />
+  </Target>
+
+</Project>

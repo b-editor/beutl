@@ -1,9 +1,7 @@
-﻿using System.ComponentModel.DataAnnotations;
-using System.Runtime.InteropServices;
+using System.ComponentModel.DataAnnotations;
 using System.Runtime.Versioning;
 using Beutl.Extensibility;
 using Beutl.Language;
-using MonoMac.AppKit;
 
 namespace Beutl.Extensions.AVFoundation.Encoding;
 
@@ -12,29 +10,6 @@ namespace Beutl.Extensions.AVFoundation.Encoding;
 [Display(Name = nameof(Strings.AVFoundationEncoder), ResourceType = typeof(Strings))]
 public class AVFEncodingExtension : ControllableEncodingExtension
 {
-    public override void Load()
-    {
-        if (OperatingSystem.IsMacOS())
-        {
-            try
-            {
-                NativeLibrary.SetDllImportResolver(typeof(NSApplication).Assembly, (name, assembly, path) =>
-                {
-                    if (name == "/System/Library/PrivateFrameworks/CoreMedia.framework/Versions/A/CoreMedia")
-                    {
-                        return NativeLibrary.Load("/System/Library/Frameworks/CoreMedia.framework/CoreMedia");
-                    }
-
-                    return NativeLibrary.Load(name);
-                });
-                NSApplication.Init();
-            }
-            catch
-            {
-            }
-        }
-    }
-
     public override IEnumerable<string> SupportExtensions()
     {
         yield return ".mp4";
