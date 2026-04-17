@@ -27,6 +27,7 @@ public sealed partial class MainView : UserControl
 {
     private readonly ILogger<MainView> _logger = Log.CreateLogger<MainView>();
     private readonly CompositeDisposable _disposables = [];
+    private readonly Dictionary<ToolWindowExtension, List<Window>> _openToolWindows = new();
 
     public MainView()
     {
@@ -274,8 +275,30 @@ public sealed partial class MainView : UserControl
             }
         };
 
-        // PageExtension(Dialog)をメニューに表示する
-        MenuItem CreateToolWindowMenuItem(PageExtension item)
+        // ToolWindowExtension をメニューに表示する
+        MenuItem CreateToolWindowMenuItem(ToolWindowExtension item)
+        {
+            var menuItem = new MenuItem()
+            {
+                Header = item.DisplayName,
+                DataContext = item,
+                Icon = item.GetIcon()
+            };
+
+            menuItem.Click += async (s, e) =>
+            {
+                if (s is MenuItem { DataContext: ToolWindowExtension ext })
+                {
+                    await OpenToolWindowAsync(ext);
+                }
+            };
+
+            return menuItem;
+        }
+
+#pragma warning disable CS0618
+        // PageExtension(Obsolete) をメニューに表示する
+        MenuItem CreatePageMenuItem(PageExtension item)
         {
             var menuItem = new MenuItem()
             {
@@ -316,14 +339,84 @@ public sealed partial class MainView : UserControl
             return menuItem;
         }
 
-        viewModel.PageExtensions.ToObservableChangeSet()
+        var toolWindowSource = viewModel.ToolWindowExtensions.ToObservableChangeSet()
+            .Transform<ToolWindowExtension, MenuItem>(CreateToolWindowMenuItem);
+        var pageSource = viewModel.PageExtensions.ToObservableChangeSet()
+            .Transform<PageExtension, MenuItem>(CreatePageMenuItem);
+#pragma warning restore CS0618
+
+        toolWindowSource.Or(pageSource)
             .ObserveOnUIDispatcher()
-            .Cast(CreateToolWindowMenuItem)
             .Bind(out ReadOnlyObservableCollection<MenuItem>? list3)
             .Subscribe()
             .DisposeWith(_disposables);
 
         toolWindowMenuItem.ItemsSource = list3;
+    }
+
+    private async Task OpenToolWindowAsync(ToolWindowExtension extension)
+    {
+        try
+        {
+            if (TopLevel.GetTopLevel(this) is not Window topLevel)
+                return;
+
+            // 非モーダル・単一インスタンスの場合、既存があればアクティブ化するだけ
+            if (extension.Mode == ToolWindowMode.Window
+                && !extension.CanMultiple
+                && _openToolWindows.TryGetValue(extension, out List<Window>? existingList)
+                && existingList.Count > 0)
+            {
+                existingList[0].Activate();
+                return;
+            }
+
+            if (!extension.TryCreateContent(out Window? window))
+                return;
+
+            if (!extension.TryCreateContext(out IToolWindowContext? context))
+                return;
+
+            window.DataContext = context;
+            if (string.IsNullOrEmpty(window.Title))
+            {
+                window.Title = context.Header;
+            }
+
+            switch (extension.Mode)
+            {
+                case ToolWindowMode.Dialog:
+                    try
+                    {
+                        await window.ShowDialog(topLevel);
+                    }
+                    finally
+                    {
+                        context.Dispose();
+                    }
+                    break;
+
+                case ToolWindowMode.Window:
+                    if (!_openToolWindows.TryGetValue(extension, out List<Window>? list))
+                    {
+                        list = new List<Window>();
+                        _openToolWindows[extension] = list;
+                    }
+
+                    list.Add(window);
+                    window.Closed += (_, _) =>
+                    {
+                        list.Remove(window);
+                        context.Dispose();
+                    };
+                    window.Show(topLevel);
+                    break;
+            }
+        }
+        catch (Exception ex)
+        {
+            await ex.Handle();
+        }
     }
 
     [Conditional("DEBUG")]

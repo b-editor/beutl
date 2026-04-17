@@ -14,6 +14,8 @@ namespace Beutl.Views;
 
 public sealed partial class MacWindow : Window
 {
+    private readonly Dictionary<ToolWindowExtension, List<Window>> _openToolWindows = new();
+
     public MacWindow()
     {
         if (OperatingSystem.IsMacOS())
@@ -252,10 +254,27 @@ public sealed partial class MacWindow : Window
             }
         };
 
-        // PageExtension(Dialog)をメニューに表示する
-        NativeMenuItem CreateToolWindowMenuItem(PageExtension item)
+        // ToolWindowExtension をメニューに表示する
+        NativeMenuItem CreateToolWindowMenuItem(ToolWindowExtension item)
         {
-            var menuItem = new NativeMenuItem() { Header = item.DisplayName, CommandParameter = item, };
+            var menuItem = new NativeMenuItem() { Header = item.DisplayName, CommandParameter = item };
+
+            menuItem.Click += async (s, e) =>
+            {
+                if (s is NativeMenuItem { CommandParameter: ToolWindowExtension ext })
+                {
+                    await OpenToolWindowAsync(ext);
+                }
+            };
+
+            return menuItem;
+        }
+
+#pragma warning disable CS0618
+        // PageExtension(Obsolete) をメニューに表示する
+        NativeMenuItem CreatePageMenuItem(PageExtension item)
+        {
+            var menuItem = new NativeMenuItem() { Header = item.DisplayName, CommandParameter = item };
 
             menuItem.Click += async (s, e) =>
             {
@@ -286,9 +305,14 @@ public sealed partial class MacWindow : Window
             return menuItem;
         }
 
-        viewModel.PageExtensions.ToObservableChangeSet()
+        var toolWindowSource = viewModel.ToolWindowExtensions.ToObservableChangeSet()
+            .Transform<ToolWindowExtension, NativeMenuItem>(CreateToolWindowMenuItem);
+        var pageSource = viewModel.PageExtensions.ToObservableChangeSet()
+            .Transform<PageExtension, NativeMenuItem>(CreatePageMenuItem);
+#pragma warning restore CS0618
+
+        toolWindowSource.Or(pageSource)
             .ObserveOnUIDispatcher()
-            .Cast(CreateToolWindowMenuItem)
             .Bind(out ReadOnlyObservableCollection<NativeMenuItem>? list3)
             .Subscribe();
 
@@ -296,6 +320,67 @@ public sealed partial class MacWindow : Window
             toolWindowMenu.Items.Insert,
             (i, _) => toolWindowMenu.Items.RemoveAt(i),
             toolWindowMenu.Items.Clear);
+    }
+
+    private async Task OpenToolWindowAsync(ToolWindowExtension extension)
+    {
+        try
+        {
+            if (extension.Mode == ToolWindowMode.Window
+                && !extension.CanMultiple
+                && _openToolWindows.TryGetValue(extension, out List<Window>? existingList)
+                && existingList.Count > 0)
+            {
+                existingList[0].Activate();
+                return;
+            }
+
+            if (!extension.TryCreateContent(out Window? window))
+                return;
+
+            if (!extension.TryCreateContext(out IToolWindowContext? context))
+                return;
+
+            window.DataContext = context;
+            if (string.IsNullOrEmpty(window.Title))
+            {
+                window.Title = context.Header;
+            }
+
+            switch (extension.Mode)
+            {
+                case ToolWindowMode.Dialog:
+                    try
+                    {
+                        await window.ShowDialog(this);
+                    }
+                    finally
+                    {
+                        context.Dispose();
+                    }
+                    break;
+
+                case ToolWindowMode.Window:
+                    if (!_openToolWindows.TryGetValue(extension, out List<Window>? list))
+                    {
+                        list = new List<Window>();
+                        _openToolWindows[extension] = list;
+                    }
+
+                    list.Add(window);
+                    window.Closed += (_, _) =>
+                    {
+                        list.Remove(window);
+                        context.Dispose();
+                    };
+                    window.Show(this);
+                    break;
+            }
+        }
+        catch (Exception ex)
+        {
+            await ex.Handle();
+        }
     }
 
     protected override void OnClosing(WindowClosingEventArgs e)

@@ -62,23 +62,24 @@ public sealed class CheckForPackageUpdatesTask : StartupTask
                 if (AppHelper.GetTopLevel() is not Window topLevel)
                     return;
 
-                var pageExtension = ExtensionsPageExtension.Instance;
-                var control = pageExtension.CreateControl();
-                var dataContext = pageExtension.CreateContext();
-                control.DataContext = dataContext;
-                if (control is Pages.ExtensionsPage page)
+                var extension = ExtensionsToolWindowExtension.Instance;
+                if (!extension.TryCreateContent(out Window? window)
+                    || !extension.TryCreateContext(out IToolWindowContext? context))
+                    return;
+
+                window.DataContext = context;
+                if (window is Pages.ExtensionsPage page)
                 {
                     page.nav.SelectedItem = page.nav.MenuItemsSource.Cast<NavigationViewItem>().ElementAtOrDefault(1);
                 }
 
-                if (control is Window dialog)
+                try
                 {
-                    await dialog.ShowDialog(topLevel);
-                }
-                else
-                {
-                    var window = new Window { Content = control, Title = dataContext.Header };
                     await window.ShowDialog(topLevel);
+                }
+                finally
+                {
+                    context.Dispose();
                 }
             });
         }
