@@ -5,6 +5,7 @@ using Beutl.Editor.Components.ColorGradingTab;
 using Beutl.Editor.Components.ColorScopesTab;
 using Beutl.Editor.Components.CurvesTab;
 using Beutl.Editor.Components.ElementPropertyTab;
+using Beutl.Editor.Components.EqualizerProperties;
 using Beutl.Editor.Components.FileBrowserTab;
 using Beutl.Editor.Components.GraphEditorTab;
 using Beutl.Editor.Components.LibraryTab;
@@ -45,6 +46,7 @@ public sealed class LoadPrimitiveExtensionTask : StartupTask
         ColorGradingTabExtension.Instance,
         CurvesTabExtension.Instance,
         ColorGradingPropertiesExtension.Instance,
+        EqualizerPropertiesExtension.Instance,
         ScriptEditorExtension.Instance,
         FileBrowserTabExtension.Instance,
         DefaultTutorialExtension.Instance
