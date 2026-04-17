@@ -165,7 +165,12 @@ public sealed class GraphSnapshot : IDisposable
             resource.ItemIndexMap = itemIndexMap;
             _resources[i] = resource;
 
-            _contexts[i] = new GraphCompositionContext(context.Time) { Resource = resource, Snapshot = this };
+            _contexts[i] = new GraphCompositionContext(context.Time)
+            {
+                Resource = resource,
+                Snapshot = this,
+                DisableResourceShare = context.DisableResourceShare,
+            };
         }
 
         return nodeToResourceIndex;

@@ -29,7 +29,8 @@ public partial class DelayAnimationEffect : FilterEffect
         var childEffect = r.Effect.GetOriginal();
 
         context.CustomEffect(
-            (delay: r.Delay, globalTime: r.GlobalTime, childEffect, cache: r.DelayedResources),
+            (delay: r.Delay, globalTime: r.GlobalTime, childEffect, cache: r.DelayedResources,
+             disableResourceShare: r.DisableResourceShare),
             static (data, effectContext) =>
             {
                 int targetCount = effectContext.Targets.Count;
@@ -38,7 +39,10 @@ public partial class DelayAnimationEffect : FilterEffect
                 for (int i = data.cache.Count; i < targetCount; i++)
                 {
                     TimeSpan delayedTime = data.globalTime - TimeSpan.FromMilliseconds(data.delay * i);
-                    data.cache.Add(data.childEffect.ToResource(new CompositionContext(delayedTime)));
+                    data.cache.Add(data.childEffect.ToResource(new CompositionContext(delayedTime)
+                    {
+                        DisableResourceShare = data.disableResourceShare,
+                    }));
                 }
 
                 // 余分なキャッシュを縮小
@@ -55,7 +59,10 @@ public partial class DelayAnimationEffect : FilterEffect
 
                     // 既存Resourceを遅延時刻で更新
                     TimeSpan delayedTime = data.globalTime - TimeSpan.FromMilliseconds(data.delay * j);
-                    var delayedContext = new CompositionContext(delayedTime);
+                    var delayedContext = new CompositionContext(delayedTime)
+                    {
+                        DisableResourceShare = data.disableResourceShare,
+                    };
                     var updateOnly = false;
                     data.cache[j].Update(data.childEffect, delayedContext, ref updateOnly);
 
@@ -102,6 +109,7 @@ public partial class DelayAnimationEffect : FilterEffect
         private float _delay;
         private FilterEffect.Resource? _effect;
         private TimeSpan _globalTime;
+        private bool _disableResourceShare;
         private readonly List<FilterEffect.Resource> _delayedResources = [];
 
         public float Delay => _delay;
@@ -109,6 +117,8 @@ public partial class DelayAnimationEffect : FilterEffect
         public FilterEffect.Resource? Effect => _effect;
 
         public TimeSpan GlobalTime => _globalTime;
+
+        public bool DisableResourceShare => _disableResourceShare;
 
         public List<FilterEffect.Resource> DelayedResources => _delayedResources;
 
@@ -128,6 +138,7 @@ public partial class DelayAnimationEffect : FilterEffect
 
             TimeSpan oldTime = _globalTime;
             _globalTime = context.Time;
+            _disableResourceShare = context.DisableResourceShare;
             if (!updateOnly && oldTime != _globalTime)
             {
                 Version++;

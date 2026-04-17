@@ -104,11 +104,19 @@ public sealed class SoundSource : MediaSource
             {
                 _counter?.Release();
                 _counter = null;
-                var localRef = Volatile.Read(ref soundSource._mediaReaderRef);
-                if (localRef?.TryGetTarget(out var counter) == true && counter.RefCount > 0)
+
+                Counter<MediaReader>? shared = null;
+                if (!context.DisableResourceShare)
                 {
-                    _counter = counter;
-                    counter.AddRef();
+                    var localRef = Volatile.Read(ref soundSource._mediaReaderRef);
+                    if (localRef?.TryGetTarget(out var counter) == true && counter.RefCount > 0)
+                        shared = counter;
+                }
+
+                if (shared is not null)
+                {
+                    _counter = shared;
+                    shared.AddRef();
                 }
                 else
                 {
@@ -116,7 +124,13 @@ public sealed class SoundSource : MediaSource
                     {
                         var reader = MediaReader.Open(soundSource.Uri.LocalPath, new(MediaMode.Audio));
                         _counter = new Counter<MediaReader>(reader, null);
-                        Volatile.Write(ref soundSource._mediaReaderRef, new WeakReference<Counter<MediaReader>>(_counter));
+                        // DisableResourceShare 時は WeakReference を書き換えない。
+                        // 他 Renderer（プレビュー側）の共有カウンタを
+                        // エンコード専用カウンタで汚染してしまうため。
+                        if (!context.DisableResourceShare)
+                        {
+                            Volatile.Write(ref soundSource._mediaReaderRef, new WeakReference<Counter<MediaReader>>(_counter));
+                        }
                     }
                     catch
                     {

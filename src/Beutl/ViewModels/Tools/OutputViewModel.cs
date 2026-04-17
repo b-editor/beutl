@@ -209,13 +209,13 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
                 // エンコード前にEditViewModelのレンダラーキャッシュを削除してメモリ解放
                 ClearEditViewModelCaches();
 
-                // エンコード専用のRendererを作成（キャッシュ無効）
-                using var renderer = new SceneRenderer(Model);
+                // エンコード専用のRendererを作成（キャッシュ無効、リソース共有無効）
+                using var renderer = new SceneRenderer(Model, disableResourceShare: true);
                 renderer.CacheOptions = RenderCacheOptions.Disabled;
                 var frameProgress = new Subject<TimeSpan>();
                 using var frameProvider = new FrameProviderImpl(Model, videoSettings.FrameRate, renderer, frameProgress);
                 // サンプルプロバイダー作成
-                using var composer = new SceneComposer(Model) { SampleRate = audioSettings.SampleRate };
+                using var composer = new SceneComposer(Model, disableResourceShare: true) { SampleRate = audioSettings.SampleRate };
                 // var composer = _editViewModel.Composer.Value;
                 var sampleProgress = new Subject<TimeSpan>();
                 using var sampleProvider = new SampleProviderImpl(
