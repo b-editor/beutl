@@ -45,6 +45,8 @@ public abstract class ThreeOptionRadioEditor<T> : PropertyEditor
             .DisposeWith(_disposables);
         _buttonC.AddDisposableHandler(Button.ClickEvent, OnButtonClick)
             .DisposeWith(_disposables);
+
+        UpdatePseudoClassesAndCheckState();
     }
 
     protected override Size MeasureOverride(Size availableSize)
