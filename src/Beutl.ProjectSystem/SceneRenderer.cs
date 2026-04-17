@@ -3,9 +3,15 @@ using Beutl.ProjectSystem;
 
 namespace Beutl;
 
-public sealed class SceneRenderer(Scene scene) : Renderer(scene.FrameSize.Width, scene.FrameSize.Height)
+public sealed class SceneRenderer : Renderer
 {
-    private readonly SceneCompositor _compositor = new(scene);
+    private readonly SceneCompositor _compositor;
+
+    public SceneRenderer(Scene scene, bool disableResourceShare = false)
+        : base(scene.FrameSize.Width, scene.FrameSize.Height)
+    {
+        _compositor = new SceneCompositor(scene) { DisableResourceShare = disableResourceShare };
+    }
 
     public SceneCompositor Compositor => _compositor;
 

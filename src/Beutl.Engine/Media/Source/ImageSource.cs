@@ -47,11 +47,19 @@ public sealed class ImageSource : MediaSource
             {
                 _counter?.Release();
                 _counter = null;
-                var localRef = Volatile.Read(ref imageSource._bitmapRef);
-                if (localRef?.TryGetTarget(out var counter) == true && counter.RefCount > 0)
+
+                Counter<Bitmap>? shared = null;
+                if (!context.DisableResourceShare)
                 {
-                    _counter = counter;
-                    counter.AddRef();
+                    var localRef = Volatile.Read(ref imageSource._bitmapRef);
+                    if (localRef?.TryGetTarget(out var counter) == true && counter.RefCount > 0)
+                        shared = counter;
+                }
+
+                if (shared is not null)
+                {
+                    _counter = shared;
+                    shared.AddRef();
                 }
                 else
                 {
@@ -60,7 +68,13 @@ public sealed class ImageSource : MediaSource
                         using var stream = UriHelper.ResolveStream(imageSource.Uri);
                         var bitmap = Media.Bitmap.FromStream(stream);
                         _counter = new Counter<Bitmap>(bitmap, null);
-                        Volatile.Write(ref imageSource._bitmapRef, new(_counter));
+                        // DisableResourceShare 時は WeakReference を書き換えない。
+                        // 他 Renderer（プレビュー側）の共有カウンタを
+                        // エンコード専用カウンタで汚染してしまうため。
+                        if (!context.DisableResourceShare)
+                        {
+                            Volatile.Write(ref imageSource._bitmapRef, new(_counter));
+                        }
                     }
                     catch
                     {

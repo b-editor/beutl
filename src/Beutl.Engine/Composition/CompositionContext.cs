@@ -10,6 +10,8 @@ public class CompositionContext(TimeSpan time)
 
     public TimeSpan Time { get; set; } = time;
 
+    public bool DisableResourceShare { get; init; }
+
     public virtual T Get<T>(IProperty<T> property)
     {
         if (property == null)

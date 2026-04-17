@@ -18,6 +18,8 @@ public sealed class SceneCompositor : ICompositor
 
     public Scene Scene { get; }
 
+    public bool DisableResourceShare { get; init; }
+
     private sealed class CompositorContext : CompositionContext, ISceneCompositionContext
     {
         private readonly SceneCompositor _compositor;
@@ -32,6 +34,7 @@ public sealed class SceneCompositor : ICompositor
             CurrentElements = currentElements;
             Target = target;
             Flow = flow;
+            DisableResourceShare = compositor.DisableResourceShare;
         }
 
         public IList<Element> CurrentElements { get; set; }

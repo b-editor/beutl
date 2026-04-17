@@ -5,9 +5,14 @@ using Beutl.ProjectSystem;
 
 namespace Beutl;
 
-public sealed class SceneComposer(Scene scene) : Composer
+public sealed class SceneComposer : Composer
 {
-    private readonly SceneCompositor _compositor = new(scene);
+    private readonly SceneCompositor _compositor;
+
+    public SceneComposer(Scene scene, bool disableResourceShare = false)
+    {
+        _compositor = new SceneCompositor(scene) { DisableResourceShare = disableResourceShare };
+    }
 
     public SceneCompositor Compositor => _compositor;
 

@@ -118,6 +118,8 @@ public partial class Scene3D : Drawable, IFlowOperator
 
         public TimeSpan Time { get; set; } = TimeSpan.Zero;
 
+        public bool DisableResourceShare { get; set; }
+
         public List<Light3D.Resource> Lights { get; set; } = [];
 
         public List<Object3D.Resource> Objects { get; set; } = [];
@@ -154,6 +156,8 @@ public partial class Scene3D : Drawable, IFlowOperator
                 Time = context.Time;
                 changed = true;
             }
+
+            DisableResourceShare = context.DisableResourceShare;
 
             // Consume lights and objects from flow
             using var consumedLights = new PooledList<Light3D.Resource>();
