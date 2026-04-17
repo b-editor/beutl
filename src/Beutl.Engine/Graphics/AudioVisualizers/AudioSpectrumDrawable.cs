@@ -30,8 +30,13 @@ public sealed partial class AudioSpectrumDrawable : AudioVisualizerDrawable
     [Range(-200f, 0f)]
     public IProperty<float> FloorDb { get; } = Property.CreateAnimatable(-80f);
 
+    [Display(Name = nameof(GraphicsStrings.AudioVisualizer_Smoothing), ResourceType = typeof(GraphicsStrings))]
+    [Range(0f, 0.99f)]
+    public IProperty<float> Smoothing { get; } = Property.CreateAnimatable(0.85f);
+
     public new partial class Resource
     {
+        private float[] _smoothedMagnitudes = [];
         protected override (TimeSpan Start, TimeSpan Duration) ComputeSampleWindow(TimeSpan currentTime)
         {
             int effectiveFftSize = Fft.ClampToPowerOfTwo(FftSize);
@@ -80,6 +85,12 @@ public sealed partial class AudioSpectrumDrawable : AudioVisualizerDrawable
             float fMax = CachedSampleRate * 0.5f;
             float fMin = Math.Max(20f, fMax / bins);
 
+            if (_smoothedMagnitudes.Length != barCount)
+            {
+                _smoothedMagnitudes = new float[barCount];
+            }
+            float smoothing = Math.Clamp(Smoothing, 0f, 0.99f);
+
             for (int i = 0; i < barCount; i++)
             {
                 int binLow;
@@ -101,13 +112,23 @@ public sealed partial class AudioSpectrumDrawable : AudioVisualizerDrawable
                 if (binHigh > bins) binHigh = bins;
                 if (binLow < 0) binLow = 0;
 
-                float maxMag = 0f;
+                // バンド内は RMS で集計するとピーク値より滑らかに変化する
+                float sumSq = 0f;
+                int count = binHigh - binLow;
                 for (int b = binLow; b < binHigh; b++)
                 {
-                    if (mags[b] > maxMag) maxMag = mags[b];
+                    sumSq += mags[b] * mags[b];
                 }
+                float rawMag = count > 0 ? MathF.Sqrt(sumSq / count) : 0f;
 
-                float db = Fft.MagnitudeToDb(maxMag * gain, reference);
+                // 高速アタック + 緩やかリリース (ピークメーター方式)
+                float prev = _smoothedMagnitudes[i];
+                float smoothedMag = rawMag > prev
+                    ? rawMag
+                    : prev * smoothing + rawMag * (1f - smoothing);
+                _smoothedMagnitudes[i] = smoothedMag;
+
+                float db = Fft.MagnitudeToDb(smoothedMag * gain, reference);
                 float normalized = (db - floorDb) / (0f - floorDb);
                 normalized = Math.Clamp(normalized, 0f, 1f);
 

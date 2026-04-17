@@ -1393,4 +1393,7 @@
   <data name="AudioVisualizer_Gain" xml:space="preserve">
     <value>ゲイン</value>
   </data>
+  <data name="AudioVisualizer_Smoothing" xml:space="preserve">
+    <value>スムージング</value>
+  </data>
 </root>
