@@ -48,14 +48,14 @@ public sealed class EqualizerNode : AudioNode
         if (!_lastTimeRangeStart.HasValue || _lastTimeRangeStart.Value > context.TimeRange.Start)
         {
             Reset();
-            _lastTimeRangeStart = context.TimeRange.Start;
         }
+        _lastTimeRangeStart = context.TimeRange.Start;
 
-        // Check if any band has animation
+        // Check if any band has an actual animation assigned
         bool hasAnimation = Bands.Any(band =>
-            band.Frequency?.IsAnimatable == true ||
-            band.Gain?.IsAnimatable == true ||
-            band.Q?.IsAnimatable == true);
+            band.Frequency?.Animation != null ||
+            band.Gain?.Animation != null ||
+            band.Q?.Animation != null);
 
         if (!hasAnimation)
         {

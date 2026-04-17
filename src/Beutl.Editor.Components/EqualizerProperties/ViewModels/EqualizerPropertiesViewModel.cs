@@ -192,10 +192,13 @@ public sealed class EqualizerPropertiesViewModel : IPropertyEditorContext, IServ
             Bands.Add(new EqualizerBandItemViewModel(equalizer.Bands[i], i, factory));
         }
 
+        // Re-evaluate SelectedBand so it points to a freshly created ViewModel
+        // (keeping the same index would leave SelectedBand bound to a disposed item).
         int selected = SelectedBandIndex.Value;
-        if (selected >= Bands.Count)
+        SelectedBandIndex.Value = -1;
+        if (selected >= 0 && selected < Bands.Count)
         {
-            SelectedBandIndex.Value = -1;
+            SelectedBandIndex.Value = selected;
         }
     }
 
