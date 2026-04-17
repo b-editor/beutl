@@ -793,6 +793,15 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="Waveform" xml:space="preserve">
     <value>ウェーブフォーム</value>
   </data>
+  <data name="Spectrum" xml:space="preserve">
+    <value>スペクトラム</value>
+  </data>
+  <data name="Meter" xml:space="preserve">
+    <value>メーター</value>
+  </data>
+  <data name="AudioVisualizer" xml:space="preserve">
+    <value>オーディオビジュアライザー</value>
+  </data>
   <data name="Luma" xml:space="preserve">
     <value>輝度</value>
   </data>
