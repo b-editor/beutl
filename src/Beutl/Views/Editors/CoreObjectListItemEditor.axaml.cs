@@ -95,17 +95,7 @@ public partial class CoreObjectListItemEditor : UserControl, IListItemEditor
         try
         {
             _flyoutOpen = true;
-            Type propertyType = viewModel.PropertyAdapter.PropertyType;
-            string format = propertyType.FullName!;
-            var selectVm = new SelectLibraryItemDialogViewModel(format, propertyType);
-
-            if (PresenterTypeAttribute.GetPresenterType(propertyType) != null)
-            {
-                var targets = viewModel.GetAvailableTargets();
-                selectVm.InitializeReferences(targets);
-            }
-
-            return await LibraryItemPickerHelper.ShowAsync(this, selectVm, format);
+            return await CoreObjectPickerHelper.ShowTypeOrReferenceAsync(this, viewModel);
         }
         finally
         {
