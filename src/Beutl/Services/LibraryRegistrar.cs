@@ -62,6 +62,11 @@ public static class LibraryRegistrar
             );
 
         LibraryService.Current
+            .AddMultiple(GraphicsStrings.AudioVisualizer, m => m
+                .BindDrawable<AudioVisualizerDrawable>()
+            );
+
+        LibraryService.Current
             .AddMultiple(AudioStrings.SourceSound, m => m
                 .BindSound<SourceSound>()
             );

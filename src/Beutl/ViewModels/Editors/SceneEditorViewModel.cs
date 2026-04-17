@@ -55,7 +55,6 @@ public sealed class SceneEditorViewModel : ValueEditorViewModel<Scene?>
 
         return [.. project.Items
             .OfType<Scene>()
-            .Where(s => s != currentScene)
             .Select(s => new TargetObjectInfo(s.Name, s, null))];
     }
 }

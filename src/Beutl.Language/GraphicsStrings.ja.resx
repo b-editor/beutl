@@ -1354,4 +1354,40 @@
   <data name="FilterEffect" xml:space="preserve">
     <value>フィルターエフェクト</value>
   </data>
+  <data name="AudioVisualizer" xml:space="preserve">
+    <value>オーディオビジュアライザ</value>
+  </data>
+  <data name="AudioVisualizer_DisplayMode" xml:space="preserve">
+    <value>表示モード</value>
+  </data>
+  <data name="AudioVisualizer_WaveformStyle" xml:space="preserve">
+    <value>波形スタイル</value>
+  </data>
+  <data name="AudioVisualizer_BarCount" xml:space="preserve">
+    <value>バー数</value>
+  </data>
+  <data name="AudioVisualizer_WindowSeconds" xml:space="preserve">
+    <value>表示時間（秒）</value>
+  </data>
+  <data name="AudioVisualizer_FftSize" xml:space="preserve">
+    <value>FFTサイズ</value>
+  </data>
+  <data name="AudioVisualizer_LogarithmicFrequency" xml:space="preserve">
+    <value>対数周波数軸</value>
+  </data>
+  <data name="AudioVisualizer_FloorDb" xml:space="preserve">
+    <value>下限（dB）</value>
+  </data>
+  <data name="AudioVisualizer_TimeColumns" xml:space="preserve">
+    <value>時間方向の分割数</value>
+  </data>
+  <data name="AudioVisualizer_ForegroundColor" xml:space="preserve">
+    <value>前景色</value>
+  </data>
+  <data name="AudioVisualizer_BackgroundColor" xml:space="preserve">
+    <value>背景色</value>
+  </data>
+  <data name="AudioVisualizer_Gain" xml:space="preserve">
+    <value>ゲイン</value>
+  </data>
 </root>

@@ -1356,4 +1356,40 @@
   <data name="FilterEffect" xml:space="preserve">
     <value>Filter Effect</value>
   </data>
+  <data name="AudioVisualizer" xml:space="preserve">
+    <value>Audio Visualizer</value>
+  </data>
+  <data name="AudioVisualizer_DisplayMode" xml:space="preserve">
+    <value>Display Mode</value>
+  </data>
+  <data name="AudioVisualizer_WaveformStyle" xml:space="preserve">
+    <value>Waveform Style</value>
+  </data>
+  <data name="AudioVisualizer_BarCount" xml:space="preserve">
+    <value>Bar Count</value>
+  </data>
+  <data name="AudioVisualizer_WindowSeconds" xml:space="preserve">
+    <value>Window (seconds)</value>
+  </data>
+  <data name="AudioVisualizer_FftSize" xml:space="preserve">
+    <value>FFT Size</value>
+  </data>
+  <data name="AudioVisualizer_LogarithmicFrequency" xml:space="preserve">
+    <value>Logarithmic Frequency</value>
+  </data>
+  <data name="AudioVisualizer_FloorDb" xml:space="preserve">
+    <value>Floor (dB)</value>
+  </data>
+  <data name="AudioVisualizer_TimeColumns" xml:space="preserve">
+    <value>Time Columns</value>
+  </data>
+  <data name="AudioVisualizer_ForegroundColor" xml:space="preserve">
+    <value>Foreground Color</value>
+  </data>
+  <data name="AudioVisualizer_BackgroundColor" xml:space="preserve">
+    <value>Background Color</value>
+  </data>
+  <data name="AudioVisualizer_Gain" xml:space="preserve">
+    <value>Gain</value>
+  </data>
 </root>
