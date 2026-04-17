@@ -138,49 +138,15 @@ public sealed class FilterEffectContext : IDisposable
 
     // https://github.com/Shopify/react-native-skia/blob/c7740e30234e6b0a49721ab954c4a848e42d7edb/package/src/dom/nodes/paint/ImageFilters.ts#L25
     public void InnerShadow(Point position, Size sigma, Color color)
-    {
-        CustomEffect(
-            data: (position, sigma, color),
-            action: (data, context) =>
-            {
-                for (int i = 0; i < context.Targets.Count; i++)
-                {
-                    var target = context.Targets[i];
-                    if (target.RenderTarget is not null)
-                    {
-                        using SKImage skImage = target.RenderTarget.Value.Snapshot();
-                        EffectTarget newTarget = context.CreateTarget(target.Bounds);
-                        using (ImmediateCanvas canvas = context.Open(newTarget))
-                        {
-                            canvas.Clear();
-                            using var blur = SKImageFilter.CreateBlur(data.sigma.Width, data.sigma.Height);
-                            using var blend = SKColorFilter.CreateBlendMode(data.color.ToSKColor(), SKBlendMode.SrcOut);
-                            using var filter = SKImageFilter.CreateColorFilter(blend, blur);
-                            using var paint = new SKPaint { ImageFilter = filter };
-
-                            using (canvas.PushPaint(paint))
-                            {
-                                canvas.DrawRenderTarget(target.RenderTarget, data.position);
-                            }
-
-                            using (canvas.PushBlendMode(Graphics.BlendMode.DstATop))
-                            {
-                                canvas.DrawRenderTarget(target.RenderTarget, default);
-                            }
-                        }
-
-                        target.Dispose();
-                        context.Targets[i] = newTarget;
-                    }
-                }
-            },
-            transformBounds: (_, bounds) => bounds);
-    }
+        => InnerShadowCore(position, sigma, color, Graphics.BlendMode.DstATop);
 
     public void InnerShadowOnly(Point position, Size sigma, Color color)
+        => InnerShadowCore(position, sigma, color, Graphics.BlendMode.DstIn);
+
+    private void InnerShadowCore(Point position, Size sigma, Color color, Graphics.BlendMode blendMode)
     {
         CustomEffect(
-            data: (position, sigma, color),
+            data: (position, sigma, color, blendMode),
             action: (data, context) =>
             {
                 for (int i = 0; i < context.Targets.Count; i++)
@@ -203,7 +169,7 @@ public sealed class FilterEffectContext : IDisposable
                                 canvas.DrawRenderTarget(target.RenderTarget, data.position);
                             }
 
-                            using (canvas.PushBlendMode(Graphics.BlendMode.DstIn))
+                            using (canvas.PushBlendMode(data.blendMode))
                             {
                                 canvas.DrawRenderTarget(target.RenderTarget, default);
                             }
