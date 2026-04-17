@@ -94,99 +94,26 @@ internal sealed unsafe class VulkanDescriptorSet : IDescriptorSet
     }
 
     public void UpdateTexture(int binding, ITexture2D texture, ISampler sampler)
-    {
-        ObjectDisposedException.ThrowIf(_disposed, this);
-
-        var vulkanTexture = (VulkanTexture2D)texture;
-        var vulkanSampler = (VulkanSampler)sampler;
-
-        var imageInfo = new DescriptorImageInfo
-        {
-            ImageView = vulkanTexture.ImageViewHandle,
-            ImageLayout = ImageLayout.ShaderReadOnlyOptimal,
-            Sampler = vulkanSampler.Handle
-        };
-
-        var writeDescriptor = new WriteDescriptorSet
-        {
-            SType = StructureType.WriteDescriptorSet,
-            DstSet = _descriptorSet,
-            DstBinding = (uint)binding,
-            DstArrayElement = 0,
-            DescriptorCount = 1,
-            DescriptorType = Silk.NET.Vulkan.DescriptorType.CombinedImageSampler,
-            PImageInfo = &imageInfo
-        };
-
-        _context.Vk.UpdateDescriptorSets(_context.Device, 1, &writeDescriptor, 0, null);
-    }
+        => UpdateCombinedImageSampler(binding, ((VulkanTexture2D)texture).ImageViewHandle, sampler);
 
     public void UpdateTextureCube(int binding, ITextureCube texture, ISampler sampler)
-    {
-        ObjectDisposedException.ThrowIf(_disposed, this);
-
-        var vulkanTexture = (VulkanTextureCube)texture;
-        var vulkanSampler = (VulkanSampler)sampler;
-
-        var imageInfo = new DescriptorImageInfo
-        {
-            ImageView = vulkanTexture.ImageViewHandle,
-            ImageLayout = ImageLayout.ShaderReadOnlyOptimal,
-            Sampler = vulkanSampler.Handle
-        };
-
-        var writeDescriptor = new WriteDescriptorSet
-        {
-            SType = StructureType.WriteDescriptorSet,
-            DstSet = _descriptorSet,
-            DstBinding = (uint)binding,
-            DstArrayElement = 0,
-            DescriptorCount = 1,
-            DescriptorType = Silk.NET.Vulkan.DescriptorType.CombinedImageSampler,
-            PImageInfo = &imageInfo
-        };
-
-        _context.Vk.UpdateDescriptorSets(_context.Device, 1, &writeDescriptor, 0, null);
-    }
+        => UpdateCombinedImageSampler(binding, ((VulkanTextureCube)texture).ImageViewHandle, sampler);
 
     public void UpdateTextureArray(int binding, ITextureArray texture, ISampler sampler)
-    {
-        ObjectDisposedException.ThrowIf(_disposed, this);
-
-        var vulkanTexture = (VulkanTextureArray)texture;
-        var vulkanSampler = (VulkanSampler)sampler;
-
-        var imageInfo = new DescriptorImageInfo
-        {
-            ImageView = vulkanTexture.ImageViewHandle,
-            ImageLayout = ImageLayout.ShaderReadOnlyOptimal,
-            Sampler = vulkanSampler.Handle
-        };
-
-        var writeDescriptor = new WriteDescriptorSet
-        {
-            SType = StructureType.WriteDescriptorSet,
-            DstSet = _descriptorSet,
-            DstBinding = (uint)binding,
-            DstArrayElement = 0,
-            DescriptorCount = 1,
-            DescriptorType = Silk.NET.Vulkan.DescriptorType.CombinedImageSampler,
-            PImageInfo = &imageInfo
-        };
-
-        _context.Vk.UpdateDescriptorSets(_context.Device, 1, &writeDescriptor, 0, null);
-    }
+        => UpdateCombinedImageSampler(binding, ((VulkanTextureArray)texture).ImageViewHandle, sampler);
 
     public void UpdateTextureCubeArray(int binding, ITextureCubeArray texture, ISampler sampler)
+        => UpdateCombinedImageSampler(binding, ((VulkanTextureCubeArray)texture).ImageViewHandle, sampler);
+
+    private void UpdateCombinedImageSampler(int binding, ImageView imageView, ISampler sampler)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
-        var vulkanTexture = (VulkanTextureCubeArray)texture;
         var vulkanSampler = (VulkanSampler)sampler;
 
         var imageInfo = new DescriptorImageInfo
         {
-            ImageView = vulkanTexture.ImageViewHandle,
+            ImageView = imageView,
             ImageLayout = ImageLayout.ShaderReadOnlyOptimal,
             Sampler = vulkanSampler.Handle
         };
