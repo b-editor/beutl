@@ -160,7 +160,7 @@ public sealed class SceneCompositor : ICompositor
     {
         foreach (Element item in Scene.Children)
         {
-            if (item.Range.Contains(time))
+            if (item.IsEnabled && item.Range.Contains(time))
             {
                 currentElements.OrderedAdd(item, x => x.ZIndex);
             }
@@ -171,7 +171,7 @@ public sealed class SceneCompositor : ICompositor
     {
         foreach (Element item in Scene.Children)
         {
-            if (item.Range.Intersects(timeRange))
+            if (item.IsEnabled && item.Range.Intersects(timeRange))
             {
                 currentElements.OrderedAdd(item, x => x.ZIndex);
             }

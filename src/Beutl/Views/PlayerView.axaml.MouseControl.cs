@@ -346,7 +346,8 @@ public partial class PlayerView
                 TimeSpan time = Clock.CurrentTime.Value;
 
                 Element = scene.Children.FirstOrDefault(v =>
-                    v.ZIndex == zindex
+                    v.IsEnabled
+                    && v.ZIndex == zindex
                     && v.Start <= time
                     && time < v.Range.End);
 

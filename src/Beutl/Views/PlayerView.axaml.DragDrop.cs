@@ -42,7 +42,8 @@ public partial class PlayerView
                 int zindex = drawable.ZIndex;
 
                 Element? element = scene.Children.FirstOrDefault(v =>
-                    v.ZIndex == zindex
+                    v.IsEnabled
+                    && v.ZIndex == zindex
                     && v.Start <= frame
                     && frame < v.Range.End);
 
