@@ -197,6 +197,7 @@ class Build : NukeBuild
                 ("Beutl.Threading", tfm),
                 ("Beutl.Utilities", tfm),
                 ("Beutl.NodeGraph", tfm),
+                ("Beutl.Editor", tfm),
             ];
 
             foreach (var (name, projectTfm) in projects)

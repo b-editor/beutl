@@ -34,6 +34,7 @@
     <BeutlAutoReferenceExtensibility Condition="'$(BeutlAutoReferenceExtensibility)' == ''">$(BeutlAutoReferenceAll)</BeutlAutoReferenceExtensibility>
     <BeutlAutoReferenceProjectSystem Condition="'$(BeutlAutoReferenceProjectSystem)' == ''">$(BeutlAutoReferenceAll)</BeutlAutoReferenceProjectSystem>
     <BeutlAutoReferenceNodeGraph Condition="'$(BeutlAutoReferenceNodeGraph)' == ''">$(BeutlAutoReferenceAll)</BeutlAutoReferenceNodeGraph>
+    <BeutlAutoReferenceEditor Condition="'$(BeutlAutoReferenceEditor)' == ''">$(BeutlAutoReferenceAll)</BeutlAutoReferenceEditor>
     <BeutlAutoReferenceSourceGenerators Condition="'$(BeutlAutoReferenceSourceGenerators)' == ''">$(BeutlAutoReferenceAll)</BeutlAutoReferenceSourceGenerators>
   </PropertyGroup>
 
@@ -41,6 +42,7 @@
     <PackageReference Include="Beutl.Extensibility" Version="$(BeutlPackagesVersion)" ExcludeAssets="runtime;native" Condition="'$(BeutlAutoReferenceExtensibility)' == 'true'" />
     <PackageReference Include="Beutl.ProjectSystem" Version="$(BeutlPackagesVersion)" ExcludeAssets="runtime;native" Condition="'$(BeutlAutoReferenceProjectSystem)' == 'true'" />
     <PackageReference Include="Beutl.NodeGraph" Version="$(BeutlPackagesVersion)" ExcludeAssets="runtime;native" Condition="'$(BeutlAutoReferenceNodeGraph)' == 'true'" />
+    <PackageReference Include="Beutl.Editor" Version="$(BeutlPackagesVersion)" ExcludeAssets="runtime;native" Condition="'$(BeutlAutoReferenceEditor)' == 'true'" />
     <PackageReference
       Include="Beutl.Engine.SourceGenerators"
       OutputItemType="Analyzer"
@@ -54,6 +56,7 @@
     <PackageReference Include="Beutl.Extensibility" Version="$(BeutlPackagesVersion)" Condition="'$(BeutlAutoReferenceExtensibility)' == 'true'" />
     <PackageReference Include="Beutl.ProjectSystem" Version="$(BeutlPackagesVersion)" Condition="'$(BeutlAutoReferenceProjectSystem)' == 'true'" />
     <PackageReference Include="Beutl.NodeGraph" Version="$(BeutlPackagesVersion)" Condition="'$(BeutlAutoReferenceNodeGraph)' == 'true'" />
+    <PackageReference Include="Beutl.Editor" Version="$(BeutlPackagesVersion)" Condition="'$(BeutlAutoReferenceEditor)' == 'true'" />
     <PackageReference
       Include="Beutl.Engine.SourceGenerators"
       OutputItemType="Analyzer"
