@@ -5,7 +5,7 @@ using Reactive.Bindings;
 
 namespace Beutl.ViewModels;
 
-public sealed class ExtensionsPageViewModel : IPageContext
+public sealed class ExtensionsPageViewModel : IToolWindowContext
 {
     private readonly CompositeDisposable _disposables = [];
     private readonly CompositeDisposable _authDisposables = [];
@@ -37,7 +37,7 @@ public sealed class ExtensionsPageViewModel : IPageContext
 
     public LibraryPageViewModel Library => _library!.Value;
 
-    public PageExtension Extension => ExtensionsPageExtension.Instance;
+    public ToolWindowExtension Extension => ExtensionsToolWindowExtension.Instance;
 
     public string Header => Strings.Extensions;
 

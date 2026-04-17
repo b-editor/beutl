@@ -52,14 +52,22 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
             .Bind(out ReadOnlyObservableCollection<EditorExtension>? list2)
             .Subscribe();
 
+#pragma warning disable CS0618
         changeSet.Filter(i => i is PageExtension)
             .Cast(item => (PageExtension)item)
             .Bind(out ReadOnlyObservableCollection<PageExtension>? list3)
+            .Subscribe();
+#pragma warning restore CS0618
+
+        changeSet.Filter(i => i is ToolWindowExtension)
+            .Cast(item => (ToolWindowExtension)item)
+            .Bind(out ReadOnlyObservableCollection<ToolWindowExtension>? list4)
             .Subscribe();
 
         ToolTabExtensions = list1;
         EditorExtensions = list2;
         PageExtensions = list3;
+        ToolWindowExtensions = list4;
     }
 
     public bool IsDebuggerAttached { get; } = Debugger.IsAttached;
@@ -82,7 +90,11 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
 
     public ReadOnlyObservableCollection<EditorExtension> EditorExtensions { get; }
 
+#pragma warning disable CS0618
     public ReadOnlyObservableCollection<PageExtension> PageExtensions { get; }
+#pragma warning restore CS0618
+
+    public ReadOnlyObservableCollection<ToolWindowExtension> ToolWindowExtensions { get; }
 
     public ContextCommandManager? ContextCommandManager { get; }
 

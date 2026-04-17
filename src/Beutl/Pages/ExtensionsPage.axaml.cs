@@ -14,7 +14,7 @@ using Microsoft.Extensions.Logging;
 
 namespace Beutl.Pages;
 
-public sealed partial class ExtensionsPage : UserControl
+public sealed partial class ExtensionsPage : Window
 {
     private readonly ILogger _logger = Log.CreateLogger<ExtensionsPage>();
 

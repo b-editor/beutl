@@ -4,6 +4,7 @@ using FluentAvalonia.UI.Controls;
 
 namespace Beutl.Extensibility;
 
+[Obsolete("Use ToolWindowExtension instead.")]
 public abstract class PageExtension : Extension
 {
     public abstract Control CreateControl();
@@ -16,6 +17,7 @@ public abstract class PageExtension : Extension
     public abstract IconSource GetRegularIcon();
 }
 
+[Obsolete("Use IToolWindowContext instead.")]
 public interface IPageContext : IDisposable
 {
     PageExtension Extension { get; }
