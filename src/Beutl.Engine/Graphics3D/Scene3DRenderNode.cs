@@ -80,7 +80,10 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
 
         // Render
         renderer.Render(
-            new CompositionContext(scene.Time),
+            new CompositionContext(scene.Time)
+            {
+                DisableResourceShare = scene.DisableResourceShare,
+            },
             cameraResource,
             objectResources,
             lightResources,
