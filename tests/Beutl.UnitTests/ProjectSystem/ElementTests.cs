@@ -1,4 +1,4 @@
-using Beutl.ProjectSystem;
+﻿using Beutl.ProjectSystem;
 using NUnit.Framework.Legacy;
 
 namespace Beutl.UnitTests.ProjectSystem;

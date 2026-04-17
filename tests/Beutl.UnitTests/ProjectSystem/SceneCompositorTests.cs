@@ -1,4 +1,4 @@
-using Beutl.Composition;
+﻿using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Media;
 using Beutl.ProjectSystem;
