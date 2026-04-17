@@ -1,23 +1,9 @@
-﻿using System.Text.Json;
-using System.Text.Json.Serialization;
-
-using Beutl.Media;
+﻿using Beutl.Media;
 
 namespace Beutl.Converters;
 
-internal sealed class CornerRadiusJsonConverter : JsonConverter<CornerRadius>
+internal sealed class CornerRadiusJsonConverter : StringJsonConverter<CornerRadius>
 {
-    public override CornerRadius Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
-    {
-        string? s = reader.GetString();
-        if (s == null)
-            throw new Exception("Invalid CornerRadius.");
-
-        return CornerRadius.Parse(s);
-    }
-
-    public override void Write(Utf8JsonWriter writer, CornerRadius value, JsonSerializerOptions options)
-    {
-        writer.WriteStringValue(value.ToString());
-    }
+    protected override string TypeName => "CornerRadius";
+    protected override CornerRadius Parse(string s) => CornerRadius.Parse(s);
 }

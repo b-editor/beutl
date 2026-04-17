@@ -1,22 +1,10 @@
 ﻿using System.Globalization;
-using System.Text.Json;
-using System.Text.Json.Serialization;
 
 namespace Beutl.JsonConverters;
 
-internal class CultureInfoConverter : JsonConverter<CultureInfo>
+internal class CultureInfoConverter : StringJsonConverter<CultureInfo>
 {
-    public override CultureInfo Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
-    {
-        string? s = reader.GetString();
-        if (s == null)
-            throw new Exception("Invalid CultureInfo.");
-
-        return CultureInfo.GetCultureInfo(s);
-    }
-
-    public override void Write(Utf8JsonWriter writer, CultureInfo value, JsonSerializerOptions options)
-    {
-        writer.WriteStringValue(value.Name);
-    }
+    protected override string TypeName => "CultureInfo";
+    protected override CultureInfo Parse(string s) => CultureInfo.GetCultureInfo(s);
+    protected override string Format(CultureInfo value) => value.Name;
 }
