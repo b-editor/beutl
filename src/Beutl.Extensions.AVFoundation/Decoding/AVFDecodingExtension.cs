@@ -2,7 +2,6 @@
 using Beutl.Extensibility;
 using Beutl.Language;
 using Beutl.Media.Decoding;
-using MonoMac.AppKit;
 
 namespace Beutl.Extensions.AVFoundation.Decoding;
 
@@ -21,14 +20,6 @@ public class AVFDecodingExtension : DecodingExtension
     {
         if (OperatingSystem.IsMacOS())
         {
-            try
-            {
-                NSApplication.Init();
-            }
-            catch
-            {
-            }
-
             DecoderRegistry.Register(GetDecoderInfo());
         }
     }

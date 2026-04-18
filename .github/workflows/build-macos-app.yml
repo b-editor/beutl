@@ -56,6 +56,20 @@ jobs:
         with:
           global-json-file: global.json
 
+      - name: Verify Swift toolchain
+        # The AVFoundation extension compiles a Swift dylib via an MSBuild target during
+        # `bundle-app`. macos-latest ships with Swift, but print the version so CI logs
+        # capture regressions (e.g. toolchain mismatches against minimumMacOSVersion).
+        run: swift --version
+
+      - name: Cache SwiftPM build
+        uses: actions/cache@v4
+        with:
+          path: src/Beutl.Extensions.AVFoundation/native/BeutlAVF/.build
+          key: swiftpm-beutlavf-${{ matrix.rid }}-${{ hashFiles('src/Beutl.Extensions.AVFoundation/native/BeutlAVF/Package.swift', 'src/Beutl.Extensions.AVFoundation/native/BeutlAVF/Sources/**/*.swift', 'src/Beutl.Extensions.AVFoundation/native/BeutlAVF/Sources/**/*.h', 'src/Beutl.Extensions.AVFoundation/native/BeutlAVF/Sources/**/*.c', 'src/Beutl.Extensions.AVFoundation/native/BeutlAVF/Sources/**/*.modulemap') }}
+          restore-keys: |
+            swiftpm-beutlavf-${{ matrix.rid }}-
+
       - name: Restore
         run: |
           chmod +x build.sh
