@@ -6,4 +6,5 @@ public enum AudioVisualizerMode
     Spectrum,
     Meter,
     Spectrogram,
+    PhaseScope,
 }

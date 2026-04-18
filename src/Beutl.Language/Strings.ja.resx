@@ -805,6 +805,9 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="Spectrogram" xml:space="preserve">
     <value>スペクトログラム</value>
   </data>
+  <data name="PhaseScope" xml:space="preserve">
+    <value>位相スコープ</value>
+  </data>
   <data name="Luma" xml:space="preserve">
     <value>輝度</value>
   </data>

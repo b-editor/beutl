@@ -810,6 +810,9 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="Spectrogram" xml:space="preserve">
     <value>Spectrogram</value>
   </data>
+  <data name="PhaseScope" xml:space="preserve">
+    <value>Phase Scope</value>
+  </data>
   <data name="Luma" xml:space="preserve">
     <value>Luma</value>
   </data>
