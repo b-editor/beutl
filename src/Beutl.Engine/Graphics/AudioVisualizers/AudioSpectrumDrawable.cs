@@ -86,7 +86,8 @@ public sealed partial class AudioSpectrumDrawable : AudioVisualizerDrawable
 
             float reference = fftSize * 0.5f;
             float gain = Math.Max(0f, Gain);
-            float floorDb = FloorDb;
+            // FloorDb は Range(-200, 0) だが、0 に設定されると (0 - floorDb) が 0 除算になるため -0.001 以下にクランプする
+            float floorDb = MathF.Min(FloorDb, -0.001f);
 
             int barCount = Math.Min(Math.Max(1, BarCount), bins);
             bool logarithmic = LogarithmicFrequency;
