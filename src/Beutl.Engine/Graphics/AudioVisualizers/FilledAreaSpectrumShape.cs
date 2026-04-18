@@ -1,4 +1,4 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using Beutl.Engine;
 using Beutl.Language;
 using Beutl.Media;
@@ -15,7 +15,7 @@ public sealed partial class FilledAreaSpectrumShape : SpectrumShape
     }
 
     [Display(Name = nameof(GraphicsStrings.SpectrumShape_Smoothness), ResourceType = typeof(GraphicsStrings))]
-    [Range(0f, 1f)]
+    [Range(0f, 100f)]
     public IProperty<float> Smoothness { get; } = Property.CreateAnimatable(0f);
 
     public new partial class Resource
@@ -39,7 +39,7 @@ public sealed partial class FilledAreaSpectrumShape : SpectrumShape
             float width = (float)bounds.Width;
             float height = (float)bounds.Height;
             float slotWidth = width / barCount;
-            float smoothness = Math.Clamp(Smoothness, 0f, 1f);
+            float smoothness = Math.Clamp(Smoothness / 100f, 0f, 1f);
             float cornerRadius = smoothness * slotWidth * 0.5f;
 
             EnsurePaint(foregroundColor, cornerRadius);

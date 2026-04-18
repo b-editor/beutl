@@ -1,4 +1,4 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using Beutl.Audio.Graph;
 using Beutl.Engine;
 using Beutl.Language;
@@ -34,8 +34,8 @@ public sealed partial class AudioSpectrumDrawable : AudioVisualizerDrawable
     public IProperty<float> FloorDb { get; } = Property.CreateAnimatable(-80f);
 
     [Display(Name = nameof(GraphicsStrings.AudioVisualizer_Smoothing), ResourceType = typeof(GraphicsStrings))]
-    [Range(0f, 0.99f)]
-    public IProperty<float> Smoothing { get; } = Property.CreateAnimatable(0.85f);
+    [Range(0f, 99f)]
+    public IProperty<float> Smoothing { get; } = Property.CreateAnimatable(85f);
 
     public new partial class Resource
     {
@@ -101,7 +101,7 @@ public sealed partial class AudioSpectrumDrawable : AudioVisualizerDrawable
             }
             Span<float> smoothed = _smoothedMagnitudes.AsSpan(0, barCount);
             Span<float> normalized = _normalizedBars.AsSpan(0, barCount);
-            float smoothing = Math.Clamp(Smoothing, 0f, 0.99f);
+            float smoothing = Math.Clamp(Smoothing / 100f, 0f, 0.99f);
 
             float fMax = CachedSampleRate * 0.5f;
             float fMin = Math.Max(20f, fMax / bins);

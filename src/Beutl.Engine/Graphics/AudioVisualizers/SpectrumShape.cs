@@ -1,4 +1,4 @@
-using Beutl.Engine;
+﻿using Beutl.Engine;
 using Beutl.Media;
 
 namespace Beutl.Graphics.AudioVisualizers;

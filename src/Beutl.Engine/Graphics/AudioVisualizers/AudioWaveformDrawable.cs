@@ -1,4 +1,4 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using Beutl.Audio;
 using Beutl.Engine;
 using Beutl.Graphics.Rendering;
@@ -78,32 +78,32 @@ public sealed partial class AudioWaveformDrawable : AudioVisualizerDrawable
                     break;
 
                 case WaveformStyle.Line:
-                {
-                    const float lineThickness = 1.5f;
-                    float halfThick = lineThickness * 0.5f;
-                    float? prevY = null;
-                    for (int i = 0; i < barCount; i++)
                     {
-                        float avg = (minBuf[i] + maxBuf[i]) * 0.5f;
-                        float value = Math.Clamp(avg * gain, -1f, 1f);
-                        float y = centerY - value * centerY;
-                        float x = i * slotWidth;
-
-                        canvas.DrawRectangle(new Rect(x, y - halfThick, barWidth, lineThickness), ForegroundBrush, null);
-
-                        if (prevY.HasValue)
+                        const float lineThickness = 1.5f;
+                        float halfThick = lineThickness * 0.5f;
+                        float? prevY = null;
+                        for (int i = 0; i < barCount; i++)
                         {
-                            float minY = Math.Min(prevY.Value, y);
-                            float maxY = Math.Max(prevY.Value, y);
-                            if (maxY - minY > lineThickness)
+                            float avg = (minBuf[i] + maxBuf[i]) * 0.5f;
+                            float value = Math.Clamp(avg * gain, -1f, 1f);
+                            float y = centerY - value * centerY;
+                            float x = i * slotWidth;
+
+                            canvas.DrawRectangle(new Rect(x, y - halfThick, barWidth, lineThickness), ForegroundBrush, null);
+
+                            if (prevY.HasValue)
                             {
-                                canvas.DrawRectangle(new Rect(x - halfThick, minY, lineThickness, maxY - minY), ForegroundBrush, null);
+                                float minY = Math.Min(prevY.Value, y);
+                                float maxY = Math.Max(prevY.Value, y);
+                                if (maxY - minY > lineThickness)
+                                {
+                                    canvas.DrawRectangle(new Rect(x - halfThick, minY, lineThickness, maxY - minY), ForegroundBrush, null);
+                                }
                             }
+                            prevY = y;
                         }
-                        prevY = y;
+                        break;
                     }
-                    break;
-                }
 
                 case WaveformStyle.FilledMirror:
                     for (int i = 0; i < barCount; i++)
