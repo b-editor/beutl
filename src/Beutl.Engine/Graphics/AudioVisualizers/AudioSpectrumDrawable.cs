@@ -54,7 +54,7 @@ public sealed partial class AudioSpectrumDrawable : AudioVisualizerDrawable
 
         protected override void RenderForeground(ImmediateCanvas canvas, Rect bounds)
         {
-            if (CachedSampleLength == 0 || ForegroundBrush is null || CachedSampleRate <= 0) return;
+            if (CachedSampleLength == 0 || Fill is null || CachedSampleRate <= 0) return;
 
             SpectrumShape.Resource? shapeResource = Shape;
             if (shapeResource is null) return;
@@ -148,7 +148,7 @@ public sealed partial class AudioSpectrumDrawable : AudioVisualizerDrawable
                 normalized[i] = Math.Clamp(n, 0f, 1f);
             }
 
-            shapeResource.Render(canvas, bounds, normalized, ForegroundBrush, ForegroundColor);
+            shapeResource.Render(canvas, bounds, normalized, Fill);
         }
     }
 }

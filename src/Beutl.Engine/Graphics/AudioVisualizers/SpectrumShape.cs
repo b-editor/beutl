@@ -19,7 +19,6 @@ public abstract partial class SpectrumShape : EngineObject
             ImmediateCanvas canvas,
             Rect bounds,
             ReadOnlySpan<float> normalizedBars,
-            SolidColorBrush.Resource foregroundBrush,
-            Color foregroundColor);
+            Brush.Resource fill);
     }
 }

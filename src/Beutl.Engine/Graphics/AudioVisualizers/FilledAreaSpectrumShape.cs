@@ -22,7 +22,6 @@ public sealed partial class FilledAreaSpectrumShape : SpectrumShape
     {
         private SKPath? _path;
         private SKPaint? _paint;
-        private Color _lastColor;
         private float _lastCornerRadius = -1f;
         private SKPathEffect? _cornerEffect;
 
@@ -30,8 +29,7 @@ public sealed partial class FilledAreaSpectrumShape : SpectrumShape
             ImmediateCanvas canvas,
             Rect bounds,
             ReadOnlySpan<float> normalizedBars,
-            SolidColorBrush.Resource foregroundBrush,
-            Color foregroundColor)
+            Brush.Resource fill)
         {
             int barCount = normalizedBars.Length;
             if (barCount < 2) return;
@@ -42,7 +40,16 @@ public sealed partial class FilledAreaSpectrumShape : SpectrumShape
             float smoothness = Math.Clamp(Smoothness / 100f, 0f, 1f);
             float cornerRadius = smoothness * slotWidth * 0.5f;
 
-            EnsurePaint(foregroundColor, cornerRadius);
+            _paint ??= new SKPaint();
+            new BrushConstructor(bounds, fill, BlendMode.SrcOver).ConfigurePaint(_paint);
+            _paint.Style = SKPaintStyle.Fill;
+            if (_lastCornerRadius != cornerRadius)
+            {
+                _cornerEffect?.Dispose();
+                _cornerEffect = cornerRadius > 0.01f ? SKPathEffect.CreateCorner(cornerRadius) : null;
+                _lastCornerRadius = cornerRadius;
+            }
+            _paint.PathEffect = _cornerEffect;
 
             _path ??= new SKPath();
             _path.Reset();
@@ -62,34 +69,7 @@ public sealed partial class FilledAreaSpectrumShape : SpectrumShape
             _path.LineTo(right, baseY);
             _path.Close();
 
-            canvas.Canvas.DrawPath(_path, _paint!);
-        }
-
-        private void EnsurePaint(Color color, float cornerRadius)
-        {
-            if (_paint == null)
-            {
-                _paint = new SKPaint
-                {
-                    IsAntialias = true,
-                    Style = SKPaintStyle.Fill,
-                    Color = new SKColor(color.R, color.G, color.B, color.A),
-                };
-                _lastColor = color;
-            }
-            else if (_lastColor != color)
-            {
-                _paint.Color = new SKColor(color.R, color.G, color.B, color.A);
-                _lastColor = color;
-            }
-
-            if (_lastCornerRadius != cornerRadius)
-            {
-                _cornerEffect?.Dispose();
-                _cornerEffect = cornerRadius > 0.01f ? SKPathEffect.CreateCorner(cornerRadius) : null;
-                _paint.PathEffect = _cornerEffect;
-                _lastCornerRadius = cornerRadius;
-            }
+            canvas.Canvas.DrawPath(_path, _paint);
         }
 
         partial void PostDispose(bool disposing)

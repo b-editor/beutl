@@ -1354,6 +1354,9 @@
   <data name="FilterEffect" xml:space="preserve">
     <value>フィルターエフェクト</value>
   </data>
+  <data name="AudioVisualizer" xml:space="preserve">
+    <value>オーディオビジュアライザ</value>
+  </data>
   <data name="AudioWaveform" xml:space="preserve">
     <value>音声波形</value>
   </data>
@@ -1383,12 +1386,6 @@
   </data>
   <data name="AudioVisualizer_TimeColumns" xml:space="preserve">
     <value>時間方向の分割数</value>
-  </data>
-  <data name="AudioVisualizer_ForegroundColor" xml:space="preserve">
-    <value>前景色</value>
-  </data>
-  <data name="AudioVisualizer_BackgroundColor" xml:space="preserve">
-    <value>背景色</value>
   </data>
   <data name="AudioVisualizer_Gain" xml:space="preserve">
     <value>ゲイン</value>

@@ -12,24 +12,21 @@ public class AudioVisualizerDrawableTests
     {
         Width = { CurrentValue = 320f },
         Height = { CurrentValue = 80f },
-        ForegroundColor = { CurrentValue = Colors.White },
-        BackgroundColor = { CurrentValue = Colors.Transparent }
+        Fill = { CurrentValue = new SolidColorBrush(Colors.White) }
     };
 
     private static AudioSpectrumDrawable CreateSpectrum() => new()
     {
         Width = { CurrentValue = 320f },
         Height = { CurrentValue = 80f },
-        ForegroundColor = { CurrentValue = Colors.White },
-        BackgroundColor = { CurrentValue = Colors.Transparent }
+        Fill = { CurrentValue = new SolidColorBrush(Colors.White) }
     };
 
     private static AudioSpectrogramDrawable CreateSpectrogram() => new()
     {
         Width = { CurrentValue = 320f },
         Height = { CurrentValue = 80f },
-        ForegroundColor = { CurrentValue = Colors.White },
-        BackgroundColor = { CurrentValue = Colors.Transparent }
+        Fill = { CurrentValue = new SolidColorBrush(Colors.White) }
     };
 
     [Test]

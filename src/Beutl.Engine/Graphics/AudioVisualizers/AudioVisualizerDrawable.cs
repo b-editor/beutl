@@ -15,6 +15,7 @@ public abstract partial class AudioVisualizerDrawable : Drawable
     public AudioVisualizerDrawable()
     {
         ScanProperties<AudioVisualizerDrawable>();
+        Fill.CurrentValue = new SolidColorBrush(Colors.White);
     }
 
     [Display(Name = nameof(GraphicsStrings.Source), ResourceType = typeof(GraphicsStrings))]
@@ -29,11 +30,8 @@ public abstract partial class AudioVisualizerDrawable : Drawable
     [Range(1, float.MaxValue)]
     public IProperty<float> Height { get; } = Property.CreateAnimatable(120f);
 
-    [Display(Name = nameof(GraphicsStrings.AudioVisualizer_ForegroundColor), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<Color> ForegroundColor { get; } = Property.CreateAnimatable(Colors.White);
-
-    [Display(Name = nameof(GraphicsStrings.AudioVisualizer_BackgroundColor), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<Color> BackgroundColor { get; } = Property.CreateAnimatable(Colors.Transparent);
+    [Display(Name = nameof(GraphicsStrings.Fill), ResourceType = typeof(GraphicsStrings), GroupName = nameof(GraphicsStrings.Fill))]
+    public IProperty<Brush?> Fill { get; } = Property.Create<Brush?>();
 
     [Display(Name = nameof(GraphicsStrings.AudioVisualizer_Gain), ResourceType = typeof(GraphicsStrings))]
     [Range(0.01f, 1000f)]
@@ -58,11 +56,6 @@ public abstract partial class AudioVisualizerDrawable : Drawable
     {
         private const int DefaultComposerSampleRate = 44100;
 
-        private SolidColorBrush.Resource? _foregroundBrushResource;
-        private Color _foregroundBrushColor;
-        private SolidColorBrush.Resource? _backgroundBrushResource;
-        private Color _backgroundBrushColor;
-
         private Composer? _composer;
         private Sound.Resource? _source;
 
@@ -85,13 +78,10 @@ public abstract partial class AudioVisualizerDrawable : Drawable
         internal TimeSpan CachedStart => _cachedStart;
         internal TimeSpan CachedDuration => _cachedDuration;
         internal int ComposerSampleRate => _composer?.SampleRate ?? DefaultComposerSampleRate;
-        internal SolidColorBrush.Resource? ForegroundBrush => _foregroundBrushResource;
         internal ReadOnlySpan<float> CachedSampleSpan => _cachedSamples.AsSpan(0, _cachedSampleLength);
 
         partial void PostUpdate(AudioVisualizerDrawable obj, CompositionContext context)
         {
-            EnsureBrushes(context);
-
             // 音声処理は専用コンテキストで実行し、MediaReader 等のリソース共有を無効化する。
             // これにより、プレビュー/エンコード側が保持する共有カウンタを visualizer 側の読み出しで汚染しない。
             var audioContext = new CompositionContext(context.Time) { DisableResourceShare = true };
@@ -114,20 +104,15 @@ public abstract partial class AudioVisualizerDrawable : Drawable
             _composer ??= new Composer { SampleRate = DefaultComposerSampleRate };
             (TimeSpan start, TimeSpan duration) = ComputeSampleWindow(context.Time);
             EnsureSamplesComposed(start, duration);
-            Version++;
         }
 
         partial void PostDispose(bool disposing)
         {
             if (disposing)
             {
-                _foregroundBrushResource?.Dispose();
-                _backgroundBrushResource?.Dispose();
                 _composer?.Dispose();
                 _source?.Dispose();
             }
-            _foregroundBrushResource = null;
-            _backgroundBrushResource = null;
             _composer = null;
             _source = null;
             _cachedSamples = [];
@@ -137,36 +122,11 @@ public abstract partial class AudioVisualizerDrawable : Drawable
 
         internal void RenderToCanvas(ImmediateCanvas canvas, Rect bounds)
         {
-            if (_backgroundBrushResource != null && BackgroundColor.A > 0)
-            {
-                canvas.DrawRectangle(bounds, _backgroundBrushResource, null);
-            }
-
-            if (_foregroundBrushResource == null) return;
-
+            if (Fill is null) return;
             RenderForeground(canvas, bounds);
         }
 
         protected abstract void RenderForeground(ImmediateCanvas canvas, Rect bounds);
-
-        private void EnsureBrushes(CompositionContext context)
-        {
-            if (_foregroundBrushResource == null || _foregroundBrushColor != ForegroundColor)
-            {
-                _foregroundBrushResource?.Dispose();
-                _foregroundBrushResource = new SolidColorBrush(ForegroundColor).ToResource(context) as SolidColorBrush.Resource;
-                _foregroundBrushColor = ForegroundColor;
-                Version++;
-            }
-
-            if (_backgroundBrushResource == null || _backgroundBrushColor != BackgroundColor)
-            {
-                _backgroundBrushResource?.Dispose();
-                _backgroundBrushResource = new SolidColorBrush(BackgroundColor).ToResource(context) as SolidColorBrush.Resource;
-                _backgroundBrushColor = BackgroundColor;
-                Version++;
-            }
-        }
 
         private void EnsureSamplesComposed(TimeSpan targetStart, TimeSpan targetDuration)
         {

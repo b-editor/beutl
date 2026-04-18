@@ -25,15 +25,13 @@ public sealed partial class BarSpectrumShape : SpectrumShape
     public new partial class Resource
     {
         private SKPaint? _paint;
-        private Color _lastColor;
         private SKPath? _path;
 
         internal override void Render(
             ImmediateCanvas canvas,
             Rect bounds,
             ReadOnlySpan<float> normalizedBars,
-            SolidColorBrush.Resource foregroundBrush,
-            Color foregroundColor)
+            Brush.Resource fill)
         {
             int barCount = normalizedBars.Length;
             if (barCount == 0) return;
@@ -54,12 +52,15 @@ public sealed partial class BarSpectrumShape : SpectrumShape
                     float barHeight = MathF.Max(1f, magnitude * height);
                     float x = (float)bounds.X + i * slotWidth + offsetX;
                     float y = (float)bounds.Y + height - barHeight;
-                    canvas.DrawRectangle(new Rect(x, y, barWidth, barHeight), foregroundBrush, null);
+                    canvas.DrawRectangle(new Rect(x, y, barWidth, barHeight), fill, null);
                 }
                 return;
             }
 
-            EnsurePaint(foregroundColor);
+            _paint ??= new SKPaint();
+            new BrushConstructor(bounds, fill, BlendMode.SrcOver).ConfigurePaint(_paint);
+            _paint.Style = SKPaintStyle.Fill;
+
             _path ??= new SKPath();
             _path.Reset();
 
@@ -89,26 +90,7 @@ public sealed partial class BarSpectrumShape : SpectrumShape
                 _path.AddRoundRect(roundRect);
             }
 
-            canvas.Canvas.DrawPath(_path, _paint!);
-        }
-
-        private void EnsurePaint(Color color)
-        {
-            if (_paint == null)
-            {
-                _paint = new SKPaint
-                {
-                    IsAntialias = true,
-                    Style = SKPaintStyle.Fill,
-                    Color = new SKColor(color.R, color.G, color.B, color.A),
-                };
-                _lastColor = color;
-            }
-            else if (_lastColor != color)
-            {
-                _paint.Color = new SKColor(color.R, color.G, color.B, color.A);
-                _lastColor = color;
-            }
+            canvas.Canvas.DrawPath(_path, _paint);
         }
 
         partial void PostDispose(bool disposing)

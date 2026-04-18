@@ -1,11 +1,10 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using Beutl.Audio;
 using Beutl.Audio.Graph;
-using Beutl.Composition;
 using Beutl.Engine;
-using Beutl.Graphics.Rendering;
 using Beutl.Language;
 using Beutl.Media;
+using SkiaSharp;
 
 namespace Beutl.Graphics.AudioVisualizers;
 
@@ -35,13 +34,10 @@ public sealed partial class AudioSpectrogramDrawable : AudioVisualizerDrawable
 
     public new partial class Resource
     {
-        private const int IntensityLevels = 16;
-
-        private SolidColorBrush.Resource?[]? _intensityBrushes;
-        private Color _intensityBrushBaseColor;
         private float[] _fftReal = [];
         private float[] _fftImag = [];
         private float[] _fftMagnitudes = [];
+        private SKPaint? _paint;
 
         protected override (TimeSpan Start, TimeSpan Duration) ComputeSampleWindow(TimeSpan currentTime)
         {
@@ -49,58 +45,18 @@ public sealed partial class AudioSpectrogramDrawable : AudioVisualizerDrawable
             return (currentTime - window, window);
         }
 
-        partial void PostUpdate(AudioSpectrogramDrawable obj, CompositionContext context)
-        {
-            EnsureIntensityBrushes(context);
-        }
-
         partial void PostDispose(bool disposing)
         {
             if (disposing)
             {
-                DisposeIntensityBrushes();
+                _paint?.Dispose();
             }
-            _intensityBrushes = null;
-        }
-
-        private void DisposeIntensityBrushes()
-        {
-            if (_intensityBrushes == null) return;
-            for (int i = 0; i < _intensityBrushes.Length; i++)
-            {
-                _intensityBrushes[i]?.Dispose();
-                _intensityBrushes[i] = null;
-            }
-        }
-
-        private void EnsureIntensityBrushes(CompositionContext context)
-        {
-            Color baseColor = ForegroundColor;
-            if (_intensityBrushes != null && _intensityBrushBaseColor == baseColor) return;
-
-            DisposeIntensityBrushes();
-            _intensityBrushes = new SolidColorBrush.Resource?[IntensityLevels];
-            for (int i = 0; i < IntensityLevels; i++)
-            {
-                byte alpha = (byte)Math.Clamp(baseColor.A * (i + 1) / IntensityLevels, 0, 255);
-                var color = Color.FromArgb(alpha, baseColor.R, baseColor.G, baseColor.B);
-                _intensityBrushes[i] = new SolidColorBrush(color).ToResource(context) as SolidColorBrush.Resource;
-            }
-            _intensityBrushBaseColor = baseColor;
-        }
-
-        private SolidColorBrush.Resource? PickIntensityBrush(float normalized)
-        {
-            if (_intensityBrushes == null) return null;
-            int idx = (int)(normalized * IntensityLevels);
-            if (idx <= 0) return null;
-            if (idx >= IntensityLevels) idx = IntensityLevels - 1;
-            return _intensityBrushes[idx];
+            _paint = null;
         }
 
         protected override void RenderForeground(ImmediateCanvas canvas, Rect bounds)
         {
-            if (CachedSampleLength == 0 || CachedSampleRate <= 0) return;
+            if (CachedSampleLength == 0 || CachedSampleRate <= 0 || Fill is null) return;
 
             int fftSize = Fft.ClampToPowerOfTwo(FftSize);
             if (fftSize < 2) return;
@@ -125,6 +81,14 @@ public sealed partial class AudioSpectrogramDrawable : AudioVisualizerDrawable
             ReadOnlySpan<float> samples = CachedSampleSpan;
             int sampleCount = samples.Length;
 
+            // Fill の最高強度 (normalized=1) に対応するペイントを bounds 全体で 1 回構築。
+            // 各セルでは opacity のみ変化させるので、SKPaint の Color の A チャンネルを毎回書き換える。
+            _paint ??= new SKPaint();
+            new BrushConstructor(bounds, Fill, BlendMode.SrcOver).ConfigurePaint(_paint);
+            _paint.Style = SKPaintStyle.Fill;
+            SKColor baseColor = _paint.Color;
+            byte baseAlpha = baseColor.Alpha;
+
             for (int col = 0; col < columns; col++)
             {
                 float normalizedT = (col + 0.5f) / columns;
@@ -136,7 +100,7 @@ public sealed partial class AudioSpectrogramDrawable : AudioVisualizerDrawable
                 Fft.Forward(real, imag);
                 Fft.Magnitudes(real, imag, mags);
 
-                float colX = bounds.X + col * colWidth;
+                float colX = (float)bounds.X + col * colWidth;
                 float drawColWidth = Math.Max(1f, colWidth + 0.5f);
 
                 for (int bin = 0; bin < bins; bin++)
@@ -144,15 +108,17 @@ public sealed partial class AudioSpectrogramDrawable : AudioVisualizerDrawable
                     float db = Fft.MagnitudeToDb(mags[bin] * gain, reference);
                     float normalized = (db - floorDb) / (0f - floorDb);
                     normalized = Math.Clamp(normalized, 0f, 1f);
-                    SolidColorBrush.Resource? brush = PickIntensityBrush(normalized);
-                    if (brush == null) continue;
+                    if (normalized <= 0f) continue;
+
+                    byte alpha = (byte)(baseAlpha * normalized);
+                    if (alpha == 0) continue;
+                    _paint.Color = baseColor.WithAlpha(alpha);
 
                     // 高い周波数を上側に配置
-                    float y = bounds.Y + height - (bin + 1) * binHeight;
-                    canvas.DrawRectangle(
-                        new Rect(colX, y, drawColWidth, Math.Max(1f, binHeight + 0.5f)),
-                        brush,
-                        null);
+                    float y = (float)bounds.Y + height - (bin + 1) * binHeight;
+                    canvas.Canvas.DrawRect(
+                        new SKRect(colX, y, colX + drawColWidth, y + Math.Max(1f, binHeight + 0.5f)),
+                        _paint);
                 }
             }
         }

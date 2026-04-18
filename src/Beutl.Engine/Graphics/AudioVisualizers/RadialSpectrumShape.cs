@@ -40,8 +40,7 @@ public sealed partial class RadialSpectrumShape : SpectrumShape
             ImmediateCanvas canvas,
             Rect bounds,
             ReadOnlySpan<float> normalizedBars,
-            SolidColorBrush.Resource foregroundBrush,
-            Color foregroundColor)
+            Brush.Resource fill)
         {
             int barCount = normalizedBars.Length;
             if (barCount == 0) return;
@@ -88,7 +87,7 @@ public sealed partial class RadialSpectrumShape : SpectrumShape
                 using (canvas.PushTransform(transform))
                 {
                     float half = barWidth * 0.5f;
-                    canvas.DrawRectangle(new Rect(0f, -half, r2 - r1, barWidth), foregroundBrush, null);
+                    canvas.DrawRectangle(new Rect(0f, -half, r2 - r1, barWidth), fill, null);
                 }
             }
         }

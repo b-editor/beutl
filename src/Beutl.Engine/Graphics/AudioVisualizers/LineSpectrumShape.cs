@@ -26,8 +26,6 @@ public sealed partial class LineSpectrumShape : SpectrumShape
     {
         private SKPath? _path;
         private SKPaint? _paint;
-        private Color _lastColor;
-        private float _lastThickness = -1f;
         private float _lastCornerRadius = -1f;
         private SKPathEffect? _cornerEffect;
 
@@ -35,8 +33,7 @@ public sealed partial class LineSpectrumShape : SpectrumShape
             ImmediateCanvas canvas,
             Rect bounds,
             ReadOnlySpan<float> normalizedBars,
-            SolidColorBrush.Resource foregroundBrush,
-            Color foregroundColor)
+            Brush.Resource fill)
         {
             int barCount = normalizedBars.Length;
             if (barCount < 2) return;
@@ -48,7 +45,19 @@ public sealed partial class LineSpectrumShape : SpectrumShape
             float smoothness = Math.Clamp(Smoothness / 100f, 0f, 1f);
             float cornerRadius = smoothness * slotWidth * 0.5f;
 
-            EnsurePaint(foregroundColor, thickness, cornerRadius);
+            _paint ??= new SKPaint();
+            new BrushConstructor(bounds, fill, BlendMode.SrcOver).ConfigurePaint(_paint);
+            _paint.Style = SKPaintStyle.Stroke;
+            _paint.StrokeCap = SKStrokeCap.Round;
+            _paint.StrokeJoin = SKStrokeJoin.Round;
+            _paint.StrokeWidth = thickness;
+            if (_lastCornerRadius != cornerRadius)
+            {
+                _cornerEffect?.Dispose();
+                _cornerEffect = cornerRadius > 0.01f ? SKPathEffect.CreateCorner(cornerRadius) : null;
+                _lastCornerRadius = cornerRadius;
+            }
+            _paint.PathEffect = _cornerEffect;
 
             _path ??= new SKPath();
             _path.Reset();
@@ -62,46 +71,7 @@ public sealed partial class LineSpectrumShape : SpectrumShape
                 else _path.LineTo(x, y);
             }
 
-            canvas.Canvas.DrawPath(_path, _paint!);
-        }
-
-        private void EnsurePaint(Color color, float thickness, float cornerRadius)
-        {
-            if (_paint == null)
-            {
-                _paint = new SKPaint
-                {
-                    IsAntialias = true,
-                    Style = SKPaintStyle.Stroke,
-                    StrokeCap = SKStrokeCap.Round,
-                    StrokeJoin = SKStrokeJoin.Round,
-                    Color = new SKColor(color.R, color.G, color.B, color.A),
-                    StrokeWidth = thickness,
-                };
-                _lastColor = color;
-                _lastThickness = thickness;
-            }
-            else
-            {
-                if (_lastColor != color)
-                {
-                    _paint.Color = new SKColor(color.R, color.G, color.B, color.A);
-                    _lastColor = color;
-                }
-                if (_lastThickness != thickness)
-                {
-                    _paint.StrokeWidth = thickness;
-                    _lastThickness = thickness;
-                }
-            }
-
-            if (_lastCornerRadius != cornerRadius)
-            {
-                _cornerEffect?.Dispose();
-                _cornerEffect = cornerRadius > 0.01f ? SKPathEffect.CreateCorner(cornerRadius) : null;
-                _paint.PathEffect = _cornerEffect;
-                _lastCornerRadius = cornerRadius;
-            }
+            canvas.Canvas.DrawPath(_path, _paint);
         }
 
         partial void PostDispose(bool disposing)

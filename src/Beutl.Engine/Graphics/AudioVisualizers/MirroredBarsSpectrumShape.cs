@@ -23,8 +23,7 @@ public sealed partial class MirroredBarsSpectrumShape : SpectrumShape
             ImmediateCanvas canvas,
             Rect bounds,
             ReadOnlySpan<float> normalizedBars,
-            SolidColorBrush.Resource foregroundBrush,
-            Color foregroundColor)
+            Brush.Resource fill)
         {
             int barCount = normalizedBars.Length;
             if (barCount == 0) return;
@@ -43,7 +42,7 @@ public sealed partial class MirroredBarsSpectrumShape : SpectrumShape
                 float x = (float)bounds.X + i * slotWidth + offsetX;
                 float topY = centerY - halfHeight;
                 float barHeight = halfHeight * 2f;
-                canvas.DrawRectangle(new Rect(x, topY, barWidth, barHeight), foregroundBrush, null);
+                canvas.DrawRectangle(new Rect(x, topY, barWidth, barHeight), fill, null);
             }
         }
     }
