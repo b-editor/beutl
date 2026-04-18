@@ -1396,4 +1396,46 @@
   <data name="AudioVisualizer_Smoothing" xml:space="preserve">
     <value>スムージング</value>
   </data>
+  <data name="AudioVisualizer_Shape" xml:space="preserve">
+    <value>形状</value>
+  </data>
+  <data name="SpectrumShape_Bar" xml:space="preserve">
+    <value>バー</value>
+  </data>
+  <data name="SpectrumShape_Line" xml:space="preserve">
+    <value>折れ線</value>
+  </data>
+  <data name="SpectrumShape_FilledArea" xml:space="preserve">
+    <value>塗りつぶし</value>
+  </data>
+  <data name="SpectrumShape_MirroredBars" xml:space="preserve">
+    <value>上下対称バー</value>
+  </data>
+  <data name="SpectrumShape_Radial" xml:space="preserve">
+    <value>放射状</value>
+  </data>
+  <data name="SpectrumShape_Spacing" xml:space="preserve">
+    <value>バー間隔</value>
+  </data>
+  <data name="SpectrumShape_CornerRadius" xml:space="preserve">
+    <value>角の丸み</value>
+  </data>
+  <data name="SpectrumShape_Thickness" xml:space="preserve">
+    <value>線の太さ</value>
+  </data>
+  <data name="SpectrumShape_Smoothness" xml:space="preserve">
+    <value>滑らかさ</value>
+  </data>
+  <data name="SpectrumShape_InnerRadius" xml:space="preserve">
+    <value>内半径</value>
+  </data>
+  <data name="SpectrumShape_StartAngle" xml:space="preserve">
+    <value>開始角度</value>
+  </data>
+  <data name="SpectrumShape_BarWidth" xml:space="preserve">
+    <value>バー幅</value>
+  </data>
+  <data name="SpectrumShape_Direction" xml:space="preserve">
+    <value>方向</value>
+  </data>
 </root>

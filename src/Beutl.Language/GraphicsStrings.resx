@@ -1398,4 +1398,46 @@
   <data name="AudioVisualizer_Smoothing" xml:space="preserve">
     <value>Smoothing</value>
   </data>
+  <data name="AudioVisualizer_Shape" xml:space="preserve">
+    <value>Shape</value>
+  </data>
+  <data name="SpectrumShape_Bar" xml:space="preserve">
+    <value>Bar</value>
+  </data>
+  <data name="SpectrumShape_Line" xml:space="preserve">
+    <value>Line</value>
+  </data>
+  <data name="SpectrumShape_FilledArea" xml:space="preserve">
+    <value>Filled Area</value>
+  </data>
+  <data name="SpectrumShape_MirroredBars" xml:space="preserve">
+    <value>Mirrored Bars</value>
+  </data>
+  <data name="SpectrumShape_Radial" xml:space="preserve">
+    <value>Radial</value>
+  </data>
+  <data name="SpectrumShape_Spacing" xml:space="preserve">
+    <value>Spacing</value>
+  </data>
+  <data name="SpectrumShape_CornerRadius" xml:space="preserve">
+    <value>Corner Radius</value>
+  </data>
+  <data name="SpectrumShape_Thickness" xml:space="preserve">
+    <value>Thickness</value>
+  </data>
+  <data name="SpectrumShape_Smoothness" xml:space="preserve">
+    <value>Smoothness</value>
+  </data>
+  <data name="SpectrumShape_InnerRadius" xml:space="preserve">
+    <value>Inner Radius</value>
+  </data>
+  <data name="SpectrumShape_StartAngle" xml:space="preserve">
+    <value>Start Angle</value>
+  </data>
+  <data name="SpectrumShape_BarWidth" xml:space="preserve">
+    <value>Bar Width</value>
+  </data>
+  <data name="SpectrumShape_Direction" xml:space="preserve">
+    <value>Direction</value>
+  </data>
 </root>

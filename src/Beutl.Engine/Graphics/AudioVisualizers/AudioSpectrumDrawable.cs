@@ -1,7 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using Beutl.Audio.Graph;
 using Beutl.Engine;
-using Beutl.Graphics.Rendering;
 using Beutl.Language;
 using Beutl.Media;
 
@@ -13,7 +12,11 @@ public sealed partial class AudioSpectrumDrawable : AudioVisualizerDrawable
     public AudioSpectrumDrawable()
     {
         ScanProperties<AudioSpectrumDrawable>();
+        Shape.CurrentValue = new BarSpectrumShape();
     }
+
+    [Display(Name = nameof(GraphicsStrings.AudioVisualizer_Shape), ResourceType = typeof(GraphicsStrings))]
+    public IProperty<SpectrumShape?> Shape { get; } = Property.Create<SpectrumShape?>();
 
     [Display(Name = nameof(GraphicsStrings.AudioVisualizer_BarCount), ResourceType = typeof(GraphicsStrings))]
     [Range(1, 10000)]
@@ -40,6 +43,7 @@ public sealed partial class AudioSpectrumDrawable : AudioVisualizerDrawable
         private float[] _fftImag = [];
         private float[] _fftMagnitudes = [];
         private float[] _smoothedMagnitudes = [];
+        private float[] _normalizedBars = [];
 
         protected override (TimeSpan Start, TimeSpan Duration) ComputeSampleWindow(TimeSpan currentTime)
         {
@@ -51,6 +55,9 @@ public sealed partial class AudioSpectrumDrawable : AudioVisualizerDrawable
         protected override void RenderForeground(ImmediateCanvas canvas, Rect bounds)
         {
             if (CachedSampleLength == 0 || ForegroundBrush is null || CachedSampleRate <= 0) return;
+
+            SpectrumShape.Resource? shapeResource = Shape;
+            if (shapeResource is null) return;
 
             int fftSize = Fft.ClampToPowerOfTwo(FftSize);
             if (fftSize < 2) return;
@@ -80,23 +87,24 @@ public sealed partial class AudioSpectrumDrawable : AudioVisualizerDrawable
             float reference = fftSize * 0.5f;
             float gain = Math.Max(0f, Gain);
             float floorDb = FloorDb;
-            float width = (float)bounds.Width;
-            float height = (float)bounds.Height;
 
             int barCount = Math.Min(Math.Max(1, BarCount), bins);
-            float slotWidth = width / barCount;
-            float barWidth = Math.Max(1f, slotWidth - 0.5f);
             bool logarithmic = LogarithmicFrequency;
-
-            float fMax = CachedSampleRate * 0.5f;
-            float fMin = Math.Max(20f, fMax / bins);
 
             if (_smoothedMagnitudes.Length < barCount)
             {
                 _smoothedMagnitudes = new float[barCount];
             }
+            if (_normalizedBars.Length < barCount)
+            {
+                _normalizedBars = new float[barCount];
+            }
             Span<float> smoothed = _smoothedMagnitudes.AsSpan(0, barCount);
+            Span<float> normalized = _normalizedBars.AsSpan(0, barCount);
             float smoothing = Math.Clamp(Smoothing, 0f, 0.99f);
+
+            float fMax = CachedSampleRate * 0.5f;
+            float fMin = Math.Max(20f, fMax / bins);
 
             for (int i = 0; i < barCount; i++)
             {
@@ -136,14 +144,11 @@ public sealed partial class AudioSpectrumDrawable : AudioVisualizerDrawable
                 smoothed[i] = smoothedMag;
 
                 float db = Fft.MagnitudeToDb(smoothedMag * gain, reference);
-                float normalized = (db - floorDb) / (0f - floorDb);
-                normalized = Math.Clamp(normalized, 0f, 1f);
-
-                float barHeight = Math.Max(1f, normalized * height);
-                float x = i * slotWidth;
-                float y = height - barHeight;
-                canvas.DrawRectangle(new Rect(bounds.X + x, bounds.Y + y, barWidth, barHeight), ForegroundBrush, null);
+                float n = (db - floorDb) / (0f - floorDb);
+                normalized[i] = Math.Clamp(n, 0f, 1f);
             }
+
+            shapeResource.Render(canvas, bounds, normalized, ForegroundBrush, ForegroundColor);
         }
     }
 }
