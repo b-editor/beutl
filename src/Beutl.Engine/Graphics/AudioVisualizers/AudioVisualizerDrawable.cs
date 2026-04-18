@@ -30,7 +30,7 @@ public abstract partial class AudioVisualizerDrawable : Drawable
     [Range(1, float.MaxValue)]
     public IProperty<float> Height { get; } = Property.CreateAnimatable(120f);
 
-    [Display(Name = nameof(GraphicsStrings.Fill), ResourceType = typeof(GraphicsStrings), GroupName = nameof(GraphicsStrings.Fill))]
+    [Display(Name = nameof(GraphicsStrings.Fill), ResourceType = typeof(GraphicsStrings))]
     public IProperty<Brush?> Fill { get; } = Property.Create<Brush?>();
 
     [Display(Name = nameof(GraphicsStrings.AudioVisualizer_Gain), ResourceType = typeof(GraphicsStrings))]
