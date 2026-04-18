@@ -16,6 +16,9 @@ public sealed class SpectrumControl : AudioVisualizerControlBase
     public static readonly StyledProperty<float> SmoothingProperty =
         AvaloniaProperty.Register<SpectrumControl, float>(nameof(Smoothing), 55f);
 
+    public static readonly StyledProperty<SpectrumDisplayShape> ShapeProperty =
+        AvaloniaProperty.Register<SpectrumControl, SpectrumDisplayShape>(nameof(Shape), SpectrumDisplayShape.Bar);
+
     private const double FrequencyAxisHeight = 14.0;
     private static readonly double[] s_frequencyTicks = [50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000];
 
@@ -42,6 +45,12 @@ public sealed class SpectrumControl : AudioVisualizerControlBase
     {
         get => GetValue(SmoothingProperty);
         set => SetValue(SmoothingProperty, value);
+    }
+
+    public SpectrumDisplayShape Shape
+    {
+        get => GetValue(ShapeProperty);
+        set => SetValue(ShapeProperty, value);
     }
 
     public override void Render(DrawingContext context)
@@ -99,8 +108,29 @@ public sealed class SpectrumControl : AudioVisualizerControlBase
     {
         // Logarithmic bar layout: groups bins into ~96 display bands.
         int bands = Math.Min(96, bins);
-        double barWidth = plotBounds.Width / bands;
-        double height = plotBounds.Height - 2;
+        Span<float> bandPeaks = bands <= 256 ? stackalloc float[bands] : new float[bands];
+        ReduceBinsToBands(bins, bands, bandPeaks);
+
+        switch (Shape)
+        {
+            case SpectrumDisplayShape.Line:
+                DrawLineShape(context, plotBounds, bandPeaks);
+                break;
+            case SpectrumDisplayShape.FilledArea:
+                DrawFilledAreaShape(context, plotBounds, bandPeaks);
+                break;
+            case SpectrumDisplayShape.MirroredBars:
+                DrawMirroredBarsShape(context, plotBounds, bandPeaks);
+                break;
+            case SpectrumDisplayShape.Bar:
+            default:
+                DrawBarShape(context, plotBounds, bandPeaks);
+                break;
+        }
+    }
+
+    private void ReduceBinsToBands(int bins, int bands, Span<float> bandPeaks)
+    {
         for (int b = 0; b < bands; b++)
         {
             double lo = Math.Pow(bins, b / (double)bands);
@@ -115,12 +145,85 @@ public sealed class SpectrumControl : AudioVisualizerControlBase
                 float v = _smoothed[k];
                 if (v > peak) peak = v;
             }
+            bandPeaks[b] = peak;
+        }
+    }
 
-            double h = peak * height;
-            double x = b * barWidth;
-            var rect = new Rect(x + 0.5, plotBounds.Bottom - h, Math.Max(0.5, barWidth - 1.0), h);
+    private void DrawBarShape(DrawingContext context, Rect plotBounds, ReadOnlySpan<float> bandPeaks)
+    {
+        int bands = bandPeaks.Length;
+        double barSlot = plotBounds.Width / bands;
+        double height = plotBounds.Height - 2;
+        for (int b = 0; b < bands; b++)
+        {
+            double h = bandPeaks[b] * height;
+            double x = b * barSlot;
+            var rect = new Rect(x + 0.5, plotBounds.Bottom - h, Math.Max(0.5, barSlot - 1.0), h);
             context.FillRectangle(PrimaryBrush, rect);
         }
+    }
+
+    private void DrawMirroredBarsShape(DrawingContext context, Rect plotBounds, ReadOnlySpan<float> bandPeaks)
+    {
+        int bands = bandPeaks.Length;
+        double barSlot = plotBounds.Width / bands;
+        double centerY = plotBounds.Top + plotBounds.Height * 0.5;
+        double halfHeight = plotBounds.Height * 0.5 - 1;
+        for (int b = 0; b < bands; b++)
+        {
+            double h = bandPeaks[b] * halfHeight;
+            double x = b * barSlot;
+            var rect = new Rect(x + 0.5, centerY - h, Math.Max(0.5, barSlot - 1.0), h * 2);
+            context.FillRectangle(PrimaryBrush, rect);
+        }
+    }
+
+    private void DrawLineShape(DrawingContext context, Rect plotBounds, ReadOnlySpan<float> bandPeaks)
+    {
+        int bands = bandPeaks.Length;
+        if (bands < 2) return;
+
+        double slotWidth = plotBounds.Width / bands;
+        double height = plotBounds.Height - 2;
+        var geometry = new StreamGeometry();
+        using (StreamGeometryContext ctx = geometry.Open())
+        {
+            ctx.BeginFigure(new Point(slotWidth * 0.5, plotBounds.Bottom - bandPeaks[0] * height), false);
+            for (int b = 1; b < bands; b++)
+            {
+                double x = b * slotWidth + slotWidth * 0.5;
+                double y = plotBounds.Bottom - bandPeaks[b] * height;
+                ctx.LineTo(new Point(x, y));
+            }
+            ctx.EndFigure(false);
+        }
+
+        var pen = new Pen(PrimaryBrush, 1.5, lineJoin: PenLineJoin.Round);
+        context.DrawGeometry(null, pen, geometry);
+    }
+
+    private void DrawFilledAreaShape(DrawingContext context, Rect plotBounds, ReadOnlySpan<float> bandPeaks)
+    {
+        int bands = bandPeaks.Length;
+        if (bands < 2) return;
+
+        double slotWidth = plotBounds.Width / bands;
+        double height = plotBounds.Height - 2;
+        var geometry = new StreamGeometry();
+        using (StreamGeometryContext ctx = geometry.Open())
+        {
+            ctx.BeginFigure(new Point(0, plotBounds.Bottom), true);
+            for (int b = 0; b < bands; b++)
+            {
+                double x = b * slotWidth + slotWidth * 0.5;
+                double y = plotBounds.Bottom - bandPeaks[b] * height;
+                ctx.LineTo(new Point(x, y));
+            }
+            ctx.LineTo(new Point(plotBounds.Right, plotBounds.Bottom));
+            ctx.EndFigure(true);
+        }
+
+        context.DrawGeometry(PrimaryBrush, null, geometry);
     }
 
     private void DrawFrequencyGrid(DrawingContext context, Rect plotBounds, int sampleRate, int bins)

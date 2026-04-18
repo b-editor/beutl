@@ -42,6 +42,13 @@
                             </StackPanel>
 
                             <StackPanel Spacing="3">
+                                <TextBlock Text="Spectrum Shape" Theme="{StaticResource CaptionTextBlockStyle}" />
+                                <ComboBox HorizontalAlignment="Stretch"
+                                          ItemsSource="{Binding AvailableSpectrumShapes}"
+                                          SelectedItem="{Binding SpectrumShape.Value, Mode=TwoWay}" />
+                            </StackPanel>
+
+                            <StackPanel Spacing="3">
                                 <Grid ColumnDefinitions="*,Auto">
                                     <TextBlock Text="Smoothing" Theme="{StaticResource CaptionTextBlockStyle}" />
                                     <TextBlock Grid.Column="1"
@@ -82,6 +89,7 @@
                                    MinDecibels="{Binding MinDecibels.Value}"
                                    PlayheadTime="{Binding PlayheadTime.Value}"
                                    RingBuffer="{Binding RingBuffer}"
+                                   Shape="{Binding SpectrumShape.Value}"
                                    Smoothing="{Binding Smoothing.Value}" />
 
             <views:LevelMeterControl IsVisible="{Binding SelectedMode.Value, Converter={x:Static views:AudioVisualizerModeConverter.Instance}, ConverterParameter=Meter}"

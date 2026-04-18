@@ -59,7 +59,11 @@ public sealed class AudioVisualizerTabViewModel : IToolContext
 
     public ReactivePropertySlim<float> Smoothing { get; } = new(55f);
 
+    public ReactivePropertySlim<SpectrumDisplayShape> SpectrumShape { get; } = new(SpectrumDisplayShape.Bar);
+
     public IReadOnlyList<int> AvailableFftSizes { get; } = [256, 512, 1024, 2048, 4096, 8192];
+
+    public IReadOnlyList<SpectrumDisplayShape> AvailableSpectrumShapes { get; } = Enum.GetValues<SpectrumDisplayShape>();
 
     public string Header => Strings.AudioVisualizer;
 
@@ -144,6 +148,12 @@ public sealed class AudioVisualizerTabViewModel : IToolContext
         {
             Smoothing.Value = smoothing;
         }
+
+        if (json.TryGetPropertyValue("spectrumShape", out var shapeNode) && shapeNode is JsonValue shapeValue
+            && shapeValue.TryGetValue(out int shape) && Enum.IsDefined(typeof(SpectrumDisplayShape), shape))
+        {
+            SpectrumShape.Value = (SpectrumDisplayShape)shape;
+        }
     }
 
     public void WriteToJson(JsonObject json)
@@ -152,6 +162,7 @@ public sealed class AudioVisualizerTabViewModel : IToolContext
         json["fftSize"] = FftSize.Value;
         json["minDecibels"] = MinDecibels.Value;
         json["smoothing"] = Smoothing.Value;
+        json["spectrumShape"] = (int)SpectrumShape.Value;
     }
 
     private static bool IsPowerOfTwo(int v) => v > 0 && (v & (v - 1)) == 0;
