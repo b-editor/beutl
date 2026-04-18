@@ -4,5 +4,6 @@ public enum AudioVisualizerMode
 {
     Waveform,
     Spectrum,
-    Meter
+    Meter,
+    Spectrogram,
 }

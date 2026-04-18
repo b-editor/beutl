@@ -807,6 +807,9 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="AudioVisualizer" xml:space="preserve">
     <value>Audio Visualizer</value>
   </data>
+  <data name="Spectrogram" xml:space="preserve">
+    <value>Spectrogram</value>
+  </data>
   <data name="Luma" xml:space="preserve">
     <value>Luma</value>
   </data>

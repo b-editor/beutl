@@ -22,6 +22,7 @@
                 <ComboBoxItem Content="{x:Static lang:Strings.Waveform}" />
                 <ComboBoxItem Content="{x:Static lang:Strings.Spectrum}" />
                 <ComboBoxItem Content="{x:Static lang:Strings.Meter}" />
+                <ComboBoxItem Content="{x:Static lang:Strings.Spectrogram}" />
             </ComboBox>
 
             <Button Grid.Column="2"
@@ -86,6 +87,12 @@
             <views:LevelMeterControl IsVisible="{Binding SelectedMode.Value, Converter={x:Static views:AudioVisualizerModeConverter.Instance}, ConverterParameter=Meter}"
                                      PlayheadTime="{Binding PlayheadTime.Value}"
                                      RingBuffer="{Binding RingBuffer}" />
+
+            <views:SpectrogramControl FftSize="{Binding FftSize.Value}"
+                                      IsVisible="{Binding SelectedMode.Value, Converter={x:Static views:AudioVisualizerModeConverter.Instance}, ConverterParameter=Spectrogram}"
+                                      MinDecibels="{Binding MinDecibels.Value}"
+                                      PlayheadTime="{Binding PlayheadTime.Value}"
+                                      RingBuffer="{Binding RingBuffer}" />
         </Panel>
     </Grid>
 </UserControl>

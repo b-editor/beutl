@@ -802,6 +802,9 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="AudioVisualizer" xml:space="preserve">
     <value>オーディオビジュアライザー</value>
   </data>
+  <data name="Spectrogram" xml:space="preserve">
+    <value>スペクトログラム</value>
+  </data>
   <data name="Luma" xml:space="preserve">
     <value>輝度</value>
   </data>

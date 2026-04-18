@@ -83,7 +83,9 @@ public sealed class AudioSampleRingBuffer
 
             if (needsReset)
             {
-                int cap = Math.Max(_capacity, sampleRate * 2);
+                // 5s default keeps enough history for the spectrogram view (default window 4s)
+                // while staying small (~1MB per channel at 48 kHz).
+                int cap = Math.Max(_capacity, sampleRate * 5);
                 ResetInternal(sampleRate, cap);
             }
 
