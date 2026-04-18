@@ -79,13 +79,15 @@ public sealed partial class AudioWaveformDrawable : AudioVisualizerDrawable
 
                 case WaveformStyle.Line:
                     {
+                        // (min + max) / 2 は対称振動で相殺して中心線に潰れるため、
+                        // max(|min|, |max|) をピークエンベロープとして上側にラインを引く。
                         const float lineThickness = 1.5f;
                         float halfThick = lineThickness * 0.5f;
                         float? prevY = null;
                         for (int i = 0; i < barCount; i++)
                         {
-                            float avg = (minBuf[i] + maxBuf[i]) * 0.5f;
-                            float value = Math.Clamp(avg * gain, -1f, 1f);
+                            float peak = MathF.Max(MathF.Abs(minBuf[i]), MathF.Abs(maxBuf[i]));
+                            float value = Math.Clamp(peak * gain, 0f, 1f);
                             float y = centerY - value * centerY;
                             float x = i * slotWidth;
 
