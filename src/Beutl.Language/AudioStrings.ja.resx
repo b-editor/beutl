@@ -55,4 +55,7 @@
   <data name="SceneSound" xml:space="preserve">
     <value>シーン参照（音声）</value>
   </data>
+  <data name="SceneSound_ReferencedScene" xml:space="preserve">
+    <value>参照するシーン</value>
+  </data>
 </root>

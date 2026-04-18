@@ -60,4 +60,7 @@
   <data name="SceneSound" xml:space="preserve">
     <value>Scene Reference (Audio)</value>
   </data>
+  <data name="SceneSound_ReferencedScene" xml:space="preserve">
+    <value>Referenced Scene</value>
+  </data>
 </root>
