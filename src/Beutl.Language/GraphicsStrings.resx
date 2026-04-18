@@ -1416,9 +1416,6 @@
   <data name="SpectrumShape_Radial" xml:space="preserve">
     <value>Radial</value>
   </data>
-  <data name="SpectrumShape_Spacing" xml:space="preserve">
-    <value>Spacing</value>
-  </data>
   <data name="SpectrumShape_CornerRadius" xml:space="preserve">
     <value>Corner Radius</value>
   </data>

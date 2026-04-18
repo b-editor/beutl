@@ -14,9 +14,9 @@ public sealed partial class BarSpectrumShape : SpectrumShape
         ScanProperties<BarSpectrumShape>();
     }
 
-    [Display(Name = nameof(GraphicsStrings.SpectrumShape_Spacing), ResourceType = typeof(GraphicsStrings))]
-    [Range(0f, 0.99f)]
-    public IProperty<float> Spacing { get; } = Property.CreateAnimatable(0.1f);
+    [Display(Name = nameof(GraphicsStrings.SpectrumShape_BarWidth), ResourceType = typeof(GraphicsStrings))]
+    [Range(0.5f, 10000f)]
+    public IProperty<float> BarWidth { get; } = Property.CreateAnimatable(6f);
 
     [Display(Name = nameof(GraphicsStrings.SpectrumShape_CornerRadius), ResourceType = typeof(GraphicsStrings))]
     public IProperty<CornerRadius> CornerRadius { get; } =
@@ -41,8 +41,7 @@ public sealed partial class BarSpectrumShape : SpectrumShape
             float width = (float)bounds.Width;
             float height = (float)bounds.Height;
             float slotWidth = width / barCount;
-            float spacing = Math.Clamp(Spacing, 0f, 0.99f);
-            float barWidth = MathF.Max(1f, slotWidth * (1f - spacing));
+            float barWidth = MathF.Max(0.5f, BarWidth);
             float offsetX = (slotWidth - barWidth) * 0.5f;
 
             CornerRadius cr = CornerRadius;

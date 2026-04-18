@@ -13,9 +13,9 @@ public sealed partial class MirroredBarsSpectrumShape : SpectrumShape
         ScanProperties<MirroredBarsSpectrumShape>();
     }
 
-    [Display(Name = nameof(GraphicsStrings.SpectrumShape_Spacing), ResourceType = typeof(GraphicsStrings))]
-    [Range(0f, 0.99f)]
-    public IProperty<float> Spacing { get; } = Property.CreateAnimatable(0.1f);
+    [Display(Name = nameof(GraphicsStrings.SpectrumShape_BarWidth), ResourceType = typeof(GraphicsStrings))]
+    [Range(0.5f, 10000f)]
+    public IProperty<float> BarWidth { get; } = Property.CreateAnimatable(6f);
 
     public new partial class Resource
     {
@@ -33,8 +33,7 @@ public sealed partial class MirroredBarsSpectrumShape : SpectrumShape
             float height = (float)bounds.Height;
             float centerY = (float)bounds.Y + height * 0.5f;
             float slotWidth = width / barCount;
-            float spacing = Math.Clamp(Spacing, 0f, 0.99f);
-            float barWidth = MathF.Max(1f, slotWidth * (1f - spacing));
+            float barWidth = MathF.Max(0.5f, BarWidth);
             float offsetX = (slotWidth - barWidth) * 0.5f;
 
             for (int i = 0; i < barCount; i++)

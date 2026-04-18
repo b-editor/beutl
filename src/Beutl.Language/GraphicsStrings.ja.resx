@@ -1414,9 +1414,6 @@
   <data name="SpectrumShape_Radial" xml:space="preserve">
     <value>放射状</value>
   </data>
-  <data name="SpectrumShape_Spacing" xml:space="preserve">
-    <value>バー間隔</value>
-  </data>
   <data name="SpectrumShape_CornerRadius" xml:space="preserve">
     <value>角の丸み</value>
   </data>
