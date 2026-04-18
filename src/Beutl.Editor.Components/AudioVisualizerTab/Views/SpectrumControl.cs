@@ -1,7 +1,6 @@
-﻿using System.Numerics;
 using Avalonia;
 using Avalonia.Media;
-using Beutl.Editor.Components.AudioVisualizerTab.Utilities;
+using Beutl.Audio.Graph;
 using Beutl.Editor.Components.AudioVisualizerTab.ViewModels;
 
 namespace Beutl.Editor.Components.AudioVisualizerTab.Views;
@@ -16,7 +15,8 @@ public sealed class SpectrumControl : AudioVisualizerControlBase
 
     private float[] _samplesL = [];
     private float[] _samplesR = [];
-    private Complex[] _complex = [];
+    private float[] _real = [];
+    private float[] _imag = [];
     private float[] _magnitudes = [];
     private float[] _smoothed = [];
 
@@ -40,38 +40,36 @@ public sealed class SpectrumControl : AudioVisualizerControlBase
         AudioSampleRingBuffer? buffer = RingBuffer;
         if (buffer == null || bounds.Width < 8 || bounds.Height < 8) return;
 
-        int n = NormalizeFftSize(FftSize);
+        int n = Fft.ClampToPowerOfTwo(FftSize, min: 256, max: 8192);
         EnsureBuffers(n);
 
         int got = buffer.ReadAroundTime(PlayheadTime, _samplesL, _samplesR, n);
         if (got < n / 2) return;
 
+        Span<float> real = _real.AsSpan(0, n);
+        Span<float> imag = _imag.AsSpan(0, n);
         for (int i = 0; i < n; i++)
         {
-            _complex[i] = new Complex(0.5f * (_samplesL[i] + _samplesR[i]), 0);
+            real[i] = 0.5f * (_samplesL[i] + _samplesR[i]);
         }
+        imag.Clear();
 
-        var mono = new Span<float>(_samplesL, 0, n);
-        // Apply window on mono view (reuse _samplesL buffer; we already combined into _complex)
-        // Instead: reconstruct mono for window from complex
-        for (int i = 0; i < n; i++) mono[i] = (float)_complex[i].Real;
-        Fft.ApplyHannWindow(mono);
-        for (int i = 0; i < n; i++) _complex[i] = new Complex(mono[i], 0);
-
-        Fft.Forward(_complex);
+        Fft.ApplyHann(real);
+        Fft.Forward(real, imag);
 
         int bins = n / 2;
+        Span<float> mags = _magnitudes.AsSpan(0, bins);
+        Fft.Magnitudes(real, imag, mags);
+
         float referenceMag = n * 0.5f;
         float minDb = MinDecibels;
         float rangeDb = -minDb;
 
         for (int i = 0; i < bins; i++)
         {
-            float mag = Fft.Magnitude(_complex[i]);
-            float db = Fft.ToDecibels(mag, referenceMag, minDb);
+            float db = MathF.Max(Fft.MagnitudeToDb(mags[i], referenceMag), minDb);
             float norm = (db - minDb) / rangeDb;
             if (norm < 0) norm = 0;
-            _magnitudes[i] = norm;
             _smoothed[i] = _smoothed[i] * 0.55f + norm * 0.45f;
         }
 
@@ -107,18 +105,10 @@ public sealed class SpectrumControl : AudioVisualizerControlBase
         {
             _samplesL = new float[n];
             _samplesR = new float[n];
-            _complex = new Complex[n];
+            _real = new float[n];
+            _imag = new float[n];
             _magnitudes = new float[n / 2];
             _smoothed = new float[n / 2];
         }
-    }
-
-    private static int NormalizeFftSize(int requested)
-    {
-        int n = 2;
-        while (n < requested) n <<= 1;
-        if (n < 256) n = 256;
-        if (n > 8192) n = 8192;
-        return n;
     }
 }

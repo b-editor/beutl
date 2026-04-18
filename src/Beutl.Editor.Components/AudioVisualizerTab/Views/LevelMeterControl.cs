@@ -1,5 +1,6 @@
 ﻿using Avalonia;
 using Avalonia.Media;
+using Beutl.Audio.Graph;
 using Beutl.Editor.Components.AudioVisualizerTab.ViewModels;
 
 namespace Beutl.Editor.Components.AudioVisualizerTab.Views;
@@ -81,8 +82,8 @@ public sealed class LevelMeterControl : AudioVisualizerControlBase
 
     private static float AmplitudeToDb(float amp)
     {
-        if (amp <= 0) return MinDb;
-        float db = 20f * MathF.Log10(amp);
+        // AudioMath.ConvertLinearToDb floors at -100 dB; clamp to the meter's display floor.
+        float db = AudioMath.ConvertLinearToDb(amp);
         return db < MinDb ? MinDb : db;
     }
 

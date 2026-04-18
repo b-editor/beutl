@@ -1,4 +1,6 @@
-﻿namespace Beutl.Editor.Components.AudioVisualizerTab.ViewModels;
+﻿using Beutl.Audio.Graph;
+
+namespace Beutl.Editor.Components.AudioVisualizerTab.ViewModels;
 
 // Fixed-size ring buffer holding the most recent planar L/R samples together
 // with a scene-time anchor so consumers can read samples corresponding to a
@@ -165,24 +167,13 @@ public sealed class AudioSampleRingBuffer
             : ReadLatest(l, r, windowSamples);
         if (got <= 0) return (0, 0, 0, 0);
 
-        double sumL = 0, sumR = 0;
-        float peakL = 0, peakR = 0;
-        for (int i = 0; i < got; i++)
-        {
-            float lv = l[i];
-            float rv = r[i];
-            sumL += lv * lv;
-            sumR += rv * rv;
-            float al = MathF.Abs(lv);
-            float ar = MathF.Abs(rv);
-            if (al > peakL) peakL = al;
-            if (ar > peakR) peakR = ar;
-        }
+        ReadOnlySpan<float> lSlice = l.Slice(0, got);
+        ReadOnlySpan<float> rSlice = r.Slice(0, got);
         return (
-            (float)Math.Sqrt(sumL / got),
-            (float)Math.Sqrt(sumR / got),
-            peakL,
-            peakR);
+            AudioMath.CalculateRms(lSlice),
+            AudioMath.CalculateRms(rSlice),
+            AudioMath.FindPeak(lSlice),
+            AudioMath.FindPeak(rSlice));
     }
 
     private int ReadEndingAtLocked(long endAbsIndex, Span<float> destLeft, Span<float> destRight, int length)
