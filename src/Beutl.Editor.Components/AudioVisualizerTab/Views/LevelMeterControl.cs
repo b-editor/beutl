@@ -11,11 +11,18 @@ public sealed class LevelMeterControl : AudioVisualizerControlBase
     private const float MinDb = -60f;
     private const double ScaleAreaWidth = 26.0;
 
+    // 0 dBFS in float audio = ±1.0. Use slightly below 1.0 as the trigger so that
+    // values that round-trip through resampling/limiting still register.
+    private const float ClipThreshold = 0.999f;
+    private static readonly TimeSpan s_clipHold = TimeSpan.FromSeconds(2.0);
+
     private static readonly float[] s_dbTicks = [0f, -3f, -6f, -12f, -24f, -36f, -48f, -60f];
 
     private float _peakLHold;
     private float _peakRHold;
     private DateTime _lastRenderTime = DateTime.UtcNow;
+    private DateTime? _clipLAt;
+    private DateTime? _clipRAt;
 
     public override void Render(DrawingContext context)
     {
@@ -33,16 +40,25 @@ public sealed class LevelMeterControl : AudioVisualizerControlBase
         _peakLHold = DecayHold(_peakLHold, peakL, elapsed);
         _peakRHold = DecayHold(_peakRHold, peakR, elapsed);
 
+        if (peakL >= ClipThreshold) _clipLAt = now;
+        if (peakR >= ClipThreshold) _clipRAt = now;
+        bool clipL = _clipLAt is { } cl && now - cl < s_clipHold;
+        bool clipR = _clipRAt is { } cr && now - cr < s_clipHold;
+
         double padding = 4;
         double scaleWidth = bounds.Width >= 80 ? ScaleAreaWidth : 0;
         double barAreaWidth = bounds.Width - padding * 3 - scaleWidth;
         double barWidth = barAreaWidth / 2;
-        double topInset = 10;
+        double clipLedHeight = 6;
+        double topInset = 10 + clipLedHeight + 2;
         double barHeight = bounds.Height - topInset - padding;
 
         double leftX = padding;
         double rightX = padding * 2 + barWidth;
         double scaleX = padding * 3 + barWidth * 2;
+
+        DrawClipLed(context, leftX, topInset - clipLedHeight - 2, barWidth, clipLedHeight, clipL);
+        DrawClipLed(context, rightX, topInset - clipLedHeight - 2, barWidth, clipLedHeight, clipR);
 
         DrawChannel(context, "L", leftX, topInset, barWidth, barHeight, rmsL, _peakLHold);
         DrawChannel(context, "R", rightX, topInset, barWidth, barHeight, rmsR, _peakRHold);
@@ -82,6 +98,14 @@ public sealed class LevelMeterControl : AudioVisualizerControlBase
             10,
             textBrush);
         context.DrawText(formatted, new Point(x + w / 2 - formatted.Width / 2, y - formatted.Height - 1));
+    }
+
+    private static void DrawClipLed(DrawingContext context, double x, double y, double w, double h, bool active)
+    {
+        IBrush bg = active
+            ? Brushes.Red
+            : new SolidColorBrush(Color.FromArgb(60, 255, 80, 80));
+        context.FillRectangle(bg, new Rect(x, y, w, h));
     }
 
     private void DrawDbScale(DrawingContext context, double x, double y, double w, double h, double tickStart, double tickEnd)
