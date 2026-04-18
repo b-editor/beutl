@@ -209,6 +209,81 @@ final class PixelConvertTests: XCTestCase {
         }
     }
 
+    // Exercises the CV64ARGB → Rgba16161616 fallback path that kicks in when VideoToolbox
+    // returns HDR frames in big-endian interleaved ARGB16 instead of the preferred
+    // little-endian RGBA. Every channel must be byte-swapped before the ARGB→RGBA permute;
+    // a regression where only one of four channels gets swapped would show up here.
+    func testARGB16BEToRGBA16LEIsBitExact() throws {
+        let width = 4
+        let height = 2
+
+        var pixelBuffer: CVPixelBuffer?
+        let attrs: [CFString: Any] = [
+            kCVPixelBufferPixelFormatTypeKey: kCVPixelFormatType_64ARGB,
+            kCVPixelBufferWidthKey: width,
+            kCVPixelBufferHeightKey: height,
+            kCVPixelBufferIOSurfacePropertiesKey: [:] as CFDictionary,
+        ]
+        let createStatus = CVPixelBufferCreate(
+            kCFAllocatorDefault, width, height,
+            kCVPixelFormatType_64ARGB, attrs as CFDictionary, &pixelBuffer)
+        XCTAssertEqual(createStatus, kCVReturnSuccess)
+        guard let pb = pixelBuffer else { throw XCTSkip("cannot allocate CV64ARGB buffer") }
+
+        CVPixelBufferLockBaseAddress(pb, [])
+        defer { CVPixelBufferUnlockBaseAddress(pb, []) }
+        let srcRowBytes = CVPixelBufferGetBytesPerRow(pb)
+        guard let base = CVPixelBufferGetBaseAddress(pb) else {
+            throw XCTSkip("CVPixelBufferGetBaseAddress returned nil")
+        }
+
+        // CV64ARGB stores channels big-endian in memory: A_hi A_lo R_hi R_lo G_hi G_lo B_hi B_lo.
+        // Fill with distinct values per channel so permute / swap bugs can't be masked by
+        // accidental symmetry.
+        var expected = [UInt16](repeating: 0, count: width * 4 * height)
+        for row in 0..<height {
+            for col in 0..<width {
+                let a: UInt16 = UInt16(0x1100 + row * 0x100 + col)
+                let r: UInt16 = UInt16(0x2200 + row * 0x100 + col)
+                let g: UInt16 = UInt16(0x3300 + row * 0x100 + col)
+                let b: UInt16 = UInt16(0x4400 + row * 0x100 + col)
+
+                let rowPtr = base.advanced(by: row * srcRowBytes)
+                let pixelPtr = rowPtr.advanced(by: col * 8).assumingMemoryBound(to: UInt8.self)
+                // Write big-endian 16-bit samples byte by byte.
+                pixelPtr[0] = UInt8(a >> 8); pixelPtr[1] = UInt8(a & 0xFF)
+                pixelPtr[2] = UInt8(r >> 8); pixelPtr[3] = UInt8(r & 0xFF)
+                pixelPtr[4] = UInt8(g >> 8); pixelPtr[5] = UInt8(g & 0xFF)
+                pixelPtr[6] = UInt8(b >> 8); pixelPtr[7] = UInt8(b & 0xFF)
+
+                // Expected destination: R G B A as little-endian UInt16s.
+                let outIdx = row * width * 4 + col * 4
+                expected[outIdx + 0] = r
+                expected[outIdx + 1] = g
+                expected[outIdx + 2] = b
+                expected[outIdx + 3] = a
+            }
+        }
+
+        let destCapacity = width * 4 * height * 2
+        var destination = [UInt8](repeating: 0, count: destCapacity)
+        try destination.withUnsafeMutableBytes { destPtr in
+            try PixelConvert.copyToRGBA16161616(
+                pixelBuffer: pb,
+                destBuffer: destPtr.baseAddress!,
+                destCapacityBytes: destCapacity,
+                destRowBytes: width * 8)
+        }
+
+        destination.withUnsafeBufferPointer { destRaw in
+            destRaw.withMemoryRebound(to: UInt16.self) { destWords in
+                for i in 0..<expected.count {
+                    XCTAssertEqual(destWords[i], expected[i], "sample \(i) diverged")
+                }
+            }
+        }
+    }
+
     func testBGRA8888RoundTripThroughBufferCreate() throws {
         // Build a CV32BGRA pixel buffer from a known BGRA source, then round-trip.
         let width = 4

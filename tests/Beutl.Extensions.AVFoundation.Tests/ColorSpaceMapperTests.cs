@@ -47,4 +47,17 @@ public class ColorSpaceMapperTests
             isHdr: false, BeutlTransferFunction.Unknown, BeutlColorPrimaries.Unknown);
         Assert.That(cs, Is.EqualTo(BitmapColorSpace.Srgb));
     }
+
+    [Test]
+    public void HdrWithUnknownPrimariesDefaultsToRec2020()
+    {
+        // Mirror the Swift writer's HDR-default: when a PQ/HLG stream reaches us with no
+        // primaries tag, we must use the Rec.2020 gamut, not sRGB — otherwise encoder and
+        // decoder pick different gamuts for the same untagged content.
+        var expected = BitmapColorSpace.CreateRgb(
+            BitmapColorSpaceTransferFn.Pq, BitmapColorSpaceXyz.Rec2020.Scale(10000f / 203f));
+        var actual = ColorSpaceMapper.BuildColorSpace(
+            isHdr: true, BeutlTransferFunction.Pq, BeutlColorPrimaries.Unknown);
+        Assert.That(actual, Is.EqualTo(expected));
+    }
 }

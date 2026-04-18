@@ -256,30 +256,37 @@ enum PixelConvert {
         width: Int,
         height: Int
     ) throws {
-        var srcBuffer = vImage_Buffer(
+        // vImageByteSwap_Planar16U treats the buffer as a single-channel 16-bit plane, so
+        // to byte-swap every channel of an interleaved ARGB16 image we must advertise the
+        // row width in *samples* (pixels × 4 channels), not pixels. Using the pixel width
+        // here would leave three-quarters of each row endian-flipped.
+        var srcPlanar = vImage_Buffer(
             data: UnsafeMutableRawPointer(mutating: src),
             height: vImagePixelCount(height),
-            width: vImagePixelCount(width),
+            width: vImagePixelCount(width * 4),
             rowBytes: srcRowBytes)
-        var dstBuffer = vImage_Buffer(
+        var dstPlanar = vImage_Buffer(
             data: dst,
             height: vImagePixelCount(height),
-            width: vImagePixelCount(width),
+            width: vImagePixelCount(width * 4),
             rowBytes: dstRowBytes)
 
         // Source samples are 16-bit big-endian; AVFoundation stores CV64ARGB in network order.
-        // Byte-swap in place (via a temporary copy) so the subsequent permute treats them as
-        // little-endian UInt16 channels matching Beutl's Rgba16161616.
-        let err = vImageByteSwap_Planar16U(&srcBuffer, &dstBuffer, vImage_Flags(kvImageNoFlags))
+        let err = vImageByteSwap_Planar16U(&srcPlanar, &dstPlanar, vImage_Flags(kvImageNoFlags))
         if err != kvImageNoError {
             throw BeutlAVFError.readerFailed("vImageByteSwap_Planar16U failed: \(err)")
         }
 
-        // After byte-swap `dst` still holds A R G B order (just with LE samples). Permute in
-        // place to R G B A to match Rgba16161616.
+        // After byte-swap `dst` holds A R G B channels in little-endian UInt16s. Permute in
+        // place to R G B A to match Beutl's Rgba16161616; this call needs the pixel width.
+        var dstPacked = vImage_Buffer(
+            data: dst,
+            height: vImagePixelCount(height),
+            width: vImagePixelCount(width),
+            rowBytes: dstRowBytes)
         var permuteMap: [UInt8] = [1, 2, 3, 0]
         let err2 = vImagePermuteChannels_ARGB16U(
-            &dstBuffer, &dstBuffer, &permuteMap, vImage_Flags(kvImageNoFlags))
+            &dstPacked, &dstPacked, &permuteMap, vImage_Flags(kvImageNoFlags))
         if err2 != kvImageNoError {
             throw BeutlAVFError.readerFailed("vImagePermuteChannels_ARGB16U failed: \(err2)")
         }

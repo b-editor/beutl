@@ -14,7 +14,13 @@ internal static class ColorSpaceMapper
         BeutlColorPrimaries primaries)
     {
         BitmapColorSpaceTransferFn transferFn = MapTransfer(transfer);
-        BitmapColorSpaceXyz gamut = MapPrimaries(primaries);
+        // For HDR streams without an explicit primaries tag, default to Rec.2020 — that's
+        // what the Swift writer stamps (Writer.mapPrimaries) and what both HDR10 and HLG
+        // spec-wise assume. Falling back to sRGB here would produce a Rec.2020-tagged file
+        // whose pixel values were converted through an sRGB gamut matrix, i.e. wrong colors.
+        BitmapColorSpaceXyz gamut = (isHdr && primaries == BeutlColorPrimaries.Unknown)
+            ? BitmapColorSpaceXyz.Rec2020
+            : MapPrimaries(primaries);
 
         if (isHdr)
         {
