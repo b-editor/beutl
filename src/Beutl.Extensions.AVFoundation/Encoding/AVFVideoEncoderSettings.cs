@@ -1,4 +1,5 @@
-﻿using Beutl.Media.Encoding;
+﻿using System.ComponentModel.DataAnnotations;
+using Beutl.Media.Encoding;
 
 namespace Beutl.Extensions.AVFoundation.Encoding;
 
@@ -45,18 +46,21 @@ public sealed class AVFVideoEncoderSettings : VideoEncoderSettings
         KeyframeRateProperty.OverrideDefaultValue<AVFVideoEncoderSettings>(-1);
     }
 
+    [Display(Name = "Codec")]
     public VideoCodec Codec
     {
         get => GetValue(CodecProperty);
         set => SetValue(CodecProperty, value);
     }
 
+    [Display(Name = "JPEG Quality")]
     public float JPEGQuality
     {
         get => GetValue(JPEGQualityProperty);
         set => SetValue(JPEGQualityProperty, value);
     }
 
+    [Display(Name = "H.264 Profile/Level")]
     public VideoProfileLevelH264 ProfileLevelH264
     {
         get => GetValue(ProfileLevelH264Property);
@@ -68,18 +72,22 @@ public sealed class AVFVideoEncoderSettings : VideoEncoderSettings
     /// HDR encoder path (HEVC Main10 profile, 16bpc pixel pipeline, matching AVVideoColor
     /// properties).
     /// </summary>
+    [Display(Name = "Color Transfer",
+        Description = "Pq / Hlg selects the HDR encoder path (HEVC Main10).")]
     public ColorTransferCharacteristic ColorTransfer
     {
         get => GetValue(ColorTransferProperty);
         set => SetValue(ColorTransferProperty, value);
     }
 
+    [Display(Name = "Color Primaries")]
     public ColorPrimariesType ColorPrimaries
     {
         get => GetValue(ColorPrimariesProperty);
         set => SetValue(ColorPrimariesProperty, value);
     }
 
+    [Display(Name = "YCbCr Matrix")]
     public YCbCrMatrixType YCbCrMatrix
     {
         get => GetValue(YCbCrMatrixProperty);
@@ -92,10 +100,10 @@ public sealed class AVFVideoEncoderSettings : VideoEncoderSettings
 
     public enum VideoCodec
     {
-        Default = 0,
-        H264 = 1,
-        JPEG = 2,
-        HEVC = 3,
+        [Display(Name = "Default (H.264)")] Default = 0,
+        [Display(Name = "H.264 / AVC")] H264 = 1,
+        [Display(Name = "JPEG")] JPEG = 2,
+        [Display(Name = "H.265 / HEVC")] HEVC = 3,
     }
 
     public enum VideoProfileLevelH264
@@ -112,30 +120,30 @@ public sealed class AVFVideoEncoderSettings : VideoEncoderSettings
 
     public enum ColorTransferCharacteristic
     {
-        Default = 0,
-        Srgb = 1,
-        Linear = 2,
-        Bt709 = 3,
-        Pq = 4,
-        Hlg = 5,
-        Smpte240M = 9,
+        [Display(Name = "Default (SDR)")] Default = 0,
+        [Display(Name = "sRGB")] Srgb = 1,
+        [Display(Name = "Linear")] Linear = 2,
+        [Display(Name = "BT.709")] Bt709 = 3,
+        [Display(Name = "PQ (HDR10 / SMPTE ST 2084)")] Pq = 4,
+        [Display(Name = "HLG (ITU-R BT.2100)")] Hlg = 5,
+        [Display(Name = "SMPTE 240M")] Smpte240M = 9,
     }
 
     public enum ColorPrimariesType
     {
-        Default = 0,
-        Bt709 = 2,
-        Rec2020 = 8,
-        Dcip3 = 11,
-        Smpte170M = 5,
+        [Display(Name = "Default")] Default = 0,
+        [Display(Name = "BT.709")] Bt709 = 2,
+        [Display(Name = "Rec.2020 / BT.2020")] Rec2020 = 8,
+        [Display(Name = "DCI-P3 (D65)")] Dcip3 = 11,
+        [Display(Name = "SMPTE 170M")] Smpte170M = 5,
     }
 
     public enum YCbCrMatrixType
     {
-        Default = 0,
-        Bt709 = 1,
-        Bt601 = 2,
-        Rec2020 = 3,
-        Smpte240M = 4,
+        [Display(Name = "Default")] Default = 0,
+        [Display(Name = "BT.709")] Bt709 = 1,
+        [Display(Name = "BT.601")] Bt601 = 2,
+        [Display(Name = "Rec.2020 / BT.2020")] Rec2020 = 3,
+        [Display(Name = "SMPTE 240M")] Smpte240M = 4,
     }
 }
