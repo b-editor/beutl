@@ -62,18 +62,6 @@ public static class LibraryRegistrar
                 .BindDrawable<SourceBackdrop>()
             );
 
-        LibraryService.Current.RegisterGroup(GraphicsStrings.AudioVisualizer, g => g
-            .AddMultiple(GraphicsStrings.AudioWaveform, m => m
-                .BindDrawable<AudioWaveformDrawable>()
-            )
-            .AddMultiple(GraphicsStrings.AudioSpectrum, m => m
-                .BindDrawable<AudioSpectrumDrawable>()
-            )
-            .AddMultiple(GraphicsStrings.AudioSpectrogram, m => m
-                .BindDrawable<AudioSpectrogramDrawable>()
-            )
-        );
-
         LibraryService.Current
             .AddMultiple(AudioStrings.SourceSound, m => m
                 .BindSound<SourceSound>()
@@ -151,6 +139,18 @@ public static class LibraryRegistrar
             .AddMultiple(GraphicsStrings.DrawableTimeController, m => m
                 .BindDrawable<DrawableTimeController>()
             );
+
+        LibraryService.Current.RegisterGroup(GraphicsStrings.AudioVisualizer, g => g
+            .AddMultiple(GraphicsStrings.AudioWaveform, m => m
+                .BindDrawable<AudioWaveformDrawable>()
+            )
+            .AddMultiple(GraphicsStrings.AudioSpectrum, m => m
+                .BindDrawable<AudioSpectrumDrawable>()
+            )
+            .AddMultiple(GraphicsStrings.AudioSpectrogram, m => m
+                .BindDrawable<AudioSpectrogramDrawable>()
+            )
+        );
 
         LibraryService.Current
             .RegisterGroup(GraphicsStrings.Transform, g => g
