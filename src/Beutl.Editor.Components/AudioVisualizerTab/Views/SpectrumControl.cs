@@ -13,6 +13,9 @@ public sealed class SpectrumControl : AudioVisualizerControlBase
     public static readonly StyledProperty<float> MinDecibelsProperty =
         AvaloniaProperty.Register<SpectrumControl, float>(nameof(MinDecibels), -90f);
 
+    private const double FrequencyAxisHeight = 14.0;
+    private static readonly double[] s_frequencyTicks = [50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000];
+
     private float[] _samplesL = [];
     private float[] _samplesR = [];
     private float[] _real = [];
@@ -73,10 +76,20 @@ public sealed class SpectrumControl : AudioVisualizerControlBase
             _smoothed[i] = _smoothed[i] * 0.55f + norm * 0.45f;
         }
 
-        // Logarithmic bar layout: groups bins into ~64 display bands.
+        double plotHeight = Math.Max(0, bounds.Height - FrequencyAxisHeight);
+        var plotBounds = new Rect(0, 0, bounds.Width, plotHeight);
+
+        DrawFrequencyGrid(context, plotBounds, buffer.SampleRate, bins);
+        DrawBars(context, plotBounds, bins);
+        DrawFrequencyLabels(context, bounds, buffer.SampleRate, bins);
+    }
+
+    private void DrawBars(DrawingContext context, Rect plotBounds, int bins)
+    {
+        // Logarithmic bar layout: groups bins into ~96 display bands.
         int bands = Math.Min(96, bins);
-        double barWidth = bounds.Width / bands;
-        double height = bounds.Height - 2;
+        double barWidth = plotBounds.Width / bands;
+        double height = plotBounds.Height - 2;
         for (int b = 0; b < bands; b++)
         {
             double lo = Math.Pow(bins, b / (double)bands);
@@ -94,9 +107,63 @@ public sealed class SpectrumControl : AudioVisualizerControlBase
 
             double h = peak * height;
             double x = b * barWidth;
-            var rect = new Rect(x + 0.5, bounds.Height - h, Math.Max(0.5, barWidth - 1.0), h);
+            var rect = new Rect(x + 0.5, plotBounds.Bottom - h, Math.Max(0.5, barWidth - 1.0), h);
             context.FillRectangle(PrimaryBrush, rect);
         }
+    }
+
+    private void DrawFrequencyGrid(DrawingContext context, Rect plotBounds, int sampleRate, int bins)
+    {
+        if (sampleRate <= 0 || bins < 2) return;
+
+        var gridPen = new Pen(new SolidColorBrush(Colors.Gray, 0.35), 0.5)
+        {
+            DashStyle = DashStyle.Dash,
+        };
+
+        double nyquist = sampleRate * 0.5;
+        foreach (double freq in s_frequencyTicks)
+        {
+            if (freq >= nyquist) break;
+            double x = FrequencyToX(freq, plotBounds.Width, nyquist, bins);
+            context.DrawLine(gridPen, new Point(x, plotBounds.Top), new Point(x, plotBounds.Bottom));
+        }
+    }
+
+    private void DrawFrequencyLabels(DrawingContext context, Rect bounds, int sampleRate, int bins)
+    {
+        if (sampleRate <= 0 || bins < 2) return;
+
+        IBrush textBrush = Foreground ?? Brushes.LightGray;
+        double nyquist = sampleRate * 0.5;
+        double labelY = bounds.Bottom - FrequencyAxisHeight + 1;
+        double plotWidth = bounds.Width;
+
+        foreach (double freq in s_frequencyTicks)
+        {
+            if (freq >= nyquist) break;
+            string label = freq >= 1000 ? $"{freq / 1000:0.#}k" : $"{freq:0}";
+            var formatted = new FormattedText(
+                label,
+                CultureInfo.CurrentCulture,
+                FlowDirection.LeftToRight,
+                Typeface.Default,
+                9,
+                textBrush);
+            double x = FrequencyToX(freq, plotWidth, nyquist, bins) - formatted.Width / 2;
+            x = Math.Clamp(x, 0, plotWidth - formatted.Width);
+            context.DrawText(formatted, new Point(x, labelY));
+        }
+    }
+
+    // Bars use Math.Pow(bins, b/bands) → log-space over bin index 1..bins.
+    // Convert frequency → bin → x using the same mapping so ticks align with bar peaks.
+    private static double FrequencyToX(double freq, double width, double nyquist, int bins)
+    {
+        double targetBin = freq / nyquist * bins;
+        if (targetBin < 1) targetBin = 1;
+        double t = Math.Log(targetBin) / Math.Log(bins);
+        return Math.Clamp(t, 0, 1) * width;
     }
 
     private void EnsureBuffers(int n)
