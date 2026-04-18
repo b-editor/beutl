@@ -2,6 +2,8 @@ using Beutl.Extensions.AVFoundation.Decoding;
 using Beutl.Extensions.AVFoundation.Encoding;
 using Beutl.Media;
 using Beutl.Media.Decoding;
+using Beutl.Media.Music;
+using Beutl.Media.Music.Samples;
 
 namespace Beutl.Extensions.AVFoundation.Tests;
 
@@ -87,6 +89,21 @@ public class EncodeDecodeRoundTripTests
             Assert.That(audioPcm!.Value.SampleRate, Is.EqualTo(sampleRate));
             Assert.That(audioPcm.Value.NumSamples, Is.EqualTo(1024));
             Assert.That(audioPcm.Value.NumChannels, Is.EqualTo(2));
+
+            // Sanity check the decoded audio: AAC is lossy but the input is a pure 440 Hz
+            // tone at ~0.25 amplitude. If the decoder silently hands back zeros (or garbage
+            // outside the unit interval) we want to catch it.
+            var pcm = (Pcm<Stereo32BitFloat>)audioPcm.Value;
+            var samples = pcm.DataSpan;
+            float peak = 0f;
+            for (int i = 0; i < samples.Length; i++)
+            {
+                peak = Math.Max(peak, Math.Max(Math.Abs(samples[i].Left), Math.Abs(samples[i].Right)));
+            }
+            Assert.That(peak, Is.GreaterThan(0.01f),
+                "Decoded audio should not be silent; 440 Hz tone should survive round trip.");
+            Assert.That(peak, Is.LessThanOrEqualTo(1.0f),
+                "Decoded samples must stay within [-1, 1] for Stereo32BitFloat.");
         }
     }
 
@@ -136,6 +153,25 @@ public class EncodeDecodeRoundTripTests
             Assert.That(image.Value.Height, Is.EqualTo(height));
             Assert.That(image.Value.ColorType, Is.EqualTo(BitmapColorType.Rgba16161616),
                 "HDR stream must decode into a 16bpc Bitmap.");
+
+            // Confirm the HDR pixel pipeline actually landed non-zero data in the Bitmap.
+            // HEVC is lossy so we can't compare exact values, but an entirely-black decode
+            // would indicate the pool / swizzle / tagging chain got disconnected somewhere.
+            unsafe
+            {
+                var words = new ReadOnlySpan<ushort>(
+                    (void*)image.Value.Data, image.Value.ByteCount / sizeof(ushort));
+                bool nonBlack = false;
+                for (int i = 0; i + 3 < words.Length; i += 4)
+                {
+                    if (words[i] != 0 || words[i + 1] != 0 || words[i + 2] != 0)
+                    {
+                        nonBlack = true;
+                        break;
+                    }
+                }
+                Assert.That(nonBlack, Is.True, "HDR decode returned an entirely-black frame.");
+            }
         }
     }
 }

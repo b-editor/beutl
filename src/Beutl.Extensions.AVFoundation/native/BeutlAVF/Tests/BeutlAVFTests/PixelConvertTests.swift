@@ -141,6 +141,74 @@ final class PixelConvertTests: XCTestCase {
         }
     }
 
+    // HDR fast path: CV64RGBALE source shares the Beutl Rgba16161616 layout exactly, so the
+    // conversion has to be a bit-exact row-wise memcpy.
+    func testRGBA16LERoundTripIsBitExact() throws {
+        let width = 8
+        let height = 4
+
+        let attrs: [CFString: Any] = [
+            kCVPixelBufferPixelFormatTypeKey: kCVPixelFormatType_64RGBALE,
+            kCVPixelBufferWidthKey: width,
+            kCVPixelBufferHeightKey: height,
+            kCVPixelBufferIOSurfacePropertiesKey: [:] as CFDictionary,
+        ]
+        var pixelBuffer: CVPixelBuffer?
+        let createStatus = CVPixelBufferCreate(
+            kCFAllocatorDefault, width, height,
+            kCVPixelFormatType_64RGBALE, attrs as CFDictionary, &pixelBuffer)
+        XCTAssertEqual(createStatus, kCVReturnSuccess)
+        guard let pb = pixelBuffer else { throw XCTSkip("cannot allocate CV64RGBALE buffer") }
+
+        // Fill with a deterministic 16-bit pattern so every channel crosses the byte boundary.
+        CVPixelBufferLockBaseAddress(pb, [])
+        guard let base = CVPixelBufferGetBaseAddress(pb) else {
+            CVPixelBufferUnlockBaseAddress(pb, [])
+            throw XCTSkip("base address nil")
+        }
+        let rowBytes = CVPixelBufferGetBytesPerRow(pb)
+        let words = base.assumingMemoryBound(to: UInt16.self)
+        let pixelsPerRow = rowBytes / 2
+        var expected = [UInt16](repeating: 0, count: width * 4 * height)
+        for row in 0..<height {
+            for col in 0..<width {
+                let r = UInt16((row * 47 + col * 13) & 0xFFFF)
+                let g = UInt16((row * 101 + col * 5) & 0xFFFF)
+                let b = UInt16((row * 29 + col * 211) & 0xFFFF)
+                let a = UInt16(0xFFFF)
+                let wordOffset = row * pixelsPerRow + col * 4
+                words[wordOffset + 0] = r
+                words[wordOffset + 1] = g
+                words[wordOffset + 2] = b
+                words[wordOffset + 3] = a
+                let outIdx = row * width * 4 + col * 4
+                expected[outIdx + 0] = r
+                expected[outIdx + 1] = g
+                expected[outIdx + 2] = b
+                expected[outIdx + 3] = a
+            }
+        }
+        CVPixelBufferUnlockBaseAddress(pb, [])
+
+        let destCapacity = width * 4 * height * 2
+        var destination = [UInt8](repeating: 0, count: destCapacity)
+        try destination.withUnsafeMutableBytes { destPtr in
+            try PixelConvert.copyToRGBA16161616(
+                pixelBuffer: pb,
+                destBuffer: destPtr.baseAddress!,
+                destCapacityBytes: destCapacity,
+                destRowBytes: width * 8)
+        }
+
+        destination.withUnsafeBufferPointer { destRaw in
+            destRaw.withMemoryRebound(to: UInt16.self) { destWords in
+                for i in 0..<expected.count {
+                    XCTAssertEqual(destWords[i], expected[i], "pixel word \(i) diverged")
+                }
+            }
+        }
+    }
+
     func testBGRA8888RoundTripThroughBufferCreate() throws {
         // Build a CV32BGRA pixel buffer from a known BGRA source, then round-trip.
         let width = 4
