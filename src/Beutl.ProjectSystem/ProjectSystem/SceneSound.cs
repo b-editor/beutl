@@ -18,6 +18,7 @@ public sealed partial class SceneSound : Sound
         ScanProperties<SceneSound>();
     }
 
+    [Display(Name = nameof(AudioStrings.SceneSound_ReferencedScene), ResourceType = typeof(AudioStrings))]
     public IProperty<Scene?> ReferencedScene { get; } = Property.Create<Scene?>();
 
     public override void Compose(AudioContext context, Sound.Resource resource)

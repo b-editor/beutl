@@ -1353,6 +1353,9 @@
   <data name="SceneDrawable" xml:space="preserve">
     <value>Scene Reference (Video)</value>
   </data>
+  <data name="SceneDrawable_ReferencedScene" xml:space="preserve">
+    <value>Referenced Scene</value>
+  </data>
   <data name="FilterEffect" xml:space="preserve">
     <value>Filter Effect</value>
   </data>

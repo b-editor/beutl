@@ -1351,6 +1351,9 @@
   <data name="SceneDrawable" xml:space="preserve">
     <value>シーン参照（動画）</value>
   </data>
+  <data name="SceneDrawable_ReferencedScene" xml:space="preserve">
+    <value>参照するシーン</value>
+  </data>
   <data name="FilterEffect" xml:space="preserve">
     <value>フィルターエフェクト</value>
   </data>
