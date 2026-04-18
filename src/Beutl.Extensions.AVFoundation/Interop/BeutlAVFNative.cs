@@ -1,4 +1,4 @@
-using System.Runtime.InteropServices;
+﻿using System.Runtime.InteropServices;
 using SystemEncoding = System.Text.Encoding;
 
 namespace Beutl.Extensions.AVFoundation.Interop;

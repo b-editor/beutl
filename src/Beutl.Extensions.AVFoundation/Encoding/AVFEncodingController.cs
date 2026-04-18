@@ -1,4 +1,4 @@
-using System.Runtime.Versioning;
+﻿using System.Runtime.Versioning;
 using Beutl.Extensibility;
 using Beutl.Extensions.AVFoundation.Interop;
 using Beutl.Media;

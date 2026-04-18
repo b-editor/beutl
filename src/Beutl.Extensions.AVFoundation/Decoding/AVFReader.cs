@@ -1,4 +1,4 @@
-using System.Diagnostics.CodeAnalysis;
+﻿using System.Diagnostics.CodeAnalysis;
 using Beutl.Extensions.AVFoundation.Interop;
 using Beutl.Logging;
 using Beutl.Media;

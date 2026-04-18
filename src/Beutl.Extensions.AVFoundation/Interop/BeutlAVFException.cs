@@ -1,4 +1,4 @@
-namespace Beutl.Extensions.AVFoundation.Interop;
+﻿namespace Beutl.Extensions.AVFoundation.Interop;
 
 internal sealed class BeutlAVFException : Exception
 {

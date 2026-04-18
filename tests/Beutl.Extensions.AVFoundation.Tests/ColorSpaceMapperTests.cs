@@ -1,4 +1,4 @@
-using Beutl.Extensions.AVFoundation.Interop;
+﻿using Beutl.Extensions.AVFoundation.Interop;
 using Beutl.Media;
 
 namespace Beutl.Extensions.AVFoundation.Tests;

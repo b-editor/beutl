@@ -1,4 +1,4 @@
-using Beutl.Extensions.AVFoundation.Decoding;
+﻿using Beutl.Extensions.AVFoundation.Decoding;
 using Beutl.Extensions.AVFoundation.Encoding;
 using Beutl.Media;
 using Beutl.Media.Decoding;
