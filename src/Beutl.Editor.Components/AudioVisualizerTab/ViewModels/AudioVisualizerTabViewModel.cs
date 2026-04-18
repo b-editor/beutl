@@ -57,6 +57,10 @@ public sealed class AudioVisualizerTabViewModel : IToolContext
 
     public ReactivePropertySlim<float> MinDecibels { get; } = new(-90f);
 
+    public ReactivePropertySlim<float> Smoothing { get; } = new(55f);
+
+    public IReadOnlyList<int> AvailableFftSizes { get; } = [256, 512, 1024, 2048, 4096, 8192];
+
     public string Header => Strings.AudioVisualizer;
 
     public ToolTabExtension Extension => _extension;
@@ -134,6 +138,12 @@ public sealed class AudioVisualizerTabViewModel : IToolContext
         {
             MinDecibels.Value = minDb;
         }
+
+        if (json.TryGetPropertyValue("smoothing", out var smoothingNode) && smoothingNode is JsonValue smoothingValue
+            && smoothingValue.TryGetValue(out float smoothing) && smoothing >= 0f && smoothing <= 95f)
+        {
+            Smoothing.Value = smoothing;
+        }
     }
 
     public void WriteToJson(JsonObject json)
@@ -141,6 +151,7 @@ public sealed class AudioVisualizerTabViewModel : IToolContext
         json["mode"] = (int)SelectedMode.Value;
         json["fftSize"] = FftSize.Value;
         json["minDecibels"] = MinDecibels.Value;
+        json["smoothing"] = Smoothing.Value;
     }
 
     private static bool IsPowerOfTwo(int v) => v > 0 && (v & (v - 1)) == 0;

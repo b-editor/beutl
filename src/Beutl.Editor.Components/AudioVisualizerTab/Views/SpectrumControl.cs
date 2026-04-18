@@ -13,6 +13,9 @@ public sealed class SpectrumControl : AudioVisualizerControlBase
     public static readonly StyledProperty<float> MinDecibelsProperty =
         AvaloniaProperty.Register<SpectrumControl, float>(nameof(MinDecibels), -90f);
 
+    public static readonly StyledProperty<float> SmoothingProperty =
+        AvaloniaProperty.Register<SpectrumControl, float>(nameof(Smoothing), 55f);
+
     private const double FrequencyAxisHeight = 14.0;
     private static readonly double[] s_frequencyTicks = [50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000];
 
@@ -33,6 +36,12 @@ public sealed class SpectrumControl : AudioVisualizerControlBase
     {
         get => GetValue(MinDecibelsProperty);
         set => SetValue(MinDecibelsProperty, value);
+    }
+
+    public float Smoothing
+    {
+        get => GetValue(SmoothingProperty);
+        set => SetValue(SmoothingProperty, value);
     }
 
     public override void Render(DrawingContext context)
@@ -68,12 +77,14 @@ public sealed class SpectrumControl : AudioVisualizerControlBase
         float minDb = MinDecibels;
         float rangeDb = -minDb;
 
+        float smoothFactor = Math.Clamp(Smoothing, 0f, 95f) / 100f;
+        float newWeight = 1f - smoothFactor;
         for (int i = 0; i < bins; i++)
         {
             float db = MathF.Max(Fft.MagnitudeToDb(mags[i], referenceMag), minDb);
             float norm = (db - minDb) / rangeDb;
             if (norm < 0) norm = 0;
-            _smoothed[i] = _smoothed[i] * 0.55f + norm * 0.45f;
+            _smoothed[i] = _smoothed[i] * smoothFactor + norm * newWeight;
         }
 
         double plotHeight = Math.Max(0, bounds.Height - FrequencyAxisHeight);

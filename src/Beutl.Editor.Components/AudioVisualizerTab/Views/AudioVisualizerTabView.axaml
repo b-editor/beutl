@@ -2,6 +2,7 @@
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:icons="using:FluentIcons.FluentAvalonia"
              xmlns:lang="using:Beutl.Language"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:viewModels="using:Beutl.Editor.Components.AudioVisualizerTab.ViewModels"
@@ -12,7 +13,7 @@
              x:DataType="viewModels:AudioVisualizerTabViewModel"
              mc:Ignorable="d">
     <Grid RowDefinitions="Auto,*">
-        <Grid Height="32" ColumnDefinitions="Auto">
+        <Grid Height="32" ColumnDefinitions="Auto,*,Auto">
             <ComboBox Grid.Column="0"
                       Margin="8,0,0,0"
                       VerticalAlignment="Center"
@@ -22,6 +23,52 @@
                 <ComboBoxItem Content="{x:Static lang:Strings.Spectrum}" />
                 <ComboBoxItem Content="{x:Static lang:Strings.Meter}" />
             </ComboBox>
+
+            <Button Grid.Column="2"
+                    Margin="0,0,4,0"
+                    VerticalAlignment="Center"
+                    Theme="{StaticResource TransparentButton}"
+                    ToolTip.Tip="{x:Static lang:Strings.Settings}">
+                <icons:SymbolIcon Symbol="Settings" />
+                <Button.Flyout>
+                    <Flyout Placement="Bottom">
+                        <StackPanel Width="240" Spacing="10">
+                            <StackPanel Spacing="3">
+                                <TextBlock Text="FFT Size" Theme="{StaticResource CaptionTextBlockStyle}" />
+                                <ComboBox HorizontalAlignment="Stretch"
+                                          ItemsSource="{Binding AvailableFftSizes}"
+                                          SelectedItem="{Binding FftSize.Value, Mode=TwoWay}" />
+                            </StackPanel>
+
+                            <StackPanel Spacing="3">
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <TextBlock Text="Smoothing" Theme="{StaticResource CaptionTextBlockStyle}" />
+                                    <TextBlock Grid.Column="1"
+                                               Text="{Binding Smoothing.Value, StringFormat={}{0:0}%}"
+                                               Theme="{StaticResource CaptionTextBlockStyle}" />
+                                </Grid>
+                                <Slider Maximum="95"
+                                        Minimum="0"
+                                        TickFrequency="5"
+                                        Value="{Binding Smoothing.Value, Mode=TwoWay}" />
+                            </StackPanel>
+
+                            <StackPanel Spacing="3">
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <TextBlock Text="Min dB" Theme="{StaticResource CaptionTextBlockStyle}" />
+                                    <TextBlock Grid.Column="1"
+                                               Text="{Binding MinDecibels.Value, StringFormat={}{0:0} dB}"
+                                               Theme="{StaticResource CaptionTextBlockStyle}" />
+                                </Grid>
+                                <Slider Maximum="-40"
+                                        Minimum="-120"
+                                        TickFrequency="10"
+                                        Value="{Binding MinDecibels.Value, Mode=TwoWay}" />
+                            </StackPanel>
+                        </StackPanel>
+                    </Flyout>
+                </Button.Flyout>
+            </Button>
         </Grid>
 
         <Panel Grid.Row="1" Margin="4">
@@ -33,7 +80,8 @@
                                    IsVisible="{Binding SelectedMode.Value, Converter={x:Static views:AudioVisualizerModeConverter.Instance}, ConverterParameter=Spectrum}"
                                    MinDecibels="{Binding MinDecibels.Value}"
                                    PlayheadTime="{Binding PlayheadTime.Value}"
-                                   RingBuffer="{Binding RingBuffer}" />
+                                   RingBuffer="{Binding RingBuffer}"
+                                   Smoothing="{Binding Smoothing.Value}" />
 
             <views:LevelMeterControl IsVisible="{Binding SelectedMode.Value, Converter={x:Static views:AudioVisualizerModeConverter.Instance}, ConverterParameter=Meter}"
                                      PlayheadTime="{Binding PlayheadTime.Value}"
