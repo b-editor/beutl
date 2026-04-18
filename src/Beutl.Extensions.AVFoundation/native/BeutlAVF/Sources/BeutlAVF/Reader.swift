@@ -61,16 +61,41 @@ final class Reader {
         let wantsAudio = (modeFlags & kBeutlReaderModeAudio) != 0
 
         if wantsVideo {
-            if let track = asset.tracks(withMediaType: .video).first {
+            if let track = try Self.loadTracks(asset: asset, mediaType: .video).first {
                 self.videoContext = try VideoReaderContext(asset: asset, track: track, options: options)
             }
         }
 
         if wantsAudio {
-            if let track = asset.tracks(withMediaType: .audio).first {
+            if let track = try Self.loadTracks(asset: asset, mediaType: .audio).first {
                 self.audioContext = try AudioReaderContext(asset: asset, track: track, options: options)
             }
         }
+    }
+
+    // Bridge between the sync init shape and AVFoundation's newer async track loading.
+    // On macOS 13+, `AVAsset.tracks(withMediaType:)` is deprecated in favor of the async
+    // `loadTracks(withMediaType:)`. Block on the async call so callers keep a sync API.
+    private static func loadTracks(asset: AVAsset, mediaType: AVMediaType) throws -> [AVAssetTrack] {
+        if #available(macOS 13, *) {
+            let semaphore = DispatchSemaphore(value: 0)
+            var outcome: Result<[AVAssetTrack], Error> = .success([])
+            Task.detached {
+                do {
+                    outcome = .success(try await asset.loadTracks(withMediaType: mediaType))
+                } catch {
+                    outcome = .failure(error)
+                }
+                semaphore.signal()
+            }
+            semaphore.wait()
+            do {
+                return try outcome.get()
+            } catch {
+                throw BeutlAVFError.readerFailed("loadTracks failed: \(error.localizedDescription)")
+            }
+        }
+        return asset.tracks(withMediaType: mediaType)
     }
 }
 
