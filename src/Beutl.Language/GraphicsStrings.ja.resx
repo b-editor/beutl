@@ -1357,4 +1357,82 @@
   <data name="FilterEffect" xml:space="preserve">
     <value>フィルターエフェクト</value>
   </data>
+  <data name="AudioVisualizer" xml:space="preserve">
+    <value>オーディオビジュアライザ</value>
+  </data>
+  <data name="AudioWaveform" xml:space="preserve">
+    <value>音声波形</value>
+  </data>
+  <data name="AudioSpectrum" xml:space="preserve">
+    <value>スペクトラム</value>
+  </data>
+  <data name="AudioSpectrogram" xml:space="preserve">
+    <value>スペクトログラム</value>
+  </data>
+  <data name="AudioVisualizer_WaveformStyle" xml:space="preserve">
+    <value>波形スタイル</value>
+  </data>
+  <data name="AudioVisualizer_BarCount" xml:space="preserve">
+    <value>バー数</value>
+  </data>
+  <data name="AudioVisualizer_WindowSeconds" xml:space="preserve">
+    <value>表示時間（秒）</value>
+  </data>
+  <data name="AudioVisualizer_FftSize" xml:space="preserve">
+    <value>FFTサイズ</value>
+  </data>
+  <data name="AudioVisualizer_LogarithmicFrequency" xml:space="preserve">
+    <value>対数周波数軸</value>
+  </data>
+  <data name="AudioVisualizer_FloorDb" xml:space="preserve">
+    <value>下限（dB）</value>
+  </data>
+  <data name="AudioVisualizer_TimeColumns" xml:space="preserve">
+    <value>時間方向の分割数</value>
+  </data>
+  <data name="AudioVisualizer_Gain" xml:space="preserve">
+    <value>ゲイン</value>
+  </data>
+  <data name="AudioVisualizer_Smoothing" xml:space="preserve">
+    <value>スムージング</value>
+  </data>
+  <data name="AudioVisualizer_Shape" xml:space="preserve">
+    <value>形状</value>
+  </data>
+  <data name="SpectrumShape_Bar" xml:space="preserve">
+    <value>バー</value>
+  </data>
+  <data name="SpectrumShape_Line" xml:space="preserve">
+    <value>折れ線</value>
+  </data>
+  <data name="SpectrumShape_FilledArea" xml:space="preserve">
+    <value>塗りつぶし</value>
+  </data>
+  <data name="SpectrumShape_MirroredBars" xml:space="preserve">
+    <value>上下対称バー</value>
+  </data>
+  <data name="SpectrumShape_Radial" xml:space="preserve">
+    <value>放射状</value>
+  </data>
+  <data name="SpectrumShape_CornerRadius" xml:space="preserve">
+    <value>角の丸み</value>
+  </data>
+  <data name="SpectrumShape_Thickness" xml:space="preserve">
+    <value>線の太さ</value>
+  </data>
+  <data name="SpectrumShape_Smoothness" xml:space="preserve">
+    <value>滑らかさ</value>
+  </data>
+  <data name="SpectrumShape_InnerRadius" xml:space="preserve">
+    <value>内半径</value>
+  </data>
+  <data name="SpectrumShape_StartAngle" xml:space="preserve">
+    <value>開始角度</value>
+  </data>
+  <data name="SpectrumShape_BarWidth" xml:space="preserve">
+    <value>バー幅</value>
+  </data>
+  <data name="SpectrumShape_Direction" xml:space="preserve">
+    <value>方向</value>
+  </data>
 </root>

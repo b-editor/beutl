@@ -1,6 +1,7 @@
 ﻿using Beutl.Audio;
 using Beutl.Audio.Effects;
 using Beutl.Graphics;
+using Beutl.Graphics.AudioVisualizers;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Particles;
 using Beutl.Graphics.Transformation;
@@ -138,6 +139,18 @@ public static class LibraryRegistrar
             .AddMultiple(GraphicsStrings.DrawableTimeController, m => m
                 .BindDrawable<DrawableTimeController>()
             );
+
+        LibraryService.Current.RegisterGroup(GraphicsStrings.AudioVisualizer, g => g
+            .AddMultiple(GraphicsStrings.AudioWaveform, m => m
+                .BindDrawable<AudioWaveformDrawable>()
+            )
+            .AddMultiple(GraphicsStrings.AudioSpectrum, m => m
+                .BindDrawable<AudioSpectrumDrawable>()
+            )
+            .AddMultiple(GraphicsStrings.AudioSpectrogram, m => m
+                .BindDrawable<AudioSpectrogramDrawable>()
+            )
+        );
 
         LibraryService.Current
             .RegisterGroup(GraphicsStrings.Transform, g => g

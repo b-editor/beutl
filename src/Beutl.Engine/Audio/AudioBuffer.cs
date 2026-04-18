@@ -119,6 +119,31 @@ public sealed class AudioBuffer : IDisposable
         }
     }
 
+    public void CopyTo(AudioBuffer destination, int offset, int count)
+    {
+        ArgumentNullException.ThrowIfNull(destination);
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        ObjectDisposedException.ThrowIf(destination._disposed, destination);
+
+        if (destination.SampleRate != SampleRate)
+            throw new ArgumentException("Sample rates must match.", nameof(destination));
+        if (destination.ChannelCount != ChannelCount)
+            throw new ArgumentException("Channel counts must match.", nameof(destination));
+        if (count < 0)
+            throw new ArgumentOutOfRangeException(nameof(count), "Count must be non-negative.");
+        if (count > SampleCount)
+            throw new ArgumentOutOfRangeException(nameof(count), "Count exceeds source sample count.");
+        if (offset < 0 || offset + count > destination.SampleCount)
+            throw new ArgumentOutOfRangeException(nameof(offset), "Offset is out of range for the destination buffer.");
+
+        for (int ch = 0; ch < ChannelCount; ch++)
+        {
+            var src = GetChannelData(ch).Slice(0, count);
+            var dest = destination.GetChannelData(ch).Slice(offset, count);
+            src.CopyTo(dest);
+        }
+    }
+
     public void Dispose()
     {
         if (!_disposed)

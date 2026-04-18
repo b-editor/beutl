@@ -39,7 +39,16 @@ public class ClipNode : AudioNode
             context.SampleRate,
             buffer.ChannelCount,
             context.GetSampleCount());
-        buffer.CopyTo(newBuffer, (int)(padBefore.TotalSeconds * context.SampleRate));
+        // padBefore のサンプル換算は (int)切り捨て、入力 buffer.SampleCount は Math.Ceiling 由来で
+        // 浮動小数点誤差によりそれぞれ独立に ±1 ズレうる。
+        // newBuffer のサイズを超えないようクランプしてコピーする (超過分は範囲外の padding 想定で破棄)。
+        int offset = (int)(padBefore.TotalSeconds * context.SampleRate);
+        if (offset < 0) offset = 0;
+        int copyCount = Math.Min(buffer.SampleCount, newBuffer.SampleCount - offset);
+        if (copyCount > 0)
+        {
+            buffer.CopyTo(newBuffer, offset, copyCount);
+        }
         return newBuffer;
     }
 }

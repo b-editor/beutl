@@ -1359,4 +1359,82 @@
   <data name="FilterEffect" xml:space="preserve">
     <value>Filter Effect</value>
   </data>
+  <data name="AudioVisualizer" xml:space="preserve">
+    <value>Audio Visualizer</value>
+  </data>
+  <data name="AudioWaveform" xml:space="preserve">
+    <value>Audio Waveform</value>
+  </data>
+  <data name="AudioSpectrum" xml:space="preserve">
+    <value>Audio Spectrum</value>
+  </data>
+  <data name="AudioSpectrogram" xml:space="preserve">
+    <value>Audio Spectrogram</value>
+  </data>
+  <data name="AudioVisualizer_WaveformStyle" xml:space="preserve">
+    <value>Waveform Style</value>
+  </data>
+  <data name="AudioVisualizer_BarCount" xml:space="preserve">
+    <value>Bar Count</value>
+  </data>
+  <data name="AudioVisualizer_WindowSeconds" xml:space="preserve">
+    <value>Window (seconds)</value>
+  </data>
+  <data name="AudioVisualizer_FftSize" xml:space="preserve">
+    <value>FFT Size</value>
+  </data>
+  <data name="AudioVisualizer_LogarithmicFrequency" xml:space="preserve">
+    <value>Logarithmic Frequency</value>
+  </data>
+  <data name="AudioVisualizer_FloorDb" xml:space="preserve">
+    <value>Floor (dB)</value>
+  </data>
+  <data name="AudioVisualizer_TimeColumns" xml:space="preserve">
+    <value>Time Columns</value>
+  </data>
+  <data name="AudioVisualizer_Gain" xml:space="preserve">
+    <value>Gain</value>
+  </data>
+  <data name="AudioVisualizer_Smoothing" xml:space="preserve">
+    <value>Smoothing</value>
+  </data>
+  <data name="AudioVisualizer_Shape" xml:space="preserve">
+    <value>Shape</value>
+  </data>
+  <data name="SpectrumShape_Bar" xml:space="preserve">
+    <value>Bar</value>
+  </data>
+  <data name="SpectrumShape_Line" xml:space="preserve">
+    <value>Line</value>
+  </data>
+  <data name="SpectrumShape_FilledArea" xml:space="preserve">
+    <value>Filled Area</value>
+  </data>
+  <data name="SpectrumShape_MirroredBars" xml:space="preserve">
+    <value>Mirrored Bars</value>
+  </data>
+  <data name="SpectrumShape_Radial" xml:space="preserve">
+    <value>Radial</value>
+  </data>
+  <data name="SpectrumShape_CornerRadius" xml:space="preserve">
+    <value>Corner Radius</value>
+  </data>
+  <data name="SpectrumShape_Thickness" xml:space="preserve">
+    <value>Thickness</value>
+  </data>
+  <data name="SpectrumShape_Smoothness" xml:space="preserve">
+    <value>Smoothness</value>
+  </data>
+  <data name="SpectrumShape_InnerRadius" xml:space="preserve">
+    <value>Inner Radius</value>
+  </data>
+  <data name="SpectrumShape_StartAngle" xml:space="preserve">
+    <value>Start Angle</value>
+  </data>
+  <data name="SpectrumShape_BarWidth" xml:space="preserve">
+    <value>Bar Width</value>
+  </data>
+  <data name="SpectrumShape_Direction" xml:space="preserve">
+    <value>Direction</value>
+  </data>
 </root>
