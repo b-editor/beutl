@@ -4,6 +4,7 @@ import CBeutlAVFTypes
 import CoreMedia
 import CoreVideo
 import Foundation
+import VideoToolbox
 
 // Writer state machine: create → start → append_video/append_audio* → finish → close.
 // Close is idempotent; finishing is optional (close without finish discards the file).
@@ -12,6 +13,7 @@ final class Writer {
     private var videoInput: AVAssetWriterInput?
     private var videoAdaptor: AVAssetWriterInputPixelBufferAdaptor?
     private var audioInput: AVAssetWriterInput?
+    private var videoIsHdr: Bool = false
     private var started = false
     private var finished = false
 
@@ -45,6 +47,8 @@ final class Writer {
         started = true
     }
 
+    // `rowBytes` disambiguates between SDR (width*4 — Bgra8888) and HDR (width*8 —
+    // Rgba16161616) inputs. Callers on the C# side already carry this width in Bitmap.RowBytes.
     func appendVideo(
         bgra: UnsafeRawPointer,
         width: Int,
@@ -56,12 +60,28 @@ final class Writer {
         guard started else { throw BeutlAVFError.writerFailed("Writer not started.") }
         guard let adaptor = videoAdaptor else { throw BeutlAVFError.writerFailed("Video input not configured.") }
 
-        let pixelBuffer = try PixelConvert.makeCVPixelBufferFromBGRA8888(
-            source: bgra, width: width, height: height, srcRowBytes: rowBytes)
+        // The adaptor's pool becomes available after startSession; reusing buffers from it
+        // avoids allocating a fresh CVPixelBuffer per frame (which for 4K is ~35 MB/frame
+        // for BGRA and ~70 MB/frame for Rgba16161616).
+        try waitUntilReady(input: adaptor.assetWriterInput)
 
-        while !adaptor.assetWriterInput.isReadyForMoreMediaData {
-            // Block on the writer's queue rather than spinning hot.
-            Thread.sleep(forTimeInterval: 0.001)
+        let pixelBuffer: CVPixelBuffer
+        if let pool = adaptor.pixelBufferPool {
+            var pb: CVPixelBuffer?
+            let status = CVPixelBufferPoolCreatePixelBuffer(kCFAllocatorDefault, pool, &pb)
+            guard status == kCVReturnSuccess, let buffer = pb else {
+                throw BeutlAVFError.writerFailed("CVPixelBufferPoolCreatePixelBuffer failed: \(status)")
+            }
+            // Both BGRA and RGBA16LE ultimately go in via row-wise memcpy; the helper
+            // picks the right copy size based on the destination pixel buffer's bytes-per-row.
+            try PixelConvert.copyBGRAIntoPixelBuffer(source: bgra, srcRowBytes: rowBytes, into: buffer)
+            pixelBuffer = buffer
+        } else if videoIsHdr {
+            pixelBuffer = try PixelConvert.makeCVPixelBufferRGBA16LE(
+                source: bgra, width: width, height: height, srcRowBytes: rowBytes)
+        } else {
+            pixelBuffer = try PixelConvert.makeCVPixelBufferFromBGRA8888(
+                source: bgra, width: width, height: height, srcRowBytes: rowBytes)
         }
 
         let pts = CMTime(value: CMTimeValue(ptsNum), timescale: CMTimeScale(ptsDen))
@@ -134,13 +154,31 @@ final class Writer {
             throw BeutlAVFError.writerFailed("CMAudioSampleBufferCreateReadyWithPacketDescriptions failed: \(sbStatus)")
         }
 
-        while !input.isReadyForMoreMediaData {
-            Thread.sleep(forTimeInterval: 0.001)
-        }
+        try waitUntilReady(input: input)
 
         if !input.append(sb) {
             throw BeutlAVFError.writerFailed(
                 writer.error?.localizedDescription ?? "AVAssetWriterInput.append returned false")
+        }
+    }
+
+    // Spin-wait until the input can accept more media data. If the writer transitions to
+    // .failed or .cancelled while we're back-pressured, isReadyForMoreMediaData never flips
+    // back to true, so we must surface that as an error instead of sleeping forever.
+    private func waitUntilReady(input: AVAssetWriterInput) throws {
+        while !input.isReadyForMoreMediaData {
+            switch writer.status {
+            case .failed:
+                throw BeutlAVFError.writerFailed(
+                    writer.error?.localizedDescription ?? "AVAssetWriter transitioned to .failed")
+            case .cancelled:
+                throw BeutlAVFError.writerFailed("AVAssetWriter was cancelled")
+            case .completed:
+                throw BeutlAVFError.writerFailed("AVAssetWriter already finished; cannot append more data")
+            default:
+                break
+            }
+            Thread.sleep(forTimeInterval: 0.001)
         }
     }
 
@@ -161,7 +199,13 @@ final class Writer {
     }
 
     private func configureVideo(config: BeutlVideoEncoderConfig) throws {
-        let codec = Self.codecType(for: config.codec)
+        let isHdr = config.isHdr != 0
+        videoIsHdr = isHdr
+
+        // HDR forces HEVC Main10 regardless of the requested codec slot; H.264 has no HDR10
+        // profile in VideoToolbox and JPEG is moot for high-dynamic-range output.
+        let codec: AVVideoCodecType = isHdr ? .hevc : Self.codecType(for: config.codec)
+
         var compressionProps: [String: Any] = [:]
         if config.bitrate > 0 {
             compressionProps[AVVideoAverageBitRateKey] = config.bitrate
@@ -175,6 +219,9 @@ final class Writer {
         if codec == .h264, let profile = Self.profileH264(for: config.profileLevelH264) {
             compressionProps[AVVideoProfileLevelKey] = profile
         }
+        if isHdr {
+            compressionProps[AVVideoProfileLevelKey] = kVTProfileLevel_HEVC_Main10_AutoLevel
+        }
 
         var settings: [String: Any] = [
             AVVideoCodecKey: codec,
@@ -185,13 +232,23 @@ final class Writer {
             settings[AVVideoCompressionPropertiesKey] = compressionProps
         }
 
+        // Stamp the encoded stream with explicit color tags so HDR-aware players can pick the
+        // right tone mapping. Uses whatever the caller requested; sensible defaults (Rec.2020
+        // + PQ + Rec.2020 matrix) are applied when tags are left at Unknown in the HDR case.
+        if let colorProps = Self.buildColorProperties(config: config, isHdr: isHdr) {
+            settings[AVVideoColorPropertiesKey] = colorProps
+        }
+
         let input = AVAssetWriterInput(mediaType: .video, outputSettings: settings)
         input.expectsMediaDataInRealTime = true
 
         let sourceWidth = config.sourceWidth > 0 ? Int(config.sourceWidth) : Int(config.width)
         let sourceHeight = config.sourceHeight > 0 ? Int(config.sourceHeight) : Int(config.height)
+        // CV64RGBALE matches Beutl's Rgba16161616 byte layout on the C# side, so a 16-bit HDR
+        // frame can land in the pool buffer via a plain row-wise memcpy.
+        let pixelFormat: OSType = isHdr ? kCVPixelFormatType_64RGBALE : kCVPixelFormatType_32BGRA
         let pbAttrs: [String: Any] = [
-            kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA,
+            kCVPixelBufferPixelFormatTypeKey as String: pixelFormat,
             kCVPixelBufferWidthKey as String: sourceWidth,
             kCVPixelBufferHeightKey as String: sourceHeight,
         ]
@@ -205,6 +262,62 @@ final class Writer {
         writer.add(input)
         videoInput = input
         videoAdaptor = adaptor
+    }
+
+    private static func buildColorProperties(
+        config: BeutlVideoEncoderConfig,
+        isHdr: Bool
+    ) -> [String: Any]? {
+        let primariesKey = mapPrimaries(config.colorPrimaries, isHdr: isHdr)
+        let transferKey = mapTransfer(config.colorTransfer, isHdr: isHdr)
+        let matrixKey = mapMatrix(config.yCbCrMatrix, isHdr: isHdr)
+
+        if primariesKey == nil && transferKey == nil && matrixKey == nil { return nil }
+
+        var dict: [String: Any] = [:]
+        if let v = primariesKey { dict[AVVideoColorPrimariesKey] = v }
+        if let v = transferKey { dict[AVVideoTransferFunctionKey] = v }
+        if let v = matrixKey { dict[AVVideoYCbCrMatrixKey] = v }
+        return dict.isEmpty ? nil : dict
+    }
+
+    private static func mapPrimaries(_ raw: Int32, isHdr: Bool) -> String? {
+        switch raw {
+        case Int32(BEUTL_PRIMARIES_BT709): return AVVideoColorPrimaries_ITU_R_709_2
+        case Int32(BEUTL_PRIMARIES_REC2020): return AVVideoColorPrimaries_ITU_R_2020
+        case Int32(BEUTL_PRIMARIES_SMPTE431), Int32(BEUTL_PRIMARIES_DCIP3):
+            return AVVideoColorPrimaries_P3_D65
+        case Int32(BEUTL_PRIMARIES_EBU3213): return AVVideoColorPrimaries_EBU_3213
+        case Int32(BEUTL_PRIMARIES_SMPTE170M): return AVVideoColorPrimaries_SMPTE_C
+        default:
+            // HDR without explicit tag → Rec.2020 gamut; SDR falls through to the encoder's
+            // default (BT.709 for H.264/HEVC, unset for JPEG).
+            return isHdr ? AVVideoColorPrimaries_ITU_R_2020 : nil
+        }
+    }
+
+    private static func mapTransfer(_ raw: Int32, isHdr: Bool) -> String? {
+        switch raw {
+        case Int32(BEUTL_TRANSFER_PQ): return AVVideoTransferFunction_SMPTE_ST_2084_PQ
+        case Int32(BEUTL_TRANSFER_HLG): return AVVideoTransferFunction_ITU_R_2100_HLG
+        case Int32(BEUTL_TRANSFER_BT709): return AVVideoTransferFunction_ITU_R_709_2
+        case Int32(BEUTL_TRANSFER_SMPTE240M): return AVVideoTransferFunction_SMPTE_240M_1995
+        // AVVideoTransferFunction_Linear is macOS 13+. For BEUTL_TRANSFER_LINEAR we fall
+        // through to the encoder default rather than gating the whole extension on 13+.
+        default:
+            return isHdr ? AVVideoTransferFunction_SMPTE_ST_2084_PQ : nil
+        }
+    }
+
+    private static func mapMatrix(_ raw: Int32, isHdr: Bool) -> String? {
+        switch raw {
+        case Int32(BEUTL_MATRIX_BT709): return AVVideoYCbCrMatrix_ITU_R_709_2
+        case Int32(BEUTL_MATRIX_BT601): return AVVideoYCbCrMatrix_ITU_R_601_4
+        case Int32(BEUTL_MATRIX_REC2020): return AVVideoYCbCrMatrix_ITU_R_2020
+        case Int32(BEUTL_MATRIX_SMPTE240M): return AVVideoYCbCrMatrix_SMPTE_240M_1995
+        default:
+            return isHdr ? AVVideoYCbCrMatrix_ITU_R_2020 : nil
+        }
     }
 
     private func configureAudio(config: BeutlAudioEncoderConfig) throws {
@@ -241,9 +354,11 @@ final class Writer {
     }
 
     // Codec enum mapping: 0 (Default) falls back to H.264.
+    // HDR paths force HEVC upstream regardless of this value.
     private static func codecType(for raw: Int32) -> AVVideoCodecType {
         switch raw {
         case 2: return .jpeg
+        case 3: return .hevc
         case 1, 0: return .h264
         default: return .h264
         }

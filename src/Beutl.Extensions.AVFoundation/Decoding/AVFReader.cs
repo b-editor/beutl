@@ -14,6 +14,9 @@ public sealed class AVFReader : MediaReader
 {
     private readonly ILogger _logger = Log.CreateLogger<AVFReader>();
     private AVFReaderSafeHandle? _handle;
+    private BitmapColorType _videoColorType = BitmapColorType.Bgra8888;
+    private BitmapAlphaType _videoAlphaType = BitmapAlphaType.Unpremul;
+    private BitmapColorSpace _videoColorSpace = BitmapColorSpace.Srgb;
 
     public AVFReader(string file, MediaOptions options, AVFDecodingExtension extension)
     {
@@ -25,9 +28,12 @@ public sealed class AVFReader : MediaReader
             ThresholdSampleCount = extension.Settings?.ThresholdSampleCount ?? 30000,
         };
 
+        bool wantsVideo = options.StreamsToLoad.HasFlag(MediaMode.Video);
+        bool wantsAudio = options.StreamsToLoad.HasFlag(MediaMode.Audio);
+
         int modeFlags = 0;
-        if (options.StreamsToLoad.HasFlag(MediaMode.Video)) modeFlags |= 1;
-        if (options.StreamsToLoad.HasFlag(MediaMode.Audio)) modeFlags |= 2;
+        if (wantsVideo) modeFlags |= 1;
+        if (wantsAudio) modeFlags |= 2;
 
         int r = BeutlAVFNative.beutl_avf_reader_open(file, modeFlags, ref opts, out _handle);
         BeutlAVFException.ThrowIfFailed(r);
@@ -38,6 +44,21 @@ public sealed class AVFReader : MediaReader
         HasVideo = hasVideo != 0;
         HasAudio = hasAudio != 0;
 
+        // Fail construction when the caller explicitly asked for a stream that the file does
+        // not contain. Callers (SoundSource, VideoSource) dereference VideoInfo/AudioInfo
+        // immediately after a successful Open, so leaving these null would produce an NRE
+        // on video-only or audio-only inputs.
+        if (wantsVideo && !HasVideo)
+        {
+            _handle.Dispose();
+            throw new InvalidOperationException($"No video track found in '{file}'.");
+        }
+        if (wantsAudio && !HasAudio)
+        {
+            _handle.Dispose();
+            throw new InvalidOperationException($"No audio track found in '{file}'.");
+        }
+
         if (HasVideo)
         {
             BeutlAVFException.ThrowIfFailed(
@@ -47,6 +68,16 @@ public sealed class AVFReader : MediaReader
                 vi.NominalFrameCount,
                 new PixelSize(vi.Width, vi.Height),
                 new Rational(vi.FrameRateNum, vi.FrameRateDen));
+
+            bool isHdr = vi.IsHdr != 0;
+            _videoColorType = isHdr ? BitmapColorType.Rgba16161616 : BitmapColorType.Bgra8888;
+            _videoColorSpace = ColorSpaceMapper.BuildColorSpace(
+                isHdr,
+                (BeutlTransferFunction)vi.TransferFunction,
+                (BeutlColorPrimaries)vi.ColorPrimaries);
+            _logger.LogInformation(
+                "Video color space: {ColorSpace} ({Hdr})",
+                _videoColorSpace, isHdr ? "HDR" : "SDR");
         }
 
         if (HasAudio)
@@ -77,7 +108,9 @@ public sealed class AVFReader : MediaReader
             return false;
         }
 
-        var bitmap = new Bitmap(VideoInfo.FrameSize.Width, VideoInfo.FrameSize.Height);
+        var bitmap = new Bitmap(
+            VideoInfo.FrameSize.Width, VideoInfo.FrameSize.Height,
+            _videoColorType, _videoAlphaType, _videoColorSpace);
         try
         {
             int result = BeutlAVFNative.beutl_avf_reader_read_video(

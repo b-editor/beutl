@@ -79,6 +79,8 @@ final class VideoReaderContext {
     private let track: AVAssetTrack
     private let cache: VideoSampleCache
     private let thresholdFrameCount: Int
+    private let pixelFormat: OSType
+    private let isHdr: Bool
 
     private var reader: AVAssetReader
     private var output: AVAssetReaderTrackOutput
@@ -93,7 +95,15 @@ final class VideoReaderContext {
         self.cache = VideoSampleCache(capacity: Int(options.maxVideoBufferSize))
         self.thresholdFrameCount = Int(options.thresholdFrameCount)
 
-        let (reader, output) = try Self.makeReaderAndOutput(asset: asset, track: track, start: nil)
+        let tags = ColorSpaceMapper.extract(from: track)
+        self.isHdr = tags.isHdr
+        // Request a wide output format for HDR content so we don't tone-map down to 8bpc
+        // in the reader. CV32ARGB is kept for SDR — it matches Beutl's Bgra8888 after a
+        // single byte-reverse and is what VideoToolbox produces cheaply.
+        self.pixelFormat = tags.isHdr ? kCVPixelFormatType_64RGBALE : kCVPixelFormatType_32ARGB
+
+        let (reader, output) = try Self.makeReaderAndOutput(
+            asset: asset, track: track, start: nil, pixelFormat: self.pixelFormat)
         self.reader = reader
         self.output = output
 
@@ -121,15 +131,17 @@ final class VideoReaderContext {
             frameRateDen: frameRational.den,
             durationNum: durationRational.num,
             durationDen: durationRational.den,
-            nominalFrameCount: nominalFrameCount)
+            nominalFrameCount: nominalFrameCount,
+            isHdr: tags.isHdr ? 1 : 0,
+            transferFunction: tags.transfer,
+            colorPrimaries: tags.primaries,
+            bytesPerPixel: tags.isHdr ? 8 : 4)
     }
 
     func readFrame(index: Int, outBuffer: UnsafeMutableRawPointer, capacityBytes: Int, rowBytes: Int) throws {
         if let cached = cache.search(frame: index) {
             let pixelBuffer = try Self.pixelBuffer(from: cached)
-            try PixelConvert.copyToBGRA8888(
-                pixelBuffer: pixelBuffer, destBuffer: outBuffer,
-                destCapacityBytes: capacityBytes, destRowBytes: rowBytes)
+            try copyOut(pixelBuffer, outBuffer: outBuffer, capacityBytes: capacityBytes, rowBytes: rowBytes)
             return
         }
 
@@ -147,9 +159,7 @@ final class VideoReaderContext {
             let lastFrame = cache.lastFrameNumber()
             if index <= lastFrame {
                 let pixelBuffer = try Self.pixelBuffer(from: sample)
-                try PixelConvert.copyToBGRA8888(
-                    pixelBuffer: pixelBuffer, destBuffer: outBuffer,
-                    destCapacityBytes: capacityBytes, destRowBytes: rowBytes)
+                try copyOut(pixelBuffer, outBuffer: outBuffer, capacityBytes: capacityBytes, rowBytes: rowBytes)
                 return
             }
         }
@@ -157,9 +167,27 @@ final class VideoReaderContext {
         throw BeutlAVFError.endOfStream
     }
 
+    private func copyOut(
+        _ pixelBuffer: CVPixelBuffer,
+        outBuffer: UnsafeMutableRawPointer,
+        capacityBytes: Int,
+        rowBytes: Int
+    ) throws {
+        if isHdr {
+            try PixelConvert.copyToRGBA16161616(
+                pixelBuffer: pixelBuffer, destBuffer: outBuffer,
+                destCapacityBytes: capacityBytes, destRowBytes: rowBytes)
+        } else {
+            try PixelConvert.copyToBGRA8888(
+                pixelBuffer: pixelBuffer, destBuffer: outBuffer,
+                destCapacityBytes: capacityBytes, destRowBytes: rowBytes)
+        }
+    }
+
     private func seek(to timestamp: CMTime) throws {
         cache.reset()
-        let (newReader, newOutput) = try Self.makeReaderAndOutput(asset: asset, track: track, start: timestamp)
+        let (newReader, newOutput) = try Self.makeReaderAndOutput(
+            asset: asset, track: track, start: timestamp, pixelFormat: pixelFormat)
         self.reader = newReader
         self.output = newOutput
     }
@@ -185,7 +213,8 @@ final class VideoReaderContext {
     private static func makeReaderAndOutput(
         asset: AVURLAsset,
         track: AVAssetTrack,
-        start: CMTime?
+        start: CMTime?,
+        pixelFormat: OSType
     ) throws -> (AVAssetReader, AVAssetReaderTrackOutput) {
         let reader: AVAssetReader
         do {
@@ -199,7 +228,7 @@ final class VideoReaderContext {
         }
 
         let settings: [String: Any] = [
-            kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32ARGB,
+            kCVPixelBufferPixelFormatTypeKey as String: pixelFormat,
         ]
         let output = AVAssetReaderTrackOutput(track: track, outputSettings: settings)
         output.alwaysCopiesSampleData = false

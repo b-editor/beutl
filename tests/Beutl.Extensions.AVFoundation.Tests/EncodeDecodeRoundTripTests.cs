@@ -62,6 +62,8 @@ public class EncodeDecodeRoundTripTests
         Assert.That(reader.HasVideo, Is.True, "Decoded file should expose a video track.");
         Assert.That(reader.VideoInfo.FrameSize.Width, Is.EqualTo(width));
         Assert.That(reader.VideoInfo.FrameSize.Height, Is.EqualTo(height));
+        // Synthetic input has no HDR metadata → should come back as SDR 8bpc.
+        Assert.That(reader.VideoInfo.CodecName, Is.Not.Empty);
 
         Assert.That(reader.HasAudio, Is.True, "Decoded file should expose an audio track.");
         Assert.That(reader.AudioInfo.SampleRate, Is.EqualTo(sampleRate));
@@ -85,6 +87,55 @@ public class EncodeDecodeRoundTripTests
             Assert.That(audioPcm!.Value.SampleRate, Is.EqualTo(sampleRate));
             Assert.That(audioPcm.Value.NumSamples, Is.EqualTo(1024));
             Assert.That(audioPcm.Value.NumChannels, Is.EqualTo(2));
+        }
+    }
+
+    [Test]
+    public async Task EncodesHdrPqHevcClipThenDecodes()
+    {
+        string outputPath = Path.Combine(_workDir, "hdr.mp4");
+        var controller = new AVFEncodingController(outputPath);
+
+        const int width = 128;
+        const int height = 128;
+        const int frameCount = 6;
+        const int frameRateNum = 30;
+        const int frameRateDen = 1;
+
+        controller.VideoSettings.DestinationSize = new PixelSize(width, height);
+        controller.VideoSettings.SourceSize = new PixelSize(width, height);
+        controller.VideoSettings.FrameRate = new Rational(frameRateNum, frameRateDen);
+        // HDR PQ + Rec.2020 — this flips the writer to HEVC Main10 + CV64RGBALE input and
+        // stamps the AVVideoColorProperties tags on the output stream.
+        controller.VideoSettings.ColorTransfer = AVFVideoEncoderSettings.ColorTransferCharacteristic.Pq;
+        controller.VideoSettings.ColorPrimaries = AVFVideoEncoderSettings.ColorPrimariesType.Rec2020;
+        controller.VideoSettings.YCbCrMatrix = AVFVideoEncoderSettings.YCbCrMatrixType.Rec2020;
+        controller.AudioSettings.SampleRate = 44100;
+        controller.AudioSettings.Channels = 2;
+
+        Assert.That(controller.VideoSettings.IsHdr, Is.True);
+
+        var frameProvider = new GradientFrameProvider(
+            frameCount, new Rational(frameRateNum, frameRateDen), width, height);
+        var sampleProvider = new SineSampleProvider(44100, 44100);
+
+        await controller.Encode(frameProvider, sampleProvider, CancellationToken.None);
+        Assert.That(File.Exists(outputPath), Is.True, "HDR encoder should produce an output file.");
+
+        // Reader should detect the PQ transfer we just wrote and flip into HDR mode
+        // (Rgba16161616 bitmaps with a luminance-scaled Rec.2020 target color space).
+        var decodingExtension = new AVFDecodingExtension();
+        using var reader = new AVFReader(outputPath, new MediaOptions(), decodingExtension);
+        Assert.That(reader.HasVideo, Is.True);
+
+        bool videoRead = reader.ReadVideo(frame: 1, out var image);
+        Assert.That(videoRead, Is.True, "Mid-HDR-clip frame must decode.");
+        using (image)
+        {
+            Assert.That(image!.Value.Width, Is.EqualTo(width));
+            Assert.That(image.Value.Height, Is.EqualTo(height));
+            Assert.That(image.Value.ColorType, Is.EqualTo(BitmapColorType.Rgba16161616),
+                "HDR stream must decode into a 16bpc Bitmap.");
         }
     }
 }

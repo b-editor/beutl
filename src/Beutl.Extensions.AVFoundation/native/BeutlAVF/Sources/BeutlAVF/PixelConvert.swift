@@ -1,3 +1,4 @@
+import Accelerate
 import CoreImage
 import CoreMedia
 import CoreVideo
@@ -31,9 +32,9 @@ enum PixelConvert {
         let srcPtr = CVPixelBufferGetBaseAddress(pixelBuffer)
         let pixelFormat = CVPixelBufferGetPixelFormatType(pixelBuffer)
 
-        // CV32ARGB → Bgra8888 swizzle covers the AVAssetReader output path. Padded source
-        // rows are handled by the row-based loop inside swizzleARGBtoBGRA; IOSurface-backed
-        // pixel buffers are almost always padded in practice.
+        // CV32ARGB → Bgra8888 is a full byte reverse per pixel. vImage's
+        // vImagePermuteChannels_ARGB8888 does this with SIMD + multithreading and handles
+        // padded rows natively, so the same call covers both the tight and padded paths.
         if let srcPtr = srcPtr, pixelFormat == kCVPixelFormatType_32ARGB {
             swizzleARGBtoBGRA(
                 src: srcPtr, dst: destBuffer,
@@ -50,16 +51,126 @@ enum PixelConvert {
             destRowBytes: destRowBytes)
     }
 
-    // Convert a BGRA8888 source into a newly-allocated CVPixelBuffer (CV32BGRA).
-    // Returns a +1 retained pixel buffer; caller must release.
+    // Copy a CVPixelBuffer carrying HDR content (16-bit per channel) into a caller-supplied
+    // Rgba16161616 buffer. Accepts either kCVPixelFormatType_64RGBALE (native match — plain
+    // row-wise memcpy) or kCVPixelFormatType_64ARGB (big-endian ARGB — permuted through
+    // vImage to produce little-endian RGBA).
+    static func copyToRGBA16161616(
+        pixelBuffer: CVPixelBuffer,
+        destBuffer: UnsafeMutableRawPointer,
+        destCapacityBytes: Int,
+        destRowBytes: Int
+    ) throws {
+        let width = CVPixelBufferGetWidth(pixelBuffer)
+        let height = CVPixelBufferGetHeight(pixelBuffer)
+        let requiredBytes = destRowBytes * height
+        guard destCapacityBytes >= requiredBytes else {
+            throw BeutlAVFError.bufferTooSmall(required: requiredBytes, actual: destCapacityBytes)
+        }
+
+        let lockResult = CVPixelBufferLockBaseAddress(pixelBuffer, .readOnly)
+        guard lockResult == kCVReturnSuccess else {
+            throw BeutlAVFError.readerFailed("CVPixelBufferLockBaseAddress failed: \(lockResult)")
+        }
+        defer { CVPixelBufferUnlockBaseAddress(pixelBuffer, .readOnly) }
+
+        let srcRowBytes = CVPixelBufferGetBytesPerRow(pixelBuffer)
+        guard let srcPtr = CVPixelBufferGetBaseAddress(pixelBuffer) else {
+            throw BeutlAVFError.readerFailed("CVPixelBufferGetBaseAddress returned nil.")
+        }
+        let format = CVPixelBufferGetPixelFormatType(pixelBuffer)
+        let rowBytesToCopy = min(srcRowBytes, destRowBytes)
+
+        switch format {
+        case kCVPixelFormatType_64RGBALE:
+            // Same layout as Bgra / Rgba16161616 in SkiaSharp: R, G, B, A, each 2-byte LE.
+            for row in 0..<height {
+                memcpy(destBuffer.advanced(by: row * destRowBytes),
+                       srcPtr.advanced(by: row * srcRowBytes),
+                       rowBytesToCopy)
+            }
+        case kCVPixelFormatType_64ARGB:
+            // 16-bit integer ARGB, big-endian. We need little-endian RGBA with the channels
+            // in R, G, B, A order. That's a 16-bit channel permute + endian swap, which
+            // vImagePermuteChannels_ARGB16U + vImageByteSwap_Planar16U give us.
+            try permuteARGB16BEtoRGBA16LE(
+                src: srcPtr, srcRowBytes: srcRowBytes,
+                dst: destBuffer, dstRowBytes: destRowBytes,
+                width: width, height: height)
+        default:
+            // Unknown HDR layout: fall back to CoreImage with 16-bit integer RGBA output.
+            try renderViaCoreImageRGBA16(
+                pixelBuffer: pixelBuffer, destBuffer: destBuffer,
+                width: width, height: height, destRowBytes: destRowBytes)
+        }
+    }
+
+    // Copy a BGRA8888 source into an existing CVPixelBuffer (CV32BGRA), reusing a buffer
+    // obtained from an AVAssetWriterInputPixelBufferAdaptor.pixelBufferPool when available.
+    static func copyBGRAIntoPixelBuffer(
+        source: UnsafeRawPointer,
+        srcRowBytes: Int,
+        into pixelBuffer: CVPixelBuffer
+    ) throws {
+        let lockResult = CVPixelBufferLockBaseAddress(pixelBuffer, [])
+        guard lockResult == kCVReturnSuccess else {
+            throw BeutlAVFError.writerFailed("CVPixelBufferLockBaseAddress failed: \(lockResult)")
+        }
+        defer { CVPixelBufferUnlockBaseAddress(pixelBuffer, []) }
+
+        let height = CVPixelBufferGetHeight(pixelBuffer)
+        let dstRowBytes = CVPixelBufferGetBytesPerRow(pixelBuffer)
+        guard let dstBase = CVPixelBufferGetBaseAddress(pixelBuffer) else {
+            throw BeutlAVFError.writerFailed("CVPixelBufferGetBaseAddress returned nil")
+        }
+
+        if srcRowBytes == dstRowBytes {
+            memcpy(dstBase, source, dstRowBytes * height)
+            return
+        }
+
+        let copyBytes = min(srcRowBytes, dstRowBytes)
+        for row in 0..<height {
+            memcpy(dstBase.advanced(by: row * dstRowBytes),
+                   source.advanced(by: row * srcRowBytes),
+                   copyBytes)
+        }
+    }
+
+    // Fallback path for the first few frames (before the adaptor materializes its pool)
+    // or when no pool is offered: allocate a fresh CV32BGRA pixel buffer and copy into it.
     static func makeCVPixelBufferFromBGRA8888(
         source: UnsafeRawPointer,
         width: Int,
         height: Int,
         srcRowBytes: Int
     ) throws -> CVPixelBuffer {
+        return try makeCVPixelBuffer(
+            pixelFormat: kCVPixelFormatType_32BGRA,
+            source: source, width: width, height: height, srcRowBytes: srcRowBytes)
+    }
+
+    // HDR fallback variant matching the CV64RGBALE adaptor format.
+    static func makeCVPixelBufferRGBA16LE(
+        source: UnsafeRawPointer,
+        width: Int,
+        height: Int,
+        srcRowBytes: Int
+    ) throws -> CVPixelBuffer {
+        return try makeCVPixelBuffer(
+            pixelFormat: kCVPixelFormatType_64RGBALE,
+            source: source, width: width, height: height, srcRowBytes: srcRowBytes)
+    }
+
+    private static func makeCVPixelBuffer(
+        pixelFormat: OSType,
+        source: UnsafeRawPointer,
+        width: Int,
+        height: Int,
+        srcRowBytes: Int
+    ) throws -> CVPixelBuffer {
         let attrs: [CFString: Any] = [
-            kCVPixelBufferPixelFormatTypeKey: kCVPixelFormatType_32BGRA,
+            kCVPixelBufferPixelFormatTypeKey: pixelFormat,
             kCVPixelBufferWidthKey: width,
             kCVPixelBufferHeightKey: height,
             kCVPixelBufferCGImageCompatibilityKey: true,
@@ -69,29 +180,12 @@ enum PixelConvert {
         var pixelBuffer: CVPixelBuffer?
         let status = CVPixelBufferCreate(
             kCFAllocatorDefault, width, height,
-            kCVPixelFormatType_32BGRA, attrs as CFDictionary, &pixelBuffer)
+            pixelFormat, attrs as CFDictionary, &pixelBuffer)
         guard status == kCVReturnSuccess, let pb = pixelBuffer else {
             throw BeutlAVFError.writerFailed("CVPixelBufferCreate failed: \(status)")
         }
 
-        let lockResult = CVPixelBufferLockBaseAddress(pb, [])
-        guard lockResult == kCVReturnSuccess else {
-            throw BeutlAVFError.writerFailed("CVPixelBufferLockBaseAddress failed: \(lockResult)")
-        }
-        defer { CVPixelBufferUnlockBaseAddress(pb, []) }
-
-        guard let dstBase = CVPixelBufferGetBaseAddress(pb) else {
-            throw BeutlAVFError.writerFailed("CVPixelBufferGetBaseAddress returned nil")
-        }
-
-        let dstRowBytes = CVPixelBufferGetBytesPerRow(pb)
-        let copyBytes = min(srcRowBytes, dstRowBytes)
-        for row in 0..<height {
-            let src = source.advanced(by: row * srcRowBytes)
-            let dst = dstBase.advanced(by: row * dstRowBytes)
-            memcpy(dst, src, copyBytes)
-        }
-
+        try copyBGRAIntoPixelBuffer(source: source, srcRowBytes: srcRowBytes, into: pb)
         return pb
     }
 
@@ -103,20 +197,39 @@ enum PixelConvert {
         srcRowBytes: Int,
         dstRowBytes: Int
     ) {
-        let totalPixels = width * height
-        let tightDst = (dstRowBytes == width * 4) && (srcRowBytes == width * 4)
+        var srcBuffer = vImage_Buffer(
+            data: UnsafeMutableRawPointer(mutating: src),
+            height: vImagePixelCount(height),
+            width: vImagePixelCount(width),
+            rowBytes: srcRowBytes)
+        var dstBuffer = vImage_Buffer(
+            data: dst,
+            height: vImagePixelCount(height),
+            width: vImagePixelCount(width),
+            rowBytes: dstRowBytes)
 
-        // CV32ARGB in memory is [A][R][G][B]; Bgra8888 is [B][G][R][A] — a full 4-byte reverse.
-        if tightDst {
-            let srcWords = src.assumingMemoryBound(to: UInt32.self)
-            let dstWords = dst.assumingMemoryBound(to: UInt32.self)
-            DispatchQueue.concurrentPerform(iterations: totalPixels) { i in
-                dstWords[i] = srcWords[i].byteSwapped
-            }
-            return
-        }
+        // Permute map: destination byte i receives source byte permuteMap[i].
+        // Source ARGB memory order [A=0, R=1, G=2, B=3] → destination BGRA [B, G, R, A].
+        var permuteMap: [UInt8] = [3, 2, 1, 0]
+        let err = vImagePermuteChannels_ARGB8888(
+            &srcBuffer, &dstBuffer, &permuteMap, vImage_Flags(kvImageNoFlags))
+        if err == kvImageNoError { return }
 
-        // Padded rows (common for IOSurface-backed CVPixelBuffer output).
+        // Accelerate is always available on macOS 12+; this fallback exists so an unexpected
+        // failure surfaces as corrupted pixels rather than silently producing garbage.
+        setLastErrorMessage("vImagePermuteChannels_ARGB8888 failed: \(err); falling back to scalar swizzle")
+        scalarSwizzleARGBtoBGRA(src: src, dst: dst, width: width, height: height,
+                                srcRowBytes: srcRowBytes, dstRowBytes: dstRowBytes)
+    }
+
+    private static func scalarSwizzleARGBtoBGRA(
+        src: UnsafeRawPointer,
+        dst: UnsafeMutableRawPointer,
+        width: Int,
+        height: Int,
+        srcRowBytes: Int,
+        dstRowBytes: Int
+    ) {
         DispatchQueue.concurrentPerform(iterations: height) { row in
             let srcRow = src.advanced(by: row * srcRowBytes).assumingMemoryBound(to: UInt8.self)
             let dstRow = dst.advanced(by: row * dstRowBytes).assumingMemoryBound(to: UInt8.self)
@@ -133,6 +246,64 @@ enum PixelConvert {
                 d[3] = a
             }
         }
+    }
+
+    private static func permuteARGB16BEtoRGBA16LE(
+        src: UnsafeRawPointer,
+        srcRowBytes: Int,
+        dst: UnsafeMutableRawPointer,
+        dstRowBytes: Int,
+        width: Int,
+        height: Int
+    ) throws {
+        var srcBuffer = vImage_Buffer(
+            data: UnsafeMutableRawPointer(mutating: src),
+            height: vImagePixelCount(height),
+            width: vImagePixelCount(width),
+            rowBytes: srcRowBytes)
+        var dstBuffer = vImage_Buffer(
+            data: dst,
+            height: vImagePixelCount(height),
+            width: vImagePixelCount(width),
+            rowBytes: dstRowBytes)
+
+        // Source samples are 16-bit big-endian; AVFoundation stores CV64ARGB in network order.
+        // Byte-swap in place (via a temporary copy) so the subsequent permute treats them as
+        // little-endian UInt16 channels matching Beutl's Rgba16161616.
+        let err = vImageByteSwap_Planar16U(&srcBuffer, &dstBuffer, vImage_Flags(kvImageNoFlags))
+        if err != kvImageNoError {
+            throw BeutlAVFError.readerFailed("vImageByteSwap_Planar16U failed: \(err)")
+        }
+
+        // After byte-swap `dst` still holds A R G B order (just with LE samples). Permute in
+        // place to R G B A to match Rgba16161616.
+        var permuteMap: [UInt8] = [1, 2, 3, 0]
+        let err2 = vImagePermuteChannels_ARGB16U(
+            &dstBuffer, &dstBuffer, &permuteMap, vImage_Flags(kvImageNoFlags))
+        if err2 != kvImageNoError {
+            throw BeutlAVFError.readerFailed("vImagePermuteChannels_ARGB16U failed: \(err2)")
+        }
+    }
+
+    private static func renderViaCoreImageRGBA16(
+        pixelBuffer: CVPixelBuffer,
+        destBuffer: UnsafeMutableRawPointer,
+        width: Int,
+        height: Int,
+        destRowBytes: Int
+    ) throws {
+        let ciImage = CIImage(cvPixelBuffer: pixelBuffer)
+        // Use an extended-sRGB linear working space so HDR code-values pass through as
+        // scene-linear extended values — callers convert to their final display space
+        // later via BitmapColorSpace.
+        let colorSpace = CGColorSpace(name: CGColorSpace.extendedLinearSRGB) ?? CGColorSpaceCreateDeviceRGB()
+        sharedCIContext.render(
+            ciImage,
+            toBitmap: destBuffer,
+            rowBytes: destRowBytes,
+            bounds: CGRect(x: 0, y: 0, width: width, height: height),
+            format: .RGBA16,
+            colorSpace: colorSpace)
     }
 
     private static var sharedCIContext: CIContext = CIContext(options: nil)

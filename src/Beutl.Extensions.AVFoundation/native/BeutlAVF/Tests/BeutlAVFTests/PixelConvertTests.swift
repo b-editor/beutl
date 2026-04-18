@@ -104,6 +104,43 @@ final class PixelConvertTests: XCTestCase {
         }
     }
 
+    // Measures the dominant hot path (FullHD swizzle). Uses raw buffers so the benchmark
+    // isolates the permute cost — no CVPixelBuffer lock/unlock overhead. The output is
+    // purely informational: XCTest records the average and stddev so regressions show up
+    // as a measurable slowdown without failing the test run.
+    func testARGBToBGRA8888Performance() throws {
+        let width = 1920
+        let height = 1080
+        let pixelCount = width * height
+        var source = [UInt8](repeating: 0, count: pixelCount * 4)
+        for i in 0..<pixelCount {
+            let o = i * 4
+            source[o + 0] = UInt8(i & 0xFF)
+            source[o + 1] = UInt8((i >> 8) & 0xFF)
+            source[o + 2] = UInt8((i >> 4) & 0xFF)
+            source[o + 3] = 0xFF
+        }
+
+        let pb = try makeARGBPixelBuffer(width: width, height: height) { row, base, rowBytes in
+            let srcRow = row * width * 4
+            memcpy(base, source.withUnsafeBytes { $0.baseAddress! + srcRow }, width * 4)
+            _ = rowBytes
+        }
+
+        let destCapacity = pixelCount * 4
+        var destination = [UInt8](repeating: 0, count: destCapacity)
+
+        measure {
+            try? destination.withUnsafeMutableBytes { destPtr in
+                try PixelConvert.copyToBGRA8888(
+                    pixelBuffer: pb,
+                    destBuffer: destPtr.baseAddress!,
+                    destCapacityBytes: destCapacity,
+                    destRowBytes: width * 4)
+            }
+        }
+    }
+
     func testBGRA8888RoundTripThroughBufferCreate() throws {
         // Build a CV32BGRA pixel buffer from a known BGRA source, then round-trip.
         let width = 4
