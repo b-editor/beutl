@@ -63,7 +63,7 @@ jobs:
         run: swift --version
 
       - name: Cache SwiftPM build
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: src/Beutl.Extensions.AVFoundation/native/BeutlAVF/.build
           key: swiftpm-beutlavf-${{ matrix.rid }}-${{ hashFiles('src/Beutl.Extensions.AVFoundation/native/BeutlAVF/Package.swift', 'src/Beutl.Extensions.AVFoundation/native/BeutlAVF/Sources/**/*.swift', 'src/Beutl.Extensions.AVFoundation/native/BeutlAVF/Sources/**/*.h', 'src/Beutl.Extensions.AVFoundation/native/BeutlAVF/Sources/**/*.c', 'src/Beutl.Extensions.AVFoundation/native/BeutlAVF/Sources/**/*.modulemap') }}
