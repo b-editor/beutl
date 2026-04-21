@@ -107,14 +107,13 @@ public sealed class LevelMeterControl : AudioVisualizerControlBase
 
     private void DrawChannelLabel(DrawingContext context, string label, double centerX, double topY)
     {
-        IBrush textBrush = Foreground ?? Brushes.White;
         var formatted = new FormattedText(
             label,
             CultureInfo.CurrentCulture,
             FlowDirection.LeftToRight,
             Typeface.Default,
             LabelFontSize,
-            textBrush);
+            Brushes.White);
         context.DrawText(formatted, new Point(centerX - formatted.Width / 2, topY));
     }
 
@@ -152,7 +151,6 @@ public sealed class LevelMeterControl : AudioVisualizerControlBase
 
     private void DrawLoudnessAndTruePeakText(DrawingContext context, double x, double y)
     {
-        IBrush brush = Foreground ?? Brushes.White;
         Typeface tf = Typeface.Default;
 
         string lufsLabel = _displayLufs <= -159f
@@ -160,8 +158,8 @@ public sealed class LevelMeterControl : AudioVisualizerControlBase
             : $"M {_displayLufs,5:0.0} LUFS";
         string tpLabel = $"TP L {LinearToDbtp(_truePeakLHold),5:0.0}  R {LinearToDbtp(_truePeakRHold),5:0.0}";
 
-        var lufsText = new FormattedText(lufsLabel, CultureInfo.InvariantCulture, FlowDirection.LeftToRight, tf, LabelFontSize, brush);
-        var tpText = new FormattedText(tpLabel, CultureInfo.InvariantCulture, FlowDirection.LeftToRight, tf, LabelFontSize, brush);
+        var lufsText = new FormattedText(lufsLabel, CultureInfo.InvariantCulture, FlowDirection.LeftToRight, tf, LabelFontSize, Brushes.White);
+        var tpText = new FormattedText(tpLabel, CultureInfo.InvariantCulture, FlowDirection.LeftToRight, tf, LabelFontSize, Brushes.White);
 
         context.DrawText(lufsText, new Point(x, y));
         context.DrawText(tpText, new Point(x, y + lufsText.Height));
@@ -205,7 +203,6 @@ public sealed class LevelMeterControl : AudioVisualizerControlBase
 
     private void DrawDbScale(DrawingContext context, double x, double y, double w, double h, double tickStart, double tickEnd)
     {
-        IBrush textBrush = Foreground ?? Brushes.LightGray;
         var tickPen = new Pen(new SolidColorBrush(Colors.Gray, 0.4), 0.5);
 
         foreach (float db in s_dbTicks)
@@ -222,7 +219,7 @@ public sealed class LevelMeterControl : AudioVisualizerControlBase
                 FlowDirection.LeftToRight,
                 Typeface.Default,
                 LabelFontSize,
-                textBrush);
+                Brushes.LightGray);
             // Center label on tick when possible; at edges anchor the label so its
             // top (top tick) or bottom (bottom tick) sits on the tick line —
             // otherwise the label appears visibly offset from its tick.

@@ -259,7 +259,6 @@ public sealed class SpectrumControl : AudioVisualizerControlBase
     {
         if (sampleRate <= 0 || bins < 2) return;
 
-        IBrush textBrush = Foreground ?? Brushes.LightGray;
         double nyquist = sampleRate * 0.5;
         double plotWidth = bounds.Width;
 
@@ -273,7 +272,7 @@ public sealed class SpectrumControl : AudioVisualizerControlBase
                 FlowDirection.LeftToRight,
                 Typeface.Default,
                 FrequencyLabelFontSize,
-                textBrush);
+                Brushes.LightGray);
             double tickX = FrequencyToX(freq, plotWidth, nyquist, bins);
             double x = tickX - formatted.Width / 2;
             // Drop labels that would need clamping rather than offset them from

@@ -29,7 +29,7 @@ public sealed class WaveformControl : AudioVisualizerControlBase
         DrawChannel(context, _right.AsSpan(0, got), midBottom, halfHeight, SecondaryBrush);
 
         // Center axis lines
-        IBrush axisBrush = Foreground ?? Brushes.Gray;
+        IBrush axisBrush = Brushes.Gray;
         var axisPen = new Pen(axisBrush, 0.5) { DashStyle = DashStyle.Dash };
         context.DrawLine(axisPen, new Point(0, midTop), new Point(bounds.Width, midTop));
         context.DrawLine(axisPen, new Point(0, midBottom), new Point(bounds.Width, midBottom));

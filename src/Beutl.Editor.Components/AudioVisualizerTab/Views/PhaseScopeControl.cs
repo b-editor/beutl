@@ -69,7 +69,7 @@ public sealed class PhaseScopeControl : AudioVisualizerControlBase
         context.DrawLine(pen, new Point(area.Center.X, area.Top), new Point(area.Center.X, area.Bottom));
         context.DrawLine(pen, new Point(area.Left, area.Center.Y), new Point(area.Right, area.Center.Y));
 
-        IBrush textBrush = Foreground ?? Brushes.LightGray;
+        IBrush textBrush = Brushes.LightGray;
         // Place labels just outside each diamond vertex so they never overlap
         // the dot cloud or the axis lines, and stay aligned regardless of font size.
         DrawAxisLabelCentered(context, "M", new Point(area.Center.X, area.Top - 2), textBrush, hAlign: 0.5, vAlign: 1.0);
@@ -81,14 +81,13 @@ public sealed class PhaseScopeControl : AudioVisualizerControlBase
     private void DrawCorrelationLabel(DrawingContext context, Rect bounds, float correlation)
     {
         string label = $"corr {correlation,5:+0.00;-0.00; 0.00}";
-        IBrush brush = Foreground ?? Brushes.White;
         var text = new FormattedText(
             label,
             CultureInfo.InvariantCulture,
             FlowDirection.LeftToRight,
             Typeface.Default,
             CorrelationFontSize,
-            brush);
+            Brushes.White);
         // Anchor to the top-left of the control so it never collides with the
         // S vertex label below the diamond.
         context.DrawText(text, new Point(4, 2));

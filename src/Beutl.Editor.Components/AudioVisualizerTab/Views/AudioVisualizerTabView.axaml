@@ -155,13 +155,16 @@
             </Button>
         </Grid>
 
-        <Panel Grid.Row="1" Margin="4">
+        <Panel Grid.Row="1" Background="{StaticResource ColorScopeBackgroundBrush}">
+
             <views:WaveformControl ToolTip.Tip="{x:Static lang:Strings.AudioVisualizer_Waveform_Description}"
+                                   Margin="4"
                                    IsVisible="{Binding SelectedMode.Value, Converter={x:Static views:AudioVisualizerModeConverter.Instance}, ConverterParameter=Waveform}"
                                    PlayheadTime="{Binding PlayheadTime.Value}"
                                    RingBuffer="{Binding RingBuffer}" />
 
             <views:SpectrumControl ToolTip.Tip="{x:Static lang:Strings.AudioVisualizer_Spectrum_Description}"
+                                   Margin="4"
                                    FftSize="{Binding FftSize.Value}"
                                    IsVisible="{Binding SelectedMode.Value, Converter={x:Static views:AudioVisualizerModeConverter.Instance}, ConverterParameter=Spectrum}"
                                    MinDecibels="{Binding MinDecibels.Value}"
@@ -171,11 +174,13 @@
                                    Smoothing="{Binding Smoothing.Value}" />
 
             <views:LevelMeterControl ToolTip.Tip="{x:Static lang:Strings.AudioVisualizer_Meter_Description}"
+                                     Margin="4"
                                      IsVisible="{Binding SelectedMode.Value, Converter={x:Static views:AudioVisualizerModeConverter.Instance}, ConverterParameter=Meter}"
                                      PlayheadTime="{Binding PlayheadTime.Value}"
                                      RingBuffer="{Binding RingBuffer}" />
 
             <views:SpectrogramControl ToolTip.Tip="{x:Static lang:Strings.AudioVisualizer_Spectrogram_Description}"
+                                      Margin="4"
                                       FftSize="{Binding FftSize.Value}"
                                       IsVisible="{Binding SelectedMode.Value, Converter={x:Static views:AudioVisualizerModeConverter.Instance}, ConverterParameter=Spectrogram}"
                                       MinDecibels="{Binding MinDecibels.Value}"
@@ -183,6 +188,7 @@
                                       RingBuffer="{Binding RingBuffer}" />
 
             <views:PhaseScopeControl ToolTip.Tip="{x:Static lang:Strings.AudioVisualizer_PhaseScope_Description}"
+                                     Margin="4"
                                      IsVisible="{Binding SelectedMode.Value, Converter={x:Static views:AudioVisualizerModeConverter.Instance}, ConverterParameter=PhaseScope}"
                                      PlayheadTime="{Binding PlayheadTime.Value}"
                                      RingBuffer="{Binding RingBuffer}" />
