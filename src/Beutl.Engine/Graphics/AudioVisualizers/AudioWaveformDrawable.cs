@@ -35,7 +35,7 @@ public sealed partial class AudioWaveformDrawable : AudioVisualizerDrawable
 
     [Display(Name = nameof(GraphicsStrings.AudioVisualizer_WindowSeconds), ResourceType = typeof(GraphicsStrings))]
     [Range(0.01f, 3600f)]
-    public IProperty<float> WindowSeconds { get; } = Property.CreateAnimatable(4f);
+    public IProperty<float> WindowSeconds { get; } = Property.CreateAnimatable(0.1f);
 
     public new partial class Resource
     {
