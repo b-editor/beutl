@@ -10,11 +10,8 @@ public sealed class LevelMeterControl : AudioVisualizerControlBase
 {
     private const int RmsWindowSamples = 1024;
     private const float MinDb = -60f;
-    private const double ScaleAreaWidth = 32.0;
-    private const double ChannelLabelFontSize = 12.0;
-    private const double ScaleLabelFontSize = 11.0;
-    private const double LufsFontSize = 13.0;
-    private const double TpFontSize = 12.0;
+    private const double ScaleAreaWidth = 20.0;
+    private const double LabelFontSize = 12.0;
 
     // 0 dBFS in float audio = ±1.0. Use slightly below 1.0 as the trigger so that
     // values that round-trip through resampling/limiting still register.
@@ -62,16 +59,16 @@ public sealed class LevelMeterControl : AudioVisualizerControlBase
 
         double padding = 4;
         double scaleWidth = bounds.Width >= 80 ? ScaleAreaWidth : 0;
-        double textStripHeight = 36;
         double barAreaWidth = bounds.Width - padding * 3 - scaleWidth;
         double barWidth = barAreaWidth / 2;
         double clipLedHeight = 8;
         // Lay out top region: [L/R label][gap][clip LED][gap][bar].
         // Use a real measurement for the channel label so larger fonts don't
         // overflow into the LED.
-        double labelHeight = MeasureTextHeight("L", ChannelLabelFontSize);
+        double labelHeight = MeasureTextHeight("L", LabelFontSize);
         double labelGap = 2;
         double ledGap = 4;
+        double textStripHeight = labelHeight * 2;
         double topInset = labelHeight + labelGap + clipLedHeight + ledGap;
         double barHeight = bounds.Height - topInset - padding - textStripHeight;
 
@@ -93,7 +90,7 @@ public sealed class LevelMeterControl : AudioVisualizerControlBase
             DrawDbScale(context, scaleX, topInset, scaleWidth, barHeight, leftX, leftX + barWidth * 2 + padding);
         }
 
-        DrawLoudnessAndTruePeakText(context, leftX, topInset + barHeight + 2);
+        DrawLoudnessAndTruePeakText(context, leftX, topInset + barHeight + 4);
     }
 
     private double MeasureTextHeight(string text, double fontSize)
@@ -116,7 +113,7 @@ public sealed class LevelMeterControl : AudioVisualizerControlBase
             CultureInfo.CurrentCulture,
             FlowDirection.LeftToRight,
             Typeface.Default,
-            ChannelLabelFontSize,
+            LabelFontSize,
             textBrush);
         context.DrawText(formatted, new Point(centerX - formatted.Width / 2, topY));
     }
@@ -163,8 +160,8 @@ public sealed class LevelMeterControl : AudioVisualizerControlBase
             : $"M {_displayLufs,5:0.0} LUFS";
         string tpLabel = $"TP L {LinearToDbtp(_truePeakLHold),5:0.0}  R {LinearToDbtp(_truePeakRHold),5:0.0}";
 
-        var lufsText = new FormattedText(lufsLabel, CultureInfo.InvariantCulture, FlowDirection.LeftToRight, tf, LufsFontSize, brush);
-        var tpText = new FormattedText(tpLabel, CultureInfo.InvariantCulture, FlowDirection.LeftToRight, tf, TpFontSize, brush);
+        var lufsText = new FormattedText(lufsLabel, CultureInfo.InvariantCulture, FlowDirection.LeftToRight, tf, LabelFontSize, brush);
+        var tpText = new FormattedText(tpLabel, CultureInfo.InvariantCulture, FlowDirection.LeftToRight, tf, LabelFontSize, brush);
 
         context.DrawText(lufsText, new Point(x, y));
         context.DrawText(tpText, new Point(x, y + lufsText.Height));
@@ -224,7 +221,7 @@ public sealed class LevelMeterControl : AudioVisualizerControlBase
                 CultureInfo.CurrentCulture,
                 FlowDirection.LeftToRight,
                 Typeface.Default,
-                ScaleLabelFontSize,
+                LabelFontSize,
                 textBrush);
             // Center label on tick when possible; at edges anchor the label so its
             // top (top tick) or bottom (bottom tick) sits on the tick line —
