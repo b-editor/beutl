@@ -10,7 +10,11 @@ public sealed class LevelMeterControl : AudioVisualizerControlBase
 {
     private const int RmsWindowSamples = 1024;
     private const float MinDb = -60f;
-    private const double ScaleAreaWidth = 26.0;
+    private const double ScaleAreaWidth = 32.0;
+    private const double ChannelLabelFontSize = 12.0;
+    private const double ScaleLabelFontSize = 11.0;
+    private const double LufsFontSize = 13.0;
+    private const double TpFontSize = 12.0;
 
     // 0 dBFS in float audio = ±1.0. Use slightly below 1.0 as the trigger so that
     // values that round-trip through resampling/limiting still register.
@@ -58,11 +62,11 @@ public sealed class LevelMeterControl : AudioVisualizerControlBase
 
         double padding = 4;
         double scaleWidth = bounds.Width >= 80 ? ScaleAreaWidth : 0;
-        double textStripHeight = 28;
+        double textStripHeight = 36;
         double barAreaWidth = bounds.Width - padding * 3 - scaleWidth;
         double barWidth = barAreaWidth / 2;
-        double clipLedHeight = 6;
-        double topInset = 10 + clipLedHeight + 2;
+        double clipLedHeight = 8;
+        double topInset = 14 + clipLedHeight + 4;
         double barHeight = bounds.Height - topInset - padding - textStripHeight;
 
         double leftX = padding;
@@ -124,8 +128,8 @@ public sealed class LevelMeterControl : AudioVisualizerControlBase
             : $"M {_displayLufs,5:0.0} LUFS";
         string tpLabel = $"TP L {LinearToDbtp(_truePeakLHold),5:0.0}  R {LinearToDbtp(_truePeakRHold),5:0.0}";
 
-        var lufsText = new FormattedText(lufsLabel, CultureInfo.InvariantCulture, FlowDirection.LeftToRight, tf, 11, brush);
-        var tpText = new FormattedText(tpLabel, CultureInfo.InvariantCulture, FlowDirection.LeftToRight, tf, 10, brush);
+        var lufsText = new FormattedText(lufsLabel, CultureInfo.InvariantCulture, FlowDirection.LeftToRight, tf, LufsFontSize, brush);
+        var tpText = new FormattedText(tpLabel, CultureInfo.InvariantCulture, FlowDirection.LeftToRight, tf, TpFontSize, brush);
 
         context.DrawText(lufsText, new Point(x, y));
         context.DrawText(tpText, new Point(x, y + lufsText.Height));
@@ -165,7 +169,7 @@ public sealed class LevelMeterControl : AudioVisualizerControlBase
             CultureInfo.CurrentCulture,
             FlowDirection.LeftToRight,
             Typeface.Default,
-            10,
+            ChannelLabelFontSize,
             textBrush);
         context.DrawText(formatted, new Point(x + w / 2 - formatted.Width / 2, y - formatted.Height - 1));
     }
@@ -196,7 +200,7 @@ public sealed class LevelMeterControl : AudioVisualizerControlBase
                 CultureInfo.CurrentCulture,
                 FlowDirection.LeftToRight,
                 Typeface.Default,
-                9,
+                ScaleLabelFontSize,
                 textBrush);
             double labelY = Math.Clamp(tickY - formatted.Height / 2, y, y + h - formatted.Height);
             context.DrawText(formatted, new Point(x + w - formatted.Width - 1, labelY));

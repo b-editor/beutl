@@ -19,7 +19,8 @@ public sealed class SpectrumControl : AudioVisualizerControlBase
     public static readonly StyledProperty<SpectrumDisplayShape> ShapeProperty =
         AvaloniaProperty.Register<SpectrumControl, SpectrumDisplayShape>(nameof(Shape), SpectrumDisplayShape.Bar);
 
-    private const double FrequencyAxisHeight = 14.0;
+    private const double FrequencyAxisHeight = 18.0;
+    private const double FrequencyLabelFontSize = 11.0;
     private static readonly double[] s_frequencyTicks = [50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000];
 
     private float[] _samplesL = [];
@@ -262,7 +263,7 @@ public sealed class SpectrumControl : AudioVisualizerControlBase
                 CultureInfo.CurrentCulture,
                 FlowDirection.LeftToRight,
                 Typeface.Default,
-                9,
+                FrequencyLabelFontSize,
                 textBrush);
             double x = FrequencyToX(freq, plotWidth, nyquist, bins) - formatted.Width / 2;
             x = Math.Clamp(x, 0, plotWidth - formatted.Width);

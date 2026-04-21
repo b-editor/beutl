@@ -11,6 +11,8 @@ namespace Beutl.Editor.Components.AudioVisualizerTab.Views;
 public sealed class PhaseScopeControl : AudioVisualizerControlBase
 {
     private const int SampleWindow = 4096;
+    private const double AxisLabelFontSize = 12.0;
+    private const double CorrelationFontSize = 13.0;
 
     private readonly float[] _left = new float[SampleWindow];
     private readonly float[] _right = new float[SampleWindow];
@@ -64,9 +66,9 @@ public sealed class PhaseScopeControl : AudioVisualizerControlBase
 
         IBrush textBrush = Foreground ?? Brushes.LightGray;
         DrawAxisLabel(context, "M", new Point(area.Center.X + 4, area.Top + 1), textBrush);
-        DrawAxisLabel(context, "L", new Point(area.Left + 2, area.Center.Y - 14), textBrush);
-        DrawAxisLabel(context, "R", new Point(area.Right - 12, area.Center.Y - 14), textBrush);
-        DrawAxisLabel(context, "S", new Point(area.Center.X + 4, area.Bottom - 14), textBrush);
+        DrawAxisLabel(context, "L", new Point(area.Left + 2, area.Center.Y - 18), textBrush);
+        DrawAxisLabel(context, "R", new Point(area.Right - 14, area.Center.Y - 18), textBrush);
+        DrawAxisLabel(context, "S", new Point(area.Center.X + 4, area.Bottom - 18), textBrush);
     }
 
     private void DrawCorrelationLabel(DrawingContext context, Rect area, float correlation)
@@ -78,7 +80,7 @@ public sealed class PhaseScopeControl : AudioVisualizerControlBase
             CultureInfo.InvariantCulture,
             FlowDirection.LeftToRight,
             Typeface.Default,
-            11,
+            CorrelationFontSize,
             brush);
         context.DrawText(text, new Point(area.Right - text.Width, area.Bottom + 2));
     }
@@ -134,7 +136,7 @@ public sealed class PhaseScopeControl : AudioVisualizerControlBase
             CultureInfo.InvariantCulture,
             FlowDirection.LeftToRight,
             Typeface.Default,
-            10,
+            AxisLabelFontSize,
             brush);
         context.DrawText(formatted, at);
     }
