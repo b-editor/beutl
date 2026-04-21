@@ -808,6 +808,24 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="PhaseScope" xml:space="preserve">
     <value>位相スコープ</value>
   </data>
+  <data name="AudioVisualizer_ResetTooltip" xml:space="preserve">
+    <value>右クリックでデフォルトに戻す</value>
+  </data>
+  <data name="AudioVisualizer_Waveform_Description" xml:space="preserve">
+    <value>直近の音声を時間軸の L/R 波形で表示します。上段が左チャンネル、下段が右チャンネルで、それぞれ中心軸線を共有しています。トランジェント、クリッピング、非対称波形や DC オフセットの確認、また音声が実際に出力されているかを一目で確認するのに使えます。</value>
+  </data>
+  <data name="AudioVisualizer_Spectrum_Description" xml:space="preserve">
+    <value>FFT によるリアルタイム周波数スペクトル。横軸は対数周波数 (約 20 Hz 〜ナイキスト)、縦軸は dB エネルギーです。設定 Flyout から形状 (Bar / Line / FilledArea / MirroredBars)、FFT サイズ、スムージング、下限 dB を変更できます。EQ 調整、ハム音やホワイトノイズの検出、ミックスの高域含有量の確認などに使えます。</value>
+  </data>
+  <data name="AudioVisualizer_Meter_Description" xml:space="preserve">
+    <value>L/R ステレオレベルメーター。放送用の各種読み値をまとめて表示します。バーは RMS、ピークホールドマーカー付き (約 6 dB/秒で減衰)。上部の赤 LED は 0 dBFS 到達時に 2 秒間点灯。M は瞬時 LUFS (BS.1770-4 K-weighted、400 ms ウィンドウ)。TP L / TP R は True Peak (4 倍ポリフェーズオーバーサンプリング、dBTP)。配信向けラウドネス目標 (YouTube -14 LUFS、EBU R128 -23 LUFS) のチェックや、エンコード前のインターサンプルピーク検出に使えます。</value>
+  </data>
+  <data name="AudioVisualizer_Spectrogram_Description" xml:space="preserve">
+    <value>直近約 4 秒の音声を時間-周波数のヒートマップで表示します。縦軸は対数周波数 (下が低域、上が高域)、横軸は時間 (左が過去、右が現在)、明度がノイズフロアからの dB エネルギーです。スイープフィルタ、ビブラート、ルームモード、持続音の倍音構造など、時間とともに変化する周波数特性の把握に使えます。</value>
+  </data>
+  <data name="AudioVisualizer_PhaseScope_Description" xml:space="preserve">
+    <value>ステレオを 45° 回転した Lissajous 図 (ゴニオメータ) で表示 — 放送機器の標準形式です。完全モノは縦の M 軸に直線を描き、完全逆位相は横の S 軸に広がり、片チャンネルのみの音声は L または R の対角線に沿って表示されます。左上の "corr" は L/R 間の Pearson 相関係数で、+1 = 完全モノ、0 = 無相関、-1 = 完全逆位相を表します。チャンネル反転やモノ再生で消える位相干渉のチェックに使えます。</value>
+  </data>
   <data name="Luma" xml:space="preserve">
     <value>輝度</value>
   </data>

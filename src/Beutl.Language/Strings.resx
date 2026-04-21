@@ -813,6 +813,24 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="PhaseScope" xml:space="preserve">
     <value>Phase Scope</value>
   </data>
+  <data name="AudioVisualizer_ResetTooltip" xml:space="preserve">
+    <value>Right-click to reset to default</value>
+  </data>
+  <data name="AudioVisualizer_Waveform_Description" xml:space="preserve">
+    <value>Time-domain L/R waveform of the most recent audio. The upper trace is the left channel, the lower trace is the right channel; both share a center axis line. Use this view to spot transients, clipping, asymmetric or DC-offset signals, and to confirm at a glance that audio is actually flowing.</value>
+  </data>
+  <data name="AudioVisualizer_Spectrum_Description" xml:space="preserve">
+    <value>Real-time FFT frequency spectrum on a logarithmic frequency axis (~20 Hz to Nyquist). Bar height represents energy in dB at each frequency band. The settings flyout exposes shape (Bar / Line / FilledArea / MirroredBars), FFT size, smoothing, and the noise floor (Min dB). Useful for EQ work, spotting hum or whistles, and confirming that the mix has the expected high-frequency content.</value>
+  </data>
+  <data name="AudioVisualizer_Meter_Description" xml:space="preserve">
+    <value>Stereo level meter combining several broadcast-standard readouts. Bars show RMS with a peak-hold marker that decays at ~6 dB/sec. Red LEDs at the top latch on for 2 seconds when the channel reaches 0 dBFS. The M number is momentary LUFS (BS.1770-4 K-weighted, 400 ms window). TP L / TP R are true peak in dBTP, computed by 4× polyphase oversampling. Use this view to verify loudness against delivery targets (-14 LUFS for YouTube, -23 LUFS for EBU R128) and to catch inter-sample peaks before encoding.</value>
+  </data>
+  <data name="AudioVisualizer_Spectrogram_Description" xml:space="preserve">
+    <value>Time-frequency heatmap of roughly the last 4 seconds. The vertical axis is logarithmic frequency (low at the bottom, high at the top); the horizontal axis is time (older on the left, newer on the right). Brightness represents energy in dB above the noise floor. Use this view to see how the spectrum evolves over time — identifying sweeping filters, vibrato, room modes, and the harmonic structure of sustained notes.</value>
+  </data>
+  <data name="AudioVisualizer_PhaseScope_Description" xml:space="preserve">
+    <value>Stereo Lissajous (goniometer) rotated 45° — the broadcast-standard convention. Pure mono content traces a vertical line on the M (mono) axis; fully out-of-phase material spreads horizontally toward the S (anti-phase) axis; a single channel traces the L or R diagonal. The "corr" value at the top-left is the Pearson correlation between channels: +1 means perfectly mono, 0 uncorrelated, -1 fully anti-phase. Use this view to catch channel-flipped or phase-cancelling material that would collapse during mono playback.</value>
+  </data>
   <data name="Luma" xml:space="preserve">
     <value>Luma</value>
   </data>
