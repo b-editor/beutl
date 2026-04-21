@@ -14,6 +14,16 @@ public sealed partial class AudioWaveformDrawable : AudioVisualizerDrawable
     {
         ScanProperties<AudioWaveformDrawable>();
         Shape.CurrentValue = new MinMaxBarWaveformShape();
+
+        // 編集頻度順に並べ替え: Source → 見た目(Shape/Fill) → 信号調整(Gain) → 時間/解像度(WindowSeconds/BarCount) → サイズ(Width/Height)
+        MoveProperty(Source, 0);
+        MoveProperty(Shape, 1);
+        MoveProperty(Fill, 2);
+        MoveProperty(Gain, 3);
+        MoveProperty(WindowSeconds, 4);
+        MoveProperty(BarCount, 5);
+        MoveProperty(Width, 6);
+        MoveProperty(Height, 7);
     }
 
     [Display(Name = nameof(GraphicsStrings.AudioVisualizer_Shape), ResourceType = typeof(GraphicsStrings))]

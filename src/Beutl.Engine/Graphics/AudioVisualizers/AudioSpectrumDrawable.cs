@@ -13,6 +13,19 @@ public sealed partial class AudioSpectrumDrawable : AudioVisualizerDrawable
     {
         ScanProperties<AudioSpectrumDrawable>();
         Shape.CurrentValue = new BarSpectrumShape();
+
+        // 編集頻度順に並べ替え: Source → 見た目(Shape/Fill) → 信号調整(Gain/FloorDb) → 応答(Smoothing) → 周波数設定(Scale/BarCount) → 解像度(FftSize) → サイズ
+        MoveProperty(Source, 0);
+        MoveProperty(Shape, 1);
+        MoveProperty(Fill, 2);
+        MoveProperty(Gain, 3);
+        MoveProperty(FloorDb, 4);
+        MoveProperty(Smoothing, 5);
+        MoveProperty(FrequencyScale, 6);
+        MoveProperty(BarCount, 7);
+        MoveProperty(FftSize, 8);
+        MoveProperty(Width, 9);
+        MoveProperty(Height, 10);
     }
 
     [Display(Name = nameof(GraphicsStrings.AudioVisualizer_Shape), ResourceType = typeof(GraphicsStrings))]

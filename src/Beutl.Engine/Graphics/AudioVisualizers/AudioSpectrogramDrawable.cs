@@ -14,6 +14,18 @@ public sealed partial class AudioSpectrogramDrawable : AudioVisualizerDrawable
     public AudioSpectrogramDrawable()
     {
         ScanProperties<AudioSpectrogramDrawable>();
+
+        // 編集頻度順に並べ替え: Source → Fill → 信号調整(Gain/FloorDb) → 時間/周波数設定 → 解像度 → サイズ
+        MoveProperty(Source, 0);
+        MoveProperty(Fill, 1);
+        MoveProperty(Gain, 2);
+        MoveProperty(FloorDb, 3);
+        MoveProperty(WindowSeconds, 4);
+        MoveProperty(FrequencyScale, 5);
+        MoveProperty(TimeColumns, 6);
+        MoveProperty(FftSize, 7);
+        MoveProperty(Width, 8);
+        MoveProperty(Height, 9);
     }
 
     [Display(Name = nameof(GraphicsStrings.AudioVisualizer_WindowSeconds), ResourceType = typeof(GraphicsStrings))]
