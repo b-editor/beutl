@@ -1371,9 +1371,6 @@
   <data name="AudioSpectrogram" xml:space="preserve">
     <value>Audio Spectrogram</value>
   </data>
-  <data name="AudioVisualizer_WaveformStyle" xml:space="preserve">
-    <value>Waveform Style</value>
-  </data>
   <data name="AudioVisualizer_BarCount" xml:space="preserve">
     <value>Bar Count</value>
   </data>
@@ -1436,5 +1433,8 @@
   </data>
   <data name="SpectrumShape_Direction" xml:space="preserve">
     <value>Direction</value>
+  </data>
+  <data name="WaveformShape_MinMaxBar" xml:space="preserve">
+    <value>MinMax Bar</value>
   </data>
 </root>

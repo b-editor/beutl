@@ -1369,9 +1369,6 @@
   <data name="AudioSpectrogram" xml:space="preserve">
     <value>スペクトログラム</value>
   </data>
-  <data name="AudioVisualizer_WaveformStyle" xml:space="preserve">
-    <value>波形スタイル</value>
-  </data>
   <data name="AudioVisualizer_BarCount" xml:space="preserve">
     <value>バー数</value>
   </data>
@@ -1434,5 +1431,8 @@
   </data>
   <data name="SpectrumShape_Direction" xml:space="preserve">
     <value>方向</value>
+  </data>
+  <data name="WaveformShape_MinMaxBar" xml:space="preserve">
+    <value>最小最大バー</value>
   </data>
 </root>
