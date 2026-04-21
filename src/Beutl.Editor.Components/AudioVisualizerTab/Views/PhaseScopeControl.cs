@@ -31,7 +31,12 @@ public sealed class PhaseScopeControl : AudioVisualizerControlBase
         ReadOnlySpan<float> left = _left.AsSpan(0, got);
         ReadOnlySpan<float> right = _right.AsSpan(0, got);
 
-        double size = Math.Min(bounds.Width, bounds.Height) - 20;
+        // Reserve enough margin outside the diamond for axis labels (M/L/R/S)
+        // and the correlation readout. The previous 10 px margin clipped 12 pt
+        // labels when they were positioned outside the vertices.
+        const double outerMargin = 24;
+        double size = Math.Min(bounds.Width, bounds.Height) - outerMargin * 2;
+        if (size < 40) return;
         var area = new Rect(
             bounds.Center.X - size / 2,
             bounds.Center.Y - size / 2,
@@ -39,7 +44,7 @@ public sealed class PhaseScopeControl : AudioVisualizerControlBase
             size);
 
         DrawGuides(context, area);
-        DrawCorrelationLabel(context, area, ComputeCorrelation(left, right));
+        DrawCorrelationLabel(context, bounds, ComputeCorrelation(left, right));
         DrawSamples(context, area, left, right);
     }
 
@@ -65,13 +70,15 @@ public sealed class PhaseScopeControl : AudioVisualizerControlBase
         context.DrawLine(pen, new Point(area.Left, area.Center.Y), new Point(area.Right, area.Center.Y));
 
         IBrush textBrush = Foreground ?? Brushes.LightGray;
-        DrawAxisLabel(context, "M", new Point(area.Center.X + 4, area.Top + 1), textBrush);
-        DrawAxisLabel(context, "L", new Point(area.Left + 2, area.Center.Y - 18), textBrush);
-        DrawAxisLabel(context, "R", new Point(area.Right - 14, area.Center.Y - 18), textBrush);
-        DrawAxisLabel(context, "S", new Point(area.Center.X + 4, area.Bottom - 18), textBrush);
+        // Place labels just outside each diamond vertex so they never overlap
+        // the dot cloud or the axis lines, and stay aligned regardless of font size.
+        DrawAxisLabelCentered(context, "M", new Point(area.Center.X, area.Top - 2), textBrush, hAlign: 0.5, vAlign: 1.0);
+        DrawAxisLabelCentered(context, "L", new Point(area.Left - 4, area.Center.Y), textBrush, hAlign: 1.0, vAlign: 0.5);
+        DrawAxisLabelCentered(context, "R", new Point(area.Right + 4, area.Center.Y), textBrush, hAlign: 0.0, vAlign: 0.5);
+        DrawAxisLabelCentered(context, "S", new Point(area.Center.X, area.Bottom + 2), textBrush, hAlign: 0.5, vAlign: 0.0);
     }
 
-    private void DrawCorrelationLabel(DrawingContext context, Rect area, float correlation)
+    private void DrawCorrelationLabel(DrawingContext context, Rect bounds, float correlation)
     {
         string label = $"corr {correlation,5:+0.00;-0.00; 0.00}";
         IBrush brush = Foreground ?? Brushes.White;
@@ -82,7 +89,9 @@ public sealed class PhaseScopeControl : AudioVisualizerControlBase
             Typeface.Default,
             CorrelationFontSize,
             brush);
-        context.DrawText(text, new Point(area.Right - text.Width, area.Bottom + 2));
+        // Anchor to the top-left of the control so it never collides with the
+        // S vertex label below the diamond.
+        context.DrawText(text, new Point(4, 2));
     }
 
     private void DrawSamples(DrawingContext context, Rect area, ReadOnlySpan<float> left, ReadOnlySpan<float> right)
@@ -129,7 +138,7 @@ public sealed class PhaseScopeControl : AudioVisualizerControlBase
         return (float)Math.Clamp(sumLR / denom, -1.0, 1.0);
     }
 
-    private static void DrawAxisLabel(DrawingContext context, string text, Point at, IBrush brush)
+    private static void DrawAxisLabelCentered(DrawingContext context, string text, Point at, IBrush brush, double hAlign, double vAlign)
     {
         var formatted = new FormattedText(
             text,
@@ -138,6 +147,10 @@ public sealed class PhaseScopeControl : AudioVisualizerControlBase
             Typeface.Default,
             AxisLabelFontSize,
             brush);
-        context.DrawText(formatted, at);
+        // hAlign/vAlign in [0,1] anchor the named edge of the label to `at`:
+        //   0.0 = left/top, 0.5 = center, 1.0 = right/bottom of the label.
+        double x = at.X - formatted.Width * hAlign;
+        double y = at.Y - formatted.Height * vAlign;
+        context.DrawText(formatted, new Point(x, y));
     }
 }

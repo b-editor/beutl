@@ -265,8 +265,11 @@ public sealed class SpectrumControl : AudioVisualizerControlBase
                 Typeface.Default,
                 FrequencyLabelFontSize,
                 textBrush);
-            double x = FrequencyToX(freq, plotWidth, nyquist, bins) - formatted.Width / 2;
-            x = Math.Clamp(x, 0, plotWidth - formatted.Width);
+            double tickX = FrequencyToX(freq, plotWidth, nyquist, bins);
+            double x = tickX - formatted.Width / 2;
+            // Drop labels that would need clamping rather than offset them from
+            // their tick — visible misalignment is worse than a missing label.
+            if (x < 0 || x + formatted.Width > plotWidth) continue;
             context.DrawText(formatted, new Point(x, labelY));
         }
     }

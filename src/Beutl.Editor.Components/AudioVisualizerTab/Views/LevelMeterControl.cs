@@ -66,24 +66,59 @@ public sealed class LevelMeterControl : AudioVisualizerControlBase
         double barAreaWidth = bounds.Width - padding * 3 - scaleWidth;
         double barWidth = barAreaWidth / 2;
         double clipLedHeight = 8;
-        double topInset = 14 + clipLedHeight + 4;
+        // Lay out top region: [L/R label][gap][clip LED][gap][bar].
+        // Use a real measurement for the channel label so larger fonts don't
+        // overflow into the LED.
+        double labelHeight = MeasureTextHeight("L", ChannelLabelFontSize);
+        double labelGap = 2;
+        double ledGap = 4;
+        double topInset = labelHeight + labelGap + clipLedHeight + ledGap;
         double barHeight = bounds.Height - topInset - padding - textStripHeight;
 
         double leftX = padding;
         double rightX = padding * 2 + barWidth;
         double scaleX = padding * 3 + barWidth * 2;
 
-        DrawClipLed(context, leftX, topInset - clipLedHeight - 2, barWidth, clipLedHeight, clipL);
-        DrawClipLed(context, rightX, topInset - clipLedHeight - 2, barWidth, clipLedHeight, clipR);
+        DrawChannelLabel(context, "L", leftX + barWidth / 2, 0);
+        DrawChannelLabel(context, "R", rightX + barWidth / 2, 0);
 
-        DrawChannel(context, "L", leftX, topInset, barWidth, barHeight, rmsL, _peakLHold);
-        DrawChannel(context, "R", rightX, topInset, barWidth, barHeight, rmsR, _peakRHold);
+        double clipLedY = labelHeight + labelGap;
+        DrawClipLed(context, leftX, clipLedY, barWidth, clipLedHeight, clipL);
+        DrawClipLed(context, rightX, clipLedY, barWidth, clipLedHeight, clipR);
+
+        DrawChannel(context, leftX, topInset, barWidth, barHeight, rmsL, _peakLHold);
+        DrawChannel(context, rightX, topInset, barWidth, barHeight, rmsR, _peakRHold);
         if (scaleWidth > 0)
         {
             DrawDbScale(context, scaleX, topInset, scaleWidth, barHeight, leftX, leftX + barWidth * 2 + padding);
         }
 
-        DrawLoudnessAndTruePeakText(context, leftX, topInset + barHeight + 2, leftX + barWidth * 2 + padding);
+        DrawLoudnessAndTruePeakText(context, leftX, topInset + barHeight + 2);
+    }
+
+    private double MeasureTextHeight(string text, double fontSize)
+    {
+        var formatted = new FormattedText(
+            text,
+            CultureInfo.InvariantCulture,
+            FlowDirection.LeftToRight,
+            Typeface.Default,
+            fontSize,
+            Brushes.White);
+        return formatted.Height;
+    }
+
+    private void DrawChannelLabel(DrawingContext context, string label, double centerX, double topY)
+    {
+        IBrush textBrush = Foreground ?? Brushes.White;
+        var formatted = new FormattedText(
+            label,
+            CultureInfo.CurrentCulture,
+            FlowDirection.LeftToRight,
+            Typeface.Default,
+            ChannelLabelFontSize,
+            textBrush);
+        context.DrawText(formatted, new Point(centerX - formatted.Width / 2, topY));
     }
 
     private void UpdateLoudnessAndTruePeak(AudioSampleRingBuffer buffer, double elapsed)
@@ -118,7 +153,7 @@ public sealed class LevelMeterControl : AudioVisualizerControlBase
         _truePeakRHold = DecayHold(_truePeakRHold, tpR, elapsed);
     }
 
-    private void DrawLoudnessAndTruePeakText(DrawingContext context, double x, double y, double right)
+    private void DrawLoudnessAndTruePeakText(DrawingContext context, double x, double y)
     {
         IBrush brush = Foreground ?? Brushes.White;
         Typeface tf = Typeface.Default;
@@ -133,7 +168,6 @@ public sealed class LevelMeterControl : AudioVisualizerControlBase
 
         context.DrawText(lufsText, new Point(x, y));
         context.DrawText(tpText, new Point(x, y + lufsText.Height));
-        _ = right;
     }
 
     private static float LinearToDbtp(float linear)
@@ -142,7 +176,7 @@ public sealed class LevelMeterControl : AudioVisualizerControlBase
         return AudioMath.ConvertLinearToDb(linear);
     }
 
-    private void DrawChannel(DrawingContext context, string label, double x, double y, double w, double h, float rms, float peak)
+    private void DrawChannel(DrawingContext context, double x, double y, double w, double h, float rms, float peak)
     {
         // Background
         var bg = new SolidColorBrush(Color.FromArgb(40, 255, 255, 255));
@@ -162,16 +196,6 @@ public sealed class LevelMeterControl : AudioVisualizerControlBase
             var peakBrush = peak >= 0.99f ? Brushes.Red : SecondaryBrush;
             context.FillRectangle(peakBrush, new Rect(x, peakY - 1.5, w, 2.5));
         }
-
-        IBrush textBrush = Foreground ?? Brushes.White;
-        var formatted = new FormattedText(
-            label,
-            CultureInfo.CurrentCulture,
-            FlowDirection.LeftToRight,
-            Typeface.Default,
-            ChannelLabelFontSize,
-            textBrush);
-        context.DrawText(formatted, new Point(x + w / 2 - formatted.Width / 2, y - formatted.Height - 1));
     }
 
     private static void DrawClipLed(DrawingContext context, double x, double y, double w, double h, bool active)
@@ -202,7 +226,12 @@ public sealed class LevelMeterControl : AudioVisualizerControlBase
                 Typeface.Default,
                 ScaleLabelFontSize,
                 textBrush);
-            double labelY = Math.Clamp(tickY - formatted.Height / 2, y, y + h - formatted.Height);
+            // Center label on tick when possible; at edges anchor the label so its
+            // top (top tick) or bottom (bottom tick) sits on the tick line —
+            // otherwise the label appears visibly offset from its tick.
+            double labelY = tickY - formatted.Height / 2;
+            if (labelY < y) labelY = tickY;
+            else if (labelY + formatted.Height > y + h) labelY = tickY - formatted.Height;
             context.DrawText(formatted, new Point(x + w - formatted.Width - 1, labelY));
         }
     }
