@@ -1,4 +1,4 @@
-namespace Beutl.Editor.Components.AudioVisualizerTab.ViewModels;
+﻿namespace Beutl.Editor.Components.AudioVisualizerTab.ViewModels;
 
 public enum SpectrumDisplayShape
 {

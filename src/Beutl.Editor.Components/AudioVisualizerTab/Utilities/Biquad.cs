@@ -1,4 +1,4 @@
-namespace Beutl.Editor.Components.AudioVisualizerTab.Utilities;
+﻿namespace Beutl.Editor.Components.AudioVisualizerTab.Utilities;
 
 // Direct-form II transposed biquad. Used for the K-weighting filters that
 // BS.1770 specifies for loudness measurement.

@@ -1,4 +1,4 @@
-namespace Beutl.Editor.Components.AudioVisualizerTab.Utilities;
+﻿namespace Beutl.Editor.Components.AudioVisualizerTab.Utilities;
 
 // 4x oversampled true-peak estimator. Uses simple zero-stuffing followed by a
 // 23-tap windowed-sinc anti-imaging filter (per BS.1770-4 Annex 2 reference

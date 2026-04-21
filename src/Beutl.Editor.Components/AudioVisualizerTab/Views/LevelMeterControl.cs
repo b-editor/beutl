@@ -1,4 +1,4 @@
-using Avalonia;
+﻿using Avalonia;
 using Avalonia.Media;
 using Beutl.Audio.Graph;
 using Beutl.Editor.Components.AudioVisualizerTab.Utilities;

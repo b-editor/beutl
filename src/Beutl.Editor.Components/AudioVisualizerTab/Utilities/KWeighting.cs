@@ -1,4 +1,4 @@
-namespace Beutl.Editor.Components.AudioVisualizerTab.Utilities;
+﻿namespace Beutl.Editor.Components.AudioVisualizerTab.Utilities;
 
 // ITU-R BS.1770-4 K-weighting: a high-shelf pre-filter (+4 dB at 1681 Hz)
 // followed by an RLB high-pass at 38 Hz. Coefficients are designed directly

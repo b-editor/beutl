@@ -1,4 +1,4 @@
-namespace Beutl.Editor.Components.AudioVisualizerTab.Utilities;
+﻿namespace Beutl.Editor.Components.AudioVisualizerTab.Utilities;
 
 // Computes BS.1770 momentary loudness on a stereo signal. K-weighted mean
 // square is summed across L/R with channel weights of 1.0 each (per Annex 1).
