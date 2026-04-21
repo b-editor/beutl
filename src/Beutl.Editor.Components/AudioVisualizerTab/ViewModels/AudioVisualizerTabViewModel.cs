@@ -9,6 +9,11 @@ public sealed class AudioVisualizerTabViewModel : IToolContext
 {
     private static readonly TimeSpan s_composeWindow = TimeSpan.FromMilliseconds(100);
 
+    public const int DefaultFftSize = 2048;
+    public const float DefaultMinDecibels = -90f;
+    public const float DefaultSmoothing = 55f;
+    public const SpectrumDisplayShape DefaultSpectrumShape = SpectrumDisplayShape.Bar;
+
     private readonly CompositeDisposable _disposables = [];
     private readonly IEditorContext _editorContext;
     private readonly IPreviewPlayer _player;
@@ -53,13 +58,13 @@ public sealed class AudioVisualizerTabViewModel : IToolContext
 
     public ReactivePropertySlim<AudioVisualizerMode> SelectedMode { get; } = new(AudioVisualizerMode.Waveform);
 
-    public ReactivePropertySlim<int> FftSize { get; } = new(2048);
+    public ReactivePropertySlim<int> FftSize { get; } = new(DefaultFftSize);
 
-    public ReactivePropertySlim<float> MinDecibels { get; } = new(-90f);
+    public ReactivePropertySlim<float> MinDecibels { get; } = new(DefaultMinDecibels);
 
-    public ReactivePropertySlim<float> Smoothing { get; } = new(55f);
+    public ReactivePropertySlim<float> Smoothing { get; } = new(DefaultSmoothing);
 
-    public ReactivePropertySlim<SpectrumDisplayShape> SpectrumShape { get; } = new(SpectrumDisplayShape.Bar);
+    public ReactivePropertySlim<SpectrumDisplayShape> SpectrumShape { get; } = new(DefaultSpectrumShape);
 
     public IReadOnlyList<int> AvailableFftSizes { get; } = [256, 512, 1024, 2048, 4096, 8192];
 
@@ -70,6 +75,17 @@ public sealed class AudioVisualizerTabViewModel : IToolContext
     public ToolTabExtension Extension => _extension;
 
     public IReactiveProperty<bool> IsSelected { get; } = new ReactiveProperty<bool>();
+
+    public void ResetSetting(string name)
+    {
+        switch (name)
+        {
+            case nameof(FftSize): FftSize.Value = DefaultFftSize; break;
+            case nameof(MinDecibels): MinDecibels.Value = DefaultMinDecibels; break;
+            case nameof(Smoothing): Smoothing.Value = DefaultSmoothing; break;
+            case nameof(SpectrumShape): SpectrumShape.Value = DefaultSpectrumShape; break;
+        }
+    }
 
     private void OnAudioFrameReceived(AudioFrameSnapshot snapshot)
     {
