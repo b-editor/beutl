@@ -1378,8 +1378,8 @@
   <data name="AudioVisualizer_FftSize" xml:space="preserve">
     <value>FFTサイズ</value>
   </data>
-  <data name="AudioVisualizer_LogarithmicFrequency" xml:space="preserve">
-    <value>対数周波数軸</value>
+  <data name="AudioVisualizer_FrequencyScale" xml:space="preserve">
+    <value>周波数軸</value>
   </data>
   <data name="AudioVisualizer_FloorDb" xml:space="preserve">
     <value>下限（dB）</value>

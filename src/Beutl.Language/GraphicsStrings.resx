@@ -1380,8 +1380,8 @@
   <data name="AudioVisualizer_FftSize" xml:space="preserve">
     <value>FFT Size</value>
   </data>
-  <data name="AudioVisualizer_LogarithmicFrequency" xml:space="preserve">
-    <value>Logarithmic Frequency</value>
+  <data name="AudioVisualizer_FrequencyScale" xml:space="preserve">
+    <value>Frequency Scale</value>
   </data>
   <data name="AudioVisualizer_FloorDb" xml:space="preserve">
     <value>Floor (dB)</value>
