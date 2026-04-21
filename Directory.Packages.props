@@ -26,7 +26,7 @@
     <PackageVersion Include="Avalonia.Themes.Fluent" Version="11.3.13" />
     <PackageVersion Include="Xaml.Behaviors.Avalonia" Version="11.3.9.5" />
     <PackageVersion Include="Xaml.Behaviors.Interactivity" Version="11.3.9.5" />
-    <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.15.2" />
+    <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.15.3" />
     <PackageVersion Include="BenchmarkDotNet" Version="0.15.8" />
     <PackageVersion Include="coverlet.collector" Version="10.0.0" />
     <PackageVersion Include="Dotnet.Bundle" Version="0.9.13" />
@@ -60,7 +60,7 @@
     <PackageVersion Include="Nuke.Common" Version="10.1.0" />
     <PackageVersion Include="NUnit" Version="4.5.1" />
     <PackageVersion Include="NUnit3TestAdapter" Version="6.2.0" />
-    <PackageVersion Include="OpenTelemetry" Version="1.15.2" />
+    <PackageVersion Include="OpenTelemetry" Version="1.15.3" />
     <PackageVersion Include="OpenTelemetry.Exporter.Console" Version="1.15.2" />
     <PackageVersion Include="OpenTelemetry.Exporter.Zipkin" Version="1.15.2" />
     <PackageVersion Include="OpenTK.OpenAL" Version="5.0.0-pre.8" />
