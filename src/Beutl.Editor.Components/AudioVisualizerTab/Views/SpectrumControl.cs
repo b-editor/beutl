@@ -19,8 +19,7 @@ public sealed class SpectrumControl : AudioVisualizerControlBase
     public static readonly StyledProperty<SpectrumDisplayShape> ShapeProperty =
         AvaloniaProperty.Register<SpectrumControl, SpectrumDisplayShape>(nameof(Shape), SpectrumDisplayShape.Bar);
 
-    private const double FrequencyAxisHeight = 18.0;
-    private const double FrequencyLabelFontSize = 11.0;
+    private const double FrequencyLabelFontSize = 12.0;
     private static readonly double[] s_frequencyTicks = [50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000];
 
     private float[] _samplesL = [];
@@ -97,12 +96,23 @@ public sealed class SpectrumControl : AudioVisualizerControlBase
             _smoothed[i] = _smoothed[i] * smoothFactor + norm * newWeight;
         }
 
-        double plotHeight = Math.Max(0, bounds.Height - FrequencyAxisHeight);
+        var f = new FormattedText(
+            "0",
+            CultureInfo.InvariantCulture,
+            FlowDirection.LeftToRight,
+            Typeface.Default,
+            FrequencyLabelFontSize,
+            Brushes.White);
+        double labelHeight = f.Height;
+        double labelBaseline = f.Baseline;
+        double frequencyAxisHeight = labelHeight + 1;
+        double plotHeight = Math.Max(0, bounds.Height - frequencyAxisHeight);
         var plotBounds = new Rect(0, 0, bounds.Width, plotHeight);
+        double labelY = bounds.Height - labelBaseline - 1;
 
         DrawFrequencyGrid(context, plotBounds, buffer.SampleRate, bins);
         DrawBars(context, plotBounds, bins);
-        DrawFrequencyLabels(context, bounds, buffer.SampleRate, bins);
+        DrawFrequencyLabels(context, bounds, buffer.SampleRate, bins, labelY);
     }
 
     private void DrawBars(DrawingContext context, Rect plotBounds, int bins)
@@ -245,13 +255,12 @@ public sealed class SpectrumControl : AudioVisualizerControlBase
         }
     }
 
-    private void DrawFrequencyLabels(DrawingContext context, Rect bounds, int sampleRate, int bins)
+    private void DrawFrequencyLabels(DrawingContext context, Rect bounds, int sampleRate, int bins, double labelY)
     {
         if (sampleRate <= 0 || bins < 2) return;
 
         IBrush textBrush = Foreground ?? Brushes.LightGray;
         double nyquist = sampleRate * 0.5;
-        double labelY = bounds.Bottom - FrequencyAxisHeight + 1;
         double plotWidth = bounds.Width;
 
         foreach (double freq in s_frequencyTicks)
