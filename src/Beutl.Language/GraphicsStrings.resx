@@ -1437,4 +1437,40 @@
   <data name="WaveformShape_MinMaxBar" xml:space="preserve">
     <value>MinMax Bar</value>
   </data>
+  <data name="WaveformShape_Line" xml:space="preserve">
+    <value>Line</value>
+  </data>
+  <data name="WaveformShape_FilledMirror" xml:space="preserve">
+    <value>Filled Mirror</value>
+  </data>
+  <data name="WaveformShape_FilledEnvelope" xml:space="preserve">
+    <value>Filled Envelope</value>
+  </data>
+  <data name="WaveformShape_Block" xml:space="preserve">
+    <value>Block</value>
+  </data>
+  <data name="WaveformShape_Dots" xml:space="preserve">
+    <value>Dots</value>
+  </data>
+  <data name="WaveformShape_Radial" xml:space="preserve">
+    <value>Radial</value>
+  </data>
+  <data name="WaveformShape_BlockCount" xml:space="preserve">
+    <value>Block Count</value>
+  </data>
+  <data name="WaveformShape_BlockGap" xml:space="preserve">
+    <value>Block Gap</value>
+  </data>
+  <data name="WaveformShape_Mirrored" xml:space="preserve">
+    <value>Mirrored</value>
+  </data>
+  <data name="WaveformShape_Symmetric" xml:space="preserve">
+    <value>Symmetric</value>
+  </data>
+  <data name="WaveformShape_DotRadius" xml:space="preserve">
+    <value>Dot Radius</value>
+  </data>
+  <data name="WaveformShape_DotMode" xml:space="preserve">
+    <value>Dot Mode</value>
+  </data>
 </root>
