@@ -1,4 +1,5 @@
 ﻿using System.Reactive;
+using System.Reactive.Linq;
 using Beutl.Media;
 using Beutl.Media.Source;
 
@@ -13,4 +14,9 @@ public interface IPreviewPlayer
     IObservable<Unit> AfterRendered { get; }
 
     IReadOnlyReactiveProperty<bool> IsPlaying { get; }
+
+    IObservable<AudioFrameSnapshot> AudioFramePushed => Observable.Empty<AudioFrameSnapshot>();
+
+    Task<AudioFrameSnapshot?> ComposeAudioAsync(TimeSpan start, TimeSpan duration, CancellationToken ct = default)
+        => Task.FromResult<AudioFrameSnapshot?>(null);
 }

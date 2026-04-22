@@ -1,4 +1,5 @@
 ﻿using Beutl.Api.Services;
+using Beutl.Editor.Components.AudioVisualizerTab;
 using Beutl.Editor.Components.ColorGradingProperties;
 using Beutl.Editor.Components.ColorGradingTab;
 using Beutl.Editor.Components.ColorScopesTab;
@@ -40,6 +41,7 @@ public sealed class LoadPrimitiveExtensionTask : StartupTask
         AnimatedPngReaderExtension.Instance,
         MainViewExtension.Instance,
         ColorScopesTabExtension.Instance,
+        AudioVisualizerTabExtension.Instance,
         ColorGradingTabExtension.Instance,
         CurvesTabExtension.Instance,
         ColorGradingPropertiesExtension.Instance,

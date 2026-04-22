@@ -1,4 +1,6 @@
 ﻿using System.Reactive.Subjects;
+using System.Runtime.InteropServices;
+using Beutl.Audio;
 using Beutl.Audio.Composing;
 using Beutl.Audio.Platforms.XAudio2;
 using Beutl.Composition;
@@ -40,6 +42,12 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
     private CancellationTokenSource? _cts;
     private Size _maxFrameSize;
     private Task _playbackTask = Task.CompletedTask;
+    // Published snapshots carry the start time of the buffer that was just *queued*
+    // to the audio backend, which is ahead of the current playhead. Replay several
+    // recent snapshots so a visualizer tab opened mid-playback also receives the
+    // already-consumed buffers, avoiding a silent ring-buffer window until the
+    // playhead catches up to the queued-but-not-yet-played audio.
+    private readonly ReplaySubject<AudioFrameSnapshot> _audioFramePushed = new(bufferSize: 8);
 
     public PlayerViewModel(EditViewModel editViewModel)
     {
@@ -227,6 +235,48 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
     IObservable<Unit> IPreviewPlayer.AfterRendered => AfterRendered;
 
     IReadOnlyReactiveProperty<bool> IPreviewPlayer.IsPlaying => IsPlaying;
+
+    IObservable<AudioFrameSnapshot> IPreviewPlayer.AudioFramePushed => _audioFramePushed;
+
+    private void PublishAudioSnapshot(Pcm<Stereo32BitFloat>? pcm, TimeSpan startTime)
+    {
+        if (pcm == null) return;
+
+        // Always publish so the ReplaySubject retains the latest snapshot — a
+        // visualizer tab opened after this point can replay it on subscribe.
+        int samples = pcm.NumSamples;
+        int channels = pcm.NumChannels;
+        var interleaved = new float[samples * channels];
+        MemoryMarshal.Cast<Stereo32BitFloat, float>(pcm.DataSpan).CopyTo(interleaved);
+        _audioFramePushed.OnNext(new AudioFrameSnapshot(interleaved, pcm.SampleRate, channels, startTime));
+    }
+
+    Task<AudioFrameSnapshot?> IPreviewPlayer.ComposeAudioAsync(TimeSpan start, TimeSpan duration, CancellationToken ct)
+    {
+        SceneComposer? composer = EditViewModel.Composer.Value;
+        if (composer == null || composer.IsDisposed)
+            return Task.FromResult<AudioFrameSnapshot?>(null);
+
+        return ComposeThread.Dispatcher.InvokeAsync(() =>
+        {
+            ct.ThrowIfCancellationRequested();
+            using AudioBuffer? audio = composer.Compose(new TimeRange(start, duration));
+            if (audio == null) return (AudioFrameSnapshot?)null;
+
+            int samples = audio.SampleCount;
+            int channels = audio.ChannelCount;
+            var interleaved = new float[samples * channels];
+            for (int c = 0; c < channels; c++)
+            {
+                Span<float> src = audio.GetChannelData(c);
+                for (int f = 0; f < samples; f++)
+                {
+                    interleaved[f * channels + c] = src[f];
+                }
+            }
+            return (AudioFrameSnapshot?)new AudioFrameSnapshot(interleaved, audio.SampleRate, channels, start);
+        }, ct: ct);
+    }
 
     public ReactivePropertySlim<bool> IsPlaying { get; } = new();
 
@@ -532,6 +582,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
 
         void PrepareBuffer(XAudioBuffer buffer)
         {
+            TimeSpan bufferStartTime = cur;
             Pcm<Stereo32BitFloat>? pcm = FillAudioData(cur, composer);
             if (pcm != null)
             {
@@ -543,6 +594,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
 
                 buffer.BufferData(pcm.DataSpan, fmt);
                 hasAudio = true;
+                PublishAudioSnapshot(pcm, bufferStartTime);
             }
 
             source.QueueBuffer(buffer);
@@ -663,6 +715,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
 
             foreach (uint buffer in buffers)
             {
+                TimeSpan bufferStartTime = cur;
                 using Pcm<Stereo32BitFloat>? pcmf = FillAudioData(cur, composer);
                 cur += s_second;
                 int fillSamples = 0;
@@ -678,6 +731,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                     audioContext.BufferData(buffer, BufferFormat.Stereo16, pcm.DataSpan, pcm.SampleRate);
                     fillSamples = pcm.DataSpan.Length;
                     hasAudio = true;
+                    PublishAudioSnapshot(pcmf, bufferStartTime);
                 }
 
                 audioContext.SourceQueueBuffer(source, buffer);
@@ -722,6 +776,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                     audioContext.GetSource(source, GetSourceInteger.BuffersProcessed, out int processed);
                     while (processed > 0)
                     {
+                        TimeSpan bufferStartTime = cur;
                         using Pcm<Stereo32BitFloat>? pcmf = FillAudioData(cur, composer);
                         cur += s_second;
                         uint buffer = audioContext.SourceUnqueueBuffer(source);
@@ -738,6 +793,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                             audioContext.BufferData(buffer, BufferFormat.Stereo16, pcm.DataSpan, pcm.SampleRate);
                             fillSamples = pcm.DataSpan.Length;
                             hasAudio = true;
+                            PublishAudioSnapshot(pcmf, bufferStartTime);
                         }
 
                         audioContext.SourceQueueBuffer(source, buffer);
@@ -961,6 +1017,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
         _disposables.Dispose();
         _currentFrameSubscription?.Dispose();
         AfterRendered.Dispose();
+        _audioFramePushed.Dispose();
         PreviewInvalidated = null;
         Scene = null!;
         PreviewImage.Value?.Dispose();
