@@ -7,10 +7,17 @@ public sealed class SceneRenderer : Renderer
 {
     private readonly SceneCompositor _compositor;
 
-    public SceneRenderer(Scene scene, bool disableResourceShare = false)
-        : base(scene.FrameSize.Width, scene.FrameSize.Height)
+    public SceneRenderer(Scene scene, bool disableResourceShare = false, bool useProxyIfAvailable = false, float renderScale = 1.0f)
+        : base(
+            Math.Max(1, (int)Math.Round(scene.FrameSize.Width * renderScale)),
+            Math.Max(1, (int)Math.Round(scene.FrameSize.Height * renderScale)))
     {
-        _compositor = new SceneCompositor(scene) { DisableResourceShare = disableResourceShare };
+        _compositor = new SceneCompositor(scene)
+        {
+            DisableResourceShare = disableResourceShare,
+            UseProxyIfAvailable = useProxyIfAvailable,
+            RenderScale = renderScale,
+        };
     }
 
     public SceneCompositor Compositor => _compositor;

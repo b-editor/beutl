@@ -89,7 +89,7 @@ public partial class SourceVideo : IThumbnailsProvider
         DrawableRenderNode? node = null;
         try
         {
-            resource = ToResource(CompositionContext.Default);
+            resource = ToResource(new CompositionContext(TimeSpan.Zero) { UseProxyIfAvailable = true });
 
             if (resource.Source is not { } source)
                 yield break;
@@ -133,7 +133,7 @@ public partial class SourceVideo : IThumbnailsProvider
                     if (cancellationToken.IsCancellationRequested)
                         return null;
 
-                    var ctx = new CompositionContext(time + TimeRange.Start);
+                    var ctx = new CompositionContext(time + TimeRange.Start) { UseProxyIfAvailable = true };
                     bool updateOnly = false;
                     resource.Update(this, ctx, ref updateOnly);
 

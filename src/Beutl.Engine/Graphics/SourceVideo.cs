@@ -153,11 +153,29 @@ public partial class SourceVideo : Drawable, IOriginalDurationProvider, ISplitta
             Rational rate = r.Source.FrameRate;
             double frameNum = pos.Ticks * rate.Numerator / (double)(TimeSpan.TicksPerSecond * rate.Denominator);
 
-            context.DrawVideoSource(
-                r.Source,
-                (int)Math.Round(frameNum, MidpointRounding.AwayFromZero),
-                Brushes.Resource.White,
-                null);
+            int frame = (int)Math.Round(frameNum, MidpointRounding.AwayFromZero);
+
+            // プロキシ使用時は実デコード解像度がオリジナルより小さいため、
+            // オリジナル解像度に引き伸ばす Scale Transform を掛けてから描画する。
+            // これにより Blur など画面サイズに依存するエフェクトの見た目が
+            // オリジナルファイル使用時と一致する。
+            if (r.Source.UsingProxy
+                && r.Source.DecodedFrameSize.Width > 0
+                && r.Source.DecodedFrameSize.Height > 0
+                && r.Source.DecodedFrameSize != r.Source.FrameSize)
+            {
+                float scaleX = (float)r.Source.FrameSize.Width / r.Source.DecodedFrameSize.Width;
+                float scaleY = (float)r.Source.FrameSize.Height / r.Source.DecodedFrameSize.Height;
+                using (context.PushTransform(Matrix.CreateScale(scaleX, scaleY)))
+                {
+                    context.DrawVideoSource(r.Source, frame, Brushes.Resource.White, null);
+                }
+            }
+            else
+            {
+                context.DrawVideoSource(r.Source, frame, Brushes.Resource.White, null);
+            }
+
             r.RenderedPosition = r.RequestedPosition;
         }
     }

@@ -20,6 +20,10 @@ public sealed class SceneCompositor : ICompositor
 
     public bool DisableResourceShare { get; init; }
 
+    public bool UseProxyIfAvailable { get; init; }
+
+    public float RenderScale { get; init; } = 1.0f;
+
     private sealed class CompositorContext : CompositionContext, ISceneCompositionContext
     {
         private readonly SceneCompositor _compositor;
@@ -35,6 +39,8 @@ public sealed class SceneCompositor : ICompositor
             Target = target;
             Flow = flow;
             DisableResourceShare = compositor.DisableResourceShare;
+            UseProxyIfAvailable = compositor.UseProxyIfAvailable;
+            RenderScale = compositor.RenderScale;
         }
 
         public IList<Element> CurrentElements { get; set; }
