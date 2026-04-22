@@ -25,11 +25,13 @@ public sealed class PhaseScopeControl : AudioVisualizerControlBase
         AudioSampleRingBuffer? buffer = RingBuffer;
         if (buffer == null || bounds.Width < 40 || bounds.Height < 40) return;
 
-        int got = buffer.ReadAroundTime(PlayheadTime, _left, _right, SampleWindow);
+        int got = buffer.ReadAroundTime(PlayheadTime, _left, _right, SampleWindow, out int leadingZeros);
         if (got <= 0) return;
 
-        ReadOnlySpan<float> left = _left.AsSpan(0, got);
-        ReadOnlySpan<float> right = _right.AsSpan(0, got);
+        // Use only the real samples. Padded zeros would pile up as a bright dot
+        // at the origin and skew the correlation readout toward 0.
+        ReadOnlySpan<float> left = _left.AsSpan(leadingZeros, got);
+        ReadOnlySpan<float> right = _right.AsSpan(leadingZeros, got);
 
         // Reserve enough margin outside the diamond for axis labels (M/L/R/S)
         // and the correlation readout. The previous 10 px margin clipped 12 pt

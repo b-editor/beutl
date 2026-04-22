@@ -42,8 +42,10 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
     private CancellationTokenSource? _cts;
     private Size _maxFrameSize;
     private Task _playbackTask = Task.CompletedTask;
-    private readonly Subject<AudioFrameSnapshot> _audioFramePushed = new();
-    private int _audioObserverCount;
+    // ReplaySubject with buffer size 1 replays the most recent snapshot to late
+    // subscribers, so a visualizer tab opened mid-playback populates its ring
+    // buffer immediately instead of waiting for the next ~1 s backend refill.
+    private readonly ReplaySubject<AudioFrameSnapshot> _audioFramePushed = new(bufferSize: 1);
 
     public PlayerViewModel(EditViewModel editViewModel)
     {
@@ -232,21 +234,14 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
 
     IReadOnlyReactiveProperty<bool> IPreviewPlayer.IsPlaying => IsPlaying;
 
-    IObservable<AudioFrameSnapshot> IPreviewPlayer.AudioFramePushed => Observable.Create<AudioFrameSnapshot>(observer =>
-    {
-        Interlocked.Increment(ref _audioObserverCount);
-        IDisposable inner = _audioFramePushed.Subscribe(observer);
-        return Disposable.Create(() =>
-        {
-            inner.Dispose();
-            Interlocked.Decrement(ref _audioObserverCount);
-        });
-    });
+    IObservable<AudioFrameSnapshot> IPreviewPlayer.AudioFramePushed => _audioFramePushed;
 
     private void PublishAudioSnapshot(Pcm<Stereo32BitFloat>? pcm, TimeSpan startTime)
     {
-        if (pcm == null || _audioObserverCount == 0) return;
+        if (pcm == null) return;
 
+        // Always publish so the ReplaySubject retains the latest snapshot — a
+        // visualizer tab opened after this point can replay it on subscribe.
         int samples = pcm.NumSamples;
         int channels = pcm.NumChannels;
         var interleaved = new float[samples * channels];

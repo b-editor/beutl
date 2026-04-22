@@ -72,10 +72,12 @@ public sealed class AudioSampleRingBuffer
             bool needsReset = _capacity == 0 || _sampleRate != sampleRate;
             if (_hasAnchor && !needsReset)
             {
-                // Reset when the incoming chunk is not contiguous with the last write —
-                // typical when the user seeks/scrubs during paused compose.
+                // Any backward overlap (paused frame-step composes a fixed 100 ms
+                // window ending at the playhead, so stepping by <100 ms always
+                // overlaps) or a large forward jump breaks the linear time↔index
+                // mapping that ReadAroundTime relies on — reset in those cases.
                 TimeSpan gap = startTime - _lastWriteEndTime;
-                if (gap < -s_continuityTolerance || gap > s_continuityTolerance)
+                if (gap < TimeSpan.Zero || gap > s_continuityTolerance)
                 {
                     needsReset = true;
                 }
@@ -127,19 +129,30 @@ public sealed class AudioSampleRingBuffer
     // Returns the `length` most recent samples, oldest-first. Used when no
     // playback-time anchor is meaningful (e.g. metering fallback).
     public int ReadLatest(Span<float> destLeft, Span<float> destRight, int length)
+        => ReadLatest(destLeft, destRight, length, out _);
+
+    public int ReadLatest(Span<float> destLeft, Span<float> destRight, int length, out int leadingZeros)
     {
+        leadingZeros = 0;
         if (destLeft.Length < length || destRight.Length < length) return 0;
         lock (_gate)
         {
-            return ReadEndingAtLocked(_totalWritten, destLeft, destRight, length);
+            return ReadEndingAtLocked(_totalWritten, destLeft, destRight, length, out leadingZeros);
         }
     }
 
     // Reads `length` samples that end exactly at the sample corresponding to
     // `playheadTime` in scene time. Missing samples before/after the available
-    // window are zero-padded. Returns the number of real (non-padded) samples.
+    // window are zero-padded. Returns the number of real (non-padded) samples,
+    // and reports the offset of those real samples within the destination span
+    // via `leadingZeros` so callers doing analysis (RMS, LUFS, ...) can skip
+    // the silent prefix.
     public int ReadAroundTime(TimeSpan playheadTime, Span<float> destLeft, Span<float> destRight, int length)
+        => ReadAroundTime(playheadTime, destLeft, destRight, length, out _);
+
+    public int ReadAroundTime(TimeSpan playheadTime, Span<float> destLeft, Span<float> destRight, int length, out int leadingZeros)
     {
+        leadingZeros = 0;
         if (destLeft.Length < length || destRight.Length < length) return 0;
         lock (_gate)
         {
@@ -153,7 +166,7 @@ public sealed class AudioSampleRingBuffer
             double secondsFromEnd = (_lastWriteEndTime - playheadTime).TotalSeconds;
             long samplesFromEnd = (long)Math.Round(secondsFromEnd * _sampleRate);
             long targetEnd = _lastWriteEndIndex - samplesFromEnd;
-            return ReadEndingAtLocked(targetEnd, destLeft, destRight, length);
+            return ReadEndingAtLocked(targetEnd, destLeft, destRight, length, out leadingZeros);
         }
     }
 
@@ -164,13 +177,22 @@ public sealed class AudioSampleRingBuffer
     {
         Span<float> l = windowSamples <= 4096 ? stackalloc float[windowSamples] : new float[windowSamples];
         Span<float> r = windowSamples <= 4096 ? stackalloc float[windowSamples] : new float[windowSamples];
-        int got = playheadTime is { } t
-            ? ReadAroundTime(t, l, r, windowSamples)
-            : ReadLatest(l, r, windowSamples);
+        int got;
+        int leadingZeros;
+        if (playheadTime is { } t)
+        {
+            got = ReadAroundTime(t, l, r, windowSamples, out leadingZeros);
+        }
+        else
+        {
+            got = ReadLatest(l, r, windowSamples, out leadingZeros);
+        }
         if (got <= 0) return (0, 0, 0, 0);
 
-        ReadOnlySpan<float> lSlice = l.Slice(0, got);
-        ReadOnlySpan<float> rSlice = r.Slice(0, got);
+        // Real samples live at [leadingZeros, leadingZeros + got). Slicing from 0
+        // would analyze the silent prefix and drop samples off the end.
+        ReadOnlySpan<float> lSlice = l.Slice(leadingZeros, got);
+        ReadOnlySpan<float> rSlice = r.Slice(leadingZeros, got);
         return (
             AudioMath.CalculateRms(lSlice),
             AudioMath.CalculateRms(rSlice),
@@ -178,8 +200,9 @@ public sealed class AudioSampleRingBuffer
             AudioMath.FindPeak(rSlice));
     }
 
-    private int ReadEndingAtLocked(long endAbsIndex, Span<float> destLeft, Span<float> destRight, int length)
+    private int ReadEndingAtLocked(long endAbsIndex, Span<float> destLeft, Span<float> destRight, int length, out int leadingZeros)
     {
+        leadingZeros = 0;
         if (_capacity == 0)
         {
             destLeft.Slice(0, length).Clear();
@@ -197,7 +220,6 @@ public sealed class AudioSampleRingBuffer
         }
 
         long startAbs = endAbsIndex - length;
-        int leadingZeros = 0;
         if (startAbs < oldestAbs)
         {
             leadingZeros = (int)(oldestAbs - startAbs);
@@ -210,7 +232,12 @@ public sealed class AudioSampleRingBuffer
         }
 
         int toCopy = (int)(endAbsIndex - startAbs);
-        if (toCopy <= 0) return 0;
+        if (toCopy <= 0)
+        {
+            destLeft.Slice(leadingZeros, length - leadingZeros).Clear();
+            destRight.Slice(leadingZeros, length - leadingZeros).Clear();
+            return 0;
+        }
 
         long backFromWriteIdx = _totalWritten - startAbs;
         int ringStart = (int)(((long)_writeIndex - backFromWriteIdx) % _capacity);

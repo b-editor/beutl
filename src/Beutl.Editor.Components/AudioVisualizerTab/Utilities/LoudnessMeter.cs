@@ -38,10 +38,16 @@ internal sealed class LoudnessMeter
         if (_scratch.Length < n) _scratch = new float[n];
         Span<float> tmp = _scratch.AsSpan(0, n);
 
-        // Each call processes a fresh window. Resetting filter state would
-        // distort the result with start-up transients, so we let the IIR state
-        // carry across calls — successive 400 ms reads still align well in
-        // practice because the buffer is contiguous.
+        // Reset filter state per call. Windows passed here are usually heavily
+        // overlapping (or identical while paused), so carrying IIR state across
+        // calls would make the reading depend on repaint cadence instead of the
+        // samples in the current window. The biquad start-up transient settles
+        // within a handful of samples and is negligible over a 400 ms block.
+        _preL.Reset();
+        _rlbL.Reset();
+        _preR.Reset();
+        _rlbR.Reset();
+
         _preL.Process(left, tmp);
         _rlbL.Process(tmp, tmp);
         double sum = 0;

@@ -129,11 +129,13 @@ public sealed class LevelMeterControl : AudioVisualizerControlBase
             _loudnessRight = new float[n];
         }
 
-        int got = buffer.ReadAroundTime(PlayheadTime, _loudnessLeft, _loudnessRight, n);
+        int got = buffer.ReadAroundTime(PlayheadTime, _loudnessLeft, _loudnessRight, n, out int leadingZeros);
         if (got <= 0) return;
 
-        ReadOnlySpan<float> l = _loudnessLeft.AsSpan(0, n);
-        ReadOnlySpan<float> r = _loudnessRight.AsSpan(0, n);
+        // Exclude the zero-padded prefix from LUFS/true-peak analysis — otherwise
+        // the silent samples dilute the mean square and pull the reading toward -∞.
+        ReadOnlySpan<float> l = _loudnessLeft.AsSpan(leadingZeros, got);
+        ReadOnlySpan<float> r = _loudnessRight.AsSpan(leadingZeros, got);
 
         float lufs = _loudness.Compute(l, r, sampleRate);
         // Light low-pass on the displayed value so the digit isn't twitchy.
