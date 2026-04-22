@@ -13,6 +13,19 @@ public sealed partial class AudioSpectrumDrawable : AudioVisualizerDrawable
     {
         ScanProperties<AudioSpectrumDrawable>();
         Shape.CurrentValue = new BarSpectrumShape();
+
+        // 編集頻度順に並べ替え: Source → 見た目(Shape/Fill) → 信号調整(Gain/FloorDb) → 応答(Smoothing) → 周波数設定(Scale/BarCount) → 解像度(FftSize) → サイズ
+        MoveProperty(Source, 0);
+        MoveProperty(Shape, 1);
+        MoveProperty(Fill, 2);
+        MoveProperty(Gain, 3);
+        MoveProperty(FloorDb, 4);
+        MoveProperty(Smoothing, 5);
+        MoveProperty(FrequencyScale, 6);
+        MoveProperty(BarCount, 7);
+        MoveProperty(FftSize, 8);
+        MoveProperty(Width, 9);
+        MoveProperty(Height, 10);
     }
 
     [Display(Name = nameof(GraphicsStrings.AudioVisualizer_Shape), ResourceType = typeof(GraphicsStrings))]
@@ -26,8 +39,8 @@ public sealed partial class AudioSpectrumDrawable : AudioVisualizerDrawable
     [Range(64, 16384)]
     public IProperty<int> FftSize { get; } = Property.Create(1024);
 
-    [Display(Name = nameof(GraphicsStrings.AudioVisualizer_LogarithmicFrequency), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<bool> LogarithmicFrequency { get; } = Property.Create(true);
+    [Display(Name = nameof(GraphicsStrings.AudioVisualizer_FrequencyScale), ResourceType = typeof(GraphicsStrings))]
+    public IProperty<FrequencyScale> FrequencyScale { get; } = Property.Create(AudioVisualizers.FrequencyScale.Logarithmic);
 
     [Display(Name = nameof(GraphicsStrings.AudioVisualizer_FloorDb), ResourceType = typeof(GraphicsStrings))]
     [Range(-200f, 0f)]
@@ -90,7 +103,7 @@ public sealed partial class AudioSpectrumDrawable : AudioVisualizerDrawable
             float floorDb = MathF.Min(FloorDb, -0.001f);
 
             int barCount = Math.Min(Math.Max(1, BarCount), bins);
-            bool logarithmic = LogarithmicFrequency;
+            FrequencyScale freqScale = FrequencyScale;
 
             if (_smoothedMagnitudes.Length < barCount)
             {
@@ -106,22 +119,37 @@ public sealed partial class AudioSpectrumDrawable : AudioVisualizerDrawable
 
             float fMax = CachedSampleRate * 0.5f;
             float fMin = Math.Max(20f, fMax / bins);
+            double melMin = freqScale == FrequencyScale.Mel ? 2595.0 * Math.Log10(1 + fMin / 700.0) : 0;
+            double melMax = freqScale == FrequencyScale.Mel ? 2595.0 * Math.Log10(1 + fMax / 700.0) : 0;
 
             for (int i = 0; i < barCount; i++)
             {
                 int binLow;
                 int binHigh;
-                if (logarithmic)
+                switch (freqScale)
                 {
-                    double freqLow = fMin * Math.Pow(fMax / fMin, (double)i / barCount);
-                    double freqHigh = fMin * Math.Pow(fMax / fMin, (double)(i + 1) / barCount);
-                    binLow = (int)Math.Floor(freqLow / fMax * bins);
-                    binHigh = (int)Math.Ceiling(freqHigh / fMax * bins);
-                }
-                else
-                {
-                    binLow = i * bins / barCount;
-                    binHigh = (i + 1) * bins / barCount;
+                    case FrequencyScale.Logarithmic:
+                        {
+                            double freqLow = fMin * Math.Pow(fMax / fMin, (double)i / barCount);
+                            double freqHigh = fMin * Math.Pow(fMax / fMin, (double)(i + 1) / barCount);
+                            binLow = (int)Math.Floor(freqLow / fMax * bins);
+                            binHigh = (int)Math.Ceiling(freqHigh / fMax * bins);
+                            break;
+                        }
+                    case FrequencyScale.Mel:
+                        {
+                            double m1 = melMin + (melMax - melMin) * i / barCount;
+                            double m2 = melMin + (melMax - melMin) * (i + 1) / barCount;
+                            double f1 = 700.0 * (Math.Pow(10, m1 / 2595.0) - 1);
+                            double f2 = 700.0 * (Math.Pow(10, m2 / 2595.0) - 1);
+                            binLow = (int)Math.Floor(f1 / fMax * bins);
+                            binHigh = (int)Math.Ceiling(f2 / fMax * bins);
+                            break;
+                        }
+                    default:
+                        binLow = i * bins / barCount;
+                        binHigh = (i + 1) * bins / barCount;
+                        break;
                 }
 
                 if (binHigh <= binLow) binHigh = binLow + 1;

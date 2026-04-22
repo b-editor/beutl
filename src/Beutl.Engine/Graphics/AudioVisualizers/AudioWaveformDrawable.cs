@@ -7,23 +7,27 @@ using Beutl.Media;
 
 namespace Beutl.Graphics.AudioVisualizers;
 
-public enum WaveformStyle
-{
-    MinMaxBar,
-    Line,
-    FilledMirror
-}
-
 [Display(Name = nameof(GraphicsStrings.AudioWaveform), ResourceType = typeof(GraphicsStrings))]
 public sealed partial class AudioWaveformDrawable : AudioVisualizerDrawable
 {
     public AudioWaveformDrawable()
     {
         ScanProperties<AudioWaveformDrawable>();
+        Shape.CurrentValue = new MinMaxBarWaveformShape();
+
+        // 編集頻度順に並べ替え: Source → 見た目(Shape/Fill) → 信号調整(Gain) → 時間/解像度(WindowSeconds/BarCount) → サイズ(Width/Height)
+        MoveProperty(Source, 0);
+        MoveProperty(Shape, 1);
+        MoveProperty(Fill, 2);
+        MoveProperty(Gain, 3);
+        MoveProperty(WindowSeconds, 4);
+        MoveProperty(BarCount, 5);
+        MoveProperty(Width, 6);
+        MoveProperty(Height, 7);
     }
 
-    [Display(Name = nameof(GraphicsStrings.AudioVisualizer_WaveformStyle), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<WaveformStyle> Style { get; } = Property.Create(WaveformStyle.MinMaxBar);
+    [Display(Name = nameof(GraphicsStrings.AudioVisualizer_Shape), ResourceType = typeof(GraphicsStrings))]
+    public IProperty<WaveformShape?> Shape { get; } = Property.Create<WaveformShape?>();
 
     [Display(Name = nameof(GraphicsStrings.AudioVisualizer_BarCount), ResourceType = typeof(GraphicsStrings))]
     [Range(1, 10000)]
@@ -31,7 +35,7 @@ public sealed partial class AudioWaveformDrawable : AudioVisualizerDrawable
 
     [Display(Name = nameof(GraphicsStrings.AudioVisualizer_WindowSeconds), ResourceType = typeof(GraphicsStrings))]
     [Range(0.01f, 3600f)]
-    public IProperty<float> WindowSeconds { get; } = Property.CreateAnimatable(4f);
+    public IProperty<float> WindowSeconds { get; } = Property.CreateAnimatable(0.1f);
 
     public new partial class Resource
     {
@@ -47,6 +51,8 @@ public sealed partial class AudioWaveformDrawable : AudioVisualizerDrawable
         protected override void RenderForeground(ImmediateCanvas canvas, Rect bounds)
         {
             if (CachedSampleLength == 0 || Fill is null) return;
+            WaveformShape.Resource? shape = Shape;
+            if (shape is null) return;
 
             int barCount = Math.Max(1, BarCount);
             if (_minBuf.Length < barCount) _minBuf = new float[barCount];
@@ -55,71 +61,8 @@ public sealed partial class AudioWaveformDrawable : AudioVisualizerDrawable
             Span<float> maxBuf = _maxBuf.AsSpan(0, barCount);
             SoundSamplingHelper.DownsampleMinMax(CachedSampleSpan, minBuf, maxBuf);
 
-            float width = (float)bounds.Width;
-            float height = (float)bounds.Height;
-            float centerY = height * 0.5f;
             float gain = Math.Max(0f, Gain);
-            float slotWidth = width / barCount;
-            float barWidth = Math.Max(1f, slotWidth - 0.5f);
-
-            switch (Style)
-            {
-                case WaveformStyle.MinMaxBar:
-                    for (int i = 0; i < barCount; i++)
-                    {
-                        float min = Math.Clamp(minBuf[i] * gain, -1f, 1f);
-                        float max = Math.Clamp(maxBuf[i] * gain, -1f, 1f);
-                        float topY = centerY - max * centerY;
-                        float bottomY = centerY - min * centerY;
-                        float barHeight = Math.Max(1f, bottomY - topY);
-                        float x = i * slotWidth;
-                        canvas.DrawRectangle(new Rect(x, topY, barWidth, barHeight), Fill, null);
-                    }
-                    break;
-
-                case WaveformStyle.Line:
-                    {
-                        // (min + max) / 2 は対称振動で相殺して中心線に潰れるため、
-                        // max(|min|, |max|) をピークエンベロープとして上側にラインを引く。
-                        const float lineThickness = 1.5f;
-                        float halfThick = lineThickness * 0.5f;
-                        float? prevY = null;
-                        for (int i = 0; i < barCount; i++)
-                        {
-                            float peak = MathF.Max(MathF.Abs(minBuf[i]), MathF.Abs(maxBuf[i]));
-                            float value = Math.Clamp(peak * gain, 0f, 1f);
-                            float y = centerY - value * centerY;
-                            float x = i * slotWidth;
-
-                            canvas.DrawRectangle(new Rect(x, y - halfThick, barWidth, lineThickness), Fill, null);
-
-                            if (prevY.HasValue)
-                            {
-                                float minY = Math.Min(prevY.Value, y);
-                                float maxY = Math.Max(prevY.Value, y);
-                                if (maxY - minY > lineThickness)
-                                {
-                                    canvas.DrawRectangle(new Rect(x - halfThick, minY, lineThickness, maxY - minY), Fill, null);
-                                }
-                            }
-                            prevY = y;
-                        }
-                        break;
-                    }
-
-                case WaveformStyle.FilledMirror:
-                    for (int i = 0; i < barCount; i++)
-                    {
-                        float abs = Math.Max(Math.Abs(minBuf[i]), Math.Abs(maxBuf[i]));
-                        float magnitude = Math.Clamp(abs * gain, 0f, 1f);
-                        float halfHeight = magnitude * centerY;
-                        float topY = centerY - halfHeight;
-                        float barHeight = Math.Max(1f, halfHeight * 2f);
-                        float x = i * slotWidth;
-                        canvas.DrawRectangle(new Rect(x, topY, barWidth, barHeight), Fill, null);
-                    }
-                    break;
-            }
+            shape.Render(canvas, bounds, minBuf, maxBuf, gain, Fill);
         }
     }
 }

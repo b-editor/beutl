@@ -29,6 +29,14 @@ public class AudioVisualizerDrawableTests
         Fill = { CurrentValue = new SolidColorBrush(Colors.White) }
     };
 
+    private static void RenderOnce(Drawable drawable)
+    {
+        using var resource = drawable.ToResource(CompositionContext.Default);
+        using var container = new ContainerRenderNode();
+        using var context = new GraphicsContext2D(container, new PixelSize(400, 200));
+        drawable.Render(context, resource);
+    }
+
     [Test]
     public void Waveform_NoSource_HasEmptyCache()
     {
@@ -44,35 +52,64 @@ public class AudioVisualizerDrawableTests
     public void Waveform_Render_NoSource_DoesNotThrow()
     {
         var drawable = CreateWaveform();
-        using var resource = (AudioWaveformDrawable.Resource)drawable.ToResource(CompositionContext.Default);
-
-        using var container = new ContainerRenderNode();
-        using var context = new GraphicsContext2D(container, new PixelSize(400, 200));
-
-        Assert.DoesNotThrow(() => drawable.Render(context, resource));
+        Assert.DoesNotThrow(() => RenderOnce(drawable));
     }
 
     [Test]
     public void Spectrum_Render_NoSource_DoesNotThrow()
     {
         var drawable = CreateSpectrum();
-        using var resource = (AudioSpectrumDrawable.Resource)drawable.ToResource(CompositionContext.Default);
-
-        using var container = new ContainerRenderNode();
-        using var context = new GraphicsContext2D(container, new PixelSize(400, 200));
-
-        Assert.DoesNotThrow(() => drawable.Render(context, resource));
+        Assert.DoesNotThrow(() => RenderOnce(drawable));
     }
 
     [Test]
     public void Spectrogram_Render_NoSource_DoesNotThrow()
     {
         var drawable = CreateSpectrogram();
-        using var resource = (AudioSpectrogramDrawable.Resource)drawable.ToResource(CompositionContext.Default);
-
-        using var container = new ContainerRenderNode();
-        using var context = new GraphicsContext2D(container, new PixelSize(400, 200));
-
-        Assert.DoesNotThrow(() => drawable.Render(context, resource));
+        Assert.DoesNotThrow(() => RenderOnce(drawable));
     }
+
+    [TestCaseSource(nameof(WaveformShapeCases))]
+    public void Waveform_WithEachShape_DoesNotThrow(Func<WaveformShape> factory)
+    {
+        var drawable = CreateWaveform();
+        drawable.Shape.CurrentValue = factory();
+        Assert.DoesNotThrow(() => RenderOnce(drawable));
+    }
+
+    public static IEnumerable<Func<WaveformShape>> WaveformShapeCases() =>
+    [
+        () => new MinMaxBarWaveformShape(),
+        () => new LineWaveformShape(),
+        () => new LineWaveformShape { Mirrored = { CurrentValue = true } },
+        () => new FilledMirrorWaveformShape(),
+        () => new FilledEnvelopeWaveformShape(),
+        () => new FilledEnvelopeWaveformShape { Symmetric = { CurrentValue = true } },
+        () => new BlockWaveformShape(),
+        () => new BlockWaveformShape { Mirrored = { CurrentValue = true } },
+        () => new DotsWaveformShape(),
+        () => new DotsWaveformShape { Mode = { CurrentValue = DotsWaveformMode.Center } },
+        () => new RadialWaveformShape(),
+    ];
+
+    [TestCase(FrequencyScale.Linear)]
+    [TestCase(FrequencyScale.Logarithmic)]
+    [TestCase(FrequencyScale.Mel)]
+    public void Spectrum_FrequencyScale_DoesNotThrow(FrequencyScale scale)
+    {
+        var drawable = CreateSpectrum();
+        drawable.FrequencyScale.CurrentValue = scale;
+        Assert.DoesNotThrow(() => RenderOnce(drawable));
+    }
+
+    [TestCase(FrequencyScale.Linear)]
+    [TestCase(FrequencyScale.Logarithmic)]
+    [TestCase(FrequencyScale.Mel)]
+    public void Spectrogram_FrequencyScale_DoesNotThrow(FrequencyScale scale)
+    {
+        var drawable = CreateSpectrogram();
+        drawable.FrequencyScale.CurrentValue = scale;
+        Assert.DoesNotThrow(() => RenderOnce(drawable));
+    }
+
 }

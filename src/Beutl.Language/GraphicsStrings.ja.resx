@@ -1369,9 +1369,6 @@
   <data name="AudioSpectrogram" xml:space="preserve">
     <value>スペクトログラム</value>
   </data>
-  <data name="AudioVisualizer_WaveformStyle" xml:space="preserve">
-    <value>波形スタイル</value>
-  </data>
   <data name="AudioVisualizer_BarCount" xml:space="preserve">
     <value>バー数</value>
   </data>
@@ -1381,8 +1378,8 @@
   <data name="AudioVisualizer_FftSize" xml:space="preserve">
     <value>FFTサイズ</value>
   </data>
-  <data name="AudioVisualizer_LogarithmicFrequency" xml:space="preserve">
-    <value>対数周波数軸</value>
+  <data name="AudioVisualizer_FrequencyScale" xml:space="preserve">
+    <value>周波数軸</value>
   </data>
   <data name="AudioVisualizer_FloorDb" xml:space="preserve">
     <value>下限（dB）</value>
@@ -1434,5 +1431,44 @@
   </data>
   <data name="SpectrumShape_Direction" xml:space="preserve">
     <value>方向</value>
+  </data>
+  <data name="WaveformShape_MinMaxBar" xml:space="preserve">
+    <value>最小最大バー</value>
+  </data>
+  <data name="WaveformShape_Line" xml:space="preserve">
+    <value>折れ線</value>
+  </data>
+  <data name="WaveformShape_FilledMirror" xml:space="preserve">
+    <value>上下対称塗り</value>
+  </data>
+  <data name="WaveformShape_FilledEnvelope" xml:space="preserve">
+    <value>包絡線塗り</value>
+  </data>
+  <data name="WaveformShape_Block" xml:space="preserve">
+    <value>ブロック</value>
+  </data>
+  <data name="WaveformShape_Dots" xml:space="preserve">
+    <value>ドット</value>
+  </data>
+  <data name="WaveformShape_Radial" xml:space="preserve">
+    <value>放射状</value>
+  </data>
+  <data name="WaveformShape_BlockCount" xml:space="preserve">
+    <value>ブロック数</value>
+  </data>
+  <data name="WaveformShape_BlockGap" xml:space="preserve">
+    <value>ブロック間隔</value>
+  </data>
+  <data name="WaveformShape_Mirrored" xml:space="preserve">
+    <value>上下対称</value>
+  </data>
+  <data name="WaveformShape_Symmetric" xml:space="preserve">
+    <value>振幅対称</value>
+  </data>
+  <data name="WaveformShape_DotRadius" xml:space="preserve">
+    <value>ドット半径</value>
+  </data>
+  <data name="WaveformShape_DotMode" xml:space="preserve">
+    <value>ドット配置</value>
   </data>
 </root>
