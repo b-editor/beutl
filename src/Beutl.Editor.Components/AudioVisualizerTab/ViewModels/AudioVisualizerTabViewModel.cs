@@ -38,15 +38,18 @@ public sealed class AudioVisualizerTabViewModel : IToolContext
 
         // Drives the paused compose path. Including IsSelected in the combined
         // tuple ensures that opening the tab while paused triggers an initial
-        // snapshot even when CurrentTime hasn't changed since.
+        // snapshot even when CurrentTime hasn't changed since. SelectedMode is
+        // included so that switching modes (e.g. Waveform → Spectrogram) runs a
+        // fresh compose with the new mode's window length.
         _clock.CurrentTime
             .CombineLatest(
                 _player.IsPlaying,
                 IsSelected,
-                (time, playing, selected) => (time, playing, selected))
+                SelectedMode,
+                (time, playing, selected, mode) => (time, playing, selected, mode))
             .Where(t => t.selected)
             .Throttle(TimeSpan.FromMilliseconds(40))
-            .Subscribe(t => _ = ComposeSnapshotOnIdleAsync(t.time, t.playing))
+            .Subscribe(t => _ = ComposeSnapshotOnIdleAsync())
             .DisposeWith(_disposables);
     }
 
@@ -97,25 +100,55 @@ public sealed class AudioVisualizerTabViewModel : IToolContext
         SnapshotUpdated?.Invoke(this, EventArgs.Empty);
     }
 
-    private async Task ComposeSnapshotOnIdleAsync(TimeSpan currentTime, bool playing)
+    // Per-mode compose length. Spectrogram needs the full WindowSeconds (default 4s)
+    // of continuous audio, Meter needs LoudnessWindowSeconds (0.4s) plus margin;
+    // the remaining modes only need the short default window. Composing only what
+    // the active mode needs keeps paused scrub cost low for waveform/spectrum
+    // while letting spectrogram stop flickering during frame-step.
+    private TimeSpan GetComposeWindowForMode(AudioVisualizerMode mode)
+        => mode switch
+        {
+            AudioVisualizerMode.Spectrogram => TimeSpan.FromSeconds(4),
+            AudioVisualizerMode.Meter => TimeSpan.FromMilliseconds(500),
+            _ => s_composeWindow,
+        };
+
+    private async Task ComposeSnapshotOnIdleAsync()
     {
-        if (playing) return;
+        if (_player.IsPlaying.Value) return;
         if (Interlocked.Exchange(ref _composeInFlight, 1) != 0) return;
         try
         {
-            // Compose a window ending AT the playhead so that ReadAroundTime
-            // finds the samples the user would be hearing if playback resumed.
-            TimeSpan windowStart = currentTime - s_composeWindow;
-            if (windowStart < TimeSpan.Zero) windowStart = TimeSpan.Zero;
-            TimeSpan duration = currentTime - windowStart;
-            if (duration <= TimeSpan.Zero) duration = s_composeWindow;
-
-            AudioFrameSnapshot? snapshot = await _player
-                .ComposeAudioAsync(windowStart, duration)
-                .ConfigureAwait(false);
-            if (snapshot != null)
+            // Bounded retry loop: a long compose (e.g. 4s for Spectrogram) can
+            // outlast a rapid scrub, and the throttled subscribe would otherwise
+            // drop the in-flight tick. Re-read the clock after each compose and
+            // compose again if the playhead has moved. Max 3 attempts prevents
+            // runaway work during continuous scrubbing — the next throttle fires
+            // once the user actually pauses for 40ms.
+            for (int attempt = 0; attempt < 3; attempt++)
             {
-                OnAudioFrameReceived(snapshot);
+                if (_player.IsPlaying.Value) break;
+
+                TimeSpan targetTime = _clock.CurrentTime.Value;
+                TimeSpan window = GetComposeWindowForMode(SelectedMode.Value);
+
+                // Compose a window ending AT the playhead so that ReadAroundTime
+                // finds the samples the user would be hearing if playback resumed.
+                TimeSpan windowStart = targetTime - window;
+                if (windowStart < TimeSpan.Zero) windowStart = TimeSpan.Zero;
+                TimeSpan duration = targetTime - windowStart;
+                if (duration <= TimeSpan.Zero) duration = window;
+
+                AudioFrameSnapshot? snapshot = await _player
+                    .ComposeAudioAsync(windowStart, duration)
+                    .ConfigureAwait(false);
+                if (snapshot != null)
+                {
+                    OnAudioFrameReceived(snapshot);
+                }
+
+                if ((_clock.CurrentTime.Value - targetTime).Duration() < TimeSpan.FromMilliseconds(10))
+                    break;
             }
         }
         catch (OperationCanceledException)
