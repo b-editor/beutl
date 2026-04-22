@@ -1,4 +1,4 @@
-namespace Beutl.Graphics.AudioVisualizers;
+﻿namespace Beutl.Graphics.AudioVisualizers;
 
 public enum FrequencyScale
 {

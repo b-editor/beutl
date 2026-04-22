@@ -1,4 +1,4 @@
-using Beutl.Composition;
+﻿using Beutl.Composition;
 using Beutl.Graphics;
 using Beutl.Graphics.AudioVisualizers;
 using Beutl.Graphics.Rendering;
