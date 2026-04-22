@@ -27,6 +27,8 @@ public sealed class SpectrogramControl : AudioVisualizerControlBase
     private float[] _real = [];
     private float[] _imag = [];
     private float[] _mags = [];
+    private readonly ImmutableSolidColorBrush?[] _brushCache = new ImmutableSolidColorBrush?[256];
+    private Color _brushCacheBaseColor;
 
     public int FftSize
     {
@@ -87,6 +89,11 @@ public sealed class SpectrogramControl : AudioVisualizerControlBase
         float rangeDb = -minDb;
 
         Color baseColor = (PrimaryBrush as ISolidColorBrush)?.Color ?? Colors.LimeGreen;
+        if (baseColor != _brushCacheBaseColor)
+        {
+            Array.Clear(_brushCache);
+            _brushCacheBaseColor = baseColor;
+        }
 
         for (int col = 0; col < columns; col++)
         {
@@ -126,9 +133,11 @@ public sealed class SpectrogramControl : AudioVisualizerControlBase
 
                 // Higher frequencies on top: row b=0 → bottom, b=B-1 → top.
                 double y = bounds.Height - (b + 1) * rowHeight;
-                var color = Color.FromArgb(alpha, baseColor.R, baseColor.G, baseColor.B);
+                ImmutableSolidColorBrush brush = _brushCache[alpha]
+                    ??= new ImmutableSolidColorBrush(
+                        Color.FromArgb(alpha, baseColor.R, baseColor.G, baseColor.B));
                 context.FillRectangle(
-                    new ImmutableSolidColorBrush(color),
+                    brush,
                     new Rect(colX, y, drawColWidth, Math.Max(1.0, rowHeight + 0.5)));
             }
         }

@@ -42,10 +42,12 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
     private CancellationTokenSource? _cts;
     private Size _maxFrameSize;
     private Task _playbackTask = Task.CompletedTask;
-    // ReplaySubject with buffer size 1 replays the most recent snapshot to late
-    // subscribers, so a visualizer tab opened mid-playback populates its ring
-    // buffer immediately instead of waiting for the next ~1 s backend refill.
-    private readonly ReplaySubject<AudioFrameSnapshot> _audioFramePushed = new(bufferSize: 1);
+    // Published snapshots carry the start time of the buffer that was just *queued*
+    // to the audio backend, which is ahead of the current playhead. Replay several
+    // recent snapshots so a visualizer tab opened mid-playback also receives the
+    // already-consumed buffers, avoiding a silent ring-buffer window until the
+    // playhead catches up to the queued-but-not-yet-played audio.
+    private readonly ReplaySubject<AudioFrameSnapshot> _audioFramePushed = new(bufferSize: 8);
 
     public PlayerViewModel(EditViewModel editViewModel)
     {

@@ -61,12 +61,28 @@ public abstract class AudioVisualizerControlBase : Control
     {
         base.OnAttachedToVisualTree(e);
         _timer ??= new DispatcherTimer(TimeSpan.FromMilliseconds(33), DispatcherPriority.Render, (_, _) => InvalidateVisual());
-        _timer.Start();
+        UpdateTimerState();
     }
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
         _timer?.Stop();
         base.OnDetachedFromVisualTree(e);
+    }
+
+    protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
+    {
+        base.OnPropertyChanged(change);
+        if (change.Property == IsVisibleProperty)
+        {
+            UpdateTimerState();
+        }
+    }
+
+    private void UpdateTimerState()
+    {
+        if (_timer == null) return;
+        if (IsVisible) _timer.Start();
+        else _timer.Stop();
     }
 }
