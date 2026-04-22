@@ -117,6 +117,15 @@ public sealed partial class SettingsDialog : AppWindow
             },
             new NavigationViewItem()
             {
+                Content = "Proxy",
+                Tag = typeof(ProxySettingsPage),
+                IconSource = new FluentIcons.FluentAvalonia.SymbolIconSource()
+                {
+                    Symbol = FluentIcons.Common.Symbol.Video
+                }
+            },
+            new NavigationViewItem()
+            {
                 Content = Strings.Extensions,
                 Tag = typeof(ExtensionsSettingsPage),
                 IconSource = new FluentIcons.FluentAvalonia.SymbolIconSource()
@@ -164,6 +173,7 @@ public sealed partial class SettingsDialog : AppWindow
                 "ExtensionsSettingsPage" => settingsPage.ExtensionsPage,
                 "InformationPage" => settingsPage.Information,
                 "KeyMapSettingsPage" => settingsPage.KeyMap,
+                "ProxySettingsPage" => settingsPage.Proxy,
                 _ => null,
             };
 
@@ -200,6 +210,7 @@ public sealed partial class SettingsDialog : AppWindow
                 || pagetype == typeof(EditorSettingsPage)
                 || pagetype == typeof(KeyMapSettingsPage)
                 || pagetype == typeof(FontSettingsPage)
+                || pagetype == typeof(ProxySettingsPage)
                 || pagetype == typeof(ExtensionsSettingsPage)
                 || pagetype == typeof(InformationPage))
             {
@@ -227,10 +238,11 @@ public sealed partial class SettingsDialog : AppWindow
                 "EditorSettingsPage" => 2,
                 "KeyMapSettingsPage" => 3,
                 "FontSettingsPage" => 4,
+                "ProxySettingsPage" => 5,
                 "ExtensionsSettingsPage" or "EditorExtensionPriorityPage" or "DecoderPriorityPage"
-                    or "AnExtensionSettingsPage" => 5,
-                "StorageSettingsPage" or "StorageDetailPage" => 6,
-                "InformationPage" or "TelemetrySettingsPage" => 7,
+                    or "AnExtensionSettingsPage" => 6,
+                "StorageSettingsPage" or "StorageDetailPage" => 7,
+                "InformationPage" or "TelemetrySettingsPage" => 8,
                 _ => 0,
             };
         }
@@ -244,6 +256,7 @@ public sealed partial class SettingsDialog : AppWindow
                 "EditorSettingsPageViewModel" => typeof(EditorSettingsPage),
                 "KeyMapSettingsPageViewModel" => typeof(KeyMapSettingsPage),
                 "FontSettingsPageViewModel" => typeof(FontSettingsPage),
+                "ProxySettingsPageViewModel" => typeof(ProxySettingsPage),
                 "ExtensionsSettingsPageViewModel" => typeof(ExtensionsSettingsPage),
                 "EditorExtensionPriorityPageViewModel" => typeof(EditorExtensionPriorityPage),
                 "DecoderPriorityPageViewModel" => typeof(DecoderPriorityPage),

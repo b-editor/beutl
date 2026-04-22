@@ -1,0 +1,177 @@
+<UserControl x:Class="Beutl.Pages.SettingsPages.ProxySettingsPage"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ctrls="using:Beutl.Controls"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:vm="using:Beutl.ViewModels.SettingsPages"
+             x:Name="root"
+             d:DesignHeight="650"
+             d:DesignWidth="800"
+             x:DataType="vm:ProxySettingsPageViewModel"
+             mc:Ignorable="d">
+    <Grid Margin="18" RowDefinitions="Auto,*">
+
+        <TextBlock Margin="10,8"
+                   Text="Proxy"
+                   Theme="{StaticResource SimpleLargeBreadcrumbBarTextBlock}" />
+
+        <ScrollViewer Grid.Row="1">
+            <StackPanel Margin="10,16,10,0"
+                        VerticalAlignment="Stretch"
+                        Orientation="Vertical"
+                        Spacing="4">
+
+                <ui:InfoBar IsClosable="False"
+                            IsOpen="{CompiledBinding !IsFFmpegAvailable.Value}"
+                            Message="FFmpeg が見つかりません。プロキシ生成を行うには FFmpeg をインストールしてください。"
+                            Severity="Warning"
+                            Title="FFmpeg Unavailable" />
+
+                <TextBlock Text="General" Theme="{StaticResource BodyStrongTextBlockStyle}" />
+
+                <ctrls:OptionsDisplayItem Description="プロキシ機能 (プレビューでプロキシを使用) を有効にします。"
+                                          Header="プロキシを有効化">
+                    <ctrls:OptionsDisplayItem.ActionButton>
+                        <ToggleSwitch Classes="left"
+                                      IsChecked="{CompiledBinding IsEnabled.Value}"
+                                      Theme="{StaticResource CompactToggleSwitchStyle}" />
+                    </ctrls:OptionsDisplayItem.ActionButton>
+                </ctrls:OptionsDisplayItem>
+
+                <ctrls:OptionsDisplayItem Description="素材を追加したときに自動でプロキシを生成するかを決めます。"
+                                          Header="生成モード"
+                                          IsEnabled="{CompiledBinding IsEnabled.Value}">
+                    <ctrls:OptionsDisplayItem.ActionButton>
+                        <ComboBox MinWidth="250" SelectedIndex="{CompiledBinding GenerationMode.Value}">
+                            <ComboBoxItem Content="Disabled" />
+                            <ComboBoxItem Content="Manual" />
+                            <ComboBoxItem Content="Auto" />
+                        </ComboBox>
+                    </ctrls:OptionsDisplayItem.ActionButton>
+                </ctrls:OptionsDisplayItem>
+
+                <ctrls:OptionsDisplayItem Description="生成されるプロキシの解像度・コーデック。"
+                                          Header="プリセット"
+                                          IsEnabled="{CompiledBinding IsEnabled.Value}">
+                    <ctrls:OptionsDisplayItem.ActionButton>
+                        <ComboBox MinWidth="250" SelectedIndex="{CompiledBinding ActivePreset.Value}">
+                            <ComboBoxItem Content="Half H.264" />
+                            <ComboBoxItem Content="Quarter H.264" />
+                            <ComboBoxItem Content="ProRes Proxy" />
+                        </ComboBox>
+                    </ctrls:OptionsDisplayItem.ActionButton>
+                </ctrls:OptionsDisplayItem>
+
+                <ctrls:OptionsDisplayItem Description="プレビュー時のレンダリング品質。"
+                                          Header="プレビュー品質">
+                    <ctrls:OptionsDisplayItem.ActionButton>
+                        <ComboBox MinWidth="250" SelectedIndex="{CompiledBinding PreviewQuality.Value}">
+                            <ComboBoxItem Content="Full" />
+                            <ComboBoxItem Content="Half" />
+                            <ComboBoxItem Content="Quarter" />
+                        </ComboBox>
+                    </ctrls:OptionsDisplayItem.ActionButton>
+                </ctrls:OptionsDisplayItem>
+
+                <TextBlock Margin="0,16,0,0"
+                           Text="Cache"
+                           Theme="{StaticResource BodyStrongTextBlockStyle}" />
+
+                <ctrls:OptionsDisplayItem Description="プロキシファイルを保存するディレクトリ。"
+                                          Header="キャッシュディレクトリ">
+                    <ctrls:OptionsDisplayItem.ActionButton>
+                        <TextBox MinWidth="350" Text="{Binding CacheDirectory.Value}" />
+                    </ctrls:OptionsDisplayItem.ActionButton>
+                </ctrls:OptionsDisplayItem>
+
+                <ctrls:OptionsDisplayItem Description="この容量を超えたら古い順にプロキシを削除します。"
+                                          Header="最大キャッシュサイズ">
+                    <ctrls:OptionsDisplayItem.ActionButton>
+                        <TextBox MinWidth="250" Text="{Binding MaxCacheSizeMB.Value}">
+                            <TextBox.InnerRightContent>
+                                <TextBlock Margin="8,0"
+                                           VerticalAlignment="Center"
+                                           Text="MB" />
+                            </TextBox.InnerRightContent>
+                        </TextBox>
+                    </ctrls:OptionsDisplayItem.ActionButton>
+                </ctrls:OptionsDisplayItem>
+
+                <ctrls:OptionsDisplayItem Description="この幅以下の動画はプロキシ生成対象から除外します。"
+                                          Header="生成対象の最小幅"
+                                          IsEnabled="{CompiledBinding IsEnabled.Value}">
+                    <ctrls:OptionsDisplayItem.ActionButton>
+                        <NumericUpDown MinWidth="250"
+                                       FormatString="F0"
+                                       Minimum="0"
+                                       Value="{Binding MinWidthToGenerate.Value}" />
+                    </ctrls:OptionsDisplayItem.ActionButton>
+                </ctrls:OptionsDisplayItem>
+
+                <ctrls:OptionsDisplayItem Description="同時に実行できる生成ジョブの上限。"
+                                          Header="並列ジョブ数"
+                                          IsEnabled="{CompiledBinding IsEnabled.Value}">
+                    <ctrls:OptionsDisplayItem.ActionButton>
+                        <NumericUpDown MinWidth="250"
+                                       FormatString="F0"
+                                       Maximum="8"
+                                       Minimum="1"
+                                       Value="{Binding MaxParallelJobs.Value}" />
+                    </ctrls:OptionsDisplayItem.ActionButton>
+                </ctrls:OptionsDisplayItem>
+
+                <Grid Margin="0,16,0,8" ColumnDefinitions="*,Auto">
+                    <TextBlock VerticalAlignment="Center" Theme="{StaticResource BodyStrongTextBlockStyle}">
+                        <Run Text="キャッシュ一覧 (" />
+                        <Run Text="{CompiledBinding TotalCacheSizeMB.Value, StringFormat={}{0:F1}}" />
+                        <Run Text="MB)" />
+                    </TextBlock>
+                    <Button Grid.Column="1"
+                            Click="OnDeleteAllClick"
+                            Content="すべて削除" />
+                </Grid>
+
+                <DataGrid Height="280"
+                          AutoGenerateColumns="False"
+                          CanUserReorderColumns="True"
+                          CanUserResizeColumns="True"
+                          IsReadOnly="True"
+                          ItemsSource="{CompiledBinding CacheEntries}">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Binding="{Binding DisplayName}"
+                                            Header="File"
+                                            Width="2*" />
+                        <DataGridTextColumn Binding="{Binding Resolution}"
+                                            Header="Resolution"
+                                            Width="Auto" />
+                        <DataGridTextColumn Binding="{Binding Preset}"
+                                            Header="Preset"
+                                            Width="Auto" />
+                        <DataGridTextColumn Binding="{Binding SizeMB, StringFormat={}{0:F1} MB}"
+                                            Header="Size"
+                                            Width="Auto" />
+                        <DataGridTextColumn Binding="{Binding GeneratedAt, StringFormat={}{0:yyyy-MM-dd HH:mm}}"
+                                            Header="Generated"
+                                            Width="Auto" />
+                        <DataGridTemplateColumn Header="Actions" Width="Auto">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <StackPanel Orientation="Horizontal" Spacing="4">
+                                        <Button Click="OnRegenerateClick"
+                                                Content="再生成"
+                                                Tag="{Binding}" />
+                                        <Button Click="OnDeleteClick"
+                                                Content="削除"
+                                                Tag="{Binding}" />
+                                    </StackPanel>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</UserControl>

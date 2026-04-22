@@ -45,7 +45,14 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
         _editorSelection = new EditorSelectionImpl()
             .DisposeWith(_disposables);
 
-        Renderer = scene.GetObservable(Scene.FrameSizeProperty).Select(_ => new SceneRenderer(Scene))
+        ProxyConfig proxyConfig = GlobalConfiguration.Instance.ProxyConfig;
+
+        Renderer = scene.GetObservable(Scene.FrameSizeProperty)
+            .Select(_ => new SceneRenderer(
+                Scene,
+                disableResourceShare: false,
+                useProxyIfAvailable: proxyConfig.IsEnabled,
+                renderScale: proxyConfig.GetRenderScale()))
             .DisposePreviousValue()
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables)!;
@@ -84,6 +91,10 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
             .DisposeWith(_disposables);
 
         _elementAdder = new ElementAdderImpl(this);
+
+        var proxyCoordinator = new Services.Proxy.ProxyCoordinator(scene);
+        proxyCoordinator.RunInitialScan();
+        _disposables.Add(proxyCoordinator);
 
         _autoSaveService.SaveError
             .Subscribe(_ =>

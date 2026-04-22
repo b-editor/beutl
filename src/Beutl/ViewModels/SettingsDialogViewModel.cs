@@ -15,6 +15,7 @@ public sealed class SettingsDialogViewModel : IDisposable
     private readonly Lazy<ExtensionsSettingsPageViewModel> _extensionsPage;
     private readonly Lazy<InformationPageViewModel> _information;
     private readonly Lazy<KeyMapSettingsPageViewModel> _keyMap;
+    private readonly Lazy<ProxySettingsPageViewModel> _proxy;
 
     public SettingsDialogViewModel(BeutlApiApplication clients)
     {
@@ -25,6 +26,7 @@ public sealed class SettingsDialogViewModel : IDisposable
         _extensionsPage = new(() => new ExtensionsSettingsPageViewModel());
         _information = new(() => new InformationPageViewModel());
         _keyMap = new(() => new KeyMapSettingsPageViewModel(clients.GetResource<ContextCommandManager>()));
+        _proxy = new(() => new ProxySettingsPageViewModel());
     }
 
     public AccountSettingsPageViewModel Account => _account.Value;
@@ -40,6 +42,8 @@ public sealed class SettingsDialogViewModel : IDisposable
     public InformationPageViewModel Information => _information.Value;
 
     public KeyMapSettingsPageViewModel KeyMap => _keyMap.Value;
+
+    public ProxySettingsPageViewModel Proxy => _proxy.Value;
 
     public IObservable<object> NavigateRequested => _navigateRequested;
 
@@ -70,5 +74,8 @@ public sealed class SettingsDialogViewModel : IDisposable
 
         if (_extensionsPage.IsValueCreated)
             _extensionsPage.Value.Dispose();
+
+        if (_proxy.IsValueCreated)
+            _proxy.Value.Dispose();
     }
 }
