@@ -122,14 +122,10 @@ public sealed class EqualizerNode : AudioNode
                     outData[i] = filter.Process(outData[i]);
                 }
             }
-
-            // Only soft-clip when the EQ actually overshoots full scale, so neutral audio is untouched
-            if (AudioMath.FindPeak(outData) > 1.0f)
-            {
-                AudioMath.ApplySoftClipper(outData, threshold: 0.9f);
-            }
         }
 
+        // Clip protection is the master limiter's job (Composer.ApplyMasterEffects).
+        // Applying it here would also compress hot input that the EQ itself did not amplify.
         return output;
     }
 
@@ -187,16 +183,8 @@ public sealed class EqualizerNode : AudioNode
             processed += chunkSize;
         }
 
-        // Only soft-clip channels that overshoot full scale, so neutral audio is untouched
-        for (int ch = 0; ch < output.ChannelCount; ch++)
-        {
-            var chData = output.GetChannelData(ch);
-            if (AudioMath.FindPeak(chData) > 1.0f)
-            {
-                AudioMath.ApplySoftClipper(chData, threshold: 0.9f);
-            }
-        }
-
+        // Clip protection is the master limiter's job (Composer.ApplyMasterEffects).
+        // Applying it here would also compress hot input that the EQ itself did not amplify.
         return output;
     }
 
