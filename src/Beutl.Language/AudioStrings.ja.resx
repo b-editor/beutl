@@ -59,7 +59,7 @@
     <value>参照するシーン</value>
   </data>
   <data name="Equalizer" xml:space="preserve">
-    <value>グラフィックイコライザー</value>
+    <value>イコライザー</value>
   </data>
   <data name="Equalizer_Band" xml:space="preserve">
     <value>イコライザーバンド</value>

@@ -17,23 +17,23 @@ namespace Beutl.Audio.Effects;
 public sealed partial class EqualizerEffect : AudioEffect
 {
     // Center frequencies for each preset (Hz)
-    private static readonly float[] Frequencies5Band = { 60f, 230f, 910f, 3600f, 14000f };
+    private static readonly float[] s_frequencies5Band = [60f, 230f, 910f, 3600f, 14000f];
 
-    private static readonly float[] Frequencies10Band =
-    {
+    private static readonly float[] s_frequencies10Band =
+    [
         31f, 62f, 125f, 250f, 500f, 1000f, 2000f, 4000f, 8000f, 16000f
-    };
+    ];
 
-    private static readonly float[] Frequencies15Band =
-    {
+    private static readonly float[] s_frequencies15Band =
+    [
         25f, 40f, 63f, 100f, 160f, 250f, 400f, 630f, 1000f, 1600f, 2500f, 4000f, 6300f, 10000f, 16000f
-    };
+    ];
 
-    private static readonly float[] Frequencies31Band =
-    {
+    private static readonly float[] s_frequencies31Band =
+    [
         20f, 25f, 31.5f, 40f, 50f, 63f, 80f, 100f, 125f, 160f, 200f, 250f, 315f, 400f, 500f, 630f, 800f, 1000f,
         1250f, 1600f, 2000f, 2500f, 3150f, 4000f, 5000f, 6300f, 8000f, 10000f, 12500f, 16000f, 20000f
-    };
+    ];
 
     public EqualizerEffect()
     {
@@ -68,11 +68,11 @@ public sealed partial class EqualizerEffect : AudioEffect
     {
         var frequencies = preset switch
         {
-            BandCountPreset.Bands5 => Frequencies5Band,
-            BandCountPreset.Bands10 => Frequencies10Band,
-            BandCountPreset.Bands15 => Frequencies15Band,
-            BandCountPreset.Bands31 => Frequencies31Band,
-            _ => Frequencies10Band
+            BandCountPreset.Bands5 => s_frequencies5Band,
+            BandCountPreset.Bands10 => s_frequencies10Band,
+            BandCountPreset.Bands15 => s_frequencies15Band,
+            BandCountPreset.Bands31 => s_frequencies31Band,
+            _ => s_frequencies10Band
         };
 
         // Calculate Q value for graphic EQ

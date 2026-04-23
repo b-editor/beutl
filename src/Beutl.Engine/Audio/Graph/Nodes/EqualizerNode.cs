@@ -1,5 +1,4 @@
 ﻿using Beutl.Audio.Effects.Equalizer;
-using Beutl.Engine;
 using Beutl.Media;
 
 namespace Beutl.Audio.Graph.Nodes;
@@ -11,7 +10,6 @@ public sealed class EqualizerNode : AudioNode
 {
     // Filters per band and per channel [bandIndex][channelIndex]
     private BiQuadFilter[][]? _filters;
-    private int _lastSampleRate;
     private int _lastChannelCount;
     private int _lastBandCount;
     private TimeSpan? _lastTimeRangeEnd;
@@ -35,11 +33,9 @@ public sealed class EqualizerNode : AudioNode
         }
 
         // Initialize or reinitialize filters
-        if (_filters == null || _lastSampleRate != context.SampleRate ||
-            _lastChannelCount != input.ChannelCount || _lastBandCount != Bands.Count)
+        if (_filters == null || _lastChannelCount != input.ChannelCount || _lastBandCount != Bands.Count)
         {
-            InitializeFilters(context.SampleRate, input.ChannelCount);
-            _lastSampleRate = context.SampleRate;
+            InitializeFilters(input.ChannelCount);
             _lastChannelCount = input.ChannelCount;
             _lastBandCount = Bands.Count;
         }
@@ -55,9 +51,9 @@ public sealed class EqualizerNode : AudioNode
 
         // Check if any band has an actual animation assigned
         bool hasAnimation = Bands.Any(band =>
-            band.Frequency?.Animation != null ||
-            band.Gain?.Animation != null ||
-            band.Q?.Animation != null);
+            band.Frequency.Animation != null ||
+            band.Gain.Animation != null ||
+            band.Q.Animation != null);
 
         if (!hasAnimation)
         {
@@ -67,7 +63,7 @@ public sealed class EqualizerNode : AudioNode
         return ProcessAnimated(input, context);
     }
 
-    private void InitializeFilters(int sampleRate, int channelCount)
+    private void InitializeFilters(int channelCount)
     {
         // Clear existing filters
         _filters = new BiQuadFilter[Bands.Count][];
@@ -89,10 +85,10 @@ public sealed class EqualizerNode : AudioNode
         for (int bandIndex = 0; bandIndex < Bands.Count; bandIndex++)
         {
             var band = Bands[bandIndex];
-            var filterType = band.FilterType?.CurrentValue ?? BiQuadFilterType.Peak;
-            float frequency = band.Frequency?.CurrentValue ?? 1000f;
-            float gain = band.Gain?.CurrentValue ?? 0f;
-            float q = band.Q?.CurrentValue ?? 1f;
+            var filterType = band.FilterType.CurrentValue;
+            float frequency = band.Frequency.CurrentValue;
+            float gain = band.Gain.CurrentValue;
+            float q = band.Q.CurrentValue;
 
             for (int ch = 0; ch < input.ChannelCount; ch++)
             {
@@ -162,7 +158,7 @@ public sealed class EqualizerNode : AudioNode
                 {
                     var band = Bands[bandIndex];
                     var filter = _filters![bandIndex][ch];
-                    var filterType = band.FilterType?.CurrentValue ?? BiQuadFilterType.Peak;
+                    var filterType = band.FilterType.CurrentValue;
 
                     // Sample animation values
                     context.AnimationSampler.SampleBuffer(band.Frequency, chunkRange, context.SampleRate, frequencies[..chunkSize]);
