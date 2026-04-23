@@ -101,17 +101,37 @@ public sealed partial class EqualizerEffect : AudioEffect
 
     public override AudioNode CreateNode(AudioContext context, AudioNode inputNode)
     {
-        var enabledBands = Bands.Where(band => band.IsEnabled).ToList();
+        // Skip bands that are mathematically identity so the default flat preset — every band
+        // Peak at 0 dB — does not force audio through N identity biquads per channel.
+        var activeBands = Bands.Where(band => band.IsEnabled && !IsNeutral(band)).ToList();
 
-        if (enabledBands.Count == 0)
+        if (activeBands.Count == 0)
         {
             return inputNode;
         }
 
-        var equalizerNode = context.AddNode(new EqualizerNode { Bands = enabledBands });
+        var equalizerNode = context.AddNode(new EqualizerNode { Bands = activeBands });
 
         context.Connect(inputNode, equalizerNode);
         return equalizerNode;
+    }
+
+    private static bool IsNeutral(EqualizerBand band)
+    {
+        // Only gain-dependent filter types collapse to pass-through at 0 dB.
+        // LowPass/HighPass/BandPass/Notch still shape the signal regardless of gain.
+        var type = band.FilterType.CurrentValue;
+        if (type != BiQuadFilterType.Peak
+            && type != BiQuadFilterType.LowShelf
+            && type != BiQuadFilterType.HighShelf)
+        {
+            return false;
+        }
+
+        // Anything time-varying must go through the filter so it can take effect later.
+        if (band.Gain.Animation is not null || band.Gain.HasExpression) return false;
+
+        return band.Gain.CurrentValue == 0f;
     }
 
     public override void Deserialize(ICoreSerializationContext context)
