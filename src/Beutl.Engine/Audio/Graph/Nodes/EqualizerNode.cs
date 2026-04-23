@@ -14,7 +14,7 @@ public sealed class EqualizerNode : AudioNode
     private int _lastSampleRate;
     private int _lastChannelCount;
     private int _lastBandCount;
-    private TimeSpan? _lastTimeRangeStart;
+    private TimeSpan? _lastTimeRangeEnd;
 
     /// <summary>
     /// List of equalizer bands.
@@ -44,12 +44,14 @@ public sealed class EqualizerNode : AudioNode
             _lastBandCount = Bands.Count;
         }
 
-        // Reset if time has jumped backward
-        if (!_lastTimeRangeStart.HasValue || _lastTimeRangeStart.Value > context.TimeRange.Start)
+        // Reset whenever the chunk does not continue directly from the previous one, because the
+        // node instance is cached across Compose() calls and stale IIR state would otherwise bleed
+        // into the first samples after a seek or stop/restart.
+        if (!_lastTimeRangeEnd.HasValue || _lastTimeRangeEnd.Value != context.TimeRange.Start)
         {
             Reset();
         }
-        _lastTimeRangeStart = context.TimeRange.Start;
+        _lastTimeRangeEnd = context.TimeRange.Start + context.TimeRange.Duration;
 
         // Check if any band has an actual animation assigned
         bool hasAnimation = Bands.Any(band =>
