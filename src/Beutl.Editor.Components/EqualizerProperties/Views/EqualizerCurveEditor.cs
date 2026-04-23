@@ -22,6 +22,10 @@ public sealed class EqualizerCurveEditor : Control
     private const double HandleRadius = 6.0;
     private const double HitTestRadius = 10.0;
 
+    // The actual render sample rate is not known here; 48 kHz is the common session rate and
+    // keeps the plot accurate enough across the audible range for user feedback.
+    private const int ResponseSampleRate = 48000;
+
     public static readonly StyledProperty<IList<EqualizerBand>?> BandsProperty =
         AvaloniaProperty.Register<EqualizerCurveEditor, IList<EqualizerBand>?>(nameof(Bands));
 
@@ -485,54 +489,11 @@ public sealed class EqualizerCurveEditor : Control
 
     private double CalculateBandResponseDb(float frequency, EqualizerBand band)
     {
-        double f = frequency;
-        double f0 = GetEffectiveValue(band.Frequency);
-        double q = Math.Max(GetEffectiveValue(band.Q), 0.1);
-        double gain = GetEffectiveValue(band.Gain);
-        double logRatio = Math.Log(f / f0);
-        double octaveDistance = logRatio / Math.Log(2);
-        double bandwidth = 1.0 / Math.Max(q, 0.1);
-
-        switch (band.FilterType.CurrentValue)
-        {
-            case BiQuadFilterType.Peak:
-                {
-                    double shape = Math.Exp(-0.5 * Math.Pow(octaveDistance / bandwidth, 2));
-                    return gain * shape;
-                }
-            case BiQuadFilterType.LowShelf:
-                {
-                    double t = 1.0 / (1.0 + Math.Exp(octaveDistance * 2.0));
-                    return gain * t;
-                }
-            case BiQuadFilterType.HighShelf:
-                {
-                    double t = 1.0 / (1.0 + Math.Exp(-octaveDistance * 2.0));
-                    return gain * t;
-                }
-            case BiQuadFilterType.LowPass:
-                {
-                    double atten = octaveDistance > 0 ? -12.0 * octaveDistance : 0.0;
-                    return Math.Max(atten, -48.0);
-                }
-            case BiQuadFilterType.HighPass:
-                {
-                    double atten = octaveDistance < 0 ? 12.0 * octaveDistance : 0.0;
-                    return Math.Max(atten, -48.0);
-                }
-            case BiQuadFilterType.BandPass:
-                {
-                    double atten = -12.0 * Math.Abs(octaveDistance);
-                    return Math.Max(atten, -48.0);
-                }
-            case BiQuadFilterType.Notch:
-                {
-                    double depth = Math.Exp(-0.5 * Math.Pow(octaveDistance / bandwidth, 2));
-                    return -48.0 * depth;
-                }
-            default:
-                return 0.0;
-        }
+        float f0 = (float)GetEffectiveValue(band.Frequency);
+        float q = (float)Math.Max(GetEffectiveValue(band.Q), MinQ);
+        float gain = (float)GetEffectiveValue(band.Gain);
+        return BiQuadFilter.CalculateResponseDb(
+            band.FilterType.CurrentValue, f0, q, gain, ResponseSampleRate, frequency);
     }
 
     private static bool AreEqual(float a, float b) => Math.Abs(a - b) < 1e-5f;
