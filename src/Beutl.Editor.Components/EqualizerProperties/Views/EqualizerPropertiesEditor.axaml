@@ -28,7 +28,7 @@
                 CornerRadius="4"
                 IsVisible="{Binding SelectedBand.Value, Converter={x:Static ObjectConverters.IsNotNull}}">
             <StackPanel DataContext="{Binding SelectedBand.Value}" Spacing="2">
-                <TextBlock Text="{Binding Label, StringFormat='Band: {0} Hz'}" />
+                <TextBlock Text="{Binding Label.Value, StringFormat='Band: {0} Hz'}" />
                 <ContentControl Content="{Binding FrequencyEditor, Converter={StaticResource ViewModelToViewConverter}}" />
                 <ContentControl Content="{Binding GainEditor, Converter={StaticResource ViewModelToViewConverter}}" />
                 <ContentControl Content="{Binding QEditor, Converter={StaticResource ViewModelToViewConverter}}" />
