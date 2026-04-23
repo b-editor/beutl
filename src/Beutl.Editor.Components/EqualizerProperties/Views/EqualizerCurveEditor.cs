@@ -197,7 +197,10 @@ public sealed class EqualizerCurveEditor : Control
                 float targetCompositeDb = GainFromY(point.Y);
                 float freq = (float)GetEffectiveValue(band.Frequency);
                 float othersContribution = CalculateResponseDbExcluding(freq, Bands, _draggingIndex);
-                float newGain = Math.Clamp(targetCompositeDb - othersContribution, MinGain, MaxGain);
+                // At f0 the band's response equals gainDb for Peak but only gainDb/2 for shelves,
+                // so invert the transfer so the cursor ends up under the handle after the edit.
+                float responseRatio = GainToResponseRatioAtF0(band.FilterType.CurrentValue);
+                float newGain = Math.Clamp((targetCompositeDb - othersContribution) / responseRatio, MinGain, MaxGain);
                 float oldGain = band.Gain.CurrentValue;
                 if (!AreEqual(oldGain, newGain))
                 {
@@ -485,6 +488,12 @@ public sealed class EqualizerCurveEditor : Control
     {
         BiQuadFilterType.Peak or BiQuadFilterType.LowShelf or BiQuadFilterType.HighShelf => true,
         _ => false
+    };
+
+    private static float GainToResponseRatioAtF0(BiQuadFilterType type) => type switch
+    {
+        BiQuadFilterType.LowShelf or BiQuadFilterType.HighShelf => 0.5f,
+        _ => 1.0f,
     };
 
     private double CalculateBandResponseDb(float frequency, EqualizerBand band)
