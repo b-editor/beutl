@@ -156,6 +156,11 @@ public sealed class EqualizerCurveEditor : Control
         base.OnPointerPressed(e);
         if (Bands is null || Bands.Count == 0) return;
 
+        // Starting a new drag should not silently absorb a pending wheel edit into the same
+        // history transaction, so flush any deferred Q-wheel commit first.
+        _wheelCommitTimer?.Stop();
+        FlushWheelCommit();
+
         var point = e.GetPosition(this);
         int hit = HitTestHandle(point);
         if (hit >= 0)
@@ -320,6 +325,16 @@ public sealed class EqualizerCurveEditor : Control
         {
             RaiseEvent(new EqualizerBandEventArgs(BandConfirmedEvent, index, EqualizerBandProperty.Q, _wheelStartQ, newQ));
         }
+    }
+
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        // The deferred Q-wheel commit relies on a 400 ms timer. If the editor is torn down before
+        // that tick fires (selection change, pane closed, tab switched), flush synchronously so
+        // the mutation is finalized instead of leaking into the next unrelated history entry.
+        _wheelCommitTimer?.Stop();
+        FlushWheelCommit();
+        base.OnDetachedFromVisualTree(e);
     }
 
     protected override void OnPointerExited(PointerEventArgs e)
