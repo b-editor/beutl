@@ -54,6 +54,7 @@ public sealed class EqualizerCurveEditor : Control
 
     private DispatcherTimer? _wheelCommitTimer;
     private int _wheelBandIndex = -1;
+    private EqualizerBand? _wheelBand;
     private float _wheelStartQ;
 
     static EqualizerCurveEditor()
@@ -74,6 +75,11 @@ public sealed class EqualizerCurveEditor : Control
         {
             oldNotify.CollectionChanged -= OnBandsCollectionChanged;
         }
+        // The Bands collection identity itself can change (e.g. band-count preset). A deferred
+        // Q-wheel commit captured the old band index, so flush it against the old collection
+        // before resubscribing so the commit lands on the right band.
+        _wheelCommitTimer?.Stop();
+        FlushWheelCommit();
         if (e.NewValue is INotifyCollectionChanged newNotify)
         {
             newNotify.CollectionChanged += OnBandsCollectionChanged;
@@ -83,6 +89,10 @@ public sealed class EqualizerCurveEditor : Control
 
     private void OnBandsCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
+        // Preset changes rebuild the backing collection, which would otherwise let a deferred
+        // Q-wheel commit look up a stale or out-of-range index.
+        _wheelCommitTimer?.Stop();
+        FlushWheelCommit();
         ResubscribeBandProperties();
         InvalidateVisual();
     }
@@ -285,6 +295,7 @@ public sealed class EqualizerCurveEditor : Control
             {
                 FlushWheelCommit();
                 _wheelBandIndex = hit;
+                _wheelBand = band;
                 _wheelStartQ = oldQ;
             }
 
@@ -316,11 +327,15 @@ public sealed class EqualizerCurveEditor : Control
 
     private void FlushWheelCommit()
     {
+        var band = _wheelBand;
         int index = _wheelBandIndex;
+        _wheelBand = null;
         _wheelBandIndex = -1;
-        if (index < 0 || Bands is null || index >= Bands.Count) return;
+        // Look up the commit against the captured band reference rather than by index so a
+        // preset rebuild that changes the Bands collection cannot drop or misattribute the edit.
+        if (band is null) return;
 
-        float newQ = Bands[index].Q.CurrentValue;
+        float newQ = band.Q.CurrentValue;
         if (!AreEqual(_wheelStartQ, newQ))
         {
             RaiseEvent(new EqualizerBandEventArgs(BandConfirmedEvent, index, EqualizerBandProperty.Q, _wheelStartQ, newQ));
@@ -340,6 +355,11 @@ public sealed class EqualizerCurveEditor : Control
     protected override void OnPointerExited(PointerEventArgs e)
     {
         base.OnPointerExited(e);
+        // When the pointer leaves the curve editor the next action is almost certainly outside our
+        // control (e.g. changing the band-count preset). Commit any pending wheel edit now so it
+        // lands in its own history transaction rather than merging with the unrelated next edit.
+        _wheelCommitTimer?.Stop();
+        FlushWheelCommit();
         if (_hoverIndex != -1)
         {
             _hoverIndex = -1;
