@@ -2,9 +2,8 @@
 using System.Collections.Specialized;
 using System.Text.Json.Nodes;
 using Beutl.Audio.Effects;
-using Beutl.Audio.Effects.Equalizer;
-using Beutl.Editor.Components.EqualizerProperties.Views;
 using Beutl.Editor.Services;
+using Beutl.ProjectSystem;
 using Microsoft.Extensions.DependencyInjection;
 using Reactive.Bindings;
 
@@ -17,6 +16,7 @@ public sealed class EqualizerPropertiesViewModel : IPropertyEditorContext, IServ
     private bool _editorsCreated;
     private IPropertyAdapter? _bandCountAdapter;
     private IDisposable? _clockSubscription;
+    private Element? _element;
 
     public EqualizerPropertiesViewModel(IReadOnlyList<IPropertyAdapter> props)
     {
@@ -58,6 +58,7 @@ public sealed class EqualizerPropertiesViewModel : IPropertyEditorContext, IServ
         if (visitor is IServiceProvider serviceProvider)
         {
             _parentServices = serviceProvider;
+            _element = serviceProvider.GetService<Element>();
             CreateEditors();
             AcceptChildren();
             AttachClock();
@@ -67,7 +68,7 @@ public sealed class EqualizerPropertiesViewModel : IPropertyEditorContext, IServ
     private void AttachClock()
     {
         _clockSubscription?.Dispose();
-        if (_parentServices?.GetService<IEditorClock>() is IEditorClock clock)
+        if (_parentServices?.GetService<IEditorClock>() is { } clock)
         {
             _clockSubscription = clock.CurrentTime.Subscribe(t => CurrentTime.Value = t);
         }
@@ -101,36 +102,6 @@ public sealed class EqualizerPropertiesViewModel : IPropertyEditorContext, IServ
 
         SelectedBand.Dispose();
         SelectedBandIndex.Dispose();
-    }
-
-    public void SetBandValueLive(int bandIndex, EqualizerBandProperty property, float newValue)
-    {
-        var equalizer = TryGetEqualizerEffect();
-        if (equalizer == null || bandIndex < 0 || bandIndex >= equalizer.Bands.Count) return;
-        var band = equalizer.Bands[bandIndex];
-        ApplyLive(band, property, newValue);
-    }
-
-    public void CommitBandValue(int bandIndex, EqualizerBandProperty property, float oldValue, float newValue)
-    {
-        if (Math.Abs(oldValue - newValue) < 1e-5f) return;
-        _parentServices?.GetService<HistoryManager>()?.Commit($"Set Band {property}");
-    }
-
-    private static void ApplyLive(EqualizerBand band, EqualizerBandProperty property, float value)
-    {
-        switch (property)
-        {
-            case EqualizerBandProperty.Frequency:
-                band.Frequency.CurrentValue = value;
-                break;
-            case EqualizerBandProperty.Gain:
-                band.Gain.CurrentValue = value;
-                break;
-            case EqualizerBandProperty.Q:
-                band.Q.CurrentValue = value;
-                break;
-        }
     }
 
     private void CreateEditors()
@@ -189,7 +160,7 @@ public sealed class EqualizerPropertiesViewModel : IPropertyEditorContext, IServ
 
         for (int i = 0; i < equalizer.Bands.Count; i++)
         {
-            Bands.Add(new EqualizerBandItemViewModel(equalizer.Bands[i], i, factory));
+            Bands.Add(new EqualizerBandItemViewModel(equalizer.Bands[i], i, factory, _element, _parentServices));
         }
 
         // Re-evaluate SelectedBand so it points to a freshly created ViewModel

@@ -1,13 +1,13 @@
-﻿using System.Collections.Specialized;
+using System.Collections.ObjectModel;
+using System.Collections.Specialized;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
-using Avalonia.Interactivity;
 using Avalonia.Media;
+using Avalonia.Media.Immutable;
 using Avalonia.Threading;
 using Beutl.Audio.Effects.Equalizer;
-using Beutl.Composition;
-using Beutl.Engine;
+using Beutl.Editor.Components.EqualizerProperties.ViewModels;
 
 namespace Beutl.Editor.Components.EqualizerProperties.Views;
 
@@ -26,8 +26,16 @@ public sealed class EqualizerCurveEditor : Control
     // keeps the plot accurate enough across the audible range for user feedback.
     private const int ResponseSampleRate = 48000;
 
-    public static readonly StyledProperty<IList<EqualizerBand>?> BandsProperty =
-        AvaloniaProperty.Register<EqualizerCurveEditor, IList<EqualizerBand>?>(nameof(Bands));
+    private static readonly ImmutableSolidColorBrush s_backgroundBrush = new(Color.FromArgb(32, 128, 128, 128));
+    private static readonly ImmutablePen s_gridPen = new(new ImmutableSolidColorBrush(Color.FromArgb(64, 128, 128, 128)));
+    private static readonly ImmutablePen s_gridStrongPen = new(new ImmutableSolidColorBrush(Color.FromArgb(120, 128, 128, 128)));
+    private static readonly ImmutablePen s_curvePen = new(new ImmutableSolidColorBrush(Color.FromArgb(220, 86, 156, 214)), 2);
+    private static readonly ImmutableSolidColorBrush s_handleSelectedBrush = new(Color.FromArgb(255, 86, 156, 214));
+    private static readonly ImmutableSolidColorBrush s_handleNormalBrush = new(Color.FromArgb(200, 200, 200, 200));
+    private static readonly ImmutablePen s_handleStrokePen = new(new ImmutableSolidColorBrush(Color.FromArgb(255, 32, 32, 32)), 1.5);
+
+    public static readonly StyledProperty<ObservableCollection<EqualizerBandItemViewModel>?> BandViewModelsProperty =
+        AvaloniaProperty.Register<EqualizerCurveEditor, ObservableCollection<EqualizerBandItemViewModel>?>(nameof(BandViewModels));
 
     public static readonly StyledProperty<int> SelectedBandIndexProperty =
         AvaloniaProperty.Register<EqualizerCurveEditor, int>(nameof(SelectedBandIndex), defaultValue: -1,
@@ -35,15 +43,6 @@ public sealed class EqualizerCurveEditor : Control
 
     public static readonly StyledProperty<TimeSpan> CurrentTimeProperty =
         AvaloniaProperty.Register<EqualizerCurveEditor, TimeSpan>(nameof(CurrentTime));
-
-    public static readonly RoutedEvent<EqualizerBandEventArgs> BandChangedEvent =
-        RoutedEvent.Register<EqualizerCurveEditor, EqualizerBandEventArgs>(nameof(BandChanged), RoutingStrategies.Bubble);
-
-    public static readonly RoutedEvent<EqualizerBandEventArgs> BandConfirmedEvent =
-        RoutedEvent.Register<EqualizerCurveEditor, EqualizerBandEventArgs>(nameof(BandConfirmed), RoutingStrategies.Bubble);
-
-    public static readonly RoutedEvent<EqualizerBandSelectedEventArgs> BandSelectedEvent =
-        RoutedEvent.Register<EqualizerCurveEditor, EqualizerBandSelectedEventArgs>(nameof(BandSelected), RoutingStrategies.Bubble);
 
     private int _draggingIndex = -1;
     private float _dragStartFrequency;
@@ -54,13 +53,17 @@ public sealed class EqualizerCurveEditor : Control
 
     private DispatcherTimer? _wheelCommitTimer;
     private int _wheelBandIndex = -1;
-    private EqualizerBand? _wheelBand;
+    private EqualizerBandItemViewModel? _wheelBandVm;
     private float _wheelStartQ;
+
+    private ObservableCollection<EqualizerBandItemViewModel>? _bandViewModels;
 
     static EqualizerCurveEditor()
     {
-        AffectsRender<EqualizerCurveEditor>(BandsProperty, SelectedBandIndexProperty, CurrentTimeProperty);
-        BandsProperty.Changed.AddClassHandler<EqualizerCurveEditor>((o, e) => o.OnBandsPropertyChanged(e));
+        AffectsRender<EqualizerCurveEditor>(BandViewModelsProperty, SelectedBandIndexProperty, CurrentTimeProperty);
+        BandViewModelsProperty.Changed.AddClassHandler<EqualizerCurveEditor>((o, e) => o.OnBandViewModelsChanged(
+            e.OldValue as ObservableCollection<EqualizerBandItemViewModel>,
+            e.NewValue as ObservableCollection<EqualizerBandItemViewModel>));
     }
 
     public EqualizerCurveEditor()
@@ -69,64 +72,10 @@ public sealed class EqualizerCurveEditor : Control
         Focusable = true;
     }
 
-    private void OnBandsPropertyChanged(AvaloniaPropertyChangedEventArgs e)
+    public ObservableCollection<EqualizerBandItemViewModel>? BandViewModels
     {
-        if (e.OldValue is INotifyCollectionChanged oldNotify)
-        {
-            oldNotify.CollectionChanged -= OnBandsCollectionChanged;
-        }
-        // The Bands collection identity itself can change (e.g. band-count preset). A deferred
-        // Q-wheel commit captured the old band index, so flush it against the old collection
-        // before resubscribing so the commit lands on the right band.
-        _wheelCommitTimer?.Stop();
-        FlushWheelCommit();
-        if (e.NewValue is INotifyCollectionChanged newNotify)
-        {
-            newNotify.CollectionChanged += OnBandsCollectionChanged;
-        }
-        ResubscribeBandProperties();
-    }
-
-    private void OnBandsCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
-    {
-        // Preset changes rebuild the backing collection, which would otherwise let a deferred
-        // Q-wheel commit look up a stale or out-of-range index.
-        _wheelCommitTimer?.Stop();
-        FlushWheelCommit();
-        ResubscribeBandProperties();
-        InvalidateVisual();
-    }
-
-    private void ResubscribeBandProperties()
-    {
-        foreach (var unsubscribe in _bandSubscriptions)
-        {
-            unsubscribe();
-        }
-        _bandSubscriptions.Clear();
-
-        if (Bands is null) return;
-
-        foreach (var band in Bands)
-        {
-            _bandSubscriptions.Add(SubscribeEdited(band.Frequency));
-            _bandSubscriptions.Add(SubscribeEdited(band.Gain));
-            _bandSubscriptions.Add(SubscribeEdited(band.Q));
-            _bandSubscriptions.Add(SubscribeEdited(band.FilterType));
-        }
-    }
-
-    private Action SubscribeEdited(INotifyEdited notifier)
-    {
-        EventHandler handler = (_, _) => InvalidateVisual();
-        notifier.Edited += handler;
-        return () => notifier.Edited -= handler;
-    }
-
-    public IList<EqualizerBand>? Bands
-    {
-        get => GetValue(BandsProperty);
-        set => SetValue(BandsProperty, value);
+        get => GetValue(BandViewModelsProperty);
+        set => SetValue(BandViewModelsProperty, value);
     }
 
     public int SelectedBandIndex
@@ -141,33 +90,64 @@ public sealed class EqualizerCurveEditor : Control
         set => SetValue(CurrentTimeProperty, value);
     }
 
-    public event EventHandler<EqualizerBandEventArgs>? BandChanged
+    private void OnBandViewModelsChanged(
+        ObservableCollection<EqualizerBandItemViewModel>? oldValue,
+        ObservableCollection<EqualizerBandItemViewModel>? newValue)
     {
-        add => AddHandler(BandChangedEvent, value);
-        remove => RemoveHandler(BandChangedEvent, value);
+        if (oldValue is not null)
+            oldValue.CollectionChanged -= OnBandsCollectionChanged;
+
+        _wheelCommitTimer?.Stop();
+        FlushWheelCommit();
+
+        _bandViewModels = newValue;
+
+        if (newValue is not null)
+            newValue.CollectionChanged += OnBandsCollectionChanged;
+
+        ResubscribeBandProperties();
     }
 
-    public event EventHandler<EqualizerBandEventArgs>? BandConfirmed
+    private void OnBandsCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
-        add => AddHandler(BandConfirmedEvent, value);
-        remove => RemoveHandler(BandConfirmedEvent, value);
+        _wheelCommitTimer?.Stop();
+        FlushWheelCommit();
+        ResubscribeBandProperties();
+        InvalidateVisual();
     }
 
-    public event EventHandler<EqualizerBandSelectedEventArgs>? BandSelected
+    private void ResubscribeBandProperties()
     {
-        add => AddHandler(BandSelectedEvent, value);
-        remove => RemoveHandler(BandSelectedEvent, value);
+        foreach (var unsubscribe in _bandSubscriptions)
+        {
+            unsubscribe();
+        }
+        _bandSubscriptions.Clear();
+
+        if (_bandViewModels is null) return;
+
+        foreach (var vm in _bandViewModels)
+        {
+            var band = vm.Band;
+            _bandSubscriptions.Add(SubscribeEdited(band.Frequency));
+            _bandSubscriptions.Add(SubscribeEdited(band.Gain));
+            _bandSubscriptions.Add(SubscribeEdited(band.Q));
+            _bandSubscriptions.Add(SubscribeEdited(band.FilterType));
+        }
     }
 
-    public void NotifyBandsChanged() => InvalidateVisual();
+    private Action SubscribeEdited(INotifyEdited notifier)
+    {
+        EventHandler handler = (_, _) => InvalidateVisual();
+        notifier.Edited += handler;
+        return () => notifier.Edited -= handler;
+    }
 
     protected override void OnPointerPressed(PointerPressedEventArgs e)
     {
         base.OnPointerPressed(e);
-        if (Bands is null || Bands.Count == 0) return;
+        if (_bandViewModels is not { Count: > 0 }) return;
 
-        // Starting a new drag should not silently absorb a pending wheel edit into the same
-        // history transaction, so flush any deferred Q-wheel commit first.
         _wheelCommitTimer?.Stop();
         FlushWheelCommit();
 
@@ -176,12 +156,11 @@ public sealed class EqualizerCurveEditor : Control
         if (hit >= 0)
         {
             _draggingIndex = hit;
-            var band = Bands[hit];
-            _dragStartFrequency = band.Frequency.CurrentValue;
-            _dragStartGain = band.Gain.CurrentValue;
+            var vm = _bandViewModels[hit];
+            _dragStartFrequency = vm.GetEffectiveValue(vm.Band.Frequency, CurrentTime);
+            _dragStartGain = vm.GetEffectiveValue(vm.Band.Gain, CurrentTime);
             _dragStartPoint = point;
             SelectedBandIndex = hit;
-            RaiseEvent(new EqualizerBandSelectedEventArgs(BandSelectedEvent, hit));
             e.Pointer.Capture(this);
             e.Handled = true;
             InvalidateVisual();
@@ -191,13 +170,14 @@ public sealed class EqualizerCurveEditor : Control
     protected override void OnPointerMoved(PointerEventArgs e)
     {
         base.OnPointerMoved(e);
-        if (Bands is null) return;
+        if (_bandViewModels is null) return;
 
         var point = e.GetPosition(this);
 
-        if (_draggingIndex >= 0 && _draggingIndex < Bands.Count)
+        if (_draggingIndex >= 0 && _draggingIndex < _bandViewModels.Count)
         {
-            var band = Bands[_draggingIndex];
+            var vm = _bandViewModels[_draggingIndex];
+            var band = vm.Band;
             bool shift = (e.KeyModifiers & KeyModifiers.Shift) == KeyModifiers.Shift;
             double dx = point.X - _dragStartPoint.X;
             double dy = point.Y - _dragStartPoint.Y;
@@ -205,37 +185,31 @@ public sealed class EqualizerCurveEditor : Control
             bool onlyVertical = shift && Math.Abs(dy) >= Math.Abs(dx);
             bool onlyHorizontal = shift && Math.Abs(dx) > Math.Abs(dy);
 
-            // Skip axes whose value is driven by an animation or expression — writing CurrentValue
-            // would only mutate the hidden base value, so the handle would snap back next render.
-            bool canUpdateFrequency = !onlyVertical && band.Frequency.Animation is null && !band.Frequency.HasExpression;
-            // Solve the gain with the frequency that will actually be in effect after this event,
-            // so diagonal drags place the handle under the cursor instead of lagging one frame behind.
-            float effectiveFreq = canUpdateFrequency ? FrequencyFromX(point.X) : (float)GetEffectiveValue(band.Frequency);
+            bool canUpdateFrequency = !onlyVertical && vm.CanEditProperty(band.Frequency, CurrentTime);
+            float effectiveFreq = canUpdateFrequency
+                ? FrequencyFromX(point.X)
+                : vm.GetEffectiveValue(band.Frequency, CurrentTime);
 
             if (!onlyHorizontal && IsGainAdjustable(band.FilterType.CurrentValue)
-                && band.Gain.Animation is null && !band.Gain.HasExpression)
+                && vm.CanEditProperty(band.Gain, CurrentTime))
             {
                 float targetCompositeDb = GainFromY(point.Y);
-                float othersContribution = CalculateResponseDbExcluding(effectiveFreq, Bands, _draggingIndex);
-                // At f0 the band's response equals gainDb for Peak but only gainDb/2 for shelves,
-                // so invert the transfer so the cursor ends up under the handle after the edit.
+                float othersContribution = CalculateResponseDbExcluding(effectiveFreq, _draggingIndex);
                 float responseRatio = GainToResponseRatioAtF0(band.FilterType.CurrentValue);
                 float newGain = Math.Clamp((targetCompositeDb - othersContribution) / responseRatio, MinGain, MaxGain);
-                float oldGain = band.Gain.CurrentValue;
+                float oldGain = vm.GetEffectiveValue(band.Gain, CurrentTime);
                 if (!AreEqual(oldGain, newGain))
                 {
-                    band.Gain.CurrentValue = newGain;
-                    RaiseEvent(new EqualizerBandEventArgs(BandChangedEvent, _draggingIndex, EqualizerBandProperty.Gain, oldGain, newGain));
+                    vm.SetPropertyValue(band.Gain, CurrentTime, newGain);
                 }
             }
 
             if (canUpdateFrequency)
             {
-                float oldFreq = band.Frequency.CurrentValue;
+                float oldFreq = vm.GetEffectiveValue(band.Frequency, CurrentTime);
                 if (!AreEqual(oldFreq, effectiveFreq))
                 {
-                    band.Frequency.CurrentValue = effectiveFreq;
-                    RaiseEvent(new EqualizerBandEventArgs(BandChangedEvent, _draggingIndex, EqualizerBandProperty.Frequency, oldFreq, effectiveFreq));
+                    vm.SetPropertyValue(band.Frequency, CurrentTime, effectiveFreq);
                 }
             }
 
@@ -255,19 +229,15 @@ public sealed class EqualizerCurveEditor : Control
     protected override void OnPointerReleased(PointerReleasedEventArgs e)
     {
         base.OnPointerReleased(e);
-        if (_draggingIndex >= 0 && Bands is not null && _draggingIndex < Bands.Count)
+        if (_draggingIndex >= 0 && _bandViewModels is not null && _draggingIndex < _bandViewModels.Count)
         {
-            var band = Bands[_draggingIndex];
-            float newGain = band.Gain.CurrentValue;
-            float newFreq = band.Frequency.CurrentValue;
+            var vm = _bandViewModels[_draggingIndex];
+            float newGain = vm.GetEffectiveValue(vm.Band.Gain, CurrentTime);
+            float newFreq = vm.GetEffectiveValue(vm.Band.Frequency, CurrentTime);
 
-            if (!AreEqual(newGain, _dragStartGain))
+            if (!AreEqual(newGain, _dragStartGain) || !AreEqual(newFreq, _dragStartFrequency))
             {
-                RaiseEvent(new EqualizerBandEventArgs(BandConfirmedEvent, _draggingIndex, EqualizerBandProperty.Gain, _dragStartGain, newGain));
-            }
-            if (!AreEqual(newFreq, _dragStartFrequency))
-            {
-                RaiseEvent(new EqualizerBandEventArgs(BandConfirmedEvent, _draggingIndex, EqualizerBandProperty.Frequency, _dragStartFrequency, newFreq));
+                vm.Commit();
             }
         }
 
@@ -278,20 +248,16 @@ public sealed class EqualizerCurveEditor : Control
     protected override void OnPointerWheelChanged(PointerWheelEventArgs e)
     {
         base.OnPointerWheelChanged(e);
-        if (Bands is null) return;
+        if (_bandViewModels is null) return;
 
         var point = e.GetPosition(this);
         int hit = HitTestHandle(point);
         if (hit < 0) return;
 
-        var band = Bands[hit];
-        // Skip the scroll edit when Q is animated or driven by an expression — we would only
-        // move the hidden base value.
-        if (band.Q.Animation is not null || band.Q.HasExpression) return;
-        // Touchpad horizontal scrolls can deliver Delta.Y == 0; without this guard those gestures
-        // would fall through to the else branch and silently decrease Q.
+        var vm = _bandViewModels[hit];
+        if (!vm.CanEditProperty(vm.Band.Q, CurrentTime)) return;
         if (e.Delta.Y == 0) return;
-        float oldQ = band.Q.CurrentValue;
+        float oldQ = vm.GetEffectiveValue(vm.Band.Q, CurrentTime);
         double factor = e.Delta.Y > 0 ? 1.1 : 1.0 / 1.1;
         float newQ = Math.Clamp((float)(oldQ * factor), MinQ, MaxQ);
         if (!AreEqual(oldQ, newQ))
@@ -300,12 +266,11 @@ public sealed class EqualizerCurveEditor : Control
             {
                 FlushWheelCommit();
                 _wheelBandIndex = hit;
-                _wheelBand = band;
+                _wheelBandVm = vm;
                 _wheelStartQ = oldQ;
             }
 
-            band.Q.CurrentValue = newQ;
-            RaiseEvent(new EqualizerBandEventArgs(BandChangedEvent, hit, EqualizerBandProperty.Q, oldQ, newQ));
+            vm.SetPropertyValue(vm.Band.Q, CurrentTime, newQ);
             InvalidateVisual();
 
             RestartWheelTimer();
@@ -332,47 +297,38 @@ public sealed class EqualizerCurveEditor : Control
 
     private void FlushWheelCommit()
     {
-        var band = _wheelBand;
-        int index = _wheelBandIndex;
-        _wheelBand = null;
+        var vm = _wheelBandVm;
+        _wheelBandVm = null;
         _wheelBandIndex = -1;
-        // Look up the commit against the captured band reference rather than by index so a
-        // preset rebuild that changes the Bands collection cannot drop or misattribute the edit.
-        if (band is null) return;
+        if (vm is null) return;
 
-        float newQ = band.Q.CurrentValue;
+        float newQ = vm.GetEffectiveValue(vm.Band.Q, CurrentTime);
         if (!AreEqual(_wheelStartQ, newQ))
         {
-            RaiseEvent(new EqualizerBandEventArgs(BandConfirmedEvent, index, EqualizerBandProperty.Q, _wheelStartQ, newQ));
+            vm.Commit();
         }
     }
 
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnAttachedToVisualTree(e);
-        // Detach tears down subscriptions (see OnDetachedFromVisualTree), so re-wire them when the
-        // control rejoins the visual tree with the same Bands collection.
-        if (Bands is INotifyCollectionChanged notify)
+        if (BandViewModels is { } vms)
         {
-            notify.CollectionChanged -= OnBandsCollectionChanged;
-            notify.CollectionChanged += OnBandsCollectionChanged;
+            vms.CollectionChanged -= OnBandsCollectionChanged;
+            vms.CollectionChanged += OnBandsCollectionChanged;
         }
+        _bandViewModels = BandViewModels;
         ResubscribeBandProperties();
     }
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
-        // The deferred Q-wheel commit relies on a 400 ms timer. If the editor is torn down before
-        // that tick fires (selection change, pane closed, tab switched), flush synchronously so
-        // the mutation is finalized instead of leaking into the next unrelated history entry.
         _wheelCommitTimer?.Stop();
         FlushWheelCommit();
 
-        // EqualizerEffect and EqualizerBand outlive the editor; without unsubscribing here the
-        // detached instance stays rooted and keeps receiving InvalidateVisual calls.
-        if (Bands is INotifyCollectionChanged notify)
+        if (BandViewModels is { } vms)
         {
-            notify.CollectionChanged -= OnBandsCollectionChanged;
+            vms.CollectionChanged -= OnBandsCollectionChanged;
         }
         foreach (var unsubscribe in _bandSubscriptions)
         {
@@ -386,9 +342,6 @@ public sealed class EqualizerCurveEditor : Control
     protected override void OnPointerExited(PointerEventArgs e)
     {
         base.OnPointerExited(e);
-        // When the pointer leaves the curve editor the next action is almost certainly outside our
-        // control (e.g. changing the band-count preset). Commit any pending wheel edit now so it
-        // lands in its own history transaction rather than merging with the unrelated next edit.
         _wheelCommitTimer?.Stop();
         FlushWheelCommit();
         if (_hoverIndex != -1)
@@ -406,29 +359,22 @@ public sealed class EqualizerCurveEditor : Control
         double h = Bounds.Height;
         if (w <= 0 || h <= 0) return;
 
-        var bgBrush = new SolidColorBrush(Color.FromArgb(32, 128, 128, 128));
-        context.FillRectangle(bgBrush, new Rect(0, 0, w, h));
+        context.FillRectangle(s_backgroundBrush, new Rect(0, 0, w, h));
 
-        var gridPen = new Pen(new SolidColorBrush(Color.FromArgb(64, 128, 128, 128)), 1);
-        var gridStrongPen = new Pen(new SolidColorBrush(Color.FromArgb(120, 128, 128, 128)), 1);
-
-        // dB gridlines
         for (int db = -24; db <= 24; db += 6)
         {
             double y = YFromGain(db);
-            context.DrawLine(db == 0 ? gridStrongPen : gridPen, new Point(0, y), new Point(w, y));
+            context.DrawLine(db == 0 ? s_gridStrongPen : s_gridPen, new Point(0, y), new Point(w, y));
         }
 
-        // Frequency gridlines (decades and 1/3 octaves)
         foreach (double freq in new double[] { 20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000 })
         {
             double x = XFromFrequency((float)freq);
             bool isDecade = Math.Abs(Math.Log10(freq) - Math.Round(Math.Log10(freq))) < 0.01;
-            context.DrawLine(isDecade ? gridStrongPen : gridPen, new Point(x, 0), new Point(x, h));
+            context.DrawLine(isDecade ? s_gridStrongPen : s_gridPen, new Point(x, 0), new Point(x, h));
         }
 
-        // Response curve
-        if (Bands is { Count: > 0 } bands)
+        if (_bandViewModels is { Count: > 0 })
         {
             const int samples = 256;
             var points = new Point[samples];
@@ -436,53 +382,47 @@ public sealed class EqualizerCurveEditor : Control
             {
                 double t = (double)i / (samples - 1);
                 float freq = (float)(MinFrequency * Math.Pow(MaxFrequency / MinFrequency, t));
-                float db = CalculateResponseDb(freq, bands);
+                float db = CalculateResponseDb(freq);
                 double x = XFromFrequency(freq);
                 double y = YFromGain(db);
                 points[i] = new Point(x, y);
             }
 
-            var curvePen = new Pen(new SolidColorBrush(Color.FromArgb(220, 86, 156, 214)), 2);
             for (int i = 1; i < samples; i++)
             {
-                context.DrawLine(curvePen, points[i - 1], points[i]);
+                context.DrawLine(s_curvePen, points[i - 1], points[i]);
             }
 
-            // Handles — place on the composite response curve
-            for (int i = 0; i < bands.Count; i++)
+            for (int i = 0; i < _bandViewModels.Count; i++)
             {
-                var band = bands[i];
-                if (!band.IsEnabled) continue;
+                var vm = _bandViewModels[i];
+                if (!vm.Band.IsEnabled) continue;
 
-                float freq = (float)GetEffectiveValue(band.Frequency);
+                float freq = vm.GetEffectiveValue(vm.Band.Frequency, CurrentTime);
                 double x = XFromFrequency(freq);
-                double y = YFromGain(CalculateResponseDb(freq, bands));
+                double y = YFromGain(CalculateResponseDb(freq));
                 bool isSelected = i == SelectedBandIndex;
                 bool isHover = i == _hoverIndex || i == _draggingIndex;
                 double radius = isSelected || isHover ? HandleRadius + 2 : HandleRadius;
 
-                var fillColor = isSelected
-                    ? Color.FromArgb(255, 86, 156, 214)
-                    : Color.FromArgb(200, 200, 200, 200);
-                var strokeColor = Color.FromArgb(255, 32, 32, 32);
+                var fillBrush = isSelected ? s_handleSelectedBrush : s_handleNormalBrush;
 
-                context.DrawEllipse(new SolidColorBrush(fillColor), new Pen(new SolidColorBrush(strokeColor), 1.5),
-                    new Point(x, y), radius, radius);
+                context.DrawEllipse(fillBrush, s_handleStrokePen, new Point(x, y), radius, radius);
             }
         }
     }
 
     private int HitTestHandle(Point point)
     {
-        if (Bands is null) return -1;
-        for (int i = 0; i < Bands.Count; i++)
+        if (_bandViewModels is null) return -1;
+        for (int i = 0; i < _bandViewModels.Count; i++)
         {
-            var band = Bands[i];
-            if (!band.IsEnabled) continue;
+            var vm = _bandViewModels[i];
+            if (!vm.Band.IsEnabled) continue;
 
-            float freq = (float)GetEffectiveValue(band.Frequency);
+            float freq = vm.GetEffectiveValue(vm.Band.Frequency, CurrentTime);
             double x = XFromFrequency(freq);
-            double y = YFromGain(CalculateResponseDb(freq, Bands));
+            double y = YFromGain(CalculateResponseDb(freq));
             double dx = point.X - x;
             double dy = point.Y - y;
             if (dx * dx + dy * dy <= HitTestRadius * HitTestRadius)
@@ -491,13 +431,6 @@ public sealed class EqualizerCurveEditor : Control
             }
         }
         return -1;
-    }
-
-    private float GetEffectiveValue(IProperty<float> property)
-    {
-        // Route through CompositionContext so expressions and keyframe animations are both
-        // evaluated with the same precedence the runtime uses (Expression > Animation > base).
-        return property.GetValue(new CompositionContext(CurrentTime));
     }
 
     private double XFromFrequency(float frequency)
@@ -526,29 +459,41 @@ public sealed class EqualizerCurveEditor : Control
         return (float)Math.Clamp(MinGain + t * (MaxGain - MinGain), MinGain, MaxGain);
     }
 
-    private float CalculateResponseDb(float frequency, IList<EqualizerBand> bands)
+    private float CalculateResponseDb(float frequency)
     {
+        if (_bandViewModels is null) return 0f;
         double total = 0.0;
-        for (int i = 0; i < bands.Count; i++)
+        for (int i = 0; i < _bandViewModels.Count; i++)
         {
-            var band = bands[i];
-            if (!band.IsEnabled) continue;
-            total += CalculateBandResponseDb(frequency, band);
+            var vm = _bandViewModels[i];
+            if (!vm.Band.IsEnabled) continue;
+            total += CalculateBandResponseDb(frequency, vm);
         }
         return (float)total;
     }
 
-    private float CalculateResponseDbExcluding(float frequency, IList<EqualizerBand> bands, int excludeIndex)
+    private float CalculateResponseDbExcluding(float frequency, int excludeIndex)
     {
+        if (_bandViewModels is null) return 0f;
         double total = 0.0;
-        for (int i = 0; i < bands.Count; i++)
+        for (int i = 0; i < _bandViewModels.Count; i++)
         {
             if (i == excludeIndex) continue;
-            var band = bands[i];
-            if (!band.IsEnabled) continue;
-            total += CalculateBandResponseDb(frequency, band);
+            var vm = _bandViewModels[i];
+            if (!vm.Band.IsEnabled) continue;
+            total += CalculateBandResponseDb(frequency, vm);
         }
         return (float)total;
+    }
+
+    private double CalculateBandResponseDb(float frequency, EqualizerBandItemViewModel vm)
+    {
+        var band = vm.Band;
+        float f0 = vm.GetEffectiveValue(band.Frequency, CurrentTime);
+        float q = Math.Max(vm.GetEffectiveValue(band.Q, CurrentTime), MinQ);
+        float gain = vm.GetEffectiveValue(band.Gain, CurrentTime);
+        return BiQuadFilter.CalculateResponseDb(
+            band.FilterType.CurrentValue, f0, q, gain, ResponseSampleRate, frequency);
     }
 
     private static bool IsGainAdjustable(BiQuadFilterType type) => type switch
@@ -562,15 +507,6 @@ public sealed class EqualizerCurveEditor : Control
         BiQuadFilterType.LowShelf or BiQuadFilterType.HighShelf => 0.5f,
         _ => 1.0f,
     };
-
-    private double CalculateBandResponseDb(float frequency, EqualizerBand band)
-    {
-        float f0 = (float)GetEffectiveValue(band.Frequency);
-        float q = (float)Math.Max(GetEffectiveValue(band.Q), MinQ);
-        float gain = (float)GetEffectiveValue(band.Gain);
-        return BiQuadFilter.CalculateResponseDb(
-            band.FilterType.CurrentValue, f0, q, gain, ResponseSampleRate, frequency);
-    }
 
     private static bool AreEqual(float a, float b) => Math.Abs(a - b) < 1e-5f;
 }
