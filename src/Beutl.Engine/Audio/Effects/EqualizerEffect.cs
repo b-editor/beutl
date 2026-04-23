@@ -128,8 +128,11 @@ public sealed partial class EqualizerEffect : AudioEffect
             return false;
         }
 
-        // Anything time-varying must go through the filter so it can take effect later.
-        if (band.Gain.Animation is not null || band.Gain.HasExpression) return false;
+        // Animated gain must stay live so keyframes can take effect later. Expressions are
+        // intentionally not checked here because EqualizerNode/AnimationSampler currently read
+        // CurrentValue for expression-backed properties too — treating them as live would leave
+        // the IsNeutral guard out of sync with how the audio is actually rendered.
+        if (band.Gain.Animation is not null) return false;
 
         return band.Gain.CurrentValue == 0f;
     }
