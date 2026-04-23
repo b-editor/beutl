@@ -121,8 +121,11 @@ public sealed class EqualizerNode : AudioNode
                 }
             }
 
-            // Apply soft clipping to prevent audio distortion
-            AudioMath.ApplySoftClipper(outData);
+            // Only soft-clip when the EQ actually overshoots full scale, so neutral audio is untouched
+            if (AudioMath.FindPeak(outData) > 1.0f)
+            {
+                AudioMath.ApplySoftClipper(outData, threshold: 0.9f);
+            }
         }
 
         return output;
@@ -182,10 +185,14 @@ public sealed class EqualizerNode : AudioNode
             processed += chunkSize;
         }
 
-        // Apply soft clipping to each channel to prevent audio distortion
+        // Only soft-clip channels that overshoot full scale, so neutral audio is untouched
         for (int ch = 0; ch < output.ChannelCount; ch++)
         {
-            AudioMath.ApplySoftClipper(output.GetChannelData(ch));
+            var chData = output.GetChannelData(ch);
+            if (AudioMath.FindPeak(chData) > 1.0f)
+            {
+                AudioMath.ApplySoftClipper(chData, threshold: 0.9f);
+            }
         }
 
         return output;
