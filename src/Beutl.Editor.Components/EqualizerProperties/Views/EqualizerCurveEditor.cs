@@ -268,6 +268,9 @@ public sealed class EqualizerCurveEditor : Control
         var band = Bands[hit];
         // Skip the scroll edit when Q is animated — we would only move the hidden base value.
         if (band.Q.Animation is not null) return;
+        // Touchpad horizontal scrolls can deliver Delta.Y == 0; without this guard those gestures
+        // would fall through to the else branch and silently decrease Q.
+        if (e.Delta.Y == 0) return;
         float oldQ = band.Q.CurrentValue;
         double factor = e.Delta.Y > 0 ? 1.1 : 1.0 / 1.1;
         float newQ = Math.Clamp((float)(oldQ * factor), MinQ, MaxQ);
