@@ -186,7 +186,9 @@ public sealed class EqualizerCurveEditor : Control
             bool onlyVertical = shift && Math.Abs(dy) >= Math.Abs(dx);
             bool onlyHorizontal = shift && Math.Abs(dx) > Math.Abs(dy);
 
-            if (!onlyHorizontal && IsGainAdjustable(band.FilterType.CurrentValue))
+            // Skip axes whose value is driven by an animation — writing CurrentValue would only
+            // mutate the hidden base value, so the handle would snap back on the next render.
+            if (!onlyHorizontal && IsGainAdjustable(band.FilterType.CurrentValue) && band.Gain.Animation is null)
             {
                 float targetCompositeDb = GainFromY(point.Y);
                 float freq = (float)GetEffectiveValue(band.Frequency);
@@ -200,7 +202,7 @@ public sealed class EqualizerCurveEditor : Control
                 }
             }
 
-            if (!onlyVertical)
+            if (!onlyVertical && band.Frequency.Animation is null)
             {
                 float newFreq = FrequencyFromX(point.X);
                 float oldFreq = band.Frequency.CurrentValue;
@@ -257,6 +259,8 @@ public sealed class EqualizerCurveEditor : Control
         if (hit < 0) return;
 
         var band = Bands[hit];
+        // Skip the scroll edit when Q is animated — we would only move the hidden base value.
+        if (band.Q.Animation is not null) return;
         float oldQ = band.Q.CurrentValue;
         double factor = e.Delta.Y > 0 ? 1.1 : 1.0 / 1.1;
         float newQ = Math.Clamp((float)(oldQ * factor), MinQ, MaxQ);
