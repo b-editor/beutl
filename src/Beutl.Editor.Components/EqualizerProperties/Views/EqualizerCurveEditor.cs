@@ -207,12 +207,16 @@ public sealed class EqualizerCurveEditor : Control
 
             // Skip axes whose value is driven by an animation or expression — writing CurrentValue
             // would only mutate the hidden base value, so the handle would snap back next render.
+            bool canUpdateFrequency = !onlyVertical && band.Frequency.Animation is null && !band.Frequency.HasExpression;
+            // Solve the gain with the frequency that will actually be in effect after this event,
+            // so diagonal drags place the handle under the cursor instead of lagging one frame behind.
+            float effectiveFreq = canUpdateFrequency ? FrequencyFromX(point.X) : (float)GetEffectiveValue(band.Frequency);
+
             if (!onlyHorizontal && IsGainAdjustable(band.FilterType.CurrentValue)
                 && band.Gain.Animation is null && !band.Gain.HasExpression)
             {
                 float targetCompositeDb = GainFromY(point.Y);
-                float freq = (float)GetEffectiveValue(band.Frequency);
-                float othersContribution = CalculateResponseDbExcluding(freq, Bands, _draggingIndex);
+                float othersContribution = CalculateResponseDbExcluding(effectiveFreq, Bands, _draggingIndex);
                 // At f0 the band's response equals gainDb for Peak but only gainDb/2 for shelves,
                 // so invert the transfer so the cursor ends up under the handle after the edit.
                 float responseRatio = GainToResponseRatioAtF0(band.FilterType.CurrentValue);
@@ -225,14 +229,13 @@ public sealed class EqualizerCurveEditor : Control
                 }
             }
 
-            if (!onlyVertical && band.Frequency.Animation is null && !band.Frequency.HasExpression)
+            if (canUpdateFrequency)
             {
-                float newFreq = FrequencyFromX(point.X);
                 float oldFreq = band.Frequency.CurrentValue;
-                if (!AreEqual(oldFreq, newFreq))
+                if (!AreEqual(oldFreq, effectiveFreq))
                 {
-                    band.Frequency.CurrentValue = newFreq;
-                    RaiseEvent(new EqualizerBandEventArgs(BandChangedEvent, _draggingIndex, EqualizerBandProperty.Frequency, oldFreq, newFreq));
+                    band.Frequency.CurrentValue = effectiveFreq;
+                    RaiseEvent(new EqualizerBandEventArgs(BandChangedEvent, _draggingIndex, EqualizerBandProperty.Frequency, oldFreq, effectiveFreq));
                 }
             }
 
