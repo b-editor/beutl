@@ -30,7 +30,8 @@
             <StackPanel DataContext="{Binding SelectedBand.Value}" Spacing="2">
                 <TextBlock Text="{Binding Label.Value, StringFormat='Band: {0} Hz'}" />
                 <ContentControl Content="{Binding FrequencyEditor, Converter={StaticResource ViewModelToViewConverter}}" />
-                <ContentControl Content="{Binding GainEditor, Converter={StaticResource ViewModelToViewConverter}}" />
+                <ContentControl Content="{Binding GainEditor, Converter={StaticResource ViewModelToViewConverter}}"
+                                IsVisible="{Binding IsGainVisible.Value}" />
                 <ContentControl Content="{Binding QEditor, Converter={StaticResource ViewModelToViewConverter}}" />
                 <ContentControl Content="{Binding FilterTypeEditor, Converter={StaticResource ViewModelToViewConverter}}" />
             </StackPanel>
