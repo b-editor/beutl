@@ -111,6 +111,8 @@ public sealed class EqualizerCurveEditor : Control
 
         _wheelCommitTimer?.Stop();
         FlushWheelCommit();
+        // A swap disposes every ViewModel we might still be tracking, so forget drag/wheel targets.
+        _draggingIndex = -1;
 
         _bandViewModels = newValue;
 
@@ -124,6 +126,7 @@ public sealed class EqualizerCurveEditor : Control
     {
         _wheelCommitTimer?.Stop();
         FlushWheelCommit();
+        _draggingIndex = -1;
         ResubscribeBandProperties();
         InvalidateVisual();
     }
@@ -255,6 +258,12 @@ public sealed class EqualizerCurveEditor : Control
 
         _draggingIndex = -1;
         e.Pointer.Capture(null);
+    }
+
+    protected override void OnPointerCaptureLost(PointerCaptureLostEventArgs e)
+    {
+        base.OnPointerCaptureLost(e);
+        _draggingIndex = -1;
     }
 
     protected override void OnPointerWheelChanged(PointerWheelEventArgs e)
