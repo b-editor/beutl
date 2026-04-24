@@ -2,6 +2,7 @@
 using System.Collections.Specialized;
 using System.Text.Json.Nodes;
 using Beutl.Audio.Effects;
+using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Services;
 using Beutl.ProjectSystem;
 using Microsoft.Extensions.DependencyInjection;
@@ -41,6 +42,8 @@ public sealed class EqualizerPropertiesViewModel : IPropertyEditorContext, IServ
 
     public ReactivePropertySlim<TimeSpan> CurrentTime { get; } = new();
 
+    public ReactivePropertySlim<int> SampleRate { get; } = new(44100);
+
     public EqualizerEffect? TryGetEqualizerEffect()
     {
         if (_props.Count == 0) return null;
@@ -62,6 +65,7 @@ public sealed class EqualizerPropertiesViewModel : IPropertyEditorContext, IServ
             CreateEditors();
             AcceptChildren();
             AttachClock();
+            SampleRate.Value = _element?.FindHierarchicalParent<Project>()?.GetSampleRate() ?? 44100;
         }
     }
 
@@ -99,6 +103,7 @@ public sealed class EqualizerPropertiesViewModel : IPropertyEditorContext, IServ
         _clockSubscription?.Dispose();
         _clockSubscription = null;
         CurrentTime.Dispose();
+        SampleRate.Dispose();
 
         SelectedBand.Dispose();
         SelectedBandIndex.Dispose();

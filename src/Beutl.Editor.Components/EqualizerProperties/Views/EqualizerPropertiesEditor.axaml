@@ -19,7 +19,8 @@
                                     Margin="0,0,0,4"
                                     BandViewModels="{Binding Bands}"
                                     CurrentTime="{Binding CurrentTime.Value}"
-                                    SelectedBandIndex="{Binding SelectedBandIndex.Value, Mode=TwoWay}" />
+                                    SampleRate="{Binding SampleRate.Value}"
+                                    SelectedBandIndex="{Binding SelectedBandIndex.Value}" />
 
         <Border Padding="4,4,0,4"
                 BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"

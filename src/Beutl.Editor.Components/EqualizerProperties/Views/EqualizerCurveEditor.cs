@@ -22,9 +22,8 @@ public sealed class EqualizerCurveEditor : Control
     private const double HandleRadius = 6.0;
     private const double HitTestRadius = 10.0;
 
-    // The actual render sample rate is not known here; 48 kHz is the common session rate and
-    // keeps the plot accurate enough across the audible range for user feedback.
-    private const int ResponseSampleRate = 48000;
+    // Used only when the host has not bound a session sample rate (e.g. design-time).
+    private const int DefaultResponseSampleRate = 48000;
 
     private static readonly ImmutableSolidColorBrush s_backgroundBrush = new(Color.FromArgb(32, 128, 128, 128));
     private static readonly ImmutablePen s_gridPen = new(new ImmutableSolidColorBrush(Color.FromArgb(64, 128, 128, 128)));
@@ -44,6 +43,9 @@ public sealed class EqualizerCurveEditor : Control
     public static readonly StyledProperty<TimeSpan> CurrentTimeProperty =
         AvaloniaProperty.Register<EqualizerCurveEditor, TimeSpan>(nameof(CurrentTime));
 
+    public static readonly StyledProperty<int> SampleRateProperty =
+        AvaloniaProperty.Register<EqualizerCurveEditor, int>(nameof(SampleRate), defaultValue: DefaultResponseSampleRate);
+
     private int _draggingIndex = -1;
     private float _dragStartFrequency;
     private float _dragStartGain;
@@ -60,7 +62,7 @@ public sealed class EqualizerCurveEditor : Control
 
     static EqualizerCurveEditor()
     {
-        AffectsRender<EqualizerCurveEditor>(BandViewModelsProperty, SelectedBandIndexProperty, CurrentTimeProperty);
+        AffectsRender<EqualizerCurveEditor>(BandViewModelsProperty, SelectedBandIndexProperty, CurrentTimeProperty, SampleRateProperty);
         BandViewModelsProperty.Changed.AddClassHandler<EqualizerCurveEditor>((o, e) => o.OnBandViewModelsChanged(
             e.OldValue as ObservableCollection<EqualizerBandItemViewModel>,
             e.NewValue as ObservableCollection<EqualizerBandItemViewModel>));
@@ -89,6 +91,16 @@ public sealed class EqualizerCurveEditor : Control
         get => GetValue(CurrentTimeProperty);
         set => SetValue(CurrentTimeProperty, value);
     }
+
+    public int SampleRate
+    {
+        get => GetValue(SampleRateProperty);
+        set => SetValue(SampleRateProperty, value);
+    }
+
+    private int EffectiveSampleRate => SampleRate > 0 ? SampleRate : DefaultResponseSampleRate;
+
+    private float EffectiveMaxFrequency => Math.Min(MaxFrequency, EffectiveSampleRate / 2f - 1f);
 
     private void OnBandViewModelsChanged(
         ObservableCollection<EqualizerBandItemViewModel>? oldValue,
@@ -444,7 +456,8 @@ public sealed class EqualizerCurveEditor : Control
     {
         double t = Math.Clamp(x / Bounds.Width, 0, 1);
         double f = Math.Pow(10, Math.Log10(MinFrequency) + t * (Math.Log10(MaxFrequency) - Math.Log10(MinFrequency)));
-        return (float)Math.Clamp(f, MinFrequency, MaxFrequency);
+        // Clamp to session Nyquist so dragging cannot set a target the filter will silently rewrite.
+        return (float)Math.Clamp(f, MinFrequency, EffectiveMaxFrequency);
     }
 
     private double YFromGain(float gain)
@@ -493,7 +506,7 @@ public sealed class EqualizerCurveEditor : Control
         float q = Math.Max(vm.GetEffectiveValue(band.Q, CurrentTime), MinQ);
         float gain = vm.GetEffectiveValue(band.Gain, CurrentTime);
         return BiQuadFilter.CalculateResponseDb(
-            band.FilterType.CurrentValue, f0, q, gain, ResponseSampleRate, frequency);
+            band.FilterType.CurrentValue, f0, q, gain, EffectiveSampleRate, frequency);
     }
 
     private static bool IsGainAdjustable(BiQuadFilterType type) => type switch
