@@ -1,4 +1,4 @@
-using Avalonia.Controls;
+﻿using Avalonia.Controls;
 using Beutl.Controls.Converters;
 
 namespace Beutl.Editor.Components.EqualizerProperties.Views;
