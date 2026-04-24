@@ -1,4 +1,6 @@
-﻿using Avalonia;
+﻿using System.Collections.Specialized;
+
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Data;
 using Avalonia.Data.Converters;
@@ -12,6 +14,7 @@ public sealed partial class EqualizerPropertiesEditor : UserControl
 {
     private EqualizerPropertiesViewModel? _viewModel;
     private EqualizerEffect? _currentEffect;
+    private NotifyCollectionChangedEventHandler? _bandsChangedHandler;
 
     public EqualizerPropertiesEditor()
     {
@@ -24,11 +27,18 @@ public sealed partial class EqualizerPropertiesEditor : UserControl
 
     private void OnDataContextChanged(object? sender, EventArgs e)
     {
+        if (_viewModel != null && _bandsChangedHandler != null)
+        {
+            _viewModel.Bands.CollectionChanged -= _bandsChangedHandler;
+            _bandsChangedHandler = null;
+        }
+
         _viewModel = DataContext as EqualizerPropertiesViewModel;
         RefreshCurveBands();
         if (_viewModel != null)
         {
-            _viewModel.Bands.CollectionChanged += (_, _) => RefreshCurveBands();
+            _bandsChangedHandler = (_, _) => RefreshCurveBands();
+            _viewModel.Bands.CollectionChanged += _bandsChangedHandler;
         }
     }
 
