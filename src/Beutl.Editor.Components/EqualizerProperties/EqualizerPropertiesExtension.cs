@@ -13,19 +13,8 @@ public sealed class EqualizerPropertiesExtension : PropertyEditorExtension
 
     public override IEnumerable<IPropertyAdapter> MatchProperty(IReadOnlyList<IPropertyAdapter> properties)
     {
-        try
-        {
-            var eqProps = properties.Where(p => p.ImplementedType == typeof(EqualizerEffect)).ToArray();
-            if (eqProps.Length > 1)
-            {
-                return eqProps;
-            }
-        }
-        catch
-        {
-        }
-
-        return [];
+        var eqProps = properties.Where(p => p.ImplementedType == typeof(EqualizerEffect)).ToArray();
+        return eqProps.Length > 1 ? eqProps : [];
     }
 
     public override bool TryCreateContext(IReadOnlyList<IPropertyAdapter> properties,
