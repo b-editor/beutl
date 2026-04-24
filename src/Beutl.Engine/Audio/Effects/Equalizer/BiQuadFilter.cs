@@ -29,9 +29,12 @@ public sealed class BiQuadFilter
     /// <param name="sampleRate">Sample rate.</param>
     public void CalculateCoefficients(BiQuadFilterType type, float frequency, float q, float gainDb, int sampleRate)
     {
-        // Skip recalculation if settings haven't changed
-        if (_type == type && Math.Abs(_frequency - frequency) < 0.001f &&
-            Math.Abs(_q - q) < 0.001f && Math.Abs(_gainDb - gainDb) < 0.001f &&
+        // Skip recalculation only when the new parameters are indistinguishable from the last ones.
+        // ProcessAnimated calls this per-sample, so the threshold must be tight enough that smooth
+        // per-sample Q/gain/frequency ramps are not quantized into audible stair-steps.
+        const float epsilon = 1e-5f;
+        if (_type == type && Math.Abs(_frequency - frequency) < epsilon &&
+            Math.Abs(_q - q) < epsilon && Math.Abs(_gainDb - gainDb) < epsilon &&
             _sampleRate == sampleRate)
         {
             return;

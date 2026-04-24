@@ -132,6 +132,9 @@ public sealed partial class EqualizerEffect : AudioEffect
         // intentionally not checked here because EqualizerNode/AnimationSampler currently read
         // CurrentValue for expression-backed properties too — treating them as live would leave
         // the IsNeutral guard out of sync with how the audio is actually rendered.
+        // FIXME(expression): once AnimationSampler evaluates expressions per-sample, this guard must
+        // also treat HasExpression as live. Otherwise an expression that evaluates to 0 dB at graph
+        // build time but to non-zero later will be silently dropped from the signal path.
         if (band.Gain.Animation is not null) return false;
 
         return band.Gain.CurrentValue == 0f;

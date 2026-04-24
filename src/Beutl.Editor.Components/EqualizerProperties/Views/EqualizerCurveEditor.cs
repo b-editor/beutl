@@ -59,6 +59,7 @@ public sealed class EqualizerCurveEditor : Control
     private float _wheelStartQ;
 
     private ObservableCollection<EqualizerBandItemViewModel>? _bandViewModels;
+    private bool _isAttached;
 
     static EqualizerCurveEditor()
     {
@@ -106,20 +107,24 @@ public sealed class EqualizerCurveEditor : Control
         ObservableCollection<EqualizerBandItemViewModel>? oldValue,
         ObservableCollection<EqualizerBandItemViewModel>? newValue)
     {
-        if (oldValue is not null)
-            oldValue.CollectionChanged -= OnBandsCollectionChanged;
-
         _wheelCommitTimer?.Stop();
         FlushWheelCommit();
         // A swap disposes every ViewModel we might still be tracking, so forget drag/wheel targets.
         _draggingIndex = -1;
 
+        // Detach from the old collection regardless of visual-tree state so we don't leak a reference
+        // to a VM we no longer own. Attach-time re-subscription is handled in OnAttachedToVisualTree.
+        if (oldValue is not null)
+            oldValue.CollectionChanged -= OnBandsCollectionChanged;
+
         _bandViewModels = newValue;
 
-        if (newValue is not null)
-            newValue.CollectionChanged += OnBandsCollectionChanged;
-
-        ResubscribeBandProperties();
+        if (_isAttached)
+        {
+            if (newValue is not null)
+                newValue.CollectionChanged += OnBandsCollectionChanged;
+            ResubscribeBandProperties();
+        }
     }
 
     private void OnBandsCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
@@ -244,6 +249,18 @@ public sealed class EqualizerCurveEditor : Control
     protected override void OnPointerReleased(PointerReleasedEventArgs e)
     {
         base.OnPointerReleased(e);
+        FinishDrag();
+        e.Pointer.Capture(null);
+    }
+
+    protected override void OnPointerCaptureLost(PointerCaptureLostEventArgs e)
+    {
+        base.OnPointerCaptureLost(e);
+        FinishDrag();
+    }
+
+    private void FinishDrag()
+    {
         if (_draggingIndex >= 0 && _bandViewModels is not null && _draggingIndex < _bandViewModels.Count)
         {
             var vm = _bandViewModels[_draggingIndex];
@@ -256,13 +273,6 @@ public sealed class EqualizerCurveEditor : Control
             }
         }
 
-        _draggingIndex = -1;
-        e.Pointer.Capture(null);
-    }
-
-    protected override void OnPointerCaptureLost(PointerCaptureLostEventArgs e)
-    {
-        base.OnPointerCaptureLost(e);
         _draggingIndex = -1;
     }
 
@@ -333,12 +343,9 @@ public sealed class EqualizerCurveEditor : Control
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnAttachedToVisualTree(e);
-        if (BandViewModels is { } vms)
-        {
-            vms.CollectionChanged -= OnBandsCollectionChanged;
-            vms.CollectionChanged += OnBandsCollectionChanged;
-        }
-        _bandViewModels = BandViewModels;
+        _isAttached = true;
+        if (_bandViewModels is not null)
+            _bandViewModels.CollectionChanged += OnBandsCollectionChanged;
         ResubscribeBandProperties();
     }
 
@@ -346,16 +353,16 @@ public sealed class EqualizerCurveEditor : Control
     {
         _wheelCommitTimer?.Stop();
         FlushWheelCommit();
+        FinishDrag();
 
-        if (BandViewModels is { } vms)
-        {
-            vms.CollectionChanged -= OnBandsCollectionChanged;
-        }
+        if (_bandViewModels is not null)
+            _bandViewModels.CollectionChanged -= OnBandsCollectionChanged;
         foreach (var unsubscribe in _bandSubscriptions)
         {
             unsubscribe();
         }
         _bandSubscriptions.Clear();
+        _isAttached = false;
 
         base.OnDetachedFromVisualTree(e);
     }
