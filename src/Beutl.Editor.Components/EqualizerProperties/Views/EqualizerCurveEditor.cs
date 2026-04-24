@@ -342,6 +342,19 @@ public sealed class EqualizerCurveEditor : Control
         }
     }
 
+    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToVisualTree(e);
+        // Detach tears down subscriptions (see OnDetachedFromVisualTree), so re-wire them when the
+        // control rejoins the visual tree with the same Bands collection.
+        if (Bands is INotifyCollectionChanged notify)
+        {
+            notify.CollectionChanged -= OnBandsCollectionChanged;
+            notify.CollectionChanged += OnBandsCollectionChanged;
+        }
+        ResubscribeBandProperties();
+    }
+
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
         // The deferred Q-wheel commit relies on a 400 ms timer. If the editor is torn down before
@@ -349,6 +362,19 @@ public sealed class EqualizerCurveEditor : Control
         // the mutation is finalized instead of leaking into the next unrelated history entry.
         _wheelCommitTimer?.Stop();
         FlushWheelCommit();
+
+        // EqualizerEffect and EqualizerBand outlive the editor; without unsubscribing here the
+        // detached instance stays rooted and keeps receiving InvalidateVisual calls.
+        if (Bands is INotifyCollectionChanged notify)
+        {
+            notify.CollectionChanged -= OnBandsCollectionChanged;
+        }
+        foreach (var unsubscribe in _bandSubscriptions)
+        {
+            unsubscribe();
+        }
+        _bandSubscriptions.Clear();
+
         base.OnDetachedFromVisualTree(e);
     }
 
