@@ -1,4 +1,4 @@
-namespace Beutl.Audio.Effects.Equalizer;
+﻿namespace Beutl.Audio.Effects.Equalizer;
 
 /// <summary>
 /// Defines the types of BiQuad filters.

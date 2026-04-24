@@ -1,4 +1,4 @@
-namespace Beutl.Audio.Effects.Equalizer;
+﻿namespace Beutl.Audio.Effects.Equalizer;
 
 /// <summary>
 /// Band count presets for graphic equalizer.

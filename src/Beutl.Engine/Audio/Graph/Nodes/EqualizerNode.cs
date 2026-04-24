@@ -1,4 +1,4 @@
-using Beutl.Audio.Effects.Equalizer;
+﻿using Beutl.Audio.Effects.Equalizer;
 using Beutl.Engine;
 using Beutl.Media;
 

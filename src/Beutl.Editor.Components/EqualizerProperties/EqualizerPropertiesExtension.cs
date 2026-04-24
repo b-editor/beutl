@@ -1,4 +1,4 @@
-using System.Diagnostics.CodeAnalysis;
+﻿using System.Diagnostics.CodeAnalysis;
 using Avalonia.Controls;
 using Beutl.Audio.Effects;
 using Beutl.Editor.Components.EqualizerProperties.ViewModels;

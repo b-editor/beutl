@@ -1,4 +1,4 @@
-namespace Beutl.Audio.Effects.Equalizer;
+﻿namespace Beutl.Audio.Effects.Equalizer;
 
 /// <summary>
 /// Implementation of a BiQuad (second-order IIR) filter.

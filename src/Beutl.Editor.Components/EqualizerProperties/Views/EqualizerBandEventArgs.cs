@@ -1,4 +1,4 @@
-using Avalonia.Interactivity;
+﻿using Avalonia.Interactivity;
 
 namespace Beutl.Editor.Components.EqualizerProperties.Views;
 
