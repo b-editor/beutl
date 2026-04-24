@@ -5,8 +5,8 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.Threading;
-using Beutl.Animation;
 using Beutl.Audio.Effects.Equalizer;
+using Beutl.Composition;
 using Beutl.Engine;
 
 namespace Beutl.Editor.Components.EqualizerProperties.Views;
@@ -205,9 +205,10 @@ public sealed class EqualizerCurveEditor : Control
             bool onlyVertical = shift && Math.Abs(dy) >= Math.Abs(dx);
             bool onlyHorizontal = shift && Math.Abs(dx) > Math.Abs(dy);
 
-            // Skip axes whose value is driven by an animation — writing CurrentValue would only
-            // mutate the hidden base value, so the handle would snap back on the next render.
-            if (!onlyHorizontal && IsGainAdjustable(band.FilterType.CurrentValue) && band.Gain.Animation is null)
+            // Skip axes whose value is driven by an animation or expression — writing CurrentValue
+            // would only mutate the hidden base value, so the handle would snap back next render.
+            if (!onlyHorizontal && IsGainAdjustable(band.FilterType.CurrentValue)
+                && band.Gain.Animation is null && !band.Gain.HasExpression)
             {
                 float targetCompositeDb = GainFromY(point.Y);
                 float freq = (float)GetEffectiveValue(band.Frequency);
@@ -224,7 +225,7 @@ public sealed class EqualizerCurveEditor : Control
                 }
             }
 
-            if (!onlyVertical && band.Frequency.Animation is null)
+            if (!onlyVertical && band.Frequency.Animation is null && !band.Frequency.HasExpression)
             {
                 float newFreq = FrequencyFromX(point.X);
                 float oldFreq = band.Frequency.CurrentValue;
@@ -281,8 +282,9 @@ public sealed class EqualizerCurveEditor : Control
         if (hit < 0) return;
 
         var band = Bands[hit];
-        // Skip the scroll edit when Q is animated — we would only move the hidden base value.
-        if (band.Q.Animation is not null) return;
+        // Skip the scroll edit when Q is animated or driven by an expression — we would only
+        // move the hidden base value.
+        if (band.Q.Animation is not null || band.Q.HasExpression) return;
         // Touchpad horizontal scrolls can deliver Delta.Y == 0; without this guard those gestures
         // would fall through to the else branch and silently decrease Q.
         if (e.Delta.Y == 0) return;
@@ -490,11 +492,9 @@ public sealed class EqualizerCurveEditor : Control
 
     private float GetEffectiveValue(IProperty<float> property)
     {
-        if (property.Animation is IAnimation<float> animation)
-        {
-            return animation.GetAnimatedValue(CurrentTime);
-        }
-        return property.CurrentValue;
+        // Route through CompositionContext so expressions and keyframe animations are both
+        // evaluated with the same precedence the runtime uses (Expression > Animation > base).
+        return property.GetValue(new CompositionContext(CurrentTime));
     }
 
     private double XFromFrequency(float frequency)
