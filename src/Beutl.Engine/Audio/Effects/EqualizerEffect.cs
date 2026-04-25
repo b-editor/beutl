@@ -1,0 +1,155 @@
+﻿using System.ComponentModel.DataAnnotations;
+using Beutl.Audio.Effects.Equalizer;
+using Beutl.Audio.Graph;
+using Beutl.Audio.Graph.Nodes;
+using Beutl.Editor;
+using Beutl.Engine;
+using Beutl.Language;
+using Beutl.Serialization;
+
+namespace Beutl.Audio.Effects;
+
+/// <summary>
+/// Graphic equalizer effect.
+/// Has fixed frequency bands with only gain adjustment available.
+/// </summary>
+[Display(Name = nameof(AudioStrings.Equalizer), ResourceType = typeof(AudioStrings))]
+public sealed partial class EqualizerEffect : AudioEffect
+{
+    // Center frequencies for each preset (Hz)
+    private static readonly float[] s_frequencies5Band = [60f, 230f, 910f, 3600f, 14000f];
+
+    private static readonly float[] s_frequencies10Band =
+    [
+        31f, 62f, 125f, 250f, 500f, 1000f, 2000f, 4000f, 8000f, 16000f
+    ];
+
+    private static readonly float[] s_frequencies15Band =
+    [
+        25f, 40f, 63f, 100f, 160f, 250f, 400f, 630f, 1000f, 1600f, 2500f, 4000f, 6300f, 10000f, 16000f
+    ];
+
+    private static readonly float[] s_frequencies31Band =
+    [
+        20f, 25f, 31.5f, 40f, 50f, 63f, 80f, 100f, 125f, 160f, 200f, 250f, 315f, 400f, 500f, 630f, 800f, 1000f,
+        1250f, 1600f, 2000f, 2500f, 3150f, 4000f, 5000f, 6300f, 8000f, 10000f, 12500f, 16000f, 20000f
+    ];
+
+    public EqualizerEffect()
+    {
+        ScanProperties<EqualizerEffect>();
+        InitializeBands(BandCountPreset.Bands10);
+        BandCountOption.ValueChanged += OnBandCountOptionOnValueChanged;
+    }
+
+    /// <summary>
+    /// Band count preset.
+    /// </summary>
+    [Display(Name = nameof(AudioStrings.Equalizer_BandCount), ResourceType = typeof(AudioStrings))]
+    public IProperty<BandCountPreset> BandCountOption { get; } = Property.Create(BandCountPreset.Bands10);
+
+    /// <summary>
+    /// List of equalizer bands (fixed frequencies).
+    /// </summary>
+    [Display(Name = nameof(AudioStrings.Equalizer_Bands), ResourceType = typeof(AudioStrings))]
+    public IListProperty<EqualizerBand> Bands { get; } = Property.CreateList<EqualizerBand>();
+
+    private void OnBandCountOptionOnValueChanged(object? o,
+        PropertyValueChangedEventArgs<BandCountPreset> propertyValueChangedEventArgs)
+    {
+        if (RecordingSuppression.IsSuppressed) return;
+        InitializeBands(BandCountOption.CurrentValue);
+    }
+
+    /// <summary>
+    /// Initializes bands based on the specified preset.
+    /// </summary>
+    private void InitializeBands(BandCountPreset preset)
+    {
+        var frequencies = preset switch
+        {
+            BandCountPreset.Bands5 => s_frequencies5Band,
+            BandCountPreset.Bands10 => s_frequencies10Band,
+            BandCountPreset.Bands15 => s_frequencies15Band,
+            BandCountPreset.Bands31 => s_frequencies31Band,
+            _ => s_frequencies10Band
+        };
+
+        // Calculate Q value for graphic EQ
+        // Q value considering overlap between adjacent bands
+        float q = preset switch
+        {
+            BandCountPreset.Bands5 => 1.4f,
+            BandCountPreset.Bands10 => 1.4f,
+            BandCountPreset.Bands15 => 2.0f,
+            BandCountPreset.Bands31 => 4.3f,
+            _ => 1.4f
+        };
+
+        Bands.Clear();
+
+        foreach (float frequency in frequencies)
+        {
+            var band = new EqualizerBand();
+            band.FilterType.CurrentValue = BiQuadFilterType.Peak;
+            band.Frequency.CurrentValue = frequency;
+            band.Gain.CurrentValue = 0f;
+            band.Q.CurrentValue = q;
+            Bands.Add(band);
+        }
+    }
+
+    public override AudioNode CreateNode(AudioContext context, AudioNode inputNode)
+    {
+        // Skip bands that are mathematically identity so the default flat preset — every band
+        // Peak at 0 dB — does not force audio through N identity biquads per channel.
+        var activeBands = Bands.Where(band => band.IsEnabled && !IsNeutral(band)).ToList();
+
+        if (activeBands.Count == 0)
+        {
+            return inputNode;
+        }
+
+        var equalizerNode = context.AddNode(new EqualizerNode { Bands = activeBands });
+
+        context.Connect(inputNode, equalizerNode);
+        return equalizerNode;
+    }
+
+    private static bool IsNeutral(EqualizerBand band)
+    {
+        // Only gain-dependent filter types collapse to pass-through at 0 dB.
+        // LowPass/HighPass/BandPass/Notch still shape the signal regardless of gain.
+        var type = band.FilterType.CurrentValue;
+        if (type != BiQuadFilterType.Peak
+            && type != BiQuadFilterType.LowShelf
+            && type != BiQuadFilterType.HighShelf)
+        {
+            return false;
+        }
+
+        // Animated gain must stay live so keyframes can take effect later. Expressions are
+        // intentionally not checked here because EqualizerNode/AnimationSampler currently read
+        // CurrentValue for expression-backed properties too — treating them as live would leave
+        // the IsNeutral guard out of sync with how the audio is actually rendered.
+        // FIXME(expression): once AnimationSampler evaluates expressions per-sample, this guard must
+        // also treat HasExpression as live. Otherwise an expression that evaluates to 0 dB at graph
+        // build time but to non-zero later will be silently dropped from the signal path.
+        if (band.Gain.Animation is not null) return false;
+
+        return band.Gain.CurrentValue == 0f;
+    }
+
+    public override void Deserialize(ICoreSerializationContext context)
+    {
+        try
+        {
+            BandCountOption.ValueChanged -= OnBandCountOptionOnValueChanged;
+            base.Deserialize(context);
+        }
+        finally
+        {
+            BandCountOption.ValueChanged += OnBandCountOptionOnValueChanged;
+        }
+    }
+}

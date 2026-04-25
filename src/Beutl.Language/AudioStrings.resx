@@ -63,4 +63,28 @@
   <data name="SceneSound_ReferencedScene" xml:space="preserve">
     <value>Referenced Scene</value>
   </data>
+  <data name="Equalizer" xml:space="preserve">
+    <value>Equalizer</value>
+  </data>
+  <data name="Equalizer_Band" xml:space="preserve">
+    <value>Equalizer Band</value>
+  </data>
+  <data name="Equalizer_FilterType" xml:space="preserve">
+    <value>Filter Type</value>
+  </data>
+  <data name="Equalizer_Frequency" xml:space="preserve">
+    <value>Frequency (Hz)</value>
+  </data>
+  <data name="Equalizer_Q" xml:space="preserve">
+    <value>Q</value>
+  </data>
+  <data name="Equalizer_BandCount" xml:space="preserve">
+    <value>Band Count</value>
+  </data>
+  <data name="Equalizer_Bands" xml:space="preserve">
+    <value>Bands</value>
+  </data>
+  <data name="Equalizer_Gain" xml:space="preserve">
+    <value>Gain</value>
+  </data>
 </root>
