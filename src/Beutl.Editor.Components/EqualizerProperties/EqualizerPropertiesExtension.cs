@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Beutl.Audio.Effects;
 using Beutl.Editor.Components.EqualizerProperties.ViewModels;
 using Beutl.Editor.Components.EqualizerProperties.Views;
+using Beutl.PropertyAdapters;
 
 namespace Beutl.Editor.Components.EqualizerProperties;
 
@@ -13,7 +14,8 @@ public sealed class EqualizerPropertiesExtension : PropertyEditorExtension
 
     public override IEnumerable<IPropertyAdapter> MatchProperty(IReadOnlyList<IPropertyAdapter> properties)
     {
-        var eqProps = properties.Where(p => p.ImplementedType == typeof(EqualizerEffect)).ToArray();
+        // ImplementedTypeで判別してしまうとListItemAccessorImplが来たときに例外が発生してしまう
+        var eqProps = properties.Where(p => p.GetEngineProperty()?.GetOwnerObject() is EqualizerEffect).ToArray();
         return eqProps.Length > 1 ? eqProps : [];
     }
 
