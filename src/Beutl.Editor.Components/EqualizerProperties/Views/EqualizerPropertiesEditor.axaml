@@ -28,15 +28,17 @@
                 CornerRadius="4"
                 IsVisible="{Binding SelectedBand.Value, Converter={x:Static ObjectConverters.IsNotNull}}">
             <StackPanel DataContext="{Binding SelectedBand.Value}" Spacing="2">
+                <!--  Debug中だけだが、個別にDataContextを設定しないと、なぜかInvalidCastExceptionが発生する。  -->
                 <TextBlock Text="{Binding Label.Value, StringFormat='Band: {0} Hz'}" />
-                <ContentControl Content="{Binding FrequencyEditor, Converter={StaticResource ViewModelToViewConverter}}" />
-                <ContentControl Content="{Binding GainEditor, Converter={StaticResource ViewModelToViewConverter}}"
-                                IsVisible="{Binding IsGainVisible.Value}" />
-                <ContentControl Content="{Binding QEditor, Converter={StaticResource ViewModelToViewConverter}}" />
-                <ContentControl Content="{Binding FilterTypeEditor, Converter={StaticResource ViewModelToViewConverter}}" />
+                <ContentControl Content="{Binding Converter={StaticResource ViewModelToViewConverter}}" DataContext="{Binding FrequencyEditor}" />
+                <ContentControl Content="{Binding Converter={StaticResource ViewModelToViewConverter}}"
+                                DataContext="{Binding GainEditor}"
+                                IsVisible="{Binding $parent.((vm:EqualizerBandItemViewModel)DataContext).IsGainVisible.Value, FallbackValue=False}" />
+                <ContentControl Content="{Binding Converter={StaticResource ViewModelToViewConverter}}" DataContext="{Binding QEditor}" />
+                <ContentControl Content="{Binding Converter={StaticResource ViewModelToViewConverter}}" DataContext="{Binding FilterTypeEditor}" />
             </StackPanel>
         </Border>
 
-        <ContentControl Content="{Binding BandCountEditor.Value, Converter={StaticResource ViewModelToViewConverter}}" />
+        <ContentControl Content="{Binding Converter={StaticResource ViewModelToViewConverter}}" DataContext="{Binding BandCountEditor.Value}" />
     </StackPanel>
 </UserControl>
