@@ -136,12 +136,15 @@ public abstract class HdrScopeControlBase : ScopeControlBase
     public override void Render(DrawingContext context)
     {
         base.Render(context);
+        RenderHdrOverlayText(context);
+    }
 
+    protected void RenderHdrOverlayText(DrawingContext context)
+    {
         if (_overlayText == null)
             return;
 
         var bounds = Bounds;
-        double axisMargin = AxisMargin;
 
         var formattedText = new FormattedText(
             _overlayText,

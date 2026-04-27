@@ -55,6 +55,16 @@ public sealed class ColorScopesTabViewModel : IToolContext
 
     public ReactivePropertySlim<float> HistogramHdrRange { get; } = new(1.0f);
 
+    // False Color settings
+    public ReactivePropertySlim<float> FalseColorHdrRange { get; } = new(1.0f);
+
+    // Zebra settings
+    public ReactivePropertySlim<float> ZebraHighThreshold { get; } = new(0.95f);
+
+    public ReactivePropertySlim<float> ZebraLowThreshold { get; } = new(0.03f);
+
+    public ReactivePropertySlim<float> ZebraHdrRange { get; } = new(1.0f);
+
     // Shared settings
     public ReactivePropertySlim<ScopeColorSpace> ColorSpace { get; } = new(ScopeColorSpace.Gamma);
 
@@ -114,6 +124,40 @@ public sealed class ColorScopesTabViewModel : IToolContext
             }
         }
 
+        // False Color settings
+        if (json.TryGetPropertyValue("falseColorHdrRange", out var falseColorHdrNode) && falseColorHdrNode is JsonValue falseColorHdrValue)
+        {
+            if (falseColorHdrValue.TryGetValue(out float falseColorHdr) && falseColorHdr >= 0.01f)
+            {
+                FalseColorHdrRange.Value = falseColorHdr;
+            }
+        }
+
+        // Zebra settings
+        if (json.TryGetPropertyValue("zebraHighThreshold", out var zebraHighNode) && zebraHighNode is JsonValue zebraHighValue)
+        {
+            if (zebraHighValue.TryGetValue(out float zebraHigh))
+            {
+                ZebraHighThreshold.Value = Math.Clamp(zebraHigh, 0f, 1f);
+            }
+        }
+
+        if (json.TryGetPropertyValue("zebraLowThreshold", out var zebraLowNode) && zebraLowNode is JsonValue zebraLowValue)
+        {
+            if (zebraLowValue.TryGetValue(out float zebraLow))
+            {
+                ZebraLowThreshold.Value = Math.Clamp(zebraLow, 0f, 1f);
+            }
+        }
+
+        if (json.TryGetPropertyValue("zebraHdrRange", out var zebraHdrNode) && zebraHdrNode is JsonValue zebraHdrValue)
+        {
+            if (zebraHdrValue.TryGetValue(out float zebraHdr) && zebraHdr >= 0.01f)
+            {
+                ZebraHdrRange.Value = zebraHdr;
+            }
+        }
+
         // Shared settings
         if (json.TryGetPropertyValue("colorSpace", out var colorSpaceNode) && colorSpaceNode is JsonValue colorSpaceValue)
         {
@@ -135,6 +179,14 @@ public sealed class ColorScopesTabViewModel : IToolContext
         // Histogram settings
         json["histogramMode"] = (int)HistogramMode.Value;
         json["histogramHdrRange"] = HistogramHdrRange.Value;
+
+        // False Color settings
+        json["falseColorHdrRange"] = FalseColorHdrRange.Value;
+
+        // Zebra settings
+        json["zebraHighThreshold"] = ZebraHighThreshold.Value;
+        json["zebraLowThreshold"] = ZebraLowThreshold.Value;
+        json["zebraHdrRange"] = ZebraHdrRange.Value;
 
         // Shared settings
         json["colorSpace"] = (int)ColorSpace.Value;

@@ -44,6 +44,12 @@ public partial class ColorScopesTabView : UserControl
             case ColorScopeType.Vectorscope:
                 VectorscopeControl?.Refresh();
                 break;
+            case ColorScopeType.FalseColor:
+                FalseColorControl?.Refresh();
+                break;
+            case ColorScopeType.Zebra:
+                ZebraControl?.Refresh();
+                break;
         }
     }
 }

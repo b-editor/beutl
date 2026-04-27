@@ -2,6 +2,7 @@
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:icons="using:FluentIcons.FluentAvalonia"
              xmlns:lang="using:Beutl.Language"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:scopes="using:Beutl.Editor.Components.ColorScopesTab.Views.Scopes"
@@ -12,7 +13,7 @@
              x:DataType="viewModels:ColorScopesTabViewModel"
              mc:Ignorable="d">
     <Grid RowDefinitions="Auto,*">
-        <Grid Height="32" ColumnDefinitions="Auto,Auto,Auto">
+        <Grid Height="32" ColumnDefinitions="Auto,Auto,Auto,Auto">
             <ComboBox Grid.Column="0"
                       Margin="8,0,0,0"
                       HorizontalAlignment="Stretch"
@@ -22,6 +23,8 @@
                 <ComboBoxItem Content="{x:Static lang:Strings.Waveform}" />
                 <ComboBoxItem Content="{x:Static lang:Strings.Histogram}" />
                 <ComboBoxItem Content="{x:Static lang:Strings.Vectorscope}" />
+                <ComboBoxItem Content="{x:Static lang:Strings.FalseColor}" />
+                <ComboBoxItem Content="{x:Static lang:Strings.Zebra}" />
             </ComboBox>
 
             <Grid Grid.Column="1"
@@ -49,7 +52,84 @@
                 </ComboBox>
             </Grid>
 
-            <ComboBox Grid.Column="2"
+            <Button Grid.Column="2"
+                    Margin="8,0,0,0"
+                    VerticalAlignment="Center"
+                    IsVisible="{Binding SelectedScopeType.Value, Converter={x:Static scopes:ScopeTypeConverter.Instance}, ConverterParameter=Zebra}"
+                    Theme="{StaticResource TransparentButton}"
+                    ToolTip.Tip="{x:Static lang:Strings.Settings}">
+                <icons:SymbolIcon Symbol="Settings" />
+                <Button.Flyout>
+                    <Flyout Placement="Bottom">
+                        <Flyout.FlyoutPresenterTheme>
+                            <ControlTheme BasedOn="{StaticResource {x:Type FlyoutPresenter}}"
+                                          TargetType="FlyoutPresenter">
+                                <Setter Property="Padding" Value="0" />
+                            </ControlTheme>
+                        </Flyout.FlyoutPresenterTheme>
+
+                        <StackPanel Width="288">
+                            <StackPanel.Styles>
+                                <Style Selector="TextBlock.section">
+                                    <Setter Property="Theme" Value="{StaticResource BodyStrongTextBlockStyle}" />
+                                    <Setter Property="FontSize" Value="13" />
+                                    <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+                                    <Setter Property="Margin" Value="0,0,0,4" />
+                                </Style>
+                                <Style Selector="TextBlock.field">
+                                    <Setter Property="VerticalAlignment" Value="Center" />
+                                    <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+                                </Style>
+                            </StackPanel.Styles>
+
+                            <!--  Header  -->
+                            <Border Padding="16,12,16,12">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <icons:SymbolIcon VerticalAlignment="Center"
+                                                      FontSize="16"
+                                                      Symbol="Settings" />
+                                    <TextBlock VerticalAlignment="Center"
+                                               Text="{x:Static lang:Strings.Zebra}"
+                                               Theme="{StaticResource BodyStrongTextBlockStyle}" />
+                                </StackPanel>
+                            </Border>
+                            <Separator Height="1" Margin="0" />
+
+                            <StackPanel Margin="16,12,16,12" Spacing="10">
+                                <TextBlock Classes="section" Text="{x:Static lang:Strings.Threshold}" />
+
+                                <Grid ColumnDefinitions="92,*"
+                                      ColumnSpacing="12"
+                                      RowDefinitions="Auto,Auto"
+                                      RowSpacing="8">
+                                    <TextBlock Classes="field" Text="{x:Static lang:Strings.ZebraHighThreshold}" />
+                                    <NumericUpDown Grid.Column="1"
+                                                   HorizontalAlignment="Stretch"
+                                                   FormatString="F2"
+                                                   Increment="0.01"
+                                                   Maximum="1"
+                                                   Minimum="0"
+                                                   Value="{Binding ZebraHighThreshold.Value, Mode=TwoWay}" />
+
+                                    <TextBlock Grid.Row="1"
+                                               Classes="field"
+                                               Text="{x:Static lang:Strings.ZebraLowThreshold}" />
+                                    <NumericUpDown Grid.Row="1"
+                                                   Grid.Column="1"
+                                                   HorizontalAlignment="Stretch"
+                                                   FormatString="F2"
+                                                   Increment="0.01"
+                                                   Maximum="1"
+                                                   Minimum="0"
+                                                   Value="{Binding ZebraLowThreshold.Value, Mode=TwoWay}" />
+                                </Grid>
+                            </StackPanel>
+                        </StackPanel>
+                    </Flyout>
+                </Button.Flyout>
+            </Button>
+
+            <ComboBox Grid.Column="3"
                       Margin="8,0,0,0"
                       HorizontalAlignment="Stretch"
                       VerticalAlignment="Center"
@@ -88,6 +168,22 @@
                                        IsVisible="{Binding SelectedScopeType.Value, Converter={x:Static scopes:ScopeTypeConverter.Instance}, ConverterParameter=Vectorscope}"
                                        LabelBrush="{StaticResource ColorScopeLabelBrush}"
                                        SourceBitmap="{Binding SourceBitmap.Value}" />
+
+            <scopes:FalseColorControl x:Name="FalseColorControl"
+                                      BackgroundBrush="{StaticResource ColorScopeBackgroundBrush}"
+                                      ColorSpace="{Binding ColorSpace.Value}"
+                                      HdrRange="{Binding FalseColorHdrRange.Value, Mode=TwoWay}"
+                                      IsVisible="{Binding SelectedScopeType.Value, Converter={x:Static scopes:ScopeTypeConverter.Instance}, ConverterParameter=FalseColor}"
+                                      SourceBitmap="{Binding SourceBitmap.Value}" />
+
+            <scopes:ZebraControl x:Name="ZebraControl"
+                                 BackgroundBrush="{StaticResource ColorScopeBackgroundBrush}"
+                                 ColorSpace="{Binding ColorSpace.Value}"
+                                 HdrRange="{Binding ZebraHdrRange.Value, Mode=TwoWay}"
+                                 HighThreshold="{Binding ZebraHighThreshold.Value}"
+                                 IsVisible="{Binding SelectedScopeType.Value, Converter={x:Static scopes:ScopeTypeConverter.Instance}, ConverterParameter=Zebra}"
+                                 LowThreshold="{Binding ZebraLowThreshold.Value}"
+                                 SourceBitmap="{Binding SourceBitmap.Value}" />
         </Panel>
     </Grid>
 </UserControl>

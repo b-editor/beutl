@@ -4,5 +4,7 @@ public enum ColorScopeType
 {
     Waveform,
     Histogram,
-    Vectorscope
+    Vectorscope,
+    FalseColor,
+    Zebra
 }
