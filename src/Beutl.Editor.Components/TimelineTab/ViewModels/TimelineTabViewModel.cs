@@ -364,7 +364,7 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler
 
     public HashSet<ElementViewModel> SelectedElements { get; } = [];
 
-
+    public ReactivePropertySlim<bool> IsRazorMode { get; } = new();
 
     public ToolTabExtension Extension => TimelineTabExtension.Instance;
 
@@ -1099,6 +1099,37 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler
                 }
 
                 break;
+            case "ToggleRazorMode":
+                IsRazorMode.Value = !IsRazorMode.Value;
+                if (execution.KeyEventArgs != null)
+                {
+                    execution.KeyEventArgs.Handled = true;
+                }
+
+                break;
+            case "ExitRazorMode":
+                if (IsRazorMode.Value)
+                {
+                    IsRazorMode.Value = false;
+                    if (execution.KeyEventArgs != null)
+                    {
+                        execution.KeyEventArgs.Handled = true;
+                    }
+                }
+
+                break;
+        }
+    }
+
+    public void RazorSplitAt(TimeSpan time, bool acrossAllLayers)
+    {
+        IReadOnlyList<ElementViewModel> targets = acrossAllLayers
+            ? Elements.Where(e => e.Model.Range.Contains(time)).ToArray()
+            : Elements.Where(e => e.Model.Range.Contains(time) && e.Model.ZIndex == CalculateClickedLayer()).ToArray();
+
+        foreach (ElementViewModel target in targets)
+        {
+            target.SplitAt(time);
         }
     }
 

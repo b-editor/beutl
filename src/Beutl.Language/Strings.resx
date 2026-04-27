@@ -146,6 +146,18 @@
   <data name="Split" xml:space="preserve">
     <value>Split</value>
   </data>
+  <data name="RazorTool" xml:space="preserve">
+    <value>Razor Tool</value>
+  </data>
+  <data name="RazorTool_Description" xml:space="preserve">
+    <value>Toggle razor (split) tool. Click on a clip to split it.</value>
+  </data>
+  <data name="ExitRazorTool" xml:space="preserve">
+    <value>Exit Razor Tool</value>
+  </data>
+  <data name="ExitRazorTool_Description" xml:space="preserve">
+    <value>Exit razor mode and return to selection tool.</value>
+  </data>
   <data name="Delete" xml:space="preserve">
     <value>Delete</value>
   </data>

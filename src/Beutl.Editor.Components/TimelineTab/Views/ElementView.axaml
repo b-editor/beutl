@@ -59,6 +59,15 @@
                         </Style>
                     </ui:ToggleMenuFlyoutItem.Styles>
                 </ui:ToggleMenuFlyoutItem>
+                <ui:ToggleMenuFlyoutItem IsChecked="{Binding Timeline.IsRazorMode.Value, Mode=TwoWay}"
+                                         InputGesture="{h:GetCommandGesture ToggleRazorMode,
+                                                                            ExtensionType={x:Type p:TimelineTabExtension}}"
+                                         Text="{x:Static lang:Strings.RazorTool}">
+                    <ui:ToggleMenuFlyoutItem.IconSource>
+                        <icons:SymbolIconSource Symbol="Cut" />
+                    </ui:ToggleMenuFlyoutItem.IconSource>
+                </ui:ToggleMenuFlyoutItem>
+                <ui:MenuFlyoutSeparator />
                 <ui:MenuFlyoutItem Command="{Binding Split}" Text="{x:Static lang:Strings.Split}">
                     <ui:MenuFlyoutItem.IconSource>
                         <icons:SymbolIconSource Symbol="SplitVertical" />

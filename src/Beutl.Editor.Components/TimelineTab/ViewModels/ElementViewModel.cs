@@ -650,6 +650,11 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
         }
     }
 
+    public void SplitAt(TimeSpan timeSpan)
+    {
+        SplitCore([this], timeSpan);
+    }
+
     private void OnSplit(TimeSpan timeSpan)
     {
         IReadOnlyList<ElementViewModel> targets = GetGroupOrSelectedElements();
@@ -658,6 +663,11 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
             targets = [this];
         }
 
+        SplitCore(targets, timeSpan);
+    }
+
+    private void SplitCore(IReadOnlyList<ElementViewModel> targets, TimeSpan timeSpan)
+    {
         int rate = Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;
         TimeSpan minDuration = TimeSpan.FromSeconds(1d / rate);
         TimeSpan absTime = timeSpan.RoundToRate(rate);

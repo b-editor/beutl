@@ -122,6 +122,15 @@ public sealed partial class TimelineTabView : UserControl
                 }
             })
             .DisposeWith(_disposables);
+
+        vm.IsRazorMode
+            .ObserveOnUIDispatcher()
+            .Subscribe(isRazor =>
+            {
+                Cursor cursor = isRazor ? Cursors.Cross : Cursors.Arrow;
+                TimelinePanel.Cursor = cursor;
+            })
+            .DisposeWith(_disposables);
     }
 
     protected override void OnLoaded(RoutedEventArgs e)
@@ -407,6 +416,14 @@ public sealed partial class TimelineTabView : UserControl
 
         if (pointerPt.Properties.IsLeftButtonPressed)
         {
+            if (viewModel.IsRazorMode.Value)
+            {
+                viewModel.RazorSplitAt(viewModel.ClickedFrame, acrossAllLayers: true);
+                e.Handled = true;
+                _rightButtonPressed = false;
+                return;
+            }
+
             if (e.KeyModifiers == KeyGestureHelper.GetCommandModifier())
             {
                 _mouseFlag = MouseFlags.RangeSelectionPressed;

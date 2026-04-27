@@ -216,6 +216,18 @@
   <data name="Split" xml:space="preserve">
     <value>分割</value>
   </data>
+  <data name="RazorTool" xml:space="preserve">
+    <value>レーザーモード</value>
+  </data>
+  <data name="RazorTool_Description" xml:space="preserve">
+    <value>レーザー(分割)ツールを切り替えます。クリップ上をクリックして分割します。</value>
+  </data>
+  <data name="ExitRazorTool" xml:space="preserve">
+    <value>レーザーモードを終了</value>
+  </data>
+  <data name="ExitRazorTool_Description" xml:space="preserve">
+    <value>レーザーモードを終了し、選択ツールに戻ります。</value>
+  </data>
   <data name="SampleRate" xml:space="preserve">
     <value>サンプルレート</value>
   </data>

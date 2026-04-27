@@ -8,6 +8,7 @@
              xmlns:lang="using:Beutl.Language"
              xmlns:local="using:Beutl.Editor.Components.TimelineTab.Views"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:p="using:Beutl.Services.PrimitiveImpls"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:vm="using:Beutl.Editor.Components.TimelineTab.ViewModels"
              d:DesignHeight="450"
@@ -104,6 +105,37 @@
             </ItemsControl>
         </ScrollViewer>
 
+        <Border Grid.Row="0"
+                Grid.RowSpan="2"
+                Grid.Column="2"
+                BorderBrush="{DynamicResource SystemFillColorCriticalBrush}"
+                BorderThickness="4"
+                IsHitTestVisible="False"
+                IsVisible="{CompiledBinding IsRazorMode.Value}"
+                ZIndex="100" />
+
+        <Border Grid.Row="0"
+                Grid.Column="2"
+                Margin="8,4"
+                Padding="8,2"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Center"
+                Background="{DynamicResource SystemFillColorCriticalBrush}"
+                CornerRadius="4"
+                IsHitTestVisible="False"
+                IsVisible="{CompiledBinding IsRazorMode.Value}"
+                ZIndex="100">
+            <StackPanel Orientation="Horizontal" Spacing="4">
+                <icons:SymbolIcon FontSize="14"
+                                  Foreground="White"
+                                  Symbol="Cut" />
+                <TextBlock FontSize="12"
+                           FontWeight="SemiBold"
+                           Foreground="White"
+                           Text="{x:Static lang:Strings.RazorTool}"
+                           VerticalAlignment="Center" />
+            </StackPanel>
+        </Border>
 
         <ScrollViewer x:Name="ContentScroll"
                       Grid.Row="1"
@@ -123,6 +155,15 @@
                    PointerReleased="TimelinePanel_PointerReleased">
                 <Panel.ContextFlyout>
                     <ui:FAMenuFlyout>
+                        <ui:ToggleMenuFlyoutItem IsChecked="{CompiledBinding IsRazorMode.Value, Mode=TwoWay}"
+                                                 InputGesture="{h:GetCommandGesture ToggleRazorMode,
+                                                                                    ExtensionType={x:Type p:TimelineTabExtension}}"
+                                                 Text="{x:Static lang:Strings.RazorTool}">
+                            <ui:ToggleMenuFlyoutItem.IconSource>
+                                <icons:SymbolIconSource Symbol="Cut" />
+                            </ui:ToggleMenuFlyoutItem.IconSource>
+                        </ui:ToggleMenuFlyoutItem>
+                        <ui:MenuFlyoutSeparator />
                         <ui:MenuFlyoutSubItem x:Name="AddElementSubMenu" Text="{x:Static lang:Strings.AddElement}" />
                         <ui:MenuFlyoutSubItem x:Name="AddFromTemplateSubMenu" Text="{x:Static lang:Strings.AddFromTemplate}" />
                         <ui:MenuFlyoutItem Command="{CompiledBinding Paste}"
