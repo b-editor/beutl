@@ -1,4 +1,5 @@
-﻿using System.Reactive.Linq;
+﻿using System.Collections.ObjectModel;
+using System.Reactive.Linq;
 using System.Reactive.Subjects;
 using System.Runtime.CompilerServices;
 using Beutl.Editor.Observers;
@@ -18,6 +19,7 @@ public sealed class HistoryManager : IDisposable
     private readonly Subject<HistoryState> _stateChanged = new();
     private readonly List<IDisposable> _subscriptions = new();
     private readonly object _lock = new();
+    private readonly ObservableCollection<HistoryEntry> _entries = new();
     private long _transactionIdCounter;
     private HistoryTransaction _currentTransaction;
     private bool _isDisposed;
@@ -28,6 +30,7 @@ public sealed class HistoryManager : IDisposable
         _sequenceGenerator = sequenceGenerator ?? throw new ArgumentNullException(nameof(sequenceGenerator));
         _context = new OperationExecutionContext(root);
         _currentTransaction = new HistoryTransaction(Interlocked.Increment(ref _transactionIdCounter));
+        _entries.Add(HistoryEntry.CreateInitial());
     }
 
     public CoreObject Root { get; }
@@ -41,6 +44,13 @@ public sealed class HistoryManager : IDisposable
 
     public IObservable<HistoryState> StateChanged => _stateChanged.AsObservable();
 
+    public ReadOnlyObservableCollection<HistoryEntry> Entries =>
+        _readOnlyEntries ??= new ReadOnlyObservableCollection<HistoryEntry>(_entries);
+
+    private ReadOnlyObservableCollection<HistoryEntry>? _readOnlyEntries;
+
+    public int CurrentIndex => _undoStack.Count;
+
     public void Commit(string? name = null, [CallerArgumentExpression(nameof(name))] string? expression = null)
     {
         ThrowIfDisposed();
@@ -53,8 +63,11 @@ public sealed class HistoryManager : IDisposable
                 _currentTransaction.DisplayName = name;
                 _logger.LogDebug("Committing transaction: {TransactionName} (ID: {TransactionId}, Operations: {OperationCount})",
                     expression, _currentTransaction.Id, _currentTransaction.OperationCount);
+                int currentEntryIndex = _undoStack.Count;
                 _undoStack.Push(_currentTransaction);
                 _redoStack.Clear();
+                TruncateEntriesAfter(currentEntryIndex);
+                _entries.Add(HistoryEntry.FromTransaction(_currentTransaction));
                 _currentTransaction = new HistoryTransaction(Interlocked.Increment(ref _transactionIdCounter));
             }
             else
@@ -171,10 +184,76 @@ public sealed class HistoryManager : IDisposable
             int redoCount = _redoStack.Count;
             _undoStack.Clear();
             _redoStack.Clear();
+            _entries.Clear();
+            _entries.Add(HistoryEntry.CreateInitial());
             _logger.LogDebug("Cleared history stacks (Undo: {UndoCount}, Redo: {RedoCount})", undoCount, redoCount);
         }
 
         NotifyStateChanged();
+    }
+
+    public bool JumpTo(int index)
+    {
+        ThrowIfDisposed();
+
+        bool moved = false;
+        lock (_lock)
+        {
+            if (index < 0 || index >= _entries.Count)
+            {
+                _logger.LogDebug("JumpTo requested with out-of-range index: {Index} (Entries: {EntryCount})",
+                    index, _entries.Count);
+                return false;
+            }
+
+            if (_currentTransaction.HasOperations)
+            {
+                _logger.LogDebug("Rolling back current transaction before JumpTo");
+                using (SuppressRecording())
+                {
+                    _currentTransaction.Revert(_context);
+                }
+                _currentTransaction = new HistoryTransaction(Interlocked.Increment(ref _transactionIdCounter));
+            }
+
+            while (_undoStack.Count > index)
+            {
+                HistoryTransaction transaction = _undoStack.Pop();
+                _logger.LogDebug("JumpTo undoing transaction: {TransactionName} (ID: {TransactionId})", transaction.Name, transaction.Id);
+                using (SuppressRecording())
+                {
+                    transaction.Revert(_context);
+                }
+                _redoStack.Push(transaction);
+                moved = true;
+            }
+
+            while (_undoStack.Count < index && _redoStack.Count > 0)
+            {
+                HistoryTransaction transaction = _redoStack.Pop();
+                _logger.LogDebug("JumpTo redoing transaction: {TransactionName} (ID: {TransactionId})", transaction.Name, transaction.Id);
+                using (SuppressRecording())
+                {
+                    transaction.Apply(_context);
+                }
+                _undoStack.Push(transaction);
+                moved = true;
+            }
+        }
+
+        if (moved)
+        {
+            NotifyStateChanged();
+        }
+        return moved;
+    }
+
+    private void TruncateEntriesAfter(int lastKeptIndex)
+    {
+        for (int i = _entries.Count - 1; i > lastKeptIndex; i--)
+        {
+            _entries.RemoveAt(i);
+        }
     }
 
     public IDisposable Subscribe(IOperationObserver observer)
