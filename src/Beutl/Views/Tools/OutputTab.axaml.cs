@@ -1,13 +1,15 @@
 ﻿using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Templates;
 using Avalonia.Input;
 using Avalonia.Interactivity;
-using Avalonia.LogicalTree;
 using Beutl.Controls;
+using Beutl.Controls.PropertyEditors;
 using Beutl.Services;
 using Beutl.ViewModels.Dialogs;
 using Beutl.ViewModels.Tools;
+using FluentAvalonia.UI.Controls;
 using AddOutputProfileDialog = Beutl.Views.Dialogs.AddOutputProfileDialog;
 
 namespace Beutl.Views.Tools;
@@ -15,6 +17,7 @@ namespace Beutl.Views.Tools;
 public partial class OutputTab : UserControl
 {
     private readonly IDataTemplate _sharedDataTemplate = new _DataTemplate();
+    private OutputPickerFlyout? _activeFlyout;
 
     public OutputTab()
     {
@@ -45,16 +48,10 @@ public partial class OutputTab : UserControl
     private void OnRemoveClick(object? sender, RoutedEventArgs e)
     {
         if (DataContext is not OutputTabViewModel viewModel) return;
-        switch (sender)
+        if (sender is ICommandSource { CommandParameter: OutputProfileItem item })
         {
-            case ICommandSource { CommandParameter: OutputProfileItem item }:
-                viewModel.RemoveItem(item);
-                viewModel.Save();
-                break;
-            case ICommandSource { CommandParameter: OutputPresetItem presetItem }:
-                OutputPresetService.Instance.Items.Remove(presetItem);
-                OutputPresetService.Instance.SaveItems();
-                break;
+            viewModel.RemoveItem(item);
+            viewModel.Save();
         }
     }
 
@@ -69,28 +66,15 @@ public partial class OutputTab : UserControl
     private void OnRenameClick(object? sender, RoutedEventArgs e)
     {
         if (DataContext is not OutputTabViewModel viewModel) return;
-        OutputProfileItem? item = (sender as ICommandSource)?.CommandParameter as OutputProfileItem;
-        OutputPresetItem? presetItem = (sender as ICommandSource)?.CommandParameter as OutputPresetItem;
-        if (item == null && presetItem == null) return;
-        var target = (sender as Control)?.Tag as Control ?? MoreButton;
+        if ((sender as ICommandSource)?.CommandParameter is not OutputProfileItem item) return;
 
-        var flyout = new RenameFlyout { Text = item?.Context.Name.Value ?? presetItem?.Name.Value };
-
+        var flyout = new RenameFlyout { Text = item.Context.Name.Value };
         flyout.Confirmed += (_, text) =>
         {
-            if (item != null)
-            {
-                item.Context.Name.Value = text ?? "";
-                viewModel.Save();
-            }
-            else if (presetItem != null)
-            {
-                presetItem.Name.Value = text ?? "";
-                OutputPresetService.Instance.SaveItems();
-            }
+            item.Context.Name.Value = text ?? "";
+            viewModel.Save();
         };
-
-        flyout.ShowAt(target);
+        flyout.ShowAt(MoreButton);
     }
 
     private sealed class _DataTemplate : IDataTemplate
@@ -125,28 +109,133 @@ public partial class OutputTab : UserControl
 
     private void OnProfilesButtonClick(object? sender, RoutedEventArgs e)
     {
-        ProfilesPopup.IsOpen = !ProfilesPopup.IsOpen;
-    }
-
-    public void OnProfileItemClick(object? sender, TappedEventArgs e)
-    {
-        if ((e.Source as StyledElement)?.GetSelfAndLogicalAncestors().Any(i => i is Button) == true) return;
-        if (e.Source is not StyledElement { DataContext: OutputProfileItem item }) return;
         if (DataContext is not OutputTabViewModel viewModel) return;
 
-        viewModel.SelectedItem.Value = item;
-        ProfilesPopup.IsOpen = false;
+        var pickerVm = new OutputPickerViewModel(viewModel.Items, viewModel.PresetItems);
+        pickerVm.SetInitialSelection(viewModel.SelectedItem.Value);
+
+        var flyout = new OutputPickerFlyout(pickerVm);
+        _activeFlyout = flyout;
+        flyout.Confirmed += OnPickerConfirmed;
+        flyout.Dismissed += OnPickerDismissed;
+        flyout.MoreMenuRequested += OnPickerMoreMenuRequested;
+        flyout.Closed += (_, _) =>
+        {
+            flyout.Confirmed -= OnPickerConfirmed;
+            flyout.Dismissed -= OnPickerDismissed;
+            flyout.MoreMenuRequested -= OnPickerMoreMenuRequested;
+            pickerVm.Dispose();
+            if (ReferenceEquals(_activeFlyout, flyout)) _activeFlyout = null;
+        };
+
+        flyout.ShowAt(ProfilesButton, true);
     }
 
-    public void OnPresetItemClick(object? sender, TappedEventArgs e)
+    private void OnPickerConfirmed(OutputPickerFlyout sender, EventArgs e)
     {
-        if ((e.Source as StyledElement)?.GetSelfAndLogicalAncestors().Any(i => i is Button) == true) return;
-        if (e.Source is not StyledElement { DataContext: OutputPresetItem item }) return;
         if (DataContext is not OutputTabViewModel viewModel) return;
 
-        if (viewModel.SelectedItem.Value?.Context is ISupportOutputPreset supportPreset)
-            item.Apply(supportPreset);
+        if (sender.ViewModel.ShowPresets.Value)
+        {
+            if (sender.ViewModel.SelectedPreset.Value?.UserData is OutputPresetItem preset
+                && viewModel.SelectedItem.Value?.Context is ISupportOutputPreset supportPreset
+                && preset.Extension.GetType() == ((IOutputContext)supportPreset).Extension.GetType())
+            {
+                preset.Apply(supportPreset);
+            }
+        }
+        else
+        {
+            if (sender.ViewModel.SelectedProfile.Value?.UserData is OutputProfileItem profile)
+            {
+                viewModel.SelectedItem.Value = profile;
+            }
+        }
+    }
 
-        ProfilesPopup.IsOpen = false;
+    private void OnPickerDismissed(OutputPickerFlyout sender, EventArgs e)
+    {
+    }
+
+    private void OnPickerMoreMenuRequested(OutputPickerFlyout sender, MoreMenuRequestedArgs args)
+    {
+        if (DataContext is not OutputTabViewModel viewModel) return;
+
+        var menu = new FAMenuFlyout();
+
+        switch (args.Item.UserData)
+        {
+            case OutputProfileItem profile:
+                {
+                    var removeItem = new MenuFlyoutItem
+                    {
+                        Text = Language.Strings.Remove,
+                        IconSource = new SymbolIconSource { Symbol = Symbol.Delete }
+                    };
+                    removeItem.Click += (_, _) =>
+                    {
+                        viewModel.RemoveItem(profile);
+                        viewModel.Save();
+                    };
+                    menu.Items.Add(removeItem);
+
+                    var renameItem = new MenuFlyoutItem { Text = Language.Strings.Rename };
+                    renameItem.Click += (_, _) => ShowRenameFlyout(profile, args.Anchor);
+                    menu.Items.Add(renameItem);
+
+                    var convertItem = new MenuFlyoutItem { Text = Language.Strings.Convert_to_preset };
+                    convertItem.Click += (_, _) =>
+                    {
+                        OutputPresetService.Instance.AddItem(profile.Context, $"{profile.Context.Name.Value} (Preset)");
+                        OutputPresetService.Instance.SaveItems();
+                    };
+                    menu.Items.Add(convertItem);
+                    break;
+                }
+            case OutputPresetItem preset:
+                {
+                    var removeItem = new MenuFlyoutItem
+                    {
+                        Text = Language.Strings.Remove,
+                        IconSource = new SymbolIconSource { Symbol = Symbol.Delete }
+                    };
+                    removeItem.Click += (_, _) =>
+                    {
+                        OutputPresetService.Instance.Items.Remove(preset);
+                        OutputPresetService.Instance.SaveItems();
+                    };
+                    menu.Items.Add(removeItem);
+
+                    var renameItem = new MenuFlyoutItem { Text = Language.Strings.Rename };
+                    renameItem.Click += (_, _) => ShowRenameFlyout(preset, args.Anchor);
+                    menu.Items.Add(renameItem);
+                    break;
+                }
+        }
+
+        menu.ShowAt(args.Anchor);
+    }
+
+    private void ShowRenameFlyout(object target, Control anchor)
+    {
+        if (DataContext is not OutputTabViewModel viewModel) return;
+
+        var profile = target as OutputProfileItem;
+        var preset = target as OutputPresetItem;
+        var flyout = new RenameFlyout { Text = profile?.Context.Name.Value ?? preset?.Name.Value };
+        flyout.Confirmed += (_, text) =>
+        {
+            if (profile != null)
+            {
+                profile.Context.Name.Value = text ?? "";
+                viewModel.Save();
+            }
+            else if (preset != null)
+            {
+                preset.Name.Value = text ?? "";
+                OutputPresetService.Instance.SaveItems();
+            }
+        };
+        flyout.ShowAt(anchor);
     }
 }

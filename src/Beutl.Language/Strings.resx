@@ -988,4 +988,25 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="EnterTemplateName" xml:space="preserve">
     <value>Enter template name</value>
   </data>
+  <data name="Preset_YouTube_1080p60" xml:space="preserve">
+    <value>YouTube 1080p 60fps</value>
+  </data>
+  <data name="Preset_YouTube_4K60" xml:space="preserve">
+    <value>YouTube 4K 60fps</value>
+  </data>
+  <data name="Preset_Twitter_1080p" xml:space="preserve">
+    <value>Twitter (X) 1080p (max 2:20)</value>
+  </data>
+  <data name="Preset_Instagram_Reels" xml:space="preserve">
+    <value>Instagram Reels 9:16 (max 90s)</value>
+  </data>
+  <data name="Preset_Instagram_Feed" xml:space="preserve">
+    <value>Instagram Feed 1:1</value>
+  </data>
+  <data name="Preset_TikTok" xml:space="preserve">
+    <value>TikTok 9:16</value>
+  </data>
+  <data name="Preset_Discord_8MB" xml:space="preserve">
+    <value>Discord 8MB (~1 min)</value>
+  </data>
 </root>
