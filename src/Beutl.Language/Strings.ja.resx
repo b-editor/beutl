@@ -976,4 +976,25 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="EnterTemplateName" xml:space="preserve">
     <value>テンプレート名を入力</value>
   </data>
+  <data name="Preset_YouTube_1080p60" xml:space="preserve">
+    <value>YouTube 1080p 60fps</value>
+  </data>
+  <data name="Preset_YouTube_4K60" xml:space="preserve">
+    <value>YouTube 4K 60fps</value>
+  </data>
+  <data name="Preset_Twitter_1080p" xml:space="preserve">
+    <value>Twitter (X) 1080p (最長 2:20)</value>
+  </data>
+  <data name="Preset_Instagram_Reels" xml:space="preserve">
+    <value>Instagram リール 9:16 (最長 90 秒)</value>
+  </data>
+  <data name="Preset_Instagram_Feed" xml:space="preserve">
+    <value>Instagram フィード 1:1</value>
+  </data>
+  <data name="Preset_TikTok" xml:space="preserve">
+    <value>TikTok 縦動画 9:16</value>
+  </data>
+  <data name="Preset_Discord_8MB" xml:space="preserve">
+    <value>Discord 8MB 制限 (約 10 分)</value>
+  </data>
 </root>

@@ -3,7 +3,9 @@ using System.Text.Json.Nodes;
 using Beutl.Extensions.FFmpeg.Encoding;
 using Beutl.FFmpegIpc;
 using Beutl.Helpers;
+using Beutl.Language;
 using Beutl.Logging;
+using Beutl.Media;
 using Beutl.Serialization;
 using Beutl.Services.PrimitiveImpls;
 using Microsoft.Extensions.Logging;
@@ -334,5 +336,149 @@ public sealed class OutputPresetService
                 ["AudioSettings"] = CoreSerializer.SerializeToJsonObject(aud)
             },
             "HLG"));
+
+        AddPlatformPresets();
+    }
+
+    private void AddPlatformPresets()
+    {
+        AddH264Preset(
+            Strings.Preset_YouTube_1080p60,
+            new PixelSize(1920, 1080),
+            new Rational(60, 1),
+            videoBitrate: 12_000_000,
+            audioBitrate: 192_000,
+            preset: "slow",
+            crf: "20",
+            profile: "high",
+            level: "4.2");
+
+        AddH264Preset(
+            Strings.Preset_YouTube_4K60,
+            new PixelSize(3840, 2160),
+            new Rational(60, 1),
+            videoBitrate: 45_000_000,
+            audioBitrate: 192_000,
+            preset: "slow",
+            crf: "20",
+            profile: "high",
+            level: "5.1");
+
+        AddH264Preset(
+            Strings.Preset_Twitter_1080p,
+            new PixelSize(1920, 1080),
+            new Rational(30, 1),
+            videoBitrate: 25_000_000,
+            audioBitrate: 128_000,
+            preset: "medium",
+            crf: "21",
+            profile: "high",
+            level: "4.0");
+
+        AddH264Preset(
+            Strings.Preset_Instagram_Reels,
+            new PixelSize(1080, 1920),
+            new Rational(30, 1),
+            videoBitrate: 5_000_000,
+            audioBitrate: 128_000,
+            preset: "medium",
+            crf: "23",
+            profile: "high",
+            level: "4.0");
+
+        AddH264Preset(
+            Strings.Preset_Instagram_Feed,
+            new PixelSize(1080, 1080),
+            new Rational(30, 1),
+            videoBitrate: 3_500_000,
+            audioBitrate: 128_000,
+            preset: "medium",
+            crf: "23",
+            profile: "high",
+            level: "4.0");
+
+        AddH264Preset(
+            Strings.Preset_TikTok,
+            new PixelSize(1080, 1920),
+            new Rational(30, 1),
+            videoBitrate: 6_000_000,
+            audioBitrate: 128_000,
+            preset: "medium",
+            crf: "23",
+            profile: "high",
+            level: "4.0");
+
+        AddH264Preset(
+            Strings.Preset_Discord_8MB,
+            new PixelSize(720, 480),
+            new Rational(30, 1),
+            videoBitrate: 800_000,
+            audioBitrate: 64_000,
+            preset: "medium",
+            crf: "30",
+            profile: "main",
+            level: "3.1",
+            audioSampleRate: 44100);
+    }
+
+    private void AddH264Preset(
+        string name,
+        PixelSize destinationSize,
+        Rational frameRate,
+        int videoBitrate,
+        int audioBitrate,
+        string preset,
+        string crf,
+        string profile,
+        string level,
+        int audioSampleRate = 48000)
+    {
+        CodecRecord videoCodec = VideoCodecChoicesProvider.GetChoices()
+            .Cast<CodecRecord>()
+            .FirstOrDefault(i => i.Name == "libx264") ?? CodecRecord.Default;
+        CodecRecord audioCodec = AudioCodecChoicesProvider.GetChoices()
+            .Cast<CodecRecord>()
+            .FirstOrDefault(i => i.Name == "aac") ?? CodecRecord.Default;
+
+        if (videoCodec == CodecRecord.Default || audioCodec == CodecRecord.Default)
+        {
+            return;
+        }
+
+        var vid = new FFmpegVideoEncoderSettings
+        {
+            Format = FFPixelFormat.YUV420P,
+            Bitrate = videoBitrate,
+            KeyframeRate = (int)Math.Round((double)frameRate.Numerator / Math.Max(1, frameRate.Denominator) * 2),
+            Codec = videoCodec,
+            SourceSize = destinationSize,
+            DestinationSize = destinationSize,
+            FrameRate = frameRate
+        };
+        vid.Options.Clear();
+        vid.Options.AddRange(
+        [
+            new AdditionalOption("preset", preset),
+            new AdditionalOption("crf", crf),
+            new AdditionalOption("profile", profile),
+            new AdditionalOption("level", level),
+        ]);
+
+        var aud = new FFmpegAudioEncoderSettings
+        {
+            Bitrate = audioBitrate,
+            SampleRate = audioSampleRate,
+            Codec = audioCodec
+        };
+
+        _items.Add(new OutputPresetItem(
+            SceneOutputExtension.Instance,
+            new JsonObject
+            {
+                ["SelectedEncoder"] = TypeFormat.ToString(typeof(FFmpegControlledEncodingExtension)),
+                ["VideoSettings"] = CoreSerializer.SerializeToJsonObject(vid),
+                ["AudioSettings"] = CoreSerializer.SerializeToJsonObject(aud)
+            },
+            name));
     }
 }
