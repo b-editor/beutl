@@ -99,6 +99,21 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
             .Bind(out _encoders)
             .Subscribe()
             .DisposeWith(_disposable);
+
+        PrimaryButtonText = IsCompleted
+            .Select(c => c ? Strings.Play : null)
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(_disposable);
+
+        SecondaryButtonText = IsCompleted
+            .Select(c => c ? Strings.OpenFolder : null)
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(_disposable);
+
+        CloseButtonText = IsEncoding
+            .Select(e => e ? Strings.Cancel : Strings.Close)
+            .ToReadOnlyReactivePropertySlim(Strings.Close)
+            .DisposeWith(_disposable);
     }
 
     public OutputExtension Extension => SceneOutputExtension.Instance;
@@ -150,6 +165,12 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
     public ReactiveProperty<bool> IsCompleted { get; } = new();
 
     public ReactiveProperty<bool> WasCancelled { get; } = new();
+
+    public ReadOnlyReactivePropertySlim<string?> PrimaryButtonText { get; }
+
+    public ReadOnlyReactivePropertySlim<string?> SecondaryButtonText { get; }
+
+    public ReadOnlyReactivePropertySlim<string> CloseButtonText { get; }
 
     public IReadOnlyReactiveProperty<bool> IsIndeterminate => _isIndeterminate;
 
