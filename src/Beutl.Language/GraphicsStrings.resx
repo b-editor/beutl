@@ -486,6 +486,45 @@
   <data name="HighContrast_InvertStyle" xml:space="preserve">
     <value>Invert Style</value>
   </data>
+  <data name="HslSecondary" xml:space="preserve">
+    <value>HSL Secondary</value>
+  </data>
+  <data name="HslSecondary_HueCenter" xml:space="preserve">
+    <value>Hue Center</value>
+  </data>
+  <data name="HslSecondary_HueRange" xml:space="preserve">
+    <value>Hue Range</value>
+  </data>
+  <data name="HslSecondary_HueFeather" xml:space="preserve">
+    <value>Hue Feather</value>
+  </data>
+  <data name="HslSecondary_SaturationMin" xml:space="preserve">
+    <value>Saturation Min</value>
+  </data>
+  <data name="HslSecondary_SaturationMax" xml:space="preserve">
+    <value>Saturation Max</value>
+  </data>
+  <data name="HslSecondary_LuminanceMin" xml:space="preserve">
+    <value>Luminance Min</value>
+  </data>
+  <data name="HslSecondary_LuminanceMax" xml:space="preserve">
+    <value>Luminance Max</value>
+  </data>
+  <data name="HslSecondary_Feather" xml:space="preserve">
+    <value>Feather</value>
+  </data>
+  <data name="HslSecondary_HueShift" xml:space="preserve">
+    <value>Hue Shift</value>
+  </data>
+  <data name="HslSecondary_SaturationAdjust" xml:space="preserve">
+    <value>Saturation Adjust</value>
+  </data>
+  <data name="HslSecondary_LuminanceAdjust" xml:space="preserve">
+    <value>Luminance Adjust</value>
+  </data>
+  <data name="HslSecondary_ShowMask" xml:space="preserve">
+    <value>Show Mask</value>
+  </data>
   <data name="HueRotate" xml:space="preserve">
     <value>Hue Rotate</value>
   </data>

@@ -481,6 +481,45 @@
   <data name="HighContrast_InvertStyle" xml:space="preserve">
     <value>反転モード</value>
   </data>
+  <data name="HslSecondary" xml:space="preserve">
+    <value>HSL セカンダリ</value>
+  </data>
+  <data name="HslSecondary_HueCenter" xml:space="preserve">
+    <value>色相中心</value>
+  </data>
+  <data name="HslSecondary_HueRange" xml:space="preserve">
+    <value>色相範囲</value>
+  </data>
+  <data name="HslSecondary_HueFeather" xml:space="preserve">
+    <value>色相フェザー</value>
+  </data>
+  <data name="HslSecondary_SaturationMin" xml:space="preserve">
+    <value>彩度 最小</value>
+  </data>
+  <data name="HslSecondary_SaturationMax" xml:space="preserve">
+    <value>彩度 最大</value>
+  </data>
+  <data name="HslSecondary_LuminanceMin" xml:space="preserve">
+    <value>輝度 最小</value>
+  </data>
+  <data name="HslSecondary_LuminanceMax" xml:space="preserve">
+    <value>輝度 最大</value>
+  </data>
+  <data name="HslSecondary_Feather" xml:space="preserve">
+    <value>フェザー</value>
+  </data>
+  <data name="HslSecondary_HueShift" xml:space="preserve">
+    <value>色相シフト</value>
+  </data>
+  <data name="HslSecondary_SaturationAdjust" xml:space="preserve">
+    <value>彩度調整</value>
+  </data>
+  <data name="HslSecondary_LuminanceAdjust" xml:space="preserve">
+    <value>輝度調整</value>
+  </data>
+  <data name="HslSecondary_ShowMask" xml:space="preserve">
+    <value>マスクを表示</value>
+  </data>
   <data name="HueRotate" xml:space="preserve">
     <value>色相調整</value>
   </data>
