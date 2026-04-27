@@ -1,10 +1,14 @@
-﻿using Avalonia;
+﻿using System.Collections;
+using System.Collections.Specialized;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Media.Immutable;
 using Avalonia.Media.TextFormatting;
+using Beutl.Controls;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Services;
+using Beutl.ProjectSystem;
 
 namespace Beutl.Editor.Components.Views;
 
@@ -65,6 +69,9 @@ public sealed class TimelineScale : Control
     public static readonly StyledProperty<IBrush?> BufferBrushProperty
         = AvaloniaProperty.Register<TimelineScale, IBrush?>(nameof(BufferBrush));
 
+    public static readonly StyledProperty<IEnumerable?> MarkersProperty
+        = AvaloniaProperty.Register<TimelineScale, IEnumerable?>(nameof(Markers));
+
     private static readonly Typeface s_typeface = new(FontFamily.Default, FontStyle.Normal, FontWeight.Medium);
     private float _scale = 1;
     private Vector _offset;
@@ -76,10 +83,15 @@ public sealed class TimelineScale : Control
     private ImmutablePen? _startingBarPen;
     private ImmutablePen? _endingBarPen;
     private static readonly Geometry _rangeMarker;
+    private static readonly Geometry _pointMarker;
+    private INotifyCollectionChanged? _trackedMarkers;
+    private readonly Dictionary<SceneMarker, IDisposable> _markerSubscriptions = new();
 
     static TimelineScale()
     {
         _rangeMarker = Geometry.Parse("M 0,0 L 4,0 L 4,8 L 0,16 Z");
+        // 下向き三角ピン: 上辺6px、高さ10px。原点はマーカー時刻のX座標、トップ。
+        _pointMarker = Geometry.Parse("M -6,0 L 6,0 L 0,12 Z");
         AffectsRender<TimelineScale>(
             ScaleProperty,
             OffsetProperty,
@@ -96,7 +108,8 @@ public sealed class TimelineScale : Control
             EndingBarBrushProperty,
             CacheBlockBrushProperty,
             LockedCacheBlockBrushProperty,
-            BufferBrushProperty);
+            BufferBrushProperty,
+            MarkersProperty);
     }
 
     public TimelineScale()
@@ -200,6 +213,12 @@ public sealed class TimelineScale : Control
         set => SetValue(BufferBrushProperty, value);
     }
 
+    public IEnumerable? Markers
+    {
+        get => GetValue(MarkersProperty);
+        set => SetValue(MarkersProperty, value);
+    }
+
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
         base.OnPropertyChanged(change);
@@ -219,6 +238,99 @@ public sealed class TimelineScale : Control
         {
             _endingBarPen = new ImmutablePen(EndingBarBrush?.ToImmutable(), 1.25);
         }
+        else if (change.Property == MarkersProperty)
+        {
+            DetachMarkers();
+            AttachMarkers(change.NewValue as IEnumerable);
+        }
+    }
+
+    private void AttachMarkers(IEnumerable? markers)
+    {
+        if (markers is INotifyCollectionChanged ncc)
+        {
+            _trackedMarkers = ncc;
+            ncc.CollectionChanged += OnMarkersCollectionChanged;
+        }
+
+        if (markers != null)
+        {
+            foreach (object? item in markers)
+            {
+                if (item is SceneMarker marker)
+                {
+                    SubscribeMarker(marker);
+                }
+            }
+        }
+    }
+
+    private void DetachMarkers()
+    {
+        if (_trackedMarkers != null)
+        {
+            _trackedMarkers.CollectionChanged -= OnMarkersCollectionChanged;
+            _trackedMarkers = null;
+        }
+
+        foreach (var sub in _markerSubscriptions.Values)
+        {
+            sub.Dispose();
+        }
+
+        _markerSubscriptions.Clear();
+    }
+
+    private void OnMarkersCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        if (e.OldItems != null)
+        {
+            foreach (object? item in e.OldItems)
+            {
+                if (item is SceneMarker marker
+                    && _markerSubscriptions.Remove(marker, out IDisposable? sub))
+                {
+                    sub.Dispose();
+                }
+            }
+        }
+
+        if (e.NewItems != null)
+        {
+            foreach (object? item in e.NewItems)
+            {
+                if (item is SceneMarker marker)
+                {
+                    SubscribeMarker(marker);
+                }
+            }
+        }
+
+        if (e.Action == NotifyCollectionChangedAction.Reset)
+        {
+            foreach (var sub in _markerSubscriptions.Values)
+            {
+                sub.Dispose();
+            }
+
+            _markerSubscriptions.Clear();
+        }
+
+        InvalidateVisual();
+    }
+
+    private void SubscribeMarker(SceneMarker marker)
+    {
+        if (_markerSubscriptions.ContainsKey(marker)) return;
+
+        System.ComponentModel.PropertyChangedEventHandler handler = (_, _) => InvalidateVisual();
+        marker.PropertyChanged += handler;
+        _markerSubscriptions[marker] = new MarkerSubscription(marker, handler);
+    }
+
+    private sealed class MarkerSubscription(SceneMarker marker, System.ComponentModel.PropertyChangedEventHandler handler) : IDisposable
+    {
+        public void Dispose() => marker.PropertyChanged -= handler;
     }
 
     public override void Render(DrawingContext context)
@@ -349,6 +461,56 @@ public sealed class TimelineScale : Control
                     context.DrawGeometry(brush2, null, _rangeMarker);
                 }
             }
+
+            DrawMarkers(context, viewport);
         }
+    }
+
+    private void DrawMarkers(DrawingContext context, Rect viewport)
+    {
+        if (Markers == null) return;
+
+        foreach (object? obj in Markers)
+        {
+            if (obj is not SceneMarker marker) continue;
+
+            double x = marker.Time.TimeToPixel(Scale);
+            if (x < viewport.X - 8 || x > viewport.X + viewport.Width + 8) continue;
+
+            var fillBrush = new ImmutableSolidColorBrush(marker.Color.ToAvaColor());
+            using (context.PushTransform(Matrix.CreateTranslation(x, 0)))
+            {
+                context.DrawGeometry(fillBrush, null, _pointMarker);
+            }
+
+            string label = marker.Name;
+            if (!string.IsNullOrEmpty(label))
+            {
+                using var text = new TextLayout(label, s_typeface, 11, ScaleBrush);
+                text.Draw(context, new Point(x + 8, 1));
+            }
+        }
+    }
+
+    public SceneMarker? HitTestMarker(double x, double y)
+    {
+        if (Markers == null) return null;
+        if (y < 0 || y > 14) return null;
+
+        SceneMarker? best = null;
+        double bestDist = double.PositiveInfinity;
+        foreach (object? obj in Markers)
+        {
+            if (obj is not SceneMarker marker) continue;
+            double mx = marker.Time.TimeToPixel(Scale);
+            double dist = Math.Abs(mx - x);
+            if (dist <= 6 && dist < bestDist)
+            {
+                bestDist = dist;
+                best = marker;
+            }
+        }
+
+        return best;
     }
 }

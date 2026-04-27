@@ -43,6 +43,7 @@
                            PointerMoved="TimelinePanel_PointerMoved"
                            PointerPressed="TimelinePanel_PointerPressed"
                            PointerReleased="TimelinePanel_PointerReleased"
+                           Markers="{Binding Markers}"
                            Scale="{Binding Options.Value.Scale}"
                            ScaleBrush="{DynamicResource TextControlForeground}"
                            SeekBarBrush="{DynamicResource AccentFillColorDefaultBrush}"

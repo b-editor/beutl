@@ -48,10 +48,12 @@ public class Scene : ProjectItem, INotifyEdited
     public static readonly CoreProperty<TimeSpan> DurationProperty;
     public static readonly CoreProperty<CoreList<ImmutableHashSet<Guid>>> GroupsProperty;
     public static readonly CoreProperty<CoreList<TimelineLayer>> LayersProperty;
+    public static readonly CoreProperty<CoreList<SceneMarker>> MarkersProperty;
     private readonly List<string> _includeElements = ["**/*.belm"];
     private readonly List<string> _excludeElements = [];
     private readonly Elements _children;
     private readonly HierarchicalList<TimelineLayer> _layers;
+    private readonly HierarchicalList<SceneMarker> _markers;
     private TimeSpan _start = TimeSpan.FromMinutes(0);
     private TimeSpan _duration = TimeSpan.FromMinutes(5);
     private PixelSize _frameSize;
@@ -69,6 +71,7 @@ public class Scene : ProjectItem, INotifyEdited
         _children.Attached += item => item.Edited += OnElementEdited;
         _children.Detached += item => item.Edited -= OnElementEdited;
         _layers = new HierarchicalList<TimelineLayer>(this);
+        _markers = new HierarchicalList<SceneMarker>(this);
         Name = name;
     }
 
@@ -96,6 +99,10 @@ public class Scene : ProjectItem, INotifyEdited
 
         LayersProperty = ConfigureProperty<CoreList<TimelineLayer>, Scene>(nameof(Layers))
             .Accessor(o => o.Layers, (o, v) => o.Layers = v)
+            .Register();
+
+        MarkersProperty = ConfigureProperty<CoreList<SceneMarker>, Scene>(nameof(Markers))
+            .Accessor(o => o.Markers, (o, v) => o.Markers = v)
             .Register();
     }
 
@@ -151,6 +158,13 @@ public class Scene : ProjectItem, INotifyEdited
     {
         get => _layers;
         set => _layers.Replace(value);
+    }
+
+    [NotAutoSerialized]
+    public CoreList<SceneMarker> Markers
+    {
+        get => _markers;
+        set => _markers.Replace(value);
     }
 
     // element.FileNameが既に設定されている状態
@@ -236,6 +250,7 @@ public class Scene : ProjectItem, INotifyEdited
         context.SetValue("Width", FrameSize.Width);
         context.SetValue("Height", FrameSize.Height);
         context.SetValue("Groups", Groups.Select(ids => string.Join(':', ids)).ToArray());
+        context.SetValue(nameof(Markers), Markers);
 
         if (context.Mode.HasFlag(CoreSerializationMode.SaveReferencedObjects))
         {
@@ -341,6 +356,13 @@ public class Scene : ProjectItem, INotifyEdited
                     Groups.Add(ids);
                 }
             }
+        }
+
+        Markers.Clear();
+        if (context.Contains(nameof(Markers))
+            && context.GetValue<SceneMarker[]>(nameof(Markers)) is { } markers)
+        {
+            Markers.AddRange(markers);
         }
     }
 

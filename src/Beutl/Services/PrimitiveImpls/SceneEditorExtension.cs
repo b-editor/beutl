@@ -45,6 +45,19 @@ public sealed class SceneEditorExtension : EditorExtension
             new ContextCommandKeyGesture("End"),
             new ContextCommandKeyGesture("Cmd+Right", OSPlatform.OSX)
         ]),
+        new("AddMarker", "Add marker", "Add a marker at the current playhead.",
+        [
+            new ContextCommandKeyGesture("M")
+        ]),
+        new("NextMarker", "Next marker", "Seek to the next marker.",
+        [
+            new ContextCommandKeyGesture("Shift+M")
+        ]),
+        new("PreviousMarker", "Previous marker", "Seek to the previous marker.",
+        [
+            new ContextCommandKeyGesture("Ctrl+M"),
+            new ContextCommandKeyGesture("Cmd+M", OSPlatform.OSX)
+        ]),
     ];
 
     public override bool TryCreateEditor(CoreObject obj, [NotNullWhen(true)] out Control? editor)

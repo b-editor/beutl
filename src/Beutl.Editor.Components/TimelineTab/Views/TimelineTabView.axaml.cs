@@ -3,12 +3,15 @@ using Avalonia;
 using Avalonia.Animation;
 using Avalonia.Animation.Easings;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Layout;
 using Avalonia.Platform.Storage;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using Beutl.Configuration;
+using Beutl.Controls;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.SceneSettingsTab.ViewModels;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
@@ -22,6 +25,8 @@ using FluentAvalonia.UI.Controls;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings.Extensions;
+using AvaColor = Avalonia.Media.Color;
+using BtlColor = Beutl.Media.Color;
 using MouseFlags = Beutl.Editor.Components.Helpers.TimelineHelper.MouseFlags;
 
 namespace Beutl.Editor.Components.TimelineTab.Views;
@@ -438,6 +443,15 @@ public sealed partial class TimelineTabView : UserControl
                 double startingBarX = viewModel.StartingBarMargin.Value.Left;
                 Point scalePoint = e.GetPosition(Scale);
 
+                // ポイントマーカーの当たり判定（Scale 上端の三角ピン）
+                if (Scale.IsPointerOver
+                    && Scale.HitTestMarker(pointerPt.Position.X, scalePoint.Y) is { } hitMarker)
+                {
+                    ShowMarkerEditFlyout(hitMarker, scalePoint);
+                    e.Handled = true;
+                    return;
+                }
+
                 // マーカーの当たり判定チェック - TimelineScaleのマーカーのみ
                 if (TimelineHelper.IsPointInTimelineScaleEndingMarker(pointerPt.Position.X, scalePoint.Y, endingBarX))
                 {
@@ -784,6 +798,65 @@ public sealed partial class TimelineTabView : UserControl
         if (newOffsetX is not { } offsetX) return;
 
         ContentScroll.Offset = new Avalonia.Vector(offsetX, ContentScroll.Offset.Y);
+    }
+
+    private void ShowMarkerEditFlyout(SceneMarker marker, Point anchor)
+    {
+        if (ViewModel == null) return;
+
+        var nameBox = new TextBox { Text = marker.Name, Watermark = "Name", Width = 240 };
+        var noteBox = new TextBox
+        {
+            Text = marker.Note,
+            Watermark = "Note",
+            Width = 240,
+            AcceptsReturn = true,
+            TextWrapping = Avalonia.Media.TextWrapping.Wrap,
+            MinHeight = 60,
+        };
+        var colorButton = new FluentAvalonia.UI.Controls.ColorPickerButton
+        {
+            Color = AvaColor.FromArgb(marker.Color.A, marker.Color.R, marker.Color.G, marker.Color.B),
+            UseColorPalette = true,
+        };
+        var deleteButton = new Button { Content = "Delete", HorizontalAlignment = HorizontalAlignment.Right };
+
+        var panel = new StackPanel
+        {
+            Spacing = 6,
+            Children =
+            {
+                new TextBlock { Text = $"Marker @ {marker.Time:hh\\:mm\\:ss\\.ff}" },
+                nameBox,
+                colorButton,
+                noteBox,
+                deleteButton,
+            }
+        };
+
+        var flyout = new Flyout
+        {
+            Content = panel,
+            Placement = PlacementMode.Bottom,
+            ShowMode = FlyoutShowMode.Standard,
+        };
+
+        nameBox.LostFocus += (_, _) => marker.Name = nameBox.Text ?? string.Empty;
+        noteBox.LostFocus += (_, _) => marker.Note = noteBox.Text ?? string.Empty;
+        colorButton.ColorChanged += (_, args) =>
+        {
+            if (args.NewColor is { } c)
+            {
+                marker.Color = BtlColor.FromArgb(c.A, c.R, c.G, c.B);
+            }
+        };
+        deleteButton.Click += (_, _) =>
+        {
+            ViewModel?.Scene.Markers.Remove(marker);
+            flyout.Hide();
+        };
+
+        flyout.ShowAt(Scale, true);
     }
 
     private async void ScrollTimelinePosition(TimeRange range, int zindex)
