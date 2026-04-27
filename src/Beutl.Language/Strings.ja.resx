@@ -1018,7 +1018,4 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="EstimatedSize" xml:space="preserve">
     <value>推定サイズ</value>
   </data>
-  <data name="Play" xml:space="preserve">
-    <value>再生</value>
-  </data>
 </root>

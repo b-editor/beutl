@@ -12,24 +12,6 @@ public partial class OutputProgressDialog : ContentDialog
 
     protected override Type StyleKeyOverride => typeof(ContentDialog);
 
-    private void OnPrimaryButtonClick(ContentDialog sender, ContentDialogButtonClickEventArgs args)
-    {
-        if (DataContext is OutputViewModel vm)
-        {
-            vm.PlayOutput();
-        }
-    }
-
-    private void OnSecondaryButtonClick(ContentDialog sender, ContentDialogButtonClickEventArgs args)
-    {
-        if (DataContext is OutputViewModel vm)
-        {
-            vm.OpenContainingFolder();
-        }
-
-        args.Cancel = true;
-    }
-
     private void OnCloseButtonClick(ContentDialog sender, ContentDialogButtonClickEventArgs args)
     {
         if (DataContext is OutputViewModel vm && vm.IsEncoding.Value)

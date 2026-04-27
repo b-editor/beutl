@@ -100,16 +100,6 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
             .Subscribe()
             .DisposeWith(_disposable);
 
-        PrimaryButtonText = IsCompleted
-            .Select(c => c ? Strings.Play : null)
-            .ToReadOnlyReactivePropertySlim()
-            .DisposeWith(_disposable);
-
-        SecondaryButtonText = IsCompleted
-            .Select(c => c ? Strings.OpenFolder : null)
-            .ToReadOnlyReactivePropertySlim()
-            .DisposeWith(_disposable);
-
         CloseButtonText = IsEncoding
             .Select(e => e ? Strings.Cancel : Strings.Close)
             .ToReadOnlyReactivePropertySlim(Strings.Close)
@@ -165,10 +155,6 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
     public ReactiveProperty<bool> IsCompleted { get; } = new();
 
     public ReactiveProperty<bool> WasCancelled { get; } = new();
-
-    public ReadOnlyReactivePropertySlim<string?> PrimaryButtonText { get; }
-
-    public ReadOnlyReactivePropertySlim<string?> SecondaryButtonText { get; }
 
     public ReadOnlyReactivePropertySlim<string> CloseButtonText { get; }
 
@@ -464,20 +450,6 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
         }
     }
 
-    public void OpenContainingFolder()
-    {
-        if (!string.IsNullOrEmpty(DestinationFile.Value))
-        {
-            OpenContainingFolder(DestinationFile.Value);
-        }
-    }
-
-    public void PlayOutput()
-    {
-        if (string.IsNullOrEmpty(DestinationFile.Value)) return;
-        OpenWithDefaultApp(DestinationFile.Value);
-    }
-
     private void OpenContainingFolder(string filePath)
     {
         try
@@ -520,28 +492,6 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Failed to open containing folder for {Path}", filePath);
-        }
-    }
-
-    private void OpenWithDefaultApp(string filePath)
-    {
-        try
-        {
-            if (!File.Exists(filePath)) return;
-            if (OperatingSystem.IsMacOS())
-            {
-                var psi = new ProcessStartInfo("open") { UseShellExecute = false };
-                psi.ArgumentList.Add(filePath);
-                Process.Start(psi);
-            }
-            else
-            {
-                Process.Start(new ProcessStartInfo(filePath) { UseShellExecute = true, Verb = "open" });
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to open output file {Path}", filePath);
         }
     }
 

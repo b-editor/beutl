@@ -13,11 +13,6 @@
                   x:DataType="tools:OutputViewModel"
                   CloseButtonClick="OnCloseButtonClick"
                   CloseButtonText="{Binding CloseButtonText.Value}"
-                  DefaultButton="Primary"
-                  PrimaryButtonClick="OnPrimaryButtonClick"
-                  PrimaryButtonText="{Binding PrimaryButtonText.Value}"
-                  SecondaryButtonClick="OnSecondaryButtonClick"
-                  SecondaryButtonText="{Binding SecondaryButtonText.Value}"
                   mc:Ignorable="d">
     <ui:ContentDialog.Resources>
         <StaticResource x:Key="ContentDialogMaxWidth" ResourceKey="ContentDialogMinWidth" />
