@@ -116,10 +116,10 @@
 
   <!-- ProjectReferences don't transitively copy native runtime assets (runtimes/<rid>/native),
        so mirror the Swift dylib from the referenced project's runtimes/ folder into this
-       project's output. The .app bundler picks everything up from there. -->
+       project's output. The dylibs are committed under runtimes/, so non-macOS publish jobs
+       (for example the Ubuntu runner that assembles release zips) can reuse them too. -->
   <Target Name="CopyBeutlAVFDylibsForApp"
-          AfterTargets="Build"
-          Condition="'$([MSBuild]::IsOSPlatform(OSX))' == 'true'">
+          AfterTargets="Build">
     <PropertyGroup>
       <_BeutlAVFSourceRuntimes>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)../Beutl.Extensions.AVFoundation/runtimes'))</_BeutlAVFSourceRuntimes>
     </PropertyGroup>
