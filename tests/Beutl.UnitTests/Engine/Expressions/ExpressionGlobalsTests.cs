@@ -386,4 +386,120 @@ public class ExpressionGlobalsTests
         // Assert
         Assert.That(result, Is.EqualTo(0.0));
     }
+
+    [Test]
+    public void Wiggle_ShouldBeDeterministic()
+    {
+        var context = TestHelper.CreateExpressionContext(TimeSpan.Zero);
+        var globals = new ExpressionGlobals(context);
+
+        double a = globals.Wiggle(2.0, 50.0, 1, 0.5, 0.0);
+        double b = globals.Wiggle(2.0, 50.0, 1, 0.5, 0.0);
+
+        Assert.That(a, Is.EqualTo(b));
+        Assert.That(a, Is.GreaterThanOrEqualTo(-50.0));
+        Assert.That(a, Is.LessThanOrEqualTo(50.0));
+    }
+
+    [Test]
+    public void Wiggle_DifferentTimes_ShouldDiffer()
+    {
+        var context = TestHelper.CreateExpressionContext(TimeSpan.Zero);
+        var globals = new ExpressionGlobals(context);
+
+        double a = globals.Wiggle(2.0, 50.0, 1, 0.5, 0.25);
+        double b = globals.Wiggle(2.0, 50.0, 1, 0.5, 0.6);
+
+        Assert.That(a, Is.Not.EqualTo(b));
+    }
+
+    [Test]
+    public void LoopOut_Cycle_ShouldWrapByPeriod()
+    {
+        var context = TestHelper.CreateExpressionContext(TimeSpan.Zero);
+        var globals = new ExpressionGlobals(context);
+
+        double a = globals.LoopOut(2.5, 1.0, "cycle");
+        double b = globals.LoopOut(0.5, 1.0, "cycle");
+
+        Assert.That(a, Is.EqualTo(b).Within(0.0001));
+    }
+
+    [Test]
+    public void LoopOut_PingPong_ShouldReverseInSecondHalf()
+    {
+        var context = TestHelper.CreateExpressionContext(TimeSpan.Zero);
+        var globals = new ExpressionGlobals(context);
+
+        double a = globals.LoopOut(0.25, 1.0, "pingpong");
+        double b = globals.LoopOut(1.75, 1.0, "pingpong");
+
+        Assert.That(a, Is.EqualTo(b).Within(0.0001));
+    }
+
+    [Test]
+    public void PosterizeTime_ShouldQuantizeToFps()
+    {
+        var context = TestHelper.CreateExpressionContext(TimeSpan.Zero);
+        var globals = new ExpressionGlobals(context);
+
+        Assert.That(globals.PosterizeTime(10.0, 0.37), Is.EqualTo(0.3).Within(0.0001));
+        Assert.That(globals.PosterizeTime(10.0, 0.31), Is.EqualTo(0.3).Within(0.0001));
+        Assert.That(globals.PosterizeTime(10.0, 0.5), Is.EqualTo(0.5).Within(0.0001));
+    }
+
+    [Test]
+    public void Linear_ShouldClampOutsideRange()
+    {
+        var context = TestHelper.CreateExpressionContext(TimeSpan.Zero);
+        var globals = new ExpressionGlobals(context);
+
+        Assert.That(globals.Linear(-1.0, 0.0, 10.0, 100.0, 200.0), Is.EqualTo(100.0).Within(0.0001));
+        Assert.That(globals.Linear(11.0, 0.0, 10.0, 100.0, 200.0), Is.EqualTo(200.0).Within(0.0001));
+        Assert.That(globals.Linear(5.0, 0.0, 10.0, 100.0, 200.0), Is.EqualTo(150.0).Within(0.0001));
+    }
+
+    [Test]
+    public void Ease_ShouldReturnSmoothstepInRange()
+    {
+        var context = TestHelper.CreateExpressionContext(TimeSpan.Zero);
+        var globals = new ExpressionGlobals(context);
+
+        Assert.That(globals.Ease(0.0, 0.0, 1.0, 0.0, 100.0), Is.EqualTo(0.0).Within(0.0001));
+        Assert.That(globals.Ease(1.0, 0.0, 1.0, 0.0, 100.0), Is.EqualTo(100.0).Within(0.0001));
+        Assert.That(globals.Ease(0.5, 0.0, 1.0, 0.0, 100.0), Is.EqualTo(50.0).Within(0.0001));
+    }
+
+    [Test]
+    public void EaseIn_EaseOut_ShouldDifferAtMidpoint()
+    {
+        var context = TestHelper.CreateExpressionContext(TimeSpan.Zero);
+        var globals = new ExpressionGlobals(context);
+
+        double inMid = globals.EaseIn(0.5, 0.0, 1.0, 0.0, 100.0);
+        double outMid = globals.EaseOut(0.5, 0.0, 1.0, 0.0, 100.0);
+
+        Assert.That(inMid, Is.EqualTo(25.0).Within(0.0001));
+        Assert.That(outMid, Is.EqualTo(75.0).Within(0.0001));
+    }
+
+    [Test]
+    public void Length_Vector_ShouldReturnMagnitude()
+    {
+        var context = TestHelper.CreateExpressionContext(TimeSpan.Zero);
+        var globals = new ExpressionGlobals(context);
+
+        Assert.That(globals.Length(new System.Numerics.Vector2(3, 4)), Is.EqualTo(5.0).Within(0.0001));
+        Assert.That(globals.Length(new System.Numerics.Vector2(0, 0), new System.Numerics.Vector2(3, 4)), Is.EqualTo(5.0).Within(0.0001));
+    }
+
+    [Test]
+    public void DegToRad_RadToDeg_ShouldRoundtrip()
+    {
+        var context = TestHelper.CreateExpressionContext(TimeSpan.Zero);
+        var globals = new ExpressionGlobals(context);
+
+        Assert.That(globals.DegToRad(180.0), Is.EqualTo(Math.PI).Within(0.0001));
+        Assert.That(globals.RadToDeg(Math.PI), Is.EqualTo(180.0).Within(0.0001));
+    }
 }
