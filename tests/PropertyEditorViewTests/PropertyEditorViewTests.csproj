@@ -14,5 +14,5 @@
   <ItemGroup>
     <PackageReference Include="Avalonia.Desktop" />
   </ItemGroup>
-  
+
 </Project>

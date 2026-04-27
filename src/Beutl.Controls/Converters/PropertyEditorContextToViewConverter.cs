@@ -1,4 +1,6 @@
-﻿using System.Globalization;
+﻿#nullable enable
+
+using System.Globalization;
 
 using Avalonia;
 using Avalonia.Controls;

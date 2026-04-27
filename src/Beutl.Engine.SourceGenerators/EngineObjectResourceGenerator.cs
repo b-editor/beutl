@@ -48,6 +48,10 @@ public sealed class EngineObjectResourceGenerator : IIncrementalGenerator
 
             if (!info.IsPartial)
             {
+                // Class opted out via [SuppressResourceClassGeneration]; fall back to the
+                // reflection-based base implementation instead of warning about partial.
+                if (info.SuppressedResourceGeneration) continue;
+
                 context.ReportDiagnostic(Diagnostic.Create(
                     DiagnosticDescriptors.MissingPartial,
                     info.Symbol.Locations.FirstOrDefault(),

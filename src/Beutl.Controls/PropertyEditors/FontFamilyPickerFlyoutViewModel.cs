@@ -26,7 +26,9 @@ public class FontFamilyPickerFlyoutViewModel
         _items = FontManager.Instance.FontFamilies
             .Select(v =>
                 new PinnableLibraryItem(
-                    FontManager.Instance._fontNames.TryGetValue(v, out var name) ? name.FontFamilyName : v.Name,
+                    FontManager.Instance._fontNames.TryGetValue(v, out var name)
+                        ? name.FontFamilyName ?? v.Name
+                        : v.Name,
                     false,
                     v))
             .OrderBy(i => i.DisplayName)
