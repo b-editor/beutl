@@ -1,6 +1,7 @@
 ﻿using System.Numerics;
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Input.Platform;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using Beutl.Animation;
@@ -469,15 +470,15 @@ public partial class PlayerView
 
                 if (ViewModel.TcsForCrop == null)
                 {
-                    var copyAsString = new MenuFlyoutItem()
+                    var copyAsString = new FAMenuFlyoutItem()
                     {
                         Text = Strings.Copy,
-                        IconSource = new SymbolIconSource() { Symbol = Symbol.Copy }
+                        IconSource = new FASymbolIconSource() { Symbol = FASymbol.Copy }
                     };
-                    var saveAsImage = new MenuFlyoutItem()
+                    var saveAsImage = new FAMenuFlyoutItem()
                     {
                         Text = Strings.SaveAsImage,
-                        IconSource = new SymbolIconSource() { Symbol = Symbol.SaveAs }
+                        IconSource = new FASymbolIconSource() { Symbol = FASymbol.SaveAs }
                     };
                     copyAsString.Click += (s, e) =>
                     {
@@ -514,13 +515,13 @@ public partial class PlayerView
                         }
                     };
 
-                    var list = new List<MenuFlyoutItem>();
+                    var list = new List<FAMenuFlyoutItem>();
                     if (OperatingSystem.IsWindows())
                     {
-                        var copyAsImage = new MenuFlyoutItem()
+                        var copyAsImage = new FAMenuFlyoutItem()
                         {
                             Text = Strings.CopyAsImage,
-                            IconSource = new SymbolIconSource() { Symbol = Symbol.ImageCopy }
+                            IconSource = new FASymbolIconSource() { Symbol = FASymbol.ImageCopy }
                         };
                         copyAsImage.Click += (s, e) => OnCopyAsImageClicked(rect);
 

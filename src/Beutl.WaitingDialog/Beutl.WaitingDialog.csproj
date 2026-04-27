@@ -19,9 +19,10 @@
     <PackageReference Include="Avalonia.Desktop" />
     <PackageReference Include="ReactiveUI.Avalonia" />
     <PackageReference Include="Avalonia.Themes.Fluent" />
-    <PackageReference Condition="'$(Configuration)' == 'Debug'" Include="Avalonia.Diagnostics" />
+    <PackageReference Condition="'$(Configuration)' == 'Debug'"
+      Include="AvaloniaUI.DiagnosticsSupport" />
     <PackageReference Include="FluentAvaloniaUI" />
-    <PackageReference Include="FluentIcons.FluentAvalonia" />
+    <PackageReference Include="Beutl.FluentIcons.FluentAvalonia" />
     <PackageReference Include="System.Reactive" />
   </ItemGroup>
 

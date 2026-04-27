@@ -255,7 +255,7 @@ public class Vector4Editor<TElement> : Vector4Editor
         }
     }
 
-    private void OnInnerTextBoxGotFocus(object sender, GotFocusEventArgs e)
+    private void OnInnerTextBoxGotFocus(object sender, FocusChangedEventArgs e)
     {
         if (!DataValidationErrors.GetHasErrors(this))
         {
@@ -636,7 +636,7 @@ public class Vector4Editor : PropertyEditor
         }
     }
 
-    private void OnInnerTextBoxGotFocus(object sender, GotFocusEventArgs e)
+    private void OnInnerTextBoxGotFocus(object sender, FocusChangedEventArgs e)
     {
         UpdateFocusState();
     }

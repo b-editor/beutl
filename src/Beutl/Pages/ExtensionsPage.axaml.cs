@@ -22,9 +22,9 @@ public sealed partial class ExtensionsPage : Window
     {
         InitializeComponent();
 
-        List<NavigationViewItem> items = GetItems();
+        List<FANavigationViewItem> items = GetItems();
         nav.MenuItemsSource = items;
-        NavigationViewItem selected = items[0];
+        FANavigationViewItem selected = items[0];
 
         frame.Navigated += Frame_Navigated;
         frame.Navigating += Frame_Navigating;
@@ -37,7 +37,7 @@ public sealed partial class ExtensionsPage : Window
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnAttachedToVisualTree(e);
-        if (nav.SelectedItem is NavigationViewItem selected)
+        if (nav.SelectedItem is FANavigationViewItem selected)
         {
             OnItemInvoked(selected);
         }
@@ -54,50 +54,50 @@ public sealed partial class ExtensionsPage : Window
         frame.Navigate(typeof(SearchPage), searchTextBox.Text);
     }
 
-    private static List<NavigationViewItem> GetItems()
+    private static List<FANavigationViewItem> GetItems()
     {
         return
         [
-            new NavigationViewItem()
+            new FANavigationViewItem()
             {
                 Content = "Home",
                 Tag = typeof(DiscoverPage),
-                IconSource = new SymbolIconSource
+                IconSource = new FASymbolIconSource
                 {
-                    Symbol = Symbol.Home
+                    Symbol = FASymbol.Home
                 }
             },
-            new NavigationViewItem()
+            new FANavigationViewItem()
             {
                 Content = "Library",
                 Tag = typeof(LibraryPage),
-                IconSource = new SymbolIconSource
+                IconSource = new FASymbolIconSource
                 {
-                    Symbol = Symbol.Library
+                    Symbol = FASymbol.Library
                 }
             },
         ];
     }
 
-    private void Nav_BackRequested(object? sender, NavigationViewBackRequestedEventArgs e)
+    private void Nav_BackRequested(object? sender, FANavigationViewBackRequestedEventArgs e)
     {
         frame.GoBack();
     }
 
-    private void Nav_ItemInvoked(object? sender, NavigationViewItemInvokedEventArgs e)
+    private void Nav_ItemInvoked(object? sender, FANavigationViewItemInvokedEventArgs e)
     {
-        if (e.InvokedItemContainer is NavigationViewItem nvi)
+        if (e.InvokedItemContainer is FANavigationViewItem nvi)
         {
             OnItemInvoked(nvi);
         }
     }
 
-    private void OnItemInvoked(NavigationViewItem nvi)
+    private void OnItemInvoked(FANavigationViewItem nvi)
     {
         if (nvi.Tag is Type typ
             && DataContext is ExtensionsPageViewModel viewModel)
         {
-            NavigationTransitionInfo transitionInfo = SharedNavigationTransitionInfo.Instance;
+            FANavigationTransitionInfo transitionInfo = SharedNavigationTransitionInfo.Instance;
             if (typ == typeof(LibraryPage))
             {
                 frame.Navigate(typ, viewModel.Library, transitionInfo);
@@ -109,7 +109,7 @@ public sealed partial class ExtensionsPage : Window
         }
     }
 
-    private void Frame_Navigating(object sender, NavigatingCancelEventArgs e)
+    private void Frame_Navigating(object sender, FANavigatingCancelEventArgs e)
     {
         _logger.LogInformation("Navigate to '{PageName}'.", e.SourcePageType.Name);
         Type type1 = frame.CurrentSourcePageType;
@@ -122,13 +122,13 @@ public sealed partial class ExtensionsPage : Window
             refreshCommand.Execute();
         }
 
-        if (e.NavigationTransitionInfo is EntranceNavigationTransitionInfo entrance)
+        if (e.NavigationTransitionInfo is FAEntranceNavigationTransitionInfo entrance)
         {
-            if (e.NavigationMode is NavigationMode.Back)
+            if (e.NavigationMode is FANavigationMode.Back)
             {
                 entrance.FromHorizontalOffset = -28;
             }
-            else if (e.NavigationMode is NavigationMode.Forward or NavigationMode.Refresh)
+            else if (e.NavigationMode is FANavigationMode.Forward or FANavigationMode.Refresh)
             {
                 entrance.FromHorizontalOffset = 28;
             }
@@ -149,9 +149,9 @@ public sealed partial class ExtensionsPage : Window
         }
     }
 
-    private void Frame_Navigated(object sender, NavigationEventArgs e)
+    private void Frame_Navigated(object sender, FANavigationEventArgs e)
     {
-        foreach (NavigationViewItem nvi in nav.MenuItems.OfType<NavigationViewItem>())
+        foreach (FANavigationViewItem nvi in nav.MenuItems.OfType<FANavigationViewItem>())
         {
             if (nvi.Tag is Type tag && tag == e.SourcePageType)
             {
@@ -160,7 +160,7 @@ public sealed partial class ExtensionsPage : Window
             }
         }
 
-        foreach (NavigationViewItem nvi in nav.MenuItems.OfType<NavigationViewItem>())
+        foreach (FANavigationViewItem nvi in nav.MenuItems.OfType<FANavigationViewItem>())
         {
             if (nvi.Tag is Type tag && e.SourcePageType.Namespace?.EndsWith($"{tag.Name}s") == true)
             {

@@ -17,11 +17,11 @@ public partial class SearchPage : UserControl
     public SearchPage()
     {
         InitializeComponent();
-        AddHandler(Frame.NavigatedFromEvent, OnNavigatedFrom, RoutingStrategies.Direct);
-        AddHandler(Frame.NavigatedToEvent, OnNavigatedTo, RoutingStrategies.Direct);
+        AddHandler(FAFrame.NavigatedFromEvent, OnNavigatedFrom, RoutingStrategies.Direct);
+        AddHandler(FAFrame.NavigatedToEvent, OnNavigatedTo, RoutingStrategies.Direct);
     }
 
-    private void OnNavigatedTo(object? sender, NavigationEventArgs e)
+    private void OnNavigatedTo(object? sender, FANavigationEventArgs e)
     {
         if (e.Parameter is string keyword)
         {
@@ -31,7 +31,7 @@ public partial class SearchPage : UserControl
         }
     }
 
-    private void OnNavigatedFrom(object? sender, NavigationEventArgs e)
+    private void OnNavigatedFrom(object? sender, FANavigationEventArgs e)
     {
         DestoryDataContext();
     }
@@ -54,7 +54,7 @@ public partial class SearchPage : UserControl
     private void Package_Click(object? sender, RoutedEventArgs e)
     {
         if (sender is Button { DataContext: Package package }
-            && this.FindLogicalAncestorOfType<Frame>() is { } frame)
+            && this.FindLogicalAncestorOfType<FAFrame>() is { } frame)
         {
             frame.Navigate(typeof(PackageDetailsPage), package);
         }

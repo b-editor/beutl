@@ -29,7 +29,7 @@
                     </Style>
                 </StackPanel.Styles>
                 <Button Command="{Binding Refresh}" Theme="{StaticResource TransparentButton}">
-                    <ui:SymbolIcon Symbol="Refresh" />
+                    <ui:FASymbolIcon Symbol="Refresh" />
                 </Button>
                 <RadioButton Click="ToggleDragModeClick"
                              GroupName="PathEditor_DragMode"

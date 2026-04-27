@@ -8,7 +8,7 @@ namespace FluentAvalonia.UI.Controls;
 /// <summary>
 /// Defines a flyout that hosts a <see cref="ColorPicker"/>
 /// </summary>
-public sealed class ColorPickerFlyout : PickerFlyoutBase
+public sealed class ColorPickerFlyout : FAPickerFlyoutBase
 {
     /// <summary>
     /// Gets the <see cref="ColorPicker"/> that this flyout hosts
@@ -30,7 +30,7 @@ public sealed class ColorPickerFlyout : PickerFlyoutBase
         if (_picker == null)
             _picker = new FAColorPicker();
 
-        var pfp = new PickerFlyoutPresenter()
+        var pfp = new FAPickerFlyoutPresenter()
         {
             Content = _picker
         };
@@ -53,13 +53,13 @@ public sealed class ColorPickerFlyout : PickerFlyoutBase
 
     protected override bool ShouldShowConfirmationButtons() => _showButtons;
 
-    private void OnFlyoutDismissed(PickerFlyoutPresenter sender, object args)
+    private void OnFlyoutDismissed(FAPickerFlyoutPresenter sender, object args)
     {
         Dismissed?.Invoke(this, EventArgs.Empty);
         Hide();
     }
 
-    private void OnFlyoutConfirmed(PickerFlyoutPresenter sender, object args)
+    private void OnFlyoutConfirmed(FAPickerFlyoutPresenter sender, object args)
     {
         OnConfirmed();
     }

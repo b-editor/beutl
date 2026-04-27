@@ -8,6 +8,7 @@ using Avalonia.Media;
 using Avalonia.Platform;
 using Avalonia.Utilities;
 using Avalonia.VisualTree;
+using Beutl.Utilities;
 
 namespace FluentAvalonia.UI.Controls;
 

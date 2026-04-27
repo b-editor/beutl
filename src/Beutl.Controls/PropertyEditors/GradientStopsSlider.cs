@@ -37,7 +37,7 @@ public class GradientStopsSlider : TemplatedControl
     private readonly GradientStops _unorderedStops = [];
     private IDisposable? _stopsSubscription;
     private FAMenuFlyout? _menuFlyout;
-    private MenuFlyoutItem? _deleteMenuItem;
+    private FAMenuFlyoutItem? _deleteMenuItem;
     private double _oldOffset;
     private int _oldIndex;
 
@@ -379,17 +379,17 @@ public class GradientStopsSlider : TemplatedControl
             if (_menuFlyout == null || _deleteMenuItem == null)
             {
                 _menuFlyout = new FAMenuFlyout();
-                _deleteMenuItem = new MenuFlyoutItem
+                _deleteMenuItem = new FAMenuFlyoutItem
                 {
                     Text = Strings.Delete,
-                    IconSource = new SymbolIconSource
+                    IconSource = new FASymbolIconSource
                     {
-                        Symbol = Symbol.Delete
+                        Symbol = FASymbol.Delete
                     }
                 };
                 _deleteMenuItem.Click += (s, e) =>
                 {
-                    if (s is MenuFlyoutItem { Tag: GradientStop obj } menu)
+                    if (s is FAMenuFlyoutItem { Tag: GradientStop obj } menu)
                     {
                         int index = Stops.IndexOf(obj);
                         if (ReferenceEquals(SelectedStop, obj))

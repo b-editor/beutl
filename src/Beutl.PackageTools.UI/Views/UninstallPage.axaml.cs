@@ -24,18 +24,18 @@ public partial class UninstallPage : PackageToolPage
     {
         _buttons = new(() =>
         {
-            var panel = new TaskDialogButtonsPanel
+            var panel = new FATaskDialogButtonsPanel
             {
                 [KeyboardNavigation.TabNavigationProperty] = KeyboardNavigationMode.Continue,
                 Spacing = 8
             };
-            var backButton = new TaskDialogButtonHost()
+            var backButton = new FATaskDialogButtonHost()
             {
                 Content = Strings.Back
             };
             backButton.Click += (s, e) =>
             {
-                Frame? frame = this.FindAncestorOfType<Frame>();
+                FAFrame? frame = this.FindAncestorOfType<FAFrame>();
                 frame?.GoBack();
             };
             panel.Children.Add(backButton);
@@ -45,12 +45,12 @@ public partial class UninstallPage : PackageToolPage
 
         _cancelButton = new(() =>
         {
-            var panel = new TaskDialogButtonsPanel
+            var panel = new FATaskDialogButtonsPanel
             {
                 [KeyboardNavigation.TabNavigationProperty] = KeyboardNavigationMode.Continue,
                 Spacing = 8
             };
-            var button = new TaskDialogButtonHost()
+            var button = new FATaskDialogButtonHost()
             {
                 Content = Strings.Cancel
             };
@@ -63,11 +63,11 @@ public partial class UninstallPage : PackageToolPage
             return panel;
         });
 
-        AddHandler(Frame.NavigatedToEvent, OnNavigatedTo, RoutingStrategies.Direct);
+        AddHandler(FAFrame.NavigatedToEvent, OnNavigatedTo, RoutingStrategies.Direct);
         InitializeComponent();
     }
 
-    private async void OnNavigatedTo(object? sender, NavigationEventArgs e)
+    private async void OnNavigatedTo(object? sender, FANavigationEventArgs e)
     {
         Scroll.SetCurrentValue(ScrollViewer.OffsetProperty, new Vector(0, 0));
         if (e.Parameter is UninstallViewModel)
@@ -88,7 +88,7 @@ public partial class UninstallPage : PackageToolPage
                 _cts = new CancellationTokenSource();
                 CancellationToken token = _cts.Token;
                 await Task.Run(() => viewModel.Run(token));
-                Frame? frame = this.FindAncestorOfType<Frame>();
+                FAFrame? frame = this.FindAncestorOfType<FAFrame>();
                 if (frame is { DataContext: MainViewModel main })
                 {
                     object? nextViewModel = main.Next(viewModel, token);

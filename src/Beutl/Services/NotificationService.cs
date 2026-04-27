@@ -39,7 +39,7 @@ public sealed class NotificationServiceHandler : INotificationServiceHandler
         return null;
     }
 
-    private static void Close(InfoBar infoBar)
+    private static void Close(FAInfoBar infoBar)
     {
         if (GetMainView() is MainView mainView)
         {
@@ -58,7 +58,7 @@ public sealed class NotificationServiceHandler : INotificationServiceHandler
 
                 if (GetMainView() is MainView mainView)
                 {
-                    var infoBar = new InfoBar
+                    var infoBar = new FAInfoBar
                     {
                         [!TemplatedControl.BackgroundProperty] =
                             new DynamicResourceExtension("SolidBackgroundFillColorTertiaryBrush"),
@@ -70,16 +70,16 @@ public sealed class NotificationServiceHandler : INotificationServiceHandler
                         Width = 350,
                         Severity = notification.Type switch
                         {
-                            NotificationType.Success => InfoBarSeverity.Success,
-                            NotificationType.Warning => InfoBarSeverity.Warning,
-                            NotificationType.Error => InfoBarSeverity.Error,
-                            NotificationType.Information or _ => InfoBarSeverity.Informational,
+                            NotificationType.Success => FAInfoBarSeverity.Success,
+                            NotificationType.Warning => FAInfoBarSeverity.Warning,
+                            NotificationType.Error => FAInfoBarSeverity.Error,
+                            NotificationType.Information or _ => FAInfoBarSeverity.Informational,
                         }
                     };
 
                     infoBar.CloseButtonClick += (s, _) =>
                     {
-                        if (s is InfoBar { DataContext: Notification n } infoBar)
+                        if (s is FAInfoBar { DataContext: Notification n } infoBar)
                         {
                             n.OnClose?.Invoke();
                             Close(infoBar);
@@ -95,7 +95,7 @@ public sealed class NotificationServiceHandler : INotificationServiceHandler
                             {
                                 n.OnActionButtonClick?.Invoke();
 
-                                InfoBar? infoBar = button.FindLogicalAncestorOfType<InfoBar>();
+                                FAInfoBar? infoBar = button.FindLogicalAncestorOfType<FAInfoBar>();
                                 if (infoBar != null)
                                     Close(infoBar);
                             }

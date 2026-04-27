@@ -22,8 +22,6 @@ public sealed partial class MacWindow : Window
         {
             ExtendClientAreaToDecorationsHint = true;
             ExtendClientAreaTitleBarHeightHint = 40;
-            ExtendClientAreaChromeHints = ExtendClientAreaChromeHints.OSXThickTitleBar |
-                                          ExtendClientAreaChromeHints.PreferSystemChrome;
         }
 
         InitializeComponent();
@@ -40,10 +38,6 @@ public sealed partial class MacWindow : Window
             var rect = new PixelRect(pos.Value.X, pos.Value.Y, size.Value.Width, size.Value.Height);
             SetRect(rect);
         }
-
-#if DEBUG
-        this.AttachDevTools();
-#endif
     }
 
     private void SetRect(PixelRect rect)

@@ -12,12 +12,12 @@
     <Grid RowDefinitions="Auto,Auto">
         <Grid Margin="8,0,0,0"
               ColumnDefinitions="Auto,*,Auto"
-              ToolTip.Tip="{Binding Description.Value}">
+              ToolTip.Tip="{ReflectionBinding Description.Value}">
             <Border Name="reorderHandle" Theme="{StaticResource PropertyEditorReorderHandle}" />
 
             <TextBlock Grid.Column="1"
                        Margin="0,4"
-                       Text="{Binding Header}" />
+                       Text="{ReflectionBinding Header}" />
 
             <Button Grid.Column="2"
                     Margin="4,0"

@@ -27,26 +27,26 @@
                         Orientation="Vertical"
                         Spacing="4">
                 <Grid RowDefinitions="Auto,Auto,Auto,Auto">
-                    <ui:CommandBar DefaultLabelPosition="Right">
-                        <ui:CommandBar.PrimaryCommands>
-                            <ui:CommandBarElementContainer VerticalContentAlignment="Center">
+                    <ui:FACommandBar DefaultLabelPosition="Right">
+                        <ui:FACommandBar.PrimaryCommands>
+                            <ui:FACommandBarElementContainer VerticalContentAlignment="Center">
                                 <ComboBox Height="36"
                                           MinWidth="250"
                                           Background="Transparent"
                                           BorderThickness="0"
                                           ItemsSource="{CompiledBinding FileExtensions}"
                                           SelectedItem="{CompiledBinding SelectedFileExtension.Value}" />
-                            </ui:CommandBarElementContainer>
-                            <ui:CommandBarButton Click="Add_FileExtension"
-                                                 IconSource="Add"
-                                                 Label="{x:Static lang:Strings.Add}" />
-                        </ui:CommandBar.PrimaryCommands>
-                        <ui:CommandBar.SecondaryCommands>
-                            <ui:CommandBarButton Command="{CompiledBinding RemoveFileExtension}"
-                                                 IconSource="Delete"
-                                                 Label="{x:Static lang:Strings.Remove}" />
-                        </ui:CommandBar.SecondaryCommands>
-                    </ui:CommandBar>
+                            </ui:FACommandBarElementContainer>
+                            <ui:FACommandBarButton Click="Add_FileExtension"
+                                                   IconSource="Add"
+                                                   Label="{x:Static lang:Strings.Add}" />
+                        </ui:FACommandBar.PrimaryCommands>
+                        <ui:FACommandBar.SecondaryCommands>
+                            <ui:FACommandBarButton Command="{CompiledBinding RemoveFileExtension}"
+                                                   IconSource="Delete"
+                                                   Label="{x:Static lang:Strings.Remove}" />
+                        </ui:FACommandBar.SecondaryCommands>
+                    </ui:FACommandBar>
 
                     <ListBox Grid.Row="1" ItemsSource="{CompiledBinding EditorExtensions1}">
                         <ListBox.ItemTemplate>
@@ -64,26 +64,26 @@
                                         <TextBlock Classes="CaptionTextBlockStyle" Text="{Binding TypeName}" />
                                     </StackPanel>
 
-                                    <ui:CommandBarButton Grid.Column="1"
-                                                         Command="{Binding #root.DataContext.HighPriority}"
-                                                         CommandParameter="{Binding}"
-                                                         IconSource="ChevronUp"
-                                                         IsVisible="{Binding $parent[ListBoxItem].IsPointerOver}"
-                                                         Label="{x:Static lang:SettingsStrings.Higher}" />
+                                    <ui:FACommandBarButton Grid.Column="1"
+                                                           Command="{Binding #root.DataContext.HighPriority}"
+                                                           CommandParameter="{Binding}"
+                                                           IconSource="ChevronUp"
+                                                           IsVisible="{Binding $parent[ListBoxItem].IsPointerOver}"
+                                                           Label="{x:Static lang:SettingsStrings.Higher}" />
 
-                                    <ui:CommandBarButton Grid.Column="2"
-                                                         Command="{Binding #root.DataContext.LowPriority}"
-                                                         CommandParameter="{Binding}"
-                                                         IconSource="ChevronDown"
-                                                         IsVisible="{Binding $parent[ListBoxItem].IsPointerOver}"
-                                                         Label="{x:Static lang:SettingsStrings.Lower}" />
+                                    <ui:FACommandBarButton Grid.Column="2"
+                                                           Command="{Binding #root.DataContext.LowPriority}"
+                                                           CommandParameter="{Binding}"
+                                                           IconSource="ChevronDown"
+                                                           IsVisible="{Binding $parent[ListBoxItem].IsPointerOver}"
+                                                           Label="{x:Static lang:SettingsStrings.Lower}" />
 
-                                    <ui:CommandBarButton Grid.Column="3"
-                                                         Command="{Binding #root.DataContext.RemoveExt}"
-                                                         CommandParameter="{Binding}"
-                                                         IconSource="Clear"
-                                                         IsVisible="{Binding $parent[ListBoxItem].IsPointerOver}"
-                                                         Label="{x:Static lang:Strings.Remove}" />
+                                    <ui:FACommandBarButton Grid.Column="3"
+                                                           Command="{Binding #root.DataContext.RemoveExt}"
+                                                           CommandParameter="{Binding}"
+                                                           IconSource="Clear"
+                                                           IsVisible="{Binding $parent[ListBoxItem].IsPointerOver}"
+                                                           Label="{x:Static lang:Strings.Remove}" />
                                 </Grid>
                             </DataTemplate>
                         </ListBox.ItemTemplate>
@@ -107,12 +107,12 @@
                                         <TextBlock Classes="CaptionTextBlockStyle" Text="{Binding TypeName}" />
                                     </StackPanel>
 
-                                    <ui:CommandBarButton Grid.Column="1"
-                                                         Command="{Binding #root.DataContext.AddExt}"
-                                                         CommandParameter="{Binding}"
-                                                         IconSource="Add"
-                                                         IsVisible="{Binding $parent[ListBoxItem].IsPointerOver}"
-                                                         Label="{x:Static lang:Strings.Add}" />
+                                    <ui:FACommandBarButton Grid.Column="1"
+                                                           Command="{Binding #root.DataContext.AddExt}"
+                                                           CommandParameter="{Binding}"
+                                                           IconSource="Add"
+                                                           IsVisible="{Binding $parent[ListBoxItem].IsPointerOver}"
+                                                           Label="{x:Static lang:Strings.Add}" />
                                 </Grid>
                             </DataTemplate>
                         </ListBox.ItemTemplate>

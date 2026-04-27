@@ -38,7 +38,7 @@
             <Button Width="37"
                     Height="37"
                     Click="Delete_Click">
-                <ui:SymbolIcon FontSize="16" Symbol="Delete" />
+                <ui:FASymbolIcon FontSize="16" Symbol="Delete" />
             </Button>
 
             <ui:ColorPickerButton x:Name="colorPicker"

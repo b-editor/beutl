@@ -86,7 +86,7 @@ public partial class TransformEditor : UserControl
         EditorDragDropHelper.HandleEditorDragOver(e, BeutlDataFormats.Transform);
     }
 
-    private static MenuFlyoutItem[] CreateMenuItems(EventHandler<RoutedEventArgs>? handler)
+    private static FAMenuFlyoutItem[] CreateMenuItems(EventHandler<RoutedEventArgs>? handler)
     {
         var items = new (KnownTransformType Tag, string Name, string? Icon)[]
         {
@@ -100,7 +100,7 @@ public partial class TransformEditor : UserControl
         };
         return items.Select(x =>
             {
-                var obj = new MenuFlyoutItem() { Tag = x.Tag, Text = x.Name };
+                var obj = new FAMenuFlyoutItem() { Tag = x.Tag, Text = x.Name };
                 if (handler != null)
                 {
                     obj.Click += handler;
@@ -108,7 +108,7 @@ public partial class TransformEditor : UserControl
 
                 if (x.Icon != null)
                 {
-                    obj.IconSource = new PathIconSource
+                    obj.IconSource = new FAPathIconSource
                     {
                         Data = Application.Current?.FindResource(x.Icon) as Avalonia.Media.Geometry
                     };
@@ -158,7 +158,7 @@ public partial class TransformEditor : UserControl
 
     private void AddTransformClick(object? sender, RoutedEventArgs e)
     {
-        if (sender is MenuFlyoutItem { Tag: KnownTransformType type }
+        if (sender is FAMenuFlyoutItem { Tag: KnownTransformType type }
             && DataContext is TransformEditorViewModel { IsDisposed: false } viewModel)
         {
             viewModel.AddItem(type);
@@ -167,7 +167,7 @@ public partial class TransformEditor : UserControl
 
     private void TransformTypeClicked(object? sender, RoutedEventArgs e)
     {
-        if (sender is MenuFlyoutItem { Tag: KnownTransformType type }
+        if (sender is FAMenuFlyoutItem { Tag: KnownTransformType type }
             && DataContext is TransformEditorViewModel { IsDisposed: false } viewModel)
         {
             viewModel.ChangeType(type);

@@ -1,4 +1,5 @@
-﻿using System.Collections.Specialized;
+﻿using System.Collections;
+using System.Collections.Specialized;
 using System.Text.Json.Nodes;
 using Beutl.Animation;
 using Beutl.Services;
@@ -79,6 +80,16 @@ public interface IListEditorViewModel
     bool IsListNull { get; }
 
     bool IsDisposed { get; }
+
+    string Header { get; }
+
+    ReactivePropertySlim<string?> Description { get; }
+
+    IReadOnlyReactiveProperty<IEnumerable?> List { get; }
+
+    ICoreReadOnlyList<IListItemEditorViewModel> Items { get; }
+
+    ReactivePropertySlim<bool> IsExpanded { get; }
 
     void MoveItem(int oldIndex, int newIndex);
 
@@ -180,7 +191,11 @@ public sealed class ListEditorViewModel<TItem> : BaseEditorViewModel, IListEdito
 
     public ReadOnlyReactivePropertySlim<IList<TItem?>?> List { get; }
 
+    IReadOnlyReactiveProperty<IEnumerable?> IListEditorViewModel.List => List;
+
     public CoreList<ListItemEditorViewModel<TItem>> Items { get; } = [];
+
+    ICoreReadOnlyList<IListItemEditorViewModel> IListEditorViewModel.Items => Items;
 
     public ReactivePropertySlim<bool> IsExpanded { get; } = new(false);
 

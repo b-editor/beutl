@@ -8,6 +8,7 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:vm="using:Beutl.ViewModels.Editors"
+             x:DataType="vm:IListEditorViewModel"
              x:Name="root"
              d:DesignHeight="70"
              d:DesignWidth="300"
@@ -28,8 +29,8 @@
                         Theme="{StaticResource TransparentButton}">
                     <Button.ContextFlyout>
                         <ui:FAMenuFlyout>
-                            <ui:MenuFlyoutItem Click="InitializeClick" Text="{x:Static lang:Strings.Initialize}" />
-                            <ui:MenuFlyoutItem Click="DeleteClick" Text="{x:Static lang:Strings.Remove}" />
+                            <ui:FAMenuFlyoutItem Click="InitializeClick" Text="{x:Static lang:Strings.Initialize}" />
+                            <ui:FAMenuFlyoutItem Click="DeleteClick" Text="{x:Static lang:Strings.Remove}" />
                         </ui:FAMenuFlyout>
                     </Button.ContextFlyout>
                     <icons:SymbolIcon Classes.add="{Binding List.Value, Converter={x:Static ObjectConverters.IsNotNull}}">

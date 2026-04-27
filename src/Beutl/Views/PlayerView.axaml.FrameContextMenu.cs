@@ -29,9 +29,9 @@ public partial class PlayerView
         _saveFrameAsImage = new MenuItem
         {
             Header = Strings.SaveFrameAsImage,
-            Icon = new SymbolIcon
+            Icon = new FASymbolIcon
             {
-                Symbol = Symbol.Image
+                Symbol = FASymbol.Image
             },
         };
         _saveFrameAsImage.Click += OnSaveFrameAsImageClick;

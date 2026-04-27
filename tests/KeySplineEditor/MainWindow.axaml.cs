@@ -30,9 +30,6 @@ public partial class MainWindow : Window
 
         _keySplineDrawing = new KeySplineDrawing(panel, _keySpline);
         panel.Children.Insert(0, _keySplineDrawing);
-#if DEBUG
-        this.AttachDevTools();
-#endif
     }
 
     protected override Size ArrangeOverride(Size finalSize)

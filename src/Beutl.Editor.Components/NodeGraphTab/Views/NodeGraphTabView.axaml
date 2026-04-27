@@ -15,20 +15,20 @@
     <Grid RowDefinitions="Auto,*">
         <local:NodeGraphView Grid.RowSpan="2" DataContext="{Binding NodeGraph.Value}" />
 
-        <ui:BreadcrumbBar Margin="8"
-                          ItemClicked="BreadcrumbBarItemClicked"
-                          ItemsSource="{Binding Items}">
-            <ui:BreadcrumbBar.ItemTemplate>
+        <ui:FABreadcrumbBar Margin="8"
+                            ItemClicked="BreadcrumbBarItemClicked"
+                            ItemsSource="{Binding Items}">
+            <ui:FABreadcrumbBar.ItemTemplate>
                 <DataTemplate x:DataType="viewModel:NodeGraphNavigationItem">
-                     <ui:BreadcrumbBarItem Content="{Binding}">
-                            <ui:BreadcrumbBarItem.ContentTemplate>
+                     <ui:FABreadcrumbBarItem Content="{Binding}">
+                            <ui:FABreadcrumbBarItem.ContentTemplate>
                                 <DataTemplate DataType="viewModel:NodeGraphNavigationItem">
                                     <TextBlock Text="{Binding Name.Value}" />
                                 </DataTemplate>
-                            </ui:BreadcrumbBarItem.ContentTemplate>
-                        </ui:BreadcrumbBarItem>
+                            </ui:FABreadcrumbBarItem.ContentTemplate>
+                        </ui:FABreadcrumbBarItem>
                 </DataTemplate>
-            </ui:BreadcrumbBar.ItemTemplate>
-        </ui:BreadcrumbBar>
+            </ui:FABreadcrumbBar.ItemTemplate>
+        </ui:FABreadcrumbBar>
     </Grid>
 </UserControl>

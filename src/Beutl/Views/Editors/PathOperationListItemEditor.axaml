@@ -7,6 +7,7 @@
              xmlns:local="using:Beutl.Views.Editors"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:viewModel="using:Beutl.ViewModels.Editors"
+             x:DataType="viewModel:PathOperationEditorViewModel"
              x:Name="root"
              d:DesignHeight="450"
              d:DesignWidth="400"

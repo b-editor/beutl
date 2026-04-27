@@ -15,10 +15,10 @@ public partial class ResultPage : PackageToolPage
     public ResultPage()
     {
         InitializeComponent();
-        AddHandler(Frame.NavigatedToEvent, OnNavigatedTo, RoutingStrategies.Direct);
+        AddHandler(FAFrame.NavigatedToEvent, OnNavigatedTo, RoutingStrategies.Direct);
     }
 
-    private void OnNavigatedTo(object? sender, NavigationEventArgs e)
+    private void OnNavigatedTo(object? sender, FANavigationEventArgs e)
     {
         if (e.Parameter is ResultViewModel viewModel)
         {
@@ -37,7 +37,7 @@ public partial class ResultPage : PackageToolPage
 
     private void ShowDetailsClick(object? sender, RoutedEventArgs e)
     {
-        Frame? frame = this.FindAncestorOfType<Frame>();
+        FAFrame? frame = this.FindAncestorOfType<FAFrame>();
         if (frame == null) return;
 
         if (sender is StyledElement { DataContext: ActionViewModel item })

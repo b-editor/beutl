@@ -23,22 +23,29 @@
                       ToolTip.Tip="{Binding Description.Value}">
             <ToggleButton.ContextFlyout>
                 <ui:FAMenuFlyout>
-                    <ui:MenuFlyoutItem Click="NewClick"
-                                       IconSource="New"
-                                       Text="{x:Static lang:Strings.Change}" />
-                    <ui:MenuFlyoutItem Click="SetNullClick" Text="{x:Static lang:Strings.Null}" />
-                    <ui:MenuFlyoutItem Click="Navigate_Click" Text="{x:Static lang:Strings.OpenInTab}" />
+                    <ui:FAMenuFlyoutItem Click="NewClick"
+                                         IconSource="New"
+                                         Text="{x:Static lang:Strings.Change}" />
+                    <ui:FAMenuFlyoutItem Click="SetNullClick" Text="{x:Static lang:Strings.Null}" />
+                    <ui:FAMenuFlyoutItem Click="Navigate_Click" Text="{x:Static lang:Strings.OpenInTab}" />
                 </ui:FAMenuFlyout>
             </ToggleButton.ContextFlyout>
             <ToggleButton.Tag>
-                <Button Padding="0"
-                        HorizontalContentAlignment="Center"
-                        VerticalContentAlignment="Center"
-                        Classes="size-24x24"
-                        Click="NewClick"
-                        Theme="{StaticResource TransparentButton}">
-                    <icons:SymbolIcon Symbol="New" />
-                </Button>
+                <StackPanel Orientation="Horizontal" Spacing="4">
+                    <ToggleButton Padding="0"
+                                  Classes="size-24x24"
+                                  IsChecked="{Binding IsEnabled.Value}"
+                                  IsVisible="{Binding IsEngineObject.Value}"
+                                  Theme="{StaticResource VisibilityToggleButtonStyle}" />
+                    <Button Padding="0"
+                            HorizontalContentAlignment="Center"
+                            VerticalContentAlignment="Center"
+                            Classes="size-24x24"
+                            Click="NewClick"
+                            Theme="{StaticResource TransparentButton}">
+                        <icons:SymbolIcon Symbol="New" />
+                    </Button>
+                </StackPanel>
             </ToggleButton.Tag>
             <TextBlock Text="{Binding Header}" />
         </ToggleButton>
@@ -56,10 +63,10 @@
                         Theme="{StaticResource TransparentButton}">
                     <Button.Flyout>
                         <ui:FAMenuFlyout>
-                            <ui:MenuFlyoutItem Click="NewClick"
-                                               IconSource="New"
-                                               Text="{x:Static lang:Strings.Change}" />
-                            <ui:MenuFlyoutItem Click="SetNullClick" Text="{x:Static lang:Strings.Null}" />
+                            <ui:FAMenuFlyoutItem Click="NewClick"
+                                                 IconSource="New"
+                                                 Text="{x:Static lang:Strings.Change}" />
+                            <ui:FAMenuFlyoutItem Click="SetNullClick" Text="{x:Static lang:Strings.Null}" />
                         </ui:FAMenuFlyout>
                     </Button.Flyout>
                     <icons:SymbolIcon Symbol="MoreVertical" />
@@ -79,7 +86,7 @@
                 <local:PropertiesEditor Padding="0"
                                         DataContext="{Binding Properties.Value}"
                                         IsVisible="{ReflectionBinding #root.DataContext.Properties.Value,
-                                                                      Converter={x:Static ObjectConverters.IsNotNull}}" />
+                                        Converter={x:Static ObjectConverters.IsNotNull}}" />
             </controls:TreeLineDecorator>
         </Panel>
     </Grid>

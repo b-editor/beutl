@@ -49,5 +49,6 @@ internal class Program
             {
                 DefaultFamilyName = Media.FontManager.Instance.DefaultTypeface.FontFamily.Name
             })
-            .LogToTrace();
+            .LogToTrace()
+            .WithDeveloperTools();
 }

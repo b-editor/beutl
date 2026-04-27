@@ -33,12 +33,12 @@
                         BorderBrush="{DynamicResource TextControlButtonBorderBrush}"
                         BorderThickness="{TemplateBinding BorderThickness}"
                         CornerRadius="{TemplateBinding CornerRadius}">
-                    <ui:SymbolIcon Name="Glyph"
-                                   HorizontalAlignment="Center"
-                                   VerticalAlignment="Center"
-                                   FontSize="{StaticResource TextBoxIconFontSize}"
-                                   Foreground="{DynamicResource TextControlButtonForeground}"
-                                   Symbol="Open" />
+                    <ui:FASymbolIcon Name="Glyph"
+                                     HorizontalAlignment="Center"
+                                     VerticalAlignment="Center"
+                                     FontSize="{StaticResource TextBoxIconFontSize}"
+                                     Foreground="{DynamicResource TextControlButtonForeground}"
+                                     Symbol="Open" />
                 </Border>
             </ControlTemplate>
         </Setter>
@@ -49,7 +49,7 @@
                 <Setter Property="BorderBrush" Value="{DynamicResource TextControlButtonBorderBrushPointerOver}" />
             </Style>
 
-            <Style Selector="^ /template/ ui|SymbolIcon#Glyph">
+            <Style Selector="^ /template/ ui|FASymbolIcon#Glyph">
                 <Setter Property="Foreground" Value="{DynamicResource TextControlButtonForegroundPointerOver}" />
             </Style>
         </Style>
@@ -60,7 +60,7 @@
                 <Setter Property="BorderBrush" Value="{DynamicResource TextControlButtonBorderBrushPressed}" />
             </Style>
 
-            <Style Selector="^ /template/ ui|SymbolIcon#Glyph">
+            <Style Selector="^ /template/ ui|FASymbolIcon#Glyph">
                 <Setter Property="Foreground" Value="{DynamicResource TextControlButtonForegroundPressed}" />
             </Style>
         </Style>

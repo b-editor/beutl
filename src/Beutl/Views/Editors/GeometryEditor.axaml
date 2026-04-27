@@ -23,12 +23,12 @@
                       ToolTip.Tip="{Binding Description.Value}">
             <ToggleButton.ContextFlyout>
                 <ui:FAMenuFlyout>
-                    <ui:MenuFlyoutItem Click="SetNullClick"
-                                       Text="{x:Static lang:Strings.Null}" />
-                    <ui:MenuFlyoutItem Click="InitializeClick"
-                                       Text="{x:Static lang:Strings.Initialize}" />
-                    <ui:MenuFlyoutItem Click="ImportFromSvgPathClick"
-                                       Text="{x:Static lang:Strings.ImportSvgPath}" />
+                    <ui:FAMenuFlyoutItem Click="SetNullClick"
+                                         Text="{x:Static lang:Strings.Null}" />
+                    <ui:FAMenuFlyoutItem Click="InitializeClick"
+                                         Text="{x:Static lang:Strings.Initialize}" />
+                    <ui:FAMenuFlyoutItem Click="ImportFromSvgPathClick"
+                                         Text="{x:Static lang:Strings.ImportSvgPath}" />
                 </ui:FAMenuFlyout>
             </ToggleButton.ContextFlyout>
             <ToggleButton.Tag>
@@ -64,7 +64,7 @@
                 <local:PropertiesEditor Padding="0"
                                         DataContext="{Binding Properties.Value}"
                                         IsVisible="{ReflectionBinding #root.DataContext.Properties.Value,
-                                                                      Converter={x:Static ObjectConverters.IsNotNull}}" />
+                                        Converter={x:Static ObjectConverters.IsNotNull}}" />
 
                 <ItemsControl Margin="-16,0,0,0"
                               DataContext="{Binding Group.Value}"

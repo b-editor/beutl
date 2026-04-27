@@ -15,7 +15,7 @@
                         Padding="8"
                         BorderThickness="0"
                         Background="Transparent">
-                    <ui:SymbolIcon Symbol="Back" FontSize="16" />
+                    <ui:FASymbolIcon Symbol="Back" FontSize="16" />
                 </Button>
             </StackPanel>
 

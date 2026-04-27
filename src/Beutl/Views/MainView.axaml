@@ -51,7 +51,7 @@
 
             <Menu x:Name="MenuBar"
                   Grid.Column="1"
-                  wnd:AppWindow.AllowInteractionInTitleBar="True">
+                  wnd:FAAppWindow.AllowInteractionInTitleBar="True">
                 <!--  ファイル  -->
                 <MenuItem Header="{x:Static lang:Strings.File}">
                     <!--  新規作成  -->
@@ -63,12 +63,12 @@
                         <MenuItem Command="{CompiledBinding MenuBar.CreateNewProject}"
                                   Header="{x:Static lang:Strings.CreateNewProject}"
                                   InputGesture="{h:GetCommandGesture CreateNewProject,
-                                                                     ExtensionType={x:Type p:MainViewExtension}}" />
+                                  ExtensionType={x:Type p:MainViewExtension}}" />
                         <!--  ファイル  -->
                         <MenuItem Command="{CompiledBinding MenuBar.CreateNew}"
                                   Header="{x:Static lang:Strings.CreateNewScene}"
                                   InputGesture="{h:GetCommandGesture CreateNewFile,
-                                                                     ExtensionType={x:Type p:MainViewExtension}}" />
+                                  ExtensionType={x:Type p:MainViewExtension}}" />
                     </MenuItem>
                     <Separator />
                     <!--  開く  -->
@@ -80,12 +80,12 @@
                         <MenuItem Command="{CompiledBinding MenuBar.OpenProject}"
                                   Header="{x:Static lang:Strings.Project}"
                                   InputGesture="{h:GetCommandGesture OpenProject,
-                                                                     ExtensionType={x:Type p:MainViewExtension}}" />
+                                  ExtensionType={x:Type p:MainViewExtension}}" />
                         <!--  ファイル  -->
                         <MenuItem Command="{CompiledBinding MenuBar.OpenFile}"
                                   Header="{x:Static lang:Strings.File}"
                                   InputGesture="{h:GetCommandGesture OpenFile,
-                                                                     ExtensionType={x:Type p:MainViewExtension}}" />
+                                  ExtensionType={x:Type p:MainViewExtension}}" />
                     </MenuItem>
                     <Separator />
                     <!--  閉じる  -->
@@ -99,7 +99,7 @@
                     <MenuItem Command="{CompiledBinding MenuBar.Save}"
                               Header="{x:Static lang:Strings.Save}"
                               InputGesture="{h:GetCommandGesture Save,
-                                                                 ExtensionType={x:Type p:MainViewExtension}}"
+                              ExtensionType={x:Type p:MainViewExtension}}"
                               IsEnabled="{CompiledBinding IsProjectOpened.Value}">
                         <MenuItem.Icon>
                             <icons:SymbolIcon Symbol="Save" />
@@ -109,7 +109,7 @@
                     <MenuItem Command="{CompiledBinding MenuBar.SaveAll}"
                               Header="{x:Static lang:Strings.SaveAll}"
                               InputGesture="{h:GetCommandGesture SaveAll,
-                                                                 ExtensionType={x:Type p:MainViewExtension}}"
+                              ExtensionType={x:Type p:MainViewExtension}}"
                               IsEnabled="{CompiledBinding IsProjectOpened.Value}">
                         <MenuItem.Icon>
                             <icons:SymbolIcon Symbol="SaveMultiple" />
@@ -143,7 +143,7 @@
                     <MenuItem Command="{CompiledBinding MenuBar.Exit}"
                               Header="{x:Static lang:Strings.Exit}"
                               InputGesture="{h:GetCommandGesture Exit,
-                                                                 ExtensionType={x:Type p:MainViewExtension}}" />
+                              ExtensionType={x:Type p:MainViewExtension}}" />
                 </MenuItem>
                 <!--  編集  -->
                 <MenuItem Header="{x:Static lang:Strings.Edit}">
@@ -151,7 +151,7 @@
                     <MenuItem Command="{CompiledBinding MenuBar.Undo}"
                               Header="{x:Static lang:Strings.Undo}"
                               InputGesture="{h:GetCommandGesture Undo,
-                                                                 ExtensionType={x:Type p:MainViewExtension}}"
+                              ExtensionType={x:Type p:MainViewExtension}}"
                               IsEnabled="{CompiledBinding IsProjectOpened.Value}">
                         <MenuItem.Icon>
                             <icons:SymbolIcon Symbol="ArrowUndo" />
@@ -161,7 +161,7 @@
                     <MenuItem Command="{CompiledBinding MenuBar.Redo}"
                               Header="{x:Static lang:Strings.Redo}"
                               InputGesture="{h:GetCommandGesture Redo,
-                                                                 ExtensionType={x:Type p:MainViewExtension}}"
+                              ExtensionType={x:Type p:MainViewExtension}}"
                               IsEnabled="{CompiledBinding IsProjectOpened.Value}">
                         <MenuItem.Icon>
                             <icons:SymbolIcon Symbol="ArrowRedo" />
@@ -212,7 +212,7 @@
 
             <views:TitleBreadcrumbBar Name="TitleBreadcrumbBar"
                                       Grid.Column="2"
-                                      wnd:AppWindow.AllowInteractionInTitleBar="True"
+                                      wnd:FAAppWindow.AllowInteractionInTitleBar="True"
                                       DataContext="{Binding TitleBreadcrumbBar}" />
 
             <StackPanel Grid.Column="3"
@@ -227,7 +227,7 @@
                            Text="Debug" />
 
                 <Border Margin="4,0,0,0"
-                        wnd:AppWindow.AllowInteractionInTitleBar="True"
+                        wnd:FAAppWindow.AllowInteractionInTitleBar="True"
                         Background="Transparent"
                         ToolTip.Tip="{x:Static lang:Strings.RunningStartupTasks}">
                     <ProgressRing Width="20"
@@ -240,7 +240,7 @@
                 </Border>
 
                 <Button x:Name="OpenFeedbackButton"
-                        wnd:AppWindow.AllowInteractionInTitleBar="True"
+                        wnd:FAAppWindow.AllowInteractionInTitleBar="True"
                         Click="OpenFeedbackClick"
                         ToolTip.Tip="{x:Static lang:Strings.Feedback}"
                         Theme="{StaticResource TitleBarButtonStyle}">
@@ -250,7 +250,7 @@
                 <Button x:Name="OpenNotificationsButton"
                         HorizontalContentAlignment="Stretch"
                         VerticalContentAlignment="Stretch"
-                        wnd:AppWindow.AllowInteractionInTitleBar="True"
+                        wnd:FAAppWindow.AllowInteractionInTitleBar="True"
                         Click="OpenNotificationsClick"
                         Theme="{StaticResource TitleBarButtonStyle}">
                     <Button.Flyout>
@@ -261,15 +261,15 @@
                         </Flyout>
                     </Button.Flyout>
                     <Panel>
-                        <ui:SymbolIcon HorizontalAlignment="Center"
-                                       VerticalAlignment="Center"
-                                       Symbol="Alert" />
-                        <ui:InfoBadge Width="8"
-                                      Height="8"
-                                      Margin="0,4,4,0"
-                                      HorizontalAlignment="Right"
-                                      VerticalAlignment="Top"
-                                      IsVisible="{Binding !!#HiddenNotificationPanel.Children.Count}" />
+                        <ui:FASymbolIcon HorizontalAlignment="Center"
+                                         VerticalAlignment="Center"
+                                         Symbol="Alert" />
+                        <ui:FAInfoBadge Width="8"
+                                        Height="8"
+                                        Margin="0,4,4,0"
+                                        HorizontalAlignment="Right"
+                                        VerticalAlignment="Top"
+                                        IsVisible="{Binding !!#HiddenNotificationPanel.Children.Count}" />
                     </Panel>
                 </Button>
             </StackPanel>
@@ -291,7 +291,7 @@
                     VerticalAlignment="Top"
                     Spacing="4">
             <StackPanel.Styles>
-                <Style Selector="ui|InfoBar">
+                <Style Selector="ui|FAInfoBar">
                     <Style Selector="^">
                         <Style.Animations>
                             <Animation FillMode="Forward" Duration="00:00:00.250">

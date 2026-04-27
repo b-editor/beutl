@@ -11,16 +11,16 @@ namespace Beutl.Controls.Navigation;
 
 public class NavigationProvider : INavigationProvider
 {
-    private readonly Frame _frame;
+    private readonly FAFrame _frame;
     private readonly IPageResolver _pageResolver;
     private readonly TransitionMode _transitionMode;
-    private readonly EntranceNavigationTransitionInfo _transitionInfo = new();
+    private readonly FAEntranceNavigationTransitionInfo _transitionInfo = new();
     private const int Orientation_SameOrder = 0b_1_0_0_0;
     private const int Orientation_SameOrder_Reverse = 0b_0_1_0_0;
     private const int Orientation_DifferenceOrder = 0b_0_0_1_0;
     private const int Orientation_DifferenceOrder_Reverse = 0b_0_0_0_1;
 
-    public NavigationProvider(Frame frame, IPageResolver pageResolver, TransitionMode transitionMode = TransitionMode.LeftNavigationAndBreadcrumbs)
+    public NavigationProvider(FAFrame frame, IPageResolver pageResolver, TransitionMode transitionMode = TransitionMode.LeftNavigationAndBreadcrumbs)
     {
         _frame = frame;
         _pageResolver = pageResolver;
@@ -41,7 +41,7 @@ public class NavigationProvider : INavigationProvider
 
     public object? CurrentContext { get; private set; }
 
-    private void OnNavigating(object sender, NavigatingCancelEventArgs e)
+    private void OnNavigating(object sender, FANavigatingCancelEventArgs e)
     {
         static bool HasFlags(TransitionMode @enum, int flags)
         {
@@ -62,7 +62,7 @@ public class NavigationProvider : INavigationProvider
             }
         }
 
-        if (e.NavigationTransitionInfo is EntranceNavigationTransitionInfo entrance)
+        if (e.NavigationTransitionInfo is FAEntranceNavigationTransitionInfo entrance)
         {
             Type type1 = _frame.CurrentSourcePageType;
             Type type2 = e.SourcePageType;
@@ -90,7 +90,7 @@ public class NavigationProvider : INavigationProvider
         }
     }
 
-    private void OnNavigated(object sender, NavigationEventArgs e)
+    private void OnNavigated(object sender, FANavigationEventArgs e)
     {
         if (e.Content is Control control)
         {
@@ -126,7 +126,7 @@ public class NavigationProvider : INavigationProvider
     {
         for (int i = 0; i < _frame.BackStack.Count; i++)
         {
-            PageStackEntry item = _frame.BackStack[i];
+            FAPageStackEntry item = _frame.BackStack[i];
             if (item.Parameter is TContext typed && predicate(typed))
             {
                 return typed;
@@ -135,7 +135,7 @@ public class NavigationProvider : INavigationProvider
 
         for (int i = 0; i < _frame.ForwardStack.Count; i++)
         {
-            PageStackEntry item = _frame.ForwardStack[i];
+            FAPageStackEntry item = _frame.ForwardStack[i];
             if (item.Parameter is TContext typed && predicate(typed))
             {
                 return typed;
@@ -185,7 +185,7 @@ public class NavigationProvider : INavigationProvider
         {
             for (int i = _frame.BackStack.Count - 1; i >= 0; i--)
             {
-                PageStackEntry item = _frame.BackStack[i];
+                FAPageStackEntry item = _frame.BackStack[i];
                 if (item.Parameter is TContext typed && predicate(typed))
                 {
                     _frame.BackStack.RemoveAt(i);
@@ -199,7 +199,7 @@ public class NavigationProvider : INavigationProvider
 
             for (int i = _frame.ForwardStack.Count - 1; i >= 0; i--)
             {
-                PageStackEntry item = _frame.ForwardStack[i];
+                FAPageStackEntry item = _frame.ForwardStack[i];
                 if (item.Parameter is TContext typed && predicate(typed))
                 {
                     _frame.ForwardStack.RemoveAt(i);

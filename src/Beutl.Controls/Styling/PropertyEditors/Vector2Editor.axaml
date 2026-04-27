@@ -73,7 +73,7 @@
                                            FontSize="{TemplateBinding FontSize}"
                                            Foreground="{DynamicResource SystemAccentColor}"
                                            IsVisible="False"
-                                           Text="{TemplateBinding Watermark}" />
+                                           Text="{TemplateBinding PlaceholderText}" />
                                 <ScrollViewer AllowAutoHide="{TemplateBinding (ScrollViewer.AllowAutoHide)}"
                                               HorizontalScrollBarVisibility="{TemplateBinding (ScrollViewer.HorizontalScrollBarVisibility)}"
                                               IsScrollChainingEnabled="{TemplateBinding (ScrollViewer.IsScrollChainingEnabled)}"
@@ -82,9 +82,10 @@
                                         <TextBlock Name="PART_Watermark"
                                                    HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
                                                    VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
-                                                   IsVisible="{TemplateBinding Text, Converter={x:Static StringConverters.IsNullOrEmpty}}"
+                                                   IsVisible="{TemplateBinding Text,
+                                                                               Converter={x:Static StringConverters.IsNullOrEmpty}}"
                                                    Opacity="0.5"
-                                                   Text="{TemplateBinding Watermark}"
+                                                   Text="{TemplateBinding PlaceholderText}"
                                                    TextAlignment="{TemplateBinding TextAlignment}"
                                                    TextWrapping="{TemplateBinding TextWrapping}" />
                                         <TextPresenter Name="PART_TextPresenter"
@@ -99,7 +100,8 @@
                                                        SelectionEnd="{TemplateBinding SelectionEnd}"
                                                        SelectionForegroundBrush="{TemplateBinding SelectionForegroundBrush}"
                                                        SelectionStart="{TemplateBinding SelectionStart}"
-                                                       Text="{TemplateBinding Text, Mode=TwoWay}"
+                                                       Text="{TemplateBinding Text,
+                                                                              Mode=TwoWay}"
                                                        TextAlignment="{TemplateBinding TextAlignment}"
                                                        TextWrapping="{TemplateBinding TextWrapping}" />
                                     </Panel>
@@ -143,8 +145,8 @@
                                    Margin="4,0,0,0"
                                    HorizontalAlignment="Left"
                                    VerticalAlignment="Center"
-                                   ToolTip.Tip="{TemplateBinding Description}"
-                                   Text="{TemplateBinding Header}" />
+                                   Text="{TemplateBinding Header}"
+                                   ToolTip.Tip="{TemplateBinding Description}" />
 
                         <DataValidationErrors Grid.Row="2">
                             <Grid ColumnDefinitions="Auto,*,1,Auto,*">
@@ -164,8 +166,10 @@
                                          Grid.Column="1"
                                          Margin="4"
                                          HorizontalContentAlignment="Right"
-                                         IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}"
-                                         Text="{TemplateBinding FirstText, Mode=TwoWay}"
+                                         IsEnabled="{TemplateBinding IsReadOnly,
+                                                                     Converter={x:Static BoolConverters.Not}}"
+                                         Text="{TemplateBinding FirstText,
+                                                                Mode=TwoWay}"
                                          Theme="{StaticResource VectorElementTextBox}" />
 
                                 <Separator Grid.Column="2" Theme="{StaticResource VectorComponentSeparator}" />
@@ -180,8 +184,10 @@
                                          Grid.Column="4"
                                          Margin="4"
                                          HorizontalContentAlignment="Right"
-                                         IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}"
-                                         Text="{TemplateBinding SecondText, Mode=TwoWay}"
+                                         IsEnabled="{TemplateBinding IsReadOnly,
+                                                                     Converter={x:Static BoolConverters.Not}}"
+                                         Text="{TemplateBinding SecondText,
+                                                                Mode=TwoWay}"
                                          Theme="{StaticResource VectorElementTextBox}" />
                             </Grid>
                         </DataValidationErrors>
@@ -239,8 +245,10 @@
                                              Grid.Column="1"
                                              Margin="4"
                                              HorizontalContentAlignment="Right"
-                                             IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}"
-                                             Text="{TemplateBinding FirstText, Mode=TwoWay}"
+                                             IsEnabled="{TemplateBinding IsReadOnly,
+                                                                         Converter={x:Static BoolConverters.Not}}"
+                                             Text="{TemplateBinding FirstText,
+                                                                    Mode=TwoWay}"
                                              Theme="{StaticResource VectorElementTextBox}" />
 
                                     <Separator Grid.Column="2" Theme="{StaticResource VectorComponentSeparator}" />
@@ -255,8 +263,10 @@
                                              Grid.Column="4"
                                              Margin="4"
                                              HorizontalContentAlignment="Right"
-                                             IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}"
-                                             Text="{TemplateBinding SecondText, Mode=TwoWay}"
+                                             IsEnabled="{TemplateBinding IsReadOnly,
+                                                                         Converter={x:Static BoolConverters.Not}}"
+                                             Text="{TemplateBinding SecondText,
+                                                                    Mode=TwoWay}"
                                              Theme="{StaticResource VectorElementTextBox}" />
                                 </Grid>
                             </DataValidationErrors>
@@ -342,8 +352,8 @@
                                        VerticalAlignment="Center"
                                        ClipToBounds="False"
                                        Text="{TemplateBinding Header}"
-                                       ToolTip.Tip="{TemplateBinding Description}"
-                                       TextTrimming="CharacterEllipsis" />
+                                       TextTrimming="CharacterEllipsis"
+                                       ToolTip.Tip="{TemplateBinding Description}" />
 
                             <GridSplitter Grid.Column="1" Background="Transparent" />
 
@@ -362,8 +372,10 @@
                                         <TextBox x:Name="PART_InnerFirstTextBox"
                                                  HorizontalAlignment="Stretch"
                                                  HorizontalContentAlignment="Left"
-                                                 IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}"
-                                                 Text="{TemplateBinding FirstText, Mode=TwoWay}"
+                                                 IsEnabled="{TemplateBinding IsReadOnly,
+                                                                             Converter={x:Static BoolConverters.Not}}"
+                                                 Text="{TemplateBinding FirstText,
+                                                                        Mode=TwoWay}"
                                                  Theme="{StaticResource VectorElementTextBox}" />
                                     </Panel>
                                 </DataValidationErrors>
@@ -405,8 +417,8 @@
                                        Margin="4,0,0,0"
                                        HorizontalAlignment="Left"
                                        VerticalAlignment="Center"
-                                       ToolTip.Tip="{TemplateBinding Description}"
-                                       Text="{TemplateBinding Header}" />
+                                       Text="{TemplateBinding Header}"
+                                       ToolTip.Tip="{TemplateBinding Description}" />
 
                             <DataValidationErrors Grid.Row="2">
                                 <Panel>
@@ -421,8 +433,10 @@
                                              Margin="4,4"
                                              HorizontalAlignment="Stretch"
                                              HorizontalContentAlignment="Left"
-                                             IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}"
-                                             Text="{TemplateBinding FirstText, Mode=TwoWay}"
+                                             IsEnabled="{TemplateBinding IsReadOnly,
+                                                                         Converter={x:Static BoolConverters.Not}}"
+                                             Text="{TemplateBinding FirstText,
+                                                                    Mode=TwoWay}"
                                              Theme="{StaticResource VectorElementTextBox}" />
                                 </Panel>
                             </DataValidationErrors>

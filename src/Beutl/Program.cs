@@ -19,6 +19,7 @@ internal static class Program
         config.Restore(GlobalConfiguration.DefaultFilePath);
         ViewConfig view = config.ViewConfig;
         CultureInfo.CurrentUICulture = view.UICulture;
+        CultureInfo.CurrentCulture = view.UICulture;
 
         using IDisposable _ = Telemetry.GetDisposable();
 
@@ -83,6 +84,7 @@ internal static class Program
                 DefaultFamilyName = Media.FontManager.Instance.DefaultTypeface.FontFamily.Name
             })
             .AfterSetup(_ => Telemetry.CompressLogFiles())
+            .WithDeveloperTools()
 #if DEBUG
             .LogToTrace();
 #else

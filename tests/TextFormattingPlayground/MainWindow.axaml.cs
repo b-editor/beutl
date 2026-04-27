@@ -27,9 +27,6 @@ public partial class MainWindow : Window
         _node = new DrawableRenderNode(_resource);
 
         textBox.GetObservable(TextBox.TextProperty).Subscribe(TextChanged);
-#if DEBUG
-        this.AttachDevTools();
-#endif
     }
 
     private void TextChanged(string? obj)

@@ -12,33 +12,33 @@
         d:DesignWidth="800"
         mc:Ignorable="d">
     <Panel>
-        <ui:NavigationView x:Name="nav"
-                           IsBackButtonVisible="True"
-                           IsBackEnabled="{Binding #frame.CanGoBack}"
-                           IsSettingsVisible="False"
-                           PaneDisplayMode="Top">
-            <ui:NavigationView.Resources>
+        <ui:FANavigationView x:Name="nav"
+                             IsBackButtonVisible="True"
+                             IsBackEnabled="{Binding #frame.CanGoBack}"
+                             IsSettingsVisible="False"
+                             PaneDisplayMode="Top">
+            <ui:FANavigationView.Resources>
                 <SolidColorBrush x:Key="NavigationViewContentBackground" Color="Transparent" />
                 <SolidColorBrush x:Key="NavigationViewContentGridBorderBrush" Color="Transparent" />
                 <Thickness x:Key="NavigationViewContentGridBorderThickness">0</Thickness>
-            </ui:NavigationView.Resources>
-            <ui:NavigationView.PaneCustomContent>
+            </ui:FANavigationView.Resources>
+            <ui:FANavigationView.PaneCustomContent>
                 <TextBox x:Name="searchTextBox"
                          MinWidth="250"
                          Margin="8,0"
                          HorizontalAlignment="Right"
                          VerticalAlignment="Center"
-                         Watermark="{x:Static lang:Strings.Search}">
+                         PlaceholderText="{x:Static lang:Strings.Search}">
                     <TextBox.InnerRightContent>
                         <Button Click="Search_Click" Theme="{StaticResource TransparentButton}">
-                            <ui:SymbolIcon Symbol="Find" />
+                            <ui:FASymbolIcon Symbol="Find" />
                         </Button>
                     </TextBox.InnerRightContent>
                 </TextBox>
-            </ui:NavigationView.PaneCustomContent>
+            </ui:FANavigationView.PaneCustomContent>
 
             <!--  InvalidCastException対策に{x:Null}を指定  -->
-            <ui:Frame x:Name="frame" DataContext="{x:Null}" />
-        </ui:NavigationView>
+            <ui:FAFrame x:Name="frame" DataContext="{x:Null}" />
+        </ui:FANavigationView>
     </Panel>
 </Window>

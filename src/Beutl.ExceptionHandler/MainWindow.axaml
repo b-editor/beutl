@@ -28,9 +28,9 @@
                      Margin="{DynamicResource TaskDialogIconMargin}"
                      HorizontalAlignment="Left"
                      VerticalAlignment="Center">
-                <ui:FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}"
-                             Foreground="{DynamicResource InfoBarErrorSeverityIconBackground}"
-                             Glyph="&#xE783;" />
+                <ui:FAFontIcon FontFamily="{StaticResource SymbolThemeFontFamily}"
+                               Foreground="{DynamicResource InfoBarErrorSeverityIconBackground}"
+                               Glyph="&#xE783;" />
             </Viewbox>
             <TextBlock Margin="{DynamicResource TaskDialogHeaderPadding}"
                        HorizontalAlignment="Left"
@@ -90,11 +90,11 @@
                 Grid.Row="3"
                 Padding="{StaticResource TaskDialogButtonHostMargin}"
                 Background="{DynamicResource TaskDialogButtonAreaBackground}">
-            <uip:TaskDialogButtonsPanel KeyboardNavigation.TabNavigation="Continue" Spacing="8">
-                <uip:TaskDialogButtonHost x:Name="CloseButton"
-                                          Click="OnCloseClick"
-                                          Content="{x:Static lang:Resources.Close}" />
-            </uip:TaskDialogButtonsPanel>
+            <uip:FATaskDialogButtonsPanel KeyboardNavigation.TabNavigation="Continue" Spacing="8">
+                <uip:FATaskDialogButtonHost x:Name="CloseButton"
+                                            Click="OnCloseClick"
+                                            Content="{x:Static lang:Resources.Close}" />
+            </uip:FATaskDialogButtonsPanel>
         </Border>
     </Grid>
 </Window>

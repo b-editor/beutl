@@ -117,15 +117,15 @@ public partial class MainView
         {
             string path = element.Uri!.LocalPath;
             string name = Path.GetFileName(path);
-            var dialog = new ContentDialog
+            var dialog = new FAContentDialog
             {
                 CloseButtonText = Strings.Cancel,
                 PrimaryButtonText = Strings.OK,
-                DefaultButton = ContentDialogButton.Primary,
+                DefaultButton = FAContentDialogButton.Primary,
                 Content = MessageStrings.ConfirmDeleteFile + "\n" + name
             };
 
-            if (await dialog.ShowAsync() == ContentDialogResult.Primary)
+            if (await dialog.ShowAsync() == FAContentDialogResult.Primary)
             {
                 scene.DeleteChild(element);
                 viewModel.HistoryManager.Commit(CommandNames.DeleteElement);
@@ -145,15 +145,15 @@ public partial class MainView
             if (projItem == null)
                 return;
 
-            var dialog = new ContentDialog
+            var dialog = new FAContentDialog
             {
                 CloseButtonText = Strings.Cancel,
                 PrimaryButtonText = Strings.OK,
-                DefaultButton = ContentDialogButton.Primary,
+                DefaultButton = FAContentDialogButton.Primary,
                 Content = MessageStrings.ConfirmExcludeItem + "\n" + filePath
             };
 
-            if (await dialog.ShowAsync() == ContentDialogResult.Primary)
+            if (await dialog.ShowAsync() == FAContentDialogResult.Primary)
             {
                 project.Items.Remove(projItem);
                 CoreSerializer.StoreToUri(project, project.Uri!);

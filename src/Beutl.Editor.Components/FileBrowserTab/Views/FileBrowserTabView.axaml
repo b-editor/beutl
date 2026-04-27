@@ -134,24 +134,24 @@
                 </Button>
 
                 <!--  パス表示（ディレクトリブラウズ時）  -->
-                <ui:BreadcrumbBar Grid.Column="1"
-                                  Margin="8,0"
-                                  VerticalAlignment="Center"
-                                  IsVisible="{Binding !IsHomeView.Value}"
-                                  ItemClicked="BreadcrumbBarItemClicked"
-                                  ItemsSource="{Binding BreadcrumbItems}">
-                    <ui:BreadcrumbBar.ItemTemplate>
+                <ui:FABreadcrumbBar Grid.Column="1"
+                                    Margin="8,0"
+                                    VerticalAlignment="Center"
+                                    IsVisible="{Binding !IsHomeView.Value}"
+                                    ItemClicked="BreadcrumbBarItemClicked"
+                                    ItemsSource="{Binding BreadcrumbItems}">
+                    <ui:FABreadcrumbBar.ItemTemplate>
                         <DataTemplate x:DataType="vm:BreadcrumbPathItem">
-                            <ui:BreadcrumbBarItem Content="{Binding}">
-                                <ui:BreadcrumbBarItem.ContentTemplate>
+                            <ui:FABreadcrumbBarItem Content="{Binding}">
+                                <ui:FABreadcrumbBarItem.ContentTemplate>
                                     <DataTemplate DataType="vm:BreadcrumbPathItem">
                                         <TextBlock Text="{Binding Name}" />
                                     </DataTemplate>
-                                </ui:BreadcrumbBarItem.ContentTemplate>
-                            </ui:BreadcrumbBarItem>
+                                </ui:FABreadcrumbBarItem.ContentTemplate>
+                            </ui:FABreadcrumbBarItem>
                         </DataTemplate>
-                    </ui:BreadcrumbBar.ItemTemplate>
-                </ui:BreadcrumbBar>
+                    </ui:FABreadcrumbBar.ItemTemplate>
+                </ui:FABreadcrumbBar>
 
                 <!--  ホームヘッダー（ホームビュー時）  -->
                 <TextBlock Grid.Column="1"
@@ -375,9 +375,9 @@
                                         IsVisible="{Binding IsLoadingMediaFiles.Value}"
                                         Orientation="Horizontal"
                                         Spacing="8">
-                                <ui:ProgressRing Width="20"
-                                                 Height="20"
-                                                 IsIndeterminate="True" />
+                                <ui:FAProgressRing Width="20"
+                                                   Height="20"
+                                                   IsIndeterminate="True" />
                                 <TextBlock VerticalAlignment="Center"
                                            Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                                            Text="{x:Static lang:Strings.SearchingMediaFiles}" />

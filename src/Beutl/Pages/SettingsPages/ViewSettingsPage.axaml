@@ -107,9 +107,9 @@
                                                             HorizontalAlignment="Right"
                                                             VerticalAlignment="Top"
                                                             Background="{DynamicResource FocusStrokeColorOuter}">
-                                                        <ui:SymbolIcon FontSize="18"
-                                                                       Foreground="{DynamicResource SystemAccentColor}"
-                                                                       Symbol="Checkmark" />
+                                                        <ui:FASymbolIcon FontSize="18"
+                                                                         Foreground="{DynamicResource SystemAccentColor}"
+                                                                         Symbol="Checkmark" />
                                                     </Border>
                                                 </Panel>
                                             </ControlTemplate>

@@ -67,7 +67,7 @@ public sealed class LoadSideloadExtensionTask : StartupTask
         await App.WaitWindowOpened();
         return await Dispatcher.UIThread.InvokeAsync(async () =>
         {
-            var dialog = new ContentDialog
+            var dialog = new FAContentDialog
             {
                 Title = MessageStrings.ConfirmLoadSideloadExtensions,
                 Content = new ListBox
@@ -79,7 +79,7 @@ public sealed class LoadSideloadExtensionTask : StartupTask
                 CloseButtonText = Strings.No,
             };
 
-            return await dialog.ShowAsync() == ContentDialogResult.Primary;
+            return await dialog.ShowAsync() == FAContentDialogResult.Primary;
         });
     }
 }

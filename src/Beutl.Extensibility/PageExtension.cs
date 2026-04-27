@@ -12,9 +12,9 @@ public abstract class PageExtension : Extension
     public abstract IPageContext CreateContext();
 
     [Obsolete]
-    public abstract IconSource GetFilledIcon();
+    public abstract FAIconSource GetFilledIcon();
 
-    public abstract IconSource GetRegularIcon();
+    public abstract FAIconSource GetRegularIcon();
 }
 
 [Obsolete("Use IToolWindowContext instead.")]

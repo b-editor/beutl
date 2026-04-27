@@ -30,7 +30,6 @@
     <Project Path="tests\Beutl.Extensions.AVFoundation.Tests\Beutl.Extensions.AVFoundation.Tests.csproj" />
     <Project Path="tests\Beutl.FFmpegBenchmarks\Beutl.FFmpegBenchmarks.csproj" />
     <Project Path="tests\Beutl.UnitTests\Beutl.UnitTests.csproj" />
-    <Project Path="tests\DirectoryViewTest\DirectoryViewTest.csproj" />
     <Project Path="tests\EnumerateFontFamilies\EnumerateFontFamilies.csproj" />
     <Project Path="tests\KeySplineEditor\KeySplineEditor.csproj" />
     <Project Path="tests\PackageSample\PackageSample.csproj" />
