@@ -3,6 +3,7 @@ using System.Collections.Specialized;
 using System.Reactive.Subjects;
 using System.Text.Json.Nodes;
 using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Input.Platform;
 using Avalonia.Platform.Storage;
@@ -1099,7 +1100,7 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler
                 }
 
                 break;
-            case "ToggleRazorMode":
+            case "ToggleRazorMode" when execution.KeyEventArgs?.Source is not TextBox:
                 IsRazorMode.Value = !IsRazorMode.Value;
                 if (execution.KeyEventArgs != null)
                 {
@@ -1107,7 +1108,7 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler
                 }
 
                 break;
-            case "ExitRazorMode":
+            case "ExitRazorMode" when execution.KeyEventArgs?.Source is not TextBox:
                 if (IsRazorMode.Value)
                 {
                     IsRazorMode.Value = false;
@@ -1127,10 +1128,12 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler
             ? Elements.Where(e => e.Model.Range.Contains(time)).ToArray()
             : Elements.Where(e => e.Model.Range.Contains(time) && e.Model.ZIndex == CalculateClickedLayer()).ToArray();
 
-        foreach (ElementViewModel target in targets)
+        if (targets.Count == 0)
         {
-            target.SplitAt(time);
+            return;
         }
+
+        targets[0].SplitAt(targets, time);
     }
 
     private sealed class TrackedLayerTopObservable(int layerNum, TimelineTabViewModel timeline)

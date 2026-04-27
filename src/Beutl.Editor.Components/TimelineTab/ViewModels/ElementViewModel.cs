@@ -655,6 +655,11 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
         SplitCore([this], timeSpan);
     }
 
+    internal void SplitAt(IReadOnlyList<ElementViewModel> targets, TimeSpan timeSpan)
+    {
+        SplitCore(targets, timeSpan);
+    }
+
     private void OnSplit(TimeSpan timeSpan)
     {
         IReadOnlyList<ElementViewModel> targets = GetGroupOrSelectedElements();
