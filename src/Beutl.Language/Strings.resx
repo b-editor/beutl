@@ -245,6 +245,9 @@
   <data name="Easing" xml:space="preserve">
     <value>Easing</value>
   </data>
+  <data name="Hold" xml:space="preserve">
+    <value>Hold</value>
+  </data>
   <data name="ElementProperty" xml:space="preserve">
     <value>Element Property</value>
   </data>

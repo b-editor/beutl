@@ -67,6 +67,7 @@ public sealed class LibraryTabViewModel : IDisposable, IToolContext
         new SineEaseInOut(),
         new SineEaseOut(),
         new LinearEasing(),
+        new HoldEasing(),
     ];
 
     public List<LibraryItemViewModel> LibraryItems { get; }
