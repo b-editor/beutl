@@ -39,6 +39,9 @@ public partial class OutputView : UserControl
         var dialog = new OutputProgressDialog { DataContext = viewModel };
         _ = dialog.ShowAsync();
         await viewModel.StartEncode();
-        dialog.Hide();
+        if (viewModel.WasCancelled.Value)
+        {
+            dialog.Hide();
+        }
     }
 }

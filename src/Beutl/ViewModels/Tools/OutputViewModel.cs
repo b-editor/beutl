@@ -1,4 +1,5 @@
 ﻿using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.Reactive.Subjects;
 using System.Text.Json.Nodes;
 using Avalonia.Platform.Storage;
@@ -31,6 +32,7 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
     private readonly ReadOnlyObservableCollection<ControllableEncodingExtension> _encoders;
     private readonly CompositeDisposable _disposable = [];
     private CancellationTokenSource? _lastCts;
+    private string? _activeDestination;
 
     public OutputViewModel(EditViewModel editViewModel)
     {
@@ -127,6 +129,28 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
 
     public ReactiveProperty<string> ProgressText { get; } = new();
 
+    public ReactiveProperty<string> ProgressMain { get; } = new(string.Empty);
+
+    public ReactiveProperty<string> ProgressSub { get; } = new(string.Empty);
+
+    public ReactiveProperty<string> Elapsed { get; } = new("00:00:00");
+
+    public ReactiveProperty<string> Eta { get; } = new("--:--:--");
+
+    public ReactiveProperty<string> CurrentSize { get; } = new("0 MB");
+
+    public ReactiveProperty<string> EstimatedSize { get; } = new("-- MB");
+
+    public ReactiveProperty<long> CurrentFrame { get; } = new();
+
+    public ReactiveProperty<long> TotalFrames { get; } = new();
+
+    public ReactiveProperty<string> FrameProgressText { get; } = new("0 / 0");
+
+    public ReactiveProperty<bool> IsCompleted { get; } = new();
+
+    public ReactiveProperty<bool> WasCancelled { get; } = new();
+
     public IReadOnlyReactiveProperty<bool> IsIndeterminate => _isIndeterminate;
 
     public IReadOnlyReactiveProperty<bool> IsEncoding => _isEncoding;
@@ -171,14 +195,30 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
 
     public async Task StartEncode()
     {
+        var stopwatch = new Stopwatch();
+        bool succeeded = false;
         try
         {
             _logger.LogInformation("Starting encoding process.");
             LogEncodingSettings();
             _lastCts = new CancellationTokenSource();
             _isEncoding.Value = true;
+            IsCompleted.Value = false;
+            WasCancelled.Value = false;
             ProgressText.Value = "";
+            ProgressMain.Value = Strings.Encoding;
+            ProgressSub.Value = string.Empty;
+            Elapsed.Value = "00:00:00";
+            Eta.Value = "--:--:--";
+            CurrentSize.Value = "0 MB";
+            EstimatedSize.Value = "-- MB";
+            CurrentFrame.Value = 0;
+            TotalFrames.Value = 0;
+            FrameProgressText.Value = "0 / 0";
+            _activeDestination = DestinationFile.Value;
             Started?.Invoke(this, EventArgs.Empty);
+
+            stopwatch.Start();
 
             await Task.Run(async () =>
             {
@@ -195,6 +235,12 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
 
                 ProgressMax.Value = Model.Duration.TotalSeconds * 2;
 
+                double frameRate = videoSettings.FrameRate.ToDouble();
+                if (!double.IsFinite(frameRate) || frameRate <= 0) frameRate = 30;
+                long totalFrames = (long)Math.Round(Model.Duration.TotalSeconds * frameRate);
+                TotalFrames.Value = totalFrames;
+                FrameProgressText.Value = $"0 / {totalFrames}";
+
                 EncodingController? controller = Controller.Value;
                 if (controller == null)
                 {
@@ -206,30 +252,62 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
                     _logger.LogInformation("Using encoding controller: {Controller}", controller);
                 }
 
-                // エンコード前にEditViewModelのレンダラーキャッシュを削除してメモリ解放
                 ClearEditViewModelCaches();
 
-                // エンコード専用のRendererを作成（キャッシュ無効、リソース共有無効）
                 using var renderer = new SceneRenderer(Model, disableResourceShare: true);
                 renderer.CacheOptions = RenderCacheOptions.Disabled;
                 var frameProgress = new Subject<TimeSpan>();
                 using var frameProvider = new FrameProviderImpl(Model, videoSettings.FrameRate, renderer, frameProgress);
-                // サンプルプロバイダー作成
                 using var composer = new SceneComposer(Model, disableResourceShare: true) { SampleRate = audioSettings.SampleRate };
-                // var composer = _editViewModel.Composer.Value;
                 var sampleProgress = new Subject<TimeSpan>();
                 using var sampleProvider = new SampleProviderImpl(
                     Model, composer, audioSettings.SampleRate, sampleProgress);
 
+                string? destinationPath = _activeDestination;
+
+                using (frameProgress
+                           .Subscribe(t =>
+                           {
+                               long frame = (long)Math.Round(t.TotalSeconds * frameRate);
+                               CurrentFrame.Value = frame;
+                               FrameProgressText.Value = totalFrames > 0
+                                   ? $"{frame} / {totalFrames}"
+                                   : $"{frame}";
+                           }))
                 using (frameProgress.CombineLatest(sampleProgress)
-                           .Subscribe(t => ProgressValue.Value = t.Item1.TotalSeconds + t.Item2.TotalSeconds))
+                           .Subscribe(t =>
+                           {
+                               double value = t.Item1.TotalSeconds + t.Item2.TotalSeconds;
+                               ProgressValue.Value = value;
+                               UpdateProgressIndicators(stopwatch.Elapsed, value, ProgressMax.Value, destinationPath);
+                           }))
                 {
                     await controller.Encode(frameProvider, sampleProvider, _lastCts.Token);
                 }
             });
 
+            succeeded = !(_lastCts?.IsCancellationRequested ?? true);
+            if (succeeded)
+            {
+                ProgressValue.Value = ProgressMax.Value;
+                CurrentFrame.Value = TotalFrames.Value;
+                FrameProgressText.Value = TotalFrames.Value > 0
+                    ? $"{TotalFrames.Value} / {TotalFrames.Value}"
+                    : FrameProgressText.Value;
+            }
             ProgressText.Value = Strings.Completed;
+            ProgressMain.Value = Strings.Completed;
+            ProgressSub.Value = string.Empty;
+            Eta.Value = "00:00:00";
             _logger.LogInformation("Encoding process completed successfully.");
+        }
+        catch (OperationCanceledException)
+        {
+            WasCancelled.Value = true;
+            ProgressText.Value = Strings.Cancel;
+            ProgressMain.Value = Strings.Cancel;
+            _logger.LogInformation("Encoding cancelled.");
+            TryDeletePartialFile(_activeDestination);
         }
         catch (Exception ex)
         {
@@ -238,14 +316,211 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
         }
         finally
         {
+            stopwatch.Stop();
+            Elapsed.Value = FormatDuration(stopwatch.Elapsed);
             _progress.Value = 0;
-            ProgressMax.Value = 0;
-            ProgressValue.Value = 0;
             _isIndeterminate.Value = false;
             _isEncoding.Value = false;
+            IsCompleted.Value = succeeded;
+            string? completedPath = _activeDestination;
+            _activeDestination = null;
             _lastCts = null;
             Finished?.Invoke(this, EventArgs.Empty);
             _logger.LogInformation("Encoding process finished.");
+
+            if (succeeded && completedPath != null)
+            {
+                ShowCompletionNotification(completedPath);
+            }
+        }
+    }
+
+    private void UpdateProgressIndicators(TimeSpan elapsed, double value, double max, string? destinationPath)
+    {
+        Elapsed.Value = FormatDuration(elapsed);
+
+        long currentBytes = 0;
+        if (destinationPath != null)
+        {
+            try
+            {
+                var info = new FileInfo(destinationPath);
+                if (info.Exists) currentBytes = info.Length;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Failed to read partial file size during encoding.");
+            }
+        }
+
+        CurrentSize.Value = FormatBytes(currentBytes);
+
+        if (max > 0 && value > 0)
+        {
+            double ratio = Math.Clamp(value / max, 0.0, 1.0);
+            if (ratio > 0 && ratio < 1)
+            {
+                double etaSeconds = elapsed.TotalSeconds * (1.0 / ratio - 1.0);
+                if (double.IsFinite(etaSeconds) && etaSeconds >= 0)
+                {
+                    Eta.Value = FormatDuration(TimeSpan.FromSeconds(etaSeconds));
+                }
+            }
+            else if (ratio >= 1)
+            {
+                Eta.Value = "00:00:00";
+            }
+
+            if (currentBytes > 0 && ratio > 0)
+            {
+                long estimatedTotal = (long)(currentBytes / ratio);
+                EstimatedSize.Value = FormatBytes(estimatedTotal);
+            }
+        }
+
+        ProgressSub.Value = $"{Elapsed.Value} / {Eta.Value}";
+    }
+
+    private static string FormatDuration(TimeSpan span)
+    {
+        if (span < TimeSpan.Zero) span = TimeSpan.Zero;
+        if (span.TotalHours >= 100) return @"99:59:59";
+        return span.ToString(@"hh\:mm\:ss");
+    }
+
+    private static string FormatBytes(long bytes)
+    {
+        if (bytes <= 0) return "0 MB";
+        const double kb = 1024.0;
+        const double mb = kb * 1024.0;
+        const double gb = mb * 1024.0;
+        return bytes switch
+        {
+            < (long)mb => $"{bytes / kb:0.0} KB",
+            < (long)gb => $"{bytes / mb:0.0} MB",
+            _ => $"{bytes / gb:0.00} GB"
+        };
+    }
+
+    private void TryDeletePartialFile(string? path)
+    {
+        if (string.IsNullOrEmpty(path)) return;
+        if (!string.Equals(path, DestinationFile.Value, StringComparison.Ordinal))
+        {
+            _logger.LogDebug("Skip deleting partial file because destination changed.");
+            return;
+        }
+
+        try
+        {
+            if (File.Exists(path))
+            {
+                File.Delete(path);
+                _logger.LogInformation("Deleted partial output file: {Path}", path);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to delete partial output file: {Path}", path);
+        }
+    }
+
+    private void ShowCompletionNotification(string path)
+    {
+        try
+        {
+            string fileName = Path.GetFileName(path);
+            NotificationService.ShowSuccess(
+                Strings.Completed,
+                string.Format(MessageStrings.ExportCompleted_File, fileName),
+                expiration: TimeSpan.FromSeconds(5),
+                onActionButtonClick: () => OpenContainingFolder(path),
+                actionButtonText: Strings.OpenFolder);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to show completion notification.");
+        }
+    }
+
+    public void OpenContainingFolder()
+    {
+        if (!string.IsNullOrEmpty(DestinationFile.Value))
+        {
+            OpenContainingFolder(DestinationFile.Value);
+        }
+    }
+
+    public void PlayOutput()
+    {
+        if (string.IsNullOrEmpty(DestinationFile.Value)) return;
+        OpenWithDefaultApp(DestinationFile.Value);
+    }
+
+    private void OpenContainingFolder(string filePath)
+    {
+        try
+        {
+            string? folder = Path.GetDirectoryName(filePath);
+            if (string.IsNullOrEmpty(folder)) return;
+
+            if (OperatingSystem.IsWindows())
+            {
+                if (File.Exists(filePath))
+                {
+                    var psi = new ProcessStartInfo("explorer.exe") { UseShellExecute = true };
+                    psi.ArgumentList.Add($"/select,{filePath}");
+                    Process.Start(psi);
+                }
+                else
+                {
+                    Process.Start(new ProcessStartInfo(folder) { UseShellExecute = true });
+                }
+            }
+            else if (OperatingSystem.IsMacOS())
+            {
+                var psi = new ProcessStartInfo("open") { UseShellExecute = false };
+                if (File.Exists(filePath))
+                {
+                    psi.ArgumentList.Add("-R");
+                    psi.ArgumentList.Add(filePath);
+                }
+                else
+                {
+                    psi.ArgumentList.Add(folder);
+                }
+                Process.Start(psi);
+            }
+            else
+            {
+                Process.Start(new ProcessStartInfo(folder) { UseShellExecute = true });
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to open containing folder for {Path}", filePath);
+        }
+    }
+
+    private void OpenWithDefaultApp(string filePath)
+    {
+        try
+        {
+            if (!File.Exists(filePath)) return;
+            if (OperatingSystem.IsMacOS())
+            {
+                var psi = new ProcessStartInfo("open") { UseShellExecute = false };
+                psi.ArgumentList.Add(filePath);
+                Process.Start(psi);
+            }
+            else
+            {
+                Process.Start(new ProcessStartInfo(filePath) { UseShellExecute = true, Verb = "open" });
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to open output file {Path}", filePath);
         }
     }
 

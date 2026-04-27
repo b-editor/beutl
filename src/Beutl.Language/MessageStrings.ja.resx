@@ -356,4 +356,7 @@
   <data name="CannotPasteFromClipboard" xml:space="preserve">
     <value>貼り付けできません: クリップボードに互換性のあるオブジェクトがありません。</value>
   </data>
+  <data name="ExportCompleted_File" xml:space="preserve">
+    <value>書き出し完了: {0}</value>
+  </data>
 </root>

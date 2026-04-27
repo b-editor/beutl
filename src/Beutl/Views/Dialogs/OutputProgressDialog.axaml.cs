@@ -1,4 +1,5 @@
-﻿using Beutl.ViewModels.Tools;
+using Avalonia.Interactivity;
+using Beutl.ViewModels.Tools;
 using FluentAvalonia.UI.Controls;
 
 namespace Beutl.Views.Dialogs;
@@ -12,10 +13,35 @@ public partial class OutputProgressDialog : ContentDialog
 
     protected override Type StyleKeyOverride => typeof(ContentDialog);
 
-    protected override void OnCloseButtonClick(ContentDialogButtonClickEventArgs args)
+    private void CancelClick(object? sender, RoutedEventArgs e)
     {
-        base.OnCloseButtonClick(args);
-        if (DataContext is not OutputViewModel vm) return;
-        vm.CancelEncode();
+        if (DataContext is OutputViewModel vm)
+        {
+            vm.CancelEncode();
+        }
+        Hide();
+    }
+
+    private void OpenFolderClick(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is OutputViewModel vm)
+        {
+            vm.OpenContainingFolder();
+        }
+    }
+
+    private void PlayClick(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is OutputViewModel vm)
+        {
+            vm.PlayOutput();
+        }
+
+        Hide();
+    }
+
+    private void CloseClick(object? sender, RoutedEventArgs e)
+    {
+        Hide();
     }
 }

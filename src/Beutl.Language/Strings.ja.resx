@@ -1003,4 +1003,22 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="Preset_Discord_8MB" xml:space="preserve">
     <value>Discord 8MB 制限 (約 1 分)</value>
   </data>
+  <data name="Encoding" xml:space="preserve">
+    <value>エンコード中...</value>
+  </data>
+  <data name="RemainingTime" xml:space="preserve">
+    <value>残り時間</value>
+  </data>
+  <data name="Frames" xml:space="preserve">
+    <value>フレーム</value>
+  </data>
+  <data name="FileSize" xml:space="preserve">
+    <value>サイズ</value>
+  </data>
+  <data name="EstimatedSize" xml:space="preserve">
+    <value>推定サイズ</value>
+  </data>
+  <data name="Play" xml:space="preserve">
+    <value>再生</value>
+  </data>
 </root>
