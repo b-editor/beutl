@@ -443,6 +443,9 @@
   <data name="TimelineZoom" xml:space="preserve">
     <value>Zoom</value>
   </data>
+  <data name="TimelineSnap" xml:space="preserve">
+    <value>Snap</value>
+  </data>
   <data name="UseGlobalClock" xml:space="preserve">
     <value>Use the Global Clock</value>
   </data>

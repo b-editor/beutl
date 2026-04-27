@@ -249,36 +249,25 @@ public sealed partial class ElementView : UserControl
         }
     }
 
-    private TimeSpan RoundStartTime(TimeSpan time, float scale, bool flag)
+    private TimeSpan RoundStartTime(TimeSpan time, float scale, bool flag, int? sameZIndex = null)
     {
         Element model = ViewModel.Model;
+        TimelineTabViewModel timeline = ViewModel.Timeline;
 
-        if (!flag)
+        if (flag || !timeline.IsSnapEnabled.Value)
         {
-            foreach (Element item in ViewModel.Scene.Children.GetMarshal().Value)
-            {
-                if (item != model)
-                {
-                    const double ThreadholdPixel = 10;
-                    TimeSpan threadhold = ThreadholdPixel.PixelToTimeSpan(scale);
-                    TimeSpan start = item.Start;
-                    TimeSpan end = start + item.Length;
-                    var startRange = new Media.TimeRange(start - threadhold, threadhold);
-                    var endRange = new Media.TimeRange(end - threadhold, threadhold);
-
-                    if (endRange.Contains(time))
-                    {
-                        return end;
-                    }
-                    else if (startRange.Contains(time))
-                    {
-                        return start;
-                    }
-                }
-            }
+            timeline.SnapBarPosition.Value = null;
+            return time;
         }
 
-        return time;
+        IEditorClock clock = timeline.EditorContext.GetRequiredService<IEditorClock>();
+        IEnumerable<TimeSpan> candidates = SnapHelper
+            .CollectElementCandidates(timeline.Scene.Children, model, sameZIndex)
+            .Concat(SnapHelper.CollectSceneCandidates(timeline.Scene, clock.CurrentTime.Value));
+
+        SnapResult result = SnapHelper.Snap(time, candidates, scale);
+        timeline.SnapBarPosition.Value = result.DidSnap ? result.Time.TimeToPixel(scale) : null;
+        return result.Time;
     }
 
     private sealed class _ResizeBehavior : Behavior<ElementView>
@@ -450,6 +439,7 @@ public sealed partial class ElementView : UserControl
 
                 if (AssociatedObject is { ViewModel: { } viewModel })
                 {
+                    viewModel.Timeline.SnapBarPosition.Value = null;
                     e.Handled = true;
 
                     if (_resizeContexts.Length == 1)
@@ -615,6 +605,7 @@ public sealed partial class ElementView : UserControl
 
                 if (AssociatedObject is { ViewModel: { } viewModel })
                 {
+                    viewModel.Timeline.SnapBarPosition.Value = null;
                     HistoryManager history = viewModel.Timeline.EditorContext.GetRequiredService<HistoryManager>();
                     e.Handled = true;
                     IReadOnlyList<ElementViewModel> relatedElements = viewModel.GetGroupOrSelectedElements();

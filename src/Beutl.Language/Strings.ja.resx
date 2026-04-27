@@ -438,6 +438,9 @@
   <data name="TimelineZoom" xml:space="preserve">
     <value>拡大率</value>
   </data>
+  <data name="TimelineSnap" xml:space="preserve">
+    <value>スナップ</value>
+  </data>
   <data name="UseGlobalClock" xml:space="preserve">
     <value>グローバル時計を使う</value>
   </data>
