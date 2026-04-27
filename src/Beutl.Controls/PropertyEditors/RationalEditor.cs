@@ -71,7 +71,8 @@ public class RationalEditor : StringEditor
 
             // ポインタロック + デルタ取得
             Point move = PointerLockHelper.Moved(_headerText, point, ref _headerDragStart);
-            var delta = new Rational((int)move.X, 1);
+            double scaledX = NumberEditorHelper.ApplyScrubModifier(move.X, e.KeyModifiers);
+            var delta = new Rational((int)scaledX, 1);
             Rational oldValue = Value;
             Rational newValue = Value + delta;
             if (newValue != oldValue)

@@ -1,9 +1,35 @@
 ﻿using System.Numerics;
 
+using Avalonia.Input;
+
 namespace Beutl;
 
 public static class NumberEditorHelper
 {
+    public static double GetScrubModifierCoefficient(KeyModifiers modifiers)
+    {
+        bool shift = modifiers.HasFlag(KeyModifiers.Shift);
+        bool fine = modifiers.HasFlag(KeyModifiers.Alt) || modifiers.HasFlag(KeyModifiers.Meta);
+        if (shift && fine)
+        {
+            return 1.0;
+        }
+        if (shift)
+        {
+            return 10.0;
+        }
+        if (fine)
+        {
+            return 0.1;
+        }
+        return 1.0;
+    }
+
+    public static double ApplyScrubModifier(double move, KeyModifiers modifiers)
+    {
+        return move * GetScrubModifierCoefficient(modifiers);
+    }
+
     public static TValue AddPreservingScale<TValue>(TValue original, TValue delta)
         where TValue : INumber<TValue>
     {

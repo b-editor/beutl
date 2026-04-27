@@ -147,7 +147,8 @@ public class Vector2Editor<TElement> : Vector2Editor
 
             // ポインタロック + デルタ取得
             Point move = PointerLockHelper.Moved(headerText, point, ref _headerDragStart);
-            TElement delta = TElement.CreateTruncating(move.X) * SmallChange;
+            double scaledX = NumberEditorHelper.ApplyScrubModifier(move.X, e.KeyModifiers);
+            TElement delta = TElement.CreateTruncating(scaledX) * SmallChange;
 
             var newValues = (FirstValue, SecondValue);
             var oldValues = (FirstValue, SecondValue);

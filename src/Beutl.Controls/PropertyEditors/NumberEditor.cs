@@ -107,7 +107,8 @@ public class NumberEditor<TValue> : StringEditor
 
             // ポインタロック + デルタ取得
             Point move = PointerLockHelper.Moved(_headerText, point, ref _headerDragStart);
-            TValue delta = TValue.CreateTruncating(move.X) * SmallChange;
+            double scaledX = NumberEditorHelper.ApplyScrubModifier(move.X, e.KeyModifiers);
+            TValue delta = TValue.CreateTruncating(scaledX) * SmallChange;
             TValue oldValue = Value;
             TValue newValue = NumberEditorHelper.AddPreservingScale(oldValue, delta);
             if (newValue != oldValue)
