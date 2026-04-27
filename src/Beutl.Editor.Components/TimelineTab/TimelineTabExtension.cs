@@ -75,6 +75,15 @@ public sealed class TimelineTabExtension : ToolTabExtension
             new ContextCommandKeyGesture("Ctrl+G"),
             new ContextCommandKeyGesture("Cmd+G", OSPlatform.OSX),
         ]),
+        new ContextCommandDefinition("ToggleRazorMode", Strings.RazorTool, Strings.RazorTool_Description,
+        [
+            new ContextCommandKeyGesture("C"),
+        ]),
+        new ContextCommandDefinition("ExitRazorMode", Strings.ExitRazorTool, Strings.ExitRazorTool_Description,
+        [
+            new ContextCommandKeyGesture("V"),
+            new ContextCommandKeyGesture("Escape"),
+        ]),
     ];
 
     public override bool TryCreateContent(IEditorContext editorContext, [NotNullWhen(true)] out Control? control)

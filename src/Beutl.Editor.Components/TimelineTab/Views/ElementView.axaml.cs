@@ -380,6 +380,11 @@ public sealed partial class ElementView : UserControl
         {
             if (AssociatedObject is { _timeline: not null, ViewModel: { } viewModel } view)
             {
+                if (viewModel.Timeline.IsRazorMode.Value)
+                {
+                    return;
+                }
+
                 PointerPoint point = e.GetCurrentPoint(view.border);
                 if (point.Properties.IsLeftButtonPressed && e.KeyModifiers is KeyModifiers.None or KeyModifiers.Alt
                                                          && view.Cursor != Cursors.Arrow && view.Cursor is not null)
@@ -482,6 +487,13 @@ public sealed partial class ElementView : UserControl
         {
             if (AssociatedObject is { border: { } border, ViewModel: { } viewModel } view)
             {
+                if (viewModel.Timeline.IsRazorMode.Value)
+                {
+                    view.Cursor = Cursors.Cross;
+                    _resizeType = AlignmentX.Center;
+                    return;
+                }
+
                 if (e.KeyModifiers is not (KeyModifiers.None or KeyModifiers.Alt))
                 {
                     view.Cursor = null;
@@ -584,8 +596,13 @@ public sealed partial class ElementView : UserControl
 
         private void OnBorderPointerPressed(object? sender, PointerPressedEventArgs e)
         {
-            if (AssociatedObject is { _timeline: { }, border: { } border } view)
+            if (AssociatedObject is { _timeline: { }, border: { }, ViewModel: { } viewModel } view)
             {
+                if (viewModel.Timeline.IsRazorMode.Value)
+                {
+                    return;
+                }
+
                 PointerPoint point = e.GetCurrentPoint(view.border);
                 if (point.Properties.IsLeftButtonPressed
                     && (view.Cursor == Cursors.Arrow || view.Cursor == null))
@@ -694,8 +711,22 @@ public sealed partial class ElementView : UserControl
 
         private void OnBorderPointerPressed(object? sender, PointerPressedEventArgs e)
         {
-            if (AssociatedObject is { _timeline.ViewModel: not null } obj)
+            if (AssociatedObject is { _timeline.ViewModel: { } timelineVm } obj)
             {
+                if (timelineVm.IsRazorMode.Value && e.GetCurrentPoint(obj.border).Properties.IsLeftButtonPressed)
+                {
+                    if (obj.ViewModel is { } elementVm)
+                    {
+                        PointerPoint pt = e.GetCurrentPoint(obj.border);
+                        float scale = timelineVm.Options.Value.Scale;
+                        TimeSpan clickedTime = elementVm.Model.Start + pt.Position.X.PixelToTimeSpan(scale);
+                        elementVm.SplitAt(clickedTime);
+                    }
+
+                    e.Handled = true;
+                    return;
+                }
+
                 PointerPoint point = e.GetCurrentPoint(obj.border);
                 if (point.Properties.IsLeftButtonPressed)
                 {
