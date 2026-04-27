@@ -211,6 +211,7 @@ public static class LibraryRegistrar
                 .AddAudioEffect<DelayEffect>(AudioStrings.DelayEffect)
                 .AddAudioEffect<EqualizerEffect>(AudioStrings.Equalizer)
                 .AddAudioEffect<CompressorEffect>(AudioStrings.CompressorEffect)
+                .AddAudioEffect<LimiterEffect>(AudioStrings.LimiterEffect)
             );
     }
 }

@@ -121,4 +121,19 @@
   <data name="CompressorEffect_MakeupGain_Description" xml:space="preserve">
     <value>圧縮で下がった出力レベルを補正するゲイン。</value>
   </data>
+  <data name="LimiterEffect" xml:space="preserve">
+    <value>リミッター</value>
+  </data>
+  <data name="LimiterEffect_Threshold" xml:space="preserve">
+    <value>スレッショルド (dB)</value>
+  </data>
+  <data name="LimiterEffect_Release" xml:space="preserve">
+    <value>リリース (ms)</value>
+  </data>
+  <data name="LimiterEffect_Lookahead" xml:space="preserve">
+    <value>ルックアヘッド (ms)</value>
+  </data>
+  <data name="LimiterEffect_MakeupGain" xml:space="preserve">
+    <value>メイクアップゲイン (dB)</value>
+  </data>
 </root>
