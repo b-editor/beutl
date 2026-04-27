@@ -17,7 +17,6 @@ namespace Beutl.Controls.PropertyEditors;
 public class Vector4Editor<TElement> : Vector4Editor
     where TElement : INumber<TElement>
 {
-#pragma warning disable AVP1002 // AvaloniaProperty objects should not be owned by a generic type
     public static readonly DirectProperty<Vector4Editor<TElement>, TElement> FirstValueProperty =
         AvaloniaProperty.RegisterDirect<Vector4Editor<TElement>, TElement>(
             nameof(FirstValue),
@@ -55,7 +54,6 @@ public class Vector4Editor<TElement> : Vector4Editor
         AvaloniaProperty.Register<Vector4Editor<TElement>, TElement>(
             nameof(SmallChange),
             defaultValue: TElement.One);
-#pragma warning restore AVP1002 // AvaloniaProperty objects should not be owned by a generic type
 
     private readonly CompositeDisposable _disposables = [];
     private TElement _firstValue;
