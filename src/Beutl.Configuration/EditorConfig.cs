@@ -63,6 +63,7 @@ public sealed partial class EditorConfig : ConfigurationBase
     public static readonly CoreProperty<int> NodeCacheMinPixelsProperty;
     public static readonly CoreProperty<bool> SwapTimelineScrollDirectionProperty;
     public static readonly CoreProperty<bool> ClampResizeToOriginalLengthProperty;
+    public static readonly CoreProperty<bool> IsTimelineSnapEnabledProperty;
     public static readonly CoreProperty<TimelineAutoScrollMode> TimelineAutoScrollModeProperty;
     public static readonly CoreProperty<UIToneMappingOperator> ToneMappingModeProperty;
     public static readonly CoreProperty<float> ToneMappingExposureProperty;
@@ -122,6 +123,10 @@ public sealed partial class EditorConfig : ConfigurationBase
             .Register();
 
         ClampResizeToOriginalLengthProperty = ConfigureProperty<bool, EditorConfig>(nameof(ClampResizeToOriginalLength))
+            .DefaultValue(true)
+            .Register();
+
+        IsTimelineSnapEnabledProperty = ConfigureProperty<bool, EditorConfig>(nameof(IsTimelineSnapEnabled))
             .DefaultValue(true)
             .Register();
 
@@ -217,6 +222,12 @@ public sealed partial class EditorConfig : ConfigurationBase
     {
         get => GetValue(ClampResizeToOriginalLengthProperty);
         set => SetValue(ClampResizeToOriginalLengthProperty, value);
+    }
+
+    public bool IsTimelineSnapEnabled
+    {
+        get => GetValue(IsTimelineSnapEnabledProperty);
+        set => SetValue(IsTimelineSnapEnabledProperty, value);
     }
 
     public TimelineAutoScrollMode TimelineAutoScrollMode

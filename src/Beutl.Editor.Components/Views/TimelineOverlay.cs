@@ -31,6 +31,10 @@ public sealed class TimelineOverlay : Control
         = AvaloniaProperty.RegisterDirect<TimelineOverlay, Thickness>(
             nameof(SeekBarMargin), o => o.SeekBarMargin, (o, v) => o.SeekBarMargin = v);
 
+    public static readonly DirectProperty<TimelineOverlay, double?> SnapBarPositionProperty
+        = AvaloniaProperty.RegisterDirect<TimelineOverlay, double?>(
+            nameof(SnapBarPosition), o => o.SnapBarPosition, (o, v) => o.SnapBarPosition = v);
+
     public static readonly StyledProperty<IBrush?> SeekBarBrushProperty
         = AvaloniaProperty.Register<TimelineOverlay, IBrush?>(nameof(SeekBarBrush));
 
@@ -40,15 +44,20 @@ public sealed class TimelineOverlay : Control
     public static readonly StyledProperty<IBrush?> EndingBarBrushProperty
         = AvaloniaProperty.Register<TimelineOverlay, IBrush?>(nameof(EndingBarBrush));
 
+    public static readonly StyledProperty<IBrush?> SnapBarBrushProperty
+        = AvaloniaProperty.Register<TimelineOverlay, IBrush?>(nameof(SnapBarBrush));
+
     private Vector _offset;
     private Thickness _startingBarMargin;
     private Thickness _endingBarMargin;
     private Thickness _seekBarMargin;
+    private double? _snapBarPosition;
     private Size _viewport;
     private Rect _selectionRange;
     private ImmutablePen? _seekBarPen;
     private ImmutablePen? _startingBarPen;
     private ImmutablePen? _endingBarPen;
+    private ImmutablePen? _snapBarPen;
 
     static TimelineOverlay()
     {
@@ -59,9 +68,11 @@ public sealed class TimelineOverlay : Control
             StartingBarMarginProperty,
             EndingBarMarginProperty,
             SeekBarMarginProperty,
+            SnapBarPositionProperty,
             SeekBarBrushProperty,
             StartingBarBrushProperty,
-            EndingBarBrushProperty);
+            EndingBarBrushProperty,
+            SnapBarBrushProperty);
     }
 
     public TimelineOverlay()
@@ -105,6 +116,18 @@ public sealed class TimelineOverlay : Control
         set => SetAndRaise(SeekBarMarginProperty, ref _seekBarMargin, value);
     }
 
+    public double? SnapBarPosition
+    {
+        get => _snapBarPosition;
+        set => SetAndRaise(SnapBarPositionProperty, ref _snapBarPosition, value);
+    }
+
+    public IBrush? SnapBarBrush
+    {
+        get => GetValue(SnapBarBrushProperty);
+        set => SetValue(SnapBarBrushProperty, value);
+    }
+
     public IBrush? SeekBarBrush
     {
         get => GetValue(SeekBarBrushProperty);
@@ -138,6 +161,10 @@ public sealed class TimelineOverlay : Control
         {
             _endingBarPen = new ImmutablePen(EndingBarBrush?.ToImmutable(), 1.25);
         }
+        else if (change.Property == SnapBarBrushProperty)
+        {
+            _snapBarPen = new ImmutablePen(SnapBarBrush?.ToImmutable(), 1.0, new ImmutableDashStyle([3, 3], 0));
+        }
     }
 
     public override void Render(DrawingContext context)
@@ -163,6 +190,13 @@ public sealed class TimelineOverlay : Control
             context.DrawLine(_seekBarPen, seekbar, seekbar + bottom);
             context.DrawLine(_startingBarPen, startingbar, startingbar + bottom);
             context.DrawLine(_endingBarPen, endingbar, endingbar + bottom);
+
+            if (_snapBarPosition is { } snap)
+            {
+                _snapBarPen ??= new ImmutablePen(SnapBarBrush?.ToImmutable(), 1.0, new ImmutableDashStyle([3, 3], 0));
+                var snapBar = new Point(snap, 0);
+                context.DrawLine(_snapBarPen, snapBar, snapBar + bottom);
+            }
         }
     }
 }

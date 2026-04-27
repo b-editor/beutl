@@ -145,6 +145,12 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler
             editorConfig.AutoAdjustSceneDuration = b;
         });
 
+        IsSnapEnabled = editorConfig.GetObservable(EditorConfig.IsTimelineSnapEnabledProperty)
+            .ToReactiveProperty()
+            .DisposeWith(_disposables);
+        IsSnapEnabled.Subscribe(b => editorConfig.IsTimelineSnapEnabled = b)
+            .DisposeWith(_disposables);
+
         IsLockCacheButtonEnabled = HoveredCacheBlock.Select(v => v is { IsLocked: false })
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
@@ -349,6 +355,10 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler
     public ReactiveCommandSlim UnlockFrameCache { get; }
 
     public ReactiveProperty<bool> AutoAdjustSceneDuration { get; }
+
+    public ReactiveProperty<bool> IsSnapEnabled { get; }
+
+    public ReactivePropertySlim<double?> SnapBarPosition { get; } = new();
 
     public ReactivePropertySlim<CacheBlock?> HoveredCacheBlock { get; } = new();
 
