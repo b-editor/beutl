@@ -114,7 +114,9 @@ public sealed partial class HslSecondary : FilterEffect
                     return baseColor;
                 }
 
-                float3 rgb = linearToSrgb(clamp(baseColor.rgb / baseColor.a, 0.0, 1.0));
+                // Curves/ColorGrading と同様に HDR/範囲外値はそのまま通す（ベストエフォート）。
+                // linearToSrgbScalar は三項演算子で負値に対して pow を呼ばないため NaN は生じない。
+                float3 rgb = linearToSrgb(baseColor.rgb / baseColor.a);
                 float3 hsl = rgb_to_hsl(rgb);
 
                 // Hue mask with circular feather (hue is normalized 0..1)
