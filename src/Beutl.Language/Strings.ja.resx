@@ -811,6 +811,21 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="Waveform" xml:space="preserve">
     <value>ウェーブフォーム</value>
   </data>
+  <data name="FalseColor" xml:space="preserve">
+    <value>フォルスカラー</value>
+  </data>
+  <data name="Zebra" xml:space="preserve">
+    <value>ゼブラ</value>
+  </data>
+  <data name="Threshold" xml:space="preserve">
+    <value>閾値</value>
+  </data>
+  <data name="ZebraHighThreshold" xml:space="preserve">
+    <value>上限</value>
+  </data>
+  <data name="ZebraLowThreshold" xml:space="preserve">
+    <value>下限</value>
+  </data>
   <data name="Spectrum" xml:space="preserve">
     <value>スペクトラム</value>
   </data>

@@ -816,6 +816,21 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="Waveform" xml:space="preserve">
     <value>Waveform</value>
   </data>
+  <data name="FalseColor" xml:space="preserve">
+    <value>False Color</value>
+  </data>
+  <data name="Zebra" xml:space="preserve">
+    <value>Zebra</value>
+  </data>
+  <data name="Threshold" xml:space="preserve">
+    <value>Threshold</value>
+  </data>
+  <data name="ZebraHighThreshold" xml:space="preserve">
+    <value>High</value>
+  </data>
+  <data name="ZebraLowThreshold" xml:space="preserve">
+    <value>Low</value>
+  </data>
   <data name="Spectrum" xml:space="preserve">
     <value>Spectrum</value>
   </data>
