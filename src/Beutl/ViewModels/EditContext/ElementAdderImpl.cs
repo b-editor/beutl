@@ -185,11 +185,14 @@ internal sealed class ElementAdderImpl(EditViewModel context) : IElementAdder
             Element element = CreateElement();
             if (desc.InitialObject != null)
             {
-                element.Name = TypeDisplayHelpers.GetLocalizedName(desc.InitialObject);
+                element.Name = string.IsNullOrEmpty(desc.Name)
+                    ? TypeDisplayHelpers.GetLocalizedName(desc.InitialObject)
+                    : desc.Name;
 
                 element.AccentColor =
                     ColorGenerator.GenerateColor(desc.InitialObject.FullName ?? desc.InitialObject.Name);
                 var engineObject = (EngineObject)Activator.CreateInstance(desc.InitialObject)!;
+                desc.InitialObjectConfigure?.Invoke(engineObject);
                 element.AddObject(engineObject);
                 if (engineObject is Drawable drawable)
                 {

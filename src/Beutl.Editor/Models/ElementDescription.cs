@@ -1,4 +1,5 @@
-﻿using Beutl.Graphics;
+﻿using Beutl.Engine;
+using Beutl.Graphics;
 
 namespace Beutl.Editor.Models;
 
@@ -9,4 +10,5 @@ public record struct ElementDescription(
     string Name = "",
     Type? InitialObject = null,
     string? FileName = null,
-    Point Position = default);
+    Point Position = default,
+    Action<EngineObject>? InitialObjectConfigure = null);

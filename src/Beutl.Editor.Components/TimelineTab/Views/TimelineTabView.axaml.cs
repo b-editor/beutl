@@ -656,6 +656,25 @@ public sealed partial class TimelineTabView : UserControl
             InitialObject: operatorType));
     }
 
+    private void AddAdjustmentLayerClick(object? sender, RoutedEventArgs e)
+    {
+        if (ViewModel == null) return;
+
+        ViewModel.AddElement.Execute(new ElementDescription(
+            ViewModel.ClickedFrame,
+            TimeSpan.FromSeconds(5),
+            ViewModel.CalculateClickedLayer(),
+            Name: Strings.AdjustmentLayer,
+            InitialObject: typeof(Beutl.Graphics.SourceBackdrop),
+            InitialObjectConfigure: obj =>
+            {
+                if (obj is Beutl.Graphics.SourceBackdrop backdrop)
+                {
+                    backdrop.Clear.CurrentValue = true;
+                }
+            }));
+    }
+
     private void PopulateAddFromTemplateSubMenu()
     {
         AddFromTemplateSubMenu.Items.Clear();
