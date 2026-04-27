@@ -301,20 +301,20 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
                 FrameProgressText.Value = TotalFrames.Value > 0
                     ? $"{TotalFrames.Value} / {TotalFrames.Value}"
                     : FrameProgressText.Value;
+                ProgressText.Value = Strings.Completed;
+                ProgressMain.Value = Strings.Completed;
+                ProgressSub.Value = string.Empty;
+                Eta.Value = "00:00:00";
+                _logger.LogInformation("Encoding process completed successfully.");
             }
-            ProgressText.Value = Strings.Completed;
-            ProgressMain.Value = Strings.Completed;
-            ProgressSub.Value = string.Empty;
-            Eta.Value = "00:00:00";
-            _logger.LogInformation("Encoding process completed successfully.");
+            else
+            {
+                HandleCancellation();
+            }
         }
         catch (OperationCanceledException)
         {
-            WasCancelled.Value = true;
-            ProgressText.Value = Strings.Cancel;
-            ProgressMain.Value = Strings.Cancel;
-            _logger.LogInformation("Encoding cancelled.");
-            TryDeletePartialFile(_activeDestination);
+            HandleCancellation();
         }
         catch (Exception ex)
         {
@@ -340,6 +340,15 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
                 ShowCompletionNotification(completedPath);
             }
         }
+    }
+
+    private void HandleCancellation()
+    {
+        WasCancelled.Value = true;
+        ProgressText.Value = Strings.Cancel;
+        ProgressMain.Value = Strings.Cancel;
+        _logger.LogInformation("Encoding cancelled.");
+        TryDeletePartialFile(_activeDestination);
     }
 
     private void UpdateProgressIndicators(TimeSpan elapsed, double value, double max, string? destinationPath)
