@@ -108,6 +108,12 @@ public sealed partial class HslSecondary : FilterEffect
                 half4 baseColor = src.eval(coord);
                 if (baseColor.a <= 0.0001) return baseColor;
 
+                // 全調整がゼロかつマスク表示でない場合は HSL ラウンドトリップを回避し、
+                // 上流の HDR/範囲外リニア RGB をそのまま通す。
+                if (showMask <= 0.5 && hueShift == 0.0 && satAdjust == 0.0 && lumAdjust == 0.0) {
+                    return baseColor;
+                }
+
                 float3 rgb = linearToSrgb(clamp(baseColor.rgb / baseColor.a, 0.0, 1.0));
                 float3 hsl = rgb_to_hsl(rgb);
 
@@ -126,6 +132,9 @@ public sealed partial class HslSecondary : FilterEffect
                     float3 lin = srgbToLinear(m);
                     return half4(half3(lin * baseColor.a), baseColor.a);
                 }
+
+                // マスク外は元の色を保持し、HDR/範囲外値のクリップを防ぐ。
+                if (mask <= 0.0) return baseColor;
 
                 // Apply adjustments scaled by mask
                 hsl.x = fract(hsl.x + hueShift * mask + 1.0);
