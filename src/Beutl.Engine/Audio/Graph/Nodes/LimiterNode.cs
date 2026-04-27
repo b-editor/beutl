@@ -13,7 +13,7 @@ public sealed class LimiterNode : AudioNode
     private CircularBuffer<float>? _peakBuffer;
     private int _maxLookaheadSamples;
     private int _lastSampleRate;
-    private TimeSpan? _lastTimeRangeStart;
+    private TimeSpan? _lastTimeRangeEnd;
     private float _currentGain = 1f;
 
     public required IProperty<float> Threshold { get; init; }
@@ -39,17 +39,20 @@ public sealed class LimiterNode : AudioNode
             _lastSampleRate = context.SampleRate;
         }
 
-        if (!_lastTimeRangeStart.HasValue || _lastTimeRangeStart.Value > context.TimeRange.Start)
+        // Reset whenever the chunk does not continue directly from the previous one, because the
+        // node instance is cached across Compose() calls and stale lookahead/gain state would
+        // otherwise bleed into the first samples after a seek or stop/restart.
+        if (!_lastTimeRangeEnd.HasValue || _lastTimeRangeEnd.Value != context.TimeRange.Start)
         {
             Reset();
         }
 
-        _lastTimeRangeStart = context.TimeRange.Start;
+        _lastTimeRangeEnd = context.TimeRange.Start + context.TimeRange.Duration;
 
-        bool hasAnimation = Threshold.IsAnimatable
-                            || Release.IsAnimatable
-                            || Lookahead.IsAnimatable
-                            || MakeupGain.IsAnimatable;
+        bool hasAnimation = Threshold.Animation != null
+                            || Release.Animation != null
+                            || Lookahead.Animation != null
+                            || MakeupGain.Animation != null;
 
         return hasAnimation
             ? ProcessAnimated(input, context)
