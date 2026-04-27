@@ -13,9 +13,6 @@
     <PackageReference Include="Microsoft.Extensions.DependencyModel" />
     <PackageReference Include="Microsoft.Extensions.Logging" />
     <PackageReference Include="ReactiveProperty" />
-
-    <!-- CS8032 -->
-    <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" />
     <PackageReference Include="SkiaSharp" />
     <PackageReference Include="SkiaSharp.HarfBuzz" />
     <PackageReference Include="Vortice.XAudio2" />

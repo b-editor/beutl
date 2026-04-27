@@ -5,8 +5,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- CS8032 -->
-    <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" />
     <PackageReference Include="Aigamo.ResXGenerator">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>

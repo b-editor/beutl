@@ -22,9 +22,6 @@
     <PackageReference Condition="'$(Configuration)' == 'Debug'" Include="Avalonia.Diagnostics" />
     <PackageReference Include="FluentAvaloniaUI" />
     <PackageReference Include="FluentIcons.FluentAvalonia" />
-
-    <!-- CS8032 -->
-    <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" />
     <PackageReference Include="System.Reactive" />
   </ItemGroup>
 

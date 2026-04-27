@@ -11,7 +11,5 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Avalonia.Desktop" />
-    <!-- CS8032 -->
-    <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" />
   </ItemGroup>
 </Project>

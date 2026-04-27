@@ -2,6 +2,7 @@
 
   <PropertyGroup>
     <Nullable>disable</Nullable>
+    <NoWarn>AVP1002</NoWarn>
   </PropertyGroup>
 
   <PropertyGroup Condition="$(TargetFramework.Contains('windows'))">
@@ -26,9 +27,6 @@
     <PackageReference Include="FluentAvaloniaUI" />
     <PackageReference Include="FluentIcons.FluentAvalonia" />
     <PackageReference Include="Microsoft.Extensions.FileSystemGlobbing" />
-
-    <!-- CS8032 -->
-    <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" />
   </ItemGroup>
 
   <ItemGroup>
