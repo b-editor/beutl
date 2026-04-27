@@ -995,6 +995,6 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
     <value>TikTok 縦動画 9:16</value>
   </data>
   <data name="Preset_Discord_8MB" xml:space="preserve">
-    <value>Discord 8MB 制限 (約 10 分)</value>
+    <value>Discord 8MB 制限 (約 1 分)</value>
   </data>
 </root>

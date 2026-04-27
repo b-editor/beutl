@@ -184,6 +184,10 @@ public sealed class OutputPresetService
             {
                 CreateDefaultPresets();
             }
+            else
+            {
+                AddPlatformPresets();
+            }
         }
     }
 
@@ -433,6 +437,11 @@ public sealed class OutputPresetService
         string level,
         int audioSampleRate = 48000)
     {
+        if (_items.Any(i => i.Name.Value == name))
+        {
+            return;
+        }
+
         CodecRecord videoCodec = VideoCodecChoicesProvider.GetChoices()
             .Cast<CodecRecord>()
             .FirstOrDefault(i => i.Name == "libx264") ?? CodecRecord.Default;

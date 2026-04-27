@@ -1001,6 +1001,6 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
     <value>TikTok 9:16</value>
   </data>
   <data name="Preset_Discord_8MB" xml:space="preserve">
-    <value>Discord 8MB (~10 min)</value>
+    <value>Discord 8MB (~1 min)</value>
   </data>
 </root>
