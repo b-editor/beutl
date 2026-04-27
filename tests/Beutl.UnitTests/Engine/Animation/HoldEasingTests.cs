@@ -1,4 +1,4 @@
-using Beutl.Animation.Easings;
+﻿using Beutl.Animation.Easings;
 
 namespace Beutl.UnitTests.Engine.Animation;
 

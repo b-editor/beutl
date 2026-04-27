@@ -1,4 +1,4 @@
-namespace Beutl.Animation.Easings;
+﻿namespace Beutl.Animation.Easings;
 
 public sealed class HoldEasing : Easing
 {
