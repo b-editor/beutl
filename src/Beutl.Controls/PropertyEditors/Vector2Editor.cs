@@ -40,6 +40,7 @@ public class Vector2Editor<TElement> : Vector2Editor
     private TextBlock _headerText;
     private Point _headerDragStart;
     private bool _headerPressed;
+    private double _scrubAccumulator;
 
     public Vector2Editor()
     {
@@ -148,7 +149,7 @@ public class Vector2Editor<TElement> : Vector2Editor
             // ポインタロック + デルタ取得
             Point move = PointerLockHelper.Moved(headerText, point, ref _headerDragStart);
             double scaledX = NumberEditorHelper.ApplyScrubModifier(move.X, e.KeyModifiers);
-            TElement delta = TElement.CreateTruncating(scaledX) * SmallChange;
+            TElement delta = NumberEditorHelper.ConsumeScrubAccumulator<TElement>(ref _scrubAccumulator, scaledX) * SmallChange;
 
             var newValues = (FirstValue, SecondValue);
             var oldValues = (FirstValue, SecondValue);
@@ -209,6 +210,7 @@ public class Vector2Editor<TElement> : Vector2Editor
                 _oldFirstValue = FirstValue;
                 _oldSecondValue = SecondValue;
                 _headerDragStart = pointerPoint.Position;
+                _scrubAccumulator = 0;
                 PointerLockHelper.Pressed(headerText, _headerDragStart);
                 _headerPressed = true;
                 e.Handled = true;

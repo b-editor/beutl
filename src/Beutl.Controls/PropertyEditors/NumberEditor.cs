@@ -42,6 +42,7 @@ public class NumberEditor<TValue> : StringEditor
     private readonly CompositeDisposable _disposables = [];
     private bool _headerPressed;
     private Point _headerDragStart;
+    private double _scrubAccumulator;
     private TextBlock _headerText;
 
     public NumberEditor()
@@ -108,7 +109,7 @@ public class NumberEditor<TValue> : StringEditor
             // ポインタロック + デルタ取得
             Point move = PointerLockHelper.Moved(_headerText, point, ref _headerDragStart);
             double scaledX = NumberEditorHelper.ApplyScrubModifier(move.X, e.KeyModifiers);
-            TValue delta = TValue.CreateTruncating(scaledX) * SmallChange;
+            TValue delta = NumberEditorHelper.ConsumeScrubAccumulator<TValue>(ref _scrubAccumulator, scaledX) * SmallChange;
             TValue oldValue = Value;
             TValue newValue = NumberEditorHelper.AddPreservingScale(oldValue, delta);
             if (newValue != oldValue)
@@ -147,6 +148,7 @@ public class NumberEditor<TValue> : StringEditor
         {
             _oldValue = Value;
             _headerDragStart = pointerPoint.Position;
+            _scrubAccumulator = 0;
             PointerLockHelper.Pressed(_headerText, _headerDragStart);
             _headerPressed = true;
             e.Handled = true;

@@ -24,6 +24,7 @@ public class RationalEditor : StringEditor
     private readonly CompositeDisposable _disposables = [];
     private bool _headerPressed;
     private Point _headerDragStart;
+    private double _scrubAccumulator;
     private TextBlock _headerText;
 
     public RationalEditor()
@@ -72,7 +73,8 @@ public class RationalEditor : StringEditor
             // ポインタロック + デルタ取得
             Point move = PointerLockHelper.Moved(_headerText, point, ref _headerDragStart);
             double scaledX = NumberEditorHelper.ApplyScrubModifier(move.X, e.KeyModifiers);
-            var delta = new Rational((int)scaledX, 1);
+            int truncated = NumberEditorHelper.ConsumeScrubAccumulator<int>(ref _scrubAccumulator, scaledX);
+            var delta = new Rational(truncated, 1);
             Rational oldValue = Value;
             Rational newValue = Value + delta;
             if (newValue != oldValue)
@@ -111,6 +113,7 @@ public class RationalEditor : StringEditor
         {
             _oldValue = Value;
             _headerDragStart = pointerPoint.Position;
+            _scrubAccumulator = 0;
             PointerLockHelper.Pressed(_headerText, _headerDragStart);
             _headerPressed = true;
             e.Handled = true;

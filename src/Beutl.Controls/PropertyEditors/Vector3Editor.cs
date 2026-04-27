@@ -48,6 +48,7 @@ public class Vector3Editor<TElement> : Vector3Editor
     private TextBlock _headerText;
     private Point _headerDragStart;
     private bool _headerPressed;
+    private double _scrubAccumulator;
 
     public Vector3Editor()
     {
@@ -175,7 +176,7 @@ public class Vector3Editor<TElement> : Vector3Editor
             // ポインタロック + デルタ取得
             Point move = PointerLockHelper.Moved(headerText, point, ref _headerDragStart);
             double scaledX = NumberEditorHelper.ApplyScrubModifier(move.X, e.KeyModifiers);
-            TElement delta = TElement.CreateTruncating(scaledX) * SmallChange;
+            TElement delta = NumberEditorHelper.ConsumeScrubAccumulator<TElement>(ref _scrubAccumulator, scaledX) * SmallChange;
 
             var newValues = (FirstValue, SecondValue, ThirdValue);
             var oldValues = (FirstValue, SecondValue, ThirdValue);
@@ -242,6 +243,7 @@ public class Vector3Editor<TElement> : Vector3Editor
                 _oldSecondValue = SecondValue;
                 _oldThirdValue = ThirdValue;
                 _headerDragStart = pointerPoint.Position;
+                _scrubAccumulator = 0;
                 PointerLockHelper.Pressed(headerText, _headerDragStart);
                 _headerPressed = true;
                 e.Handled = true;
