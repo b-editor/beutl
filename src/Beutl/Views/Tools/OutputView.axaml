@@ -13,13 +13,21 @@
              mc:Ignorable="d">
     <StackPanel Spacing="4">
         <Grid Margin="4" ColumnDefinitions="*,Auto">
-            <StackPanel Spacing="8">
+            <StackPanel Spacing="6">
                 <TextBlock Margin="0,8,0,0" Text="{Binding ProgressText.Value}" />
-                <ProgressBar Grid.Row="2"
-                             Margin="0,0,8,0"
+                <ProgressBar Margin="0,0,8,0"
                              IsIndeterminate="{Binding IsIndeterminate.Value}"
                              Maximum="{Binding ProgressMax.Value}"
                              Value="{Binding ProgressValue.Value}" />
+                <StackPanel IsVisible="{Binding IsEncoding.Value}"
+                            Orientation="Horizontal"
+                            Spacing="12">
+                    <TextBlock Opacity="0.7" Text="{Binding Elapsed.Value, StringFormat={}{0}}" />
+                    <TextBlock Opacity="0.5" Text="/" />
+                    <TextBlock Text="{Binding Eta.Value}" />
+                    <TextBlock Opacity="0.5" Text="|" />
+                    <TextBlock Text="{Binding FrameProgressText.Value}" />
+                </StackPanel>
             </StackPanel>
             <Button Grid.Column="1"
                     VerticalAlignment="Bottom"

@@ -1009,4 +1009,19 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="Preset_Discord_8MB" xml:space="preserve">
     <value>Discord 8MB (~1 min)</value>
   </data>
+  <data name="Encoding" xml:space="preserve">
+    <value>Encoding...</value>
+  </data>
+  <data name="RemainingTime" xml:space="preserve">
+    <value>Remaining</value>
+  </data>
+  <data name="Frames" xml:space="preserve">
+    <value>Frames</value>
+  </data>
+  <data name="FileSize" xml:space="preserve">
+    <value>Size</value>
+  </data>
+  <data name="EstimatedSize" xml:space="preserve">
+    <value>Estimated</value>
+  </data>
 </root>

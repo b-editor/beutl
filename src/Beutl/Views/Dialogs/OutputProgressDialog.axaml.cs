@@ -12,10 +12,11 @@ public partial class OutputProgressDialog : ContentDialog
 
     protected override Type StyleKeyOverride => typeof(ContentDialog);
 
-    protected override void OnCloseButtonClick(ContentDialogButtonClickEventArgs args)
+    private void OnCloseButtonClick(ContentDialog sender, ContentDialogButtonClickEventArgs args)
     {
-        base.OnCloseButtonClick(args);
-        if (DataContext is not OutputViewModel vm) return;
-        vm.CancelEncode();
+        if (DataContext is OutputViewModel vm && vm.IsEncoding.Value)
+        {
+            vm.CancelEncode();
+        }
     }
 }

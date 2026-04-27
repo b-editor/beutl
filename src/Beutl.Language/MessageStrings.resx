@@ -361,4 +361,7 @@ Do you want to restart the application?</value>
   <data name="CannotPasteFromClipboard" xml:space="preserve">
     <value>Cannot paste: clipboard does not contain a compatible object.</value>
   </data>
+  <data name="ExportCompleted_File" xml:space="preserve">
+    <value>Export completed: {0}</value>
+  </data>
 </root>

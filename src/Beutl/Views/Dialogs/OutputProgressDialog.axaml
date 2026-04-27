@@ -6,22 +6,67 @@
                   xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
                   xmlns:tools="clr-namespace:Beutl.ViewModels.Tools"
                   xmlns:ui="using:FluentAvalonia.UI.Controls"
-                  xmlns:vm="using:Beutl.ViewModels"
                   Title="{x:Static lang:Strings.Output}"
                   d:DesignHeight="450"
                   d:DesignWidth="800"
                   x:CompileBindings="True"
                   x:DataType="tools:OutputViewModel"
-                  CloseButtonText="{x:Static lang:Strings.Cancel}"
+                  CloseButtonClick="OnCloseButtonClick"
+                  CloseButtonText="{Binding CloseButtonText.Value}"
                   mc:Ignorable="d">
     <ui:ContentDialog.Resources>
         <StaticResource x:Key="ContentDialogMaxWidth" ResourceKey="ContentDialogMinWidth" />
     </ui:ContentDialog.Resources>
 
-    <StackPanel Spacing="8">
-        <TextBlock Text="{Binding ProgressText.Value}" />
+    <StackPanel Spacing="12">
+        <TextBlock FontWeight="SemiBold"
+                   Text="{Binding ProgressMain.Value}"
+                   TextWrapping="Wrap" />
+
         <ProgressBar IsIndeterminate="{Binding IsIndeterminate.Value}"
                      Maximum="{Binding ProgressMax.Value}"
                      Value="{Binding ProgressValue.Value}" />
+
+        <Grid ColumnDefinitions="Auto,*"
+              ColumnSpacing="12"
+              RowDefinitions="Auto,Auto,Auto,Auto"
+              RowSpacing="6">
+            <TextBlock Grid.Row="0"
+                       Grid.Column="0"
+                       Opacity="0.7"
+                       Text="{x:Static lang:Strings.ElapsedTime}" />
+            <TextBlock Grid.Row="0"
+                       Grid.Column="1"
+                       Text="{Binding Elapsed.Value}" />
+
+            <TextBlock Grid.Row="1"
+                       Grid.Column="0"
+                       Opacity="0.7"
+                       Text="{x:Static lang:Strings.RemainingTime}" />
+            <TextBlock Grid.Row="1"
+                       Grid.Column="1"
+                       Text="{Binding Eta.Value}" />
+
+            <TextBlock Grid.Row="2"
+                       Grid.Column="0"
+                       Opacity="0.7"
+                       Text="{x:Static lang:Strings.Frames}" />
+            <TextBlock Grid.Row="2"
+                       Grid.Column="1"
+                       Text="{Binding FrameProgressText.Value}" />
+
+            <TextBlock Grid.Row="3"
+                       Grid.Column="0"
+                       Opacity="0.7"
+                       Text="{x:Static lang:Strings.FileSize}" />
+            <StackPanel Grid.Row="3"
+                        Grid.Column="1"
+                        Orientation="Horizontal"
+                        Spacing="6">
+                <TextBlock Text="{Binding CurrentSize.Value}" />
+                <TextBlock Opacity="0.5" Text="/" />
+                <TextBlock Text="{Binding EstimatedSize.Value}" />
+            </StackPanel>
+        </Grid>
     </StackPanel>
 </ui:ContentDialog>
