@@ -17,6 +17,7 @@ public sealed class ViewConfig : ConfigurationBase
     public static readonly CoreProperty<bool> ShowExactBoundariesProperty;
     public static readonly CoreProperty<CoreList<string>> RecentFilesProperty;
     public static readonly CoreProperty<CoreList<string>> RecentProjectsProperty;
+    public static readonly CoreProperty<string?> LastOpenedProjectFileProperty;
     private readonly CoreList<string> _primaryProperties =
     [
         "AlignmentX",
@@ -69,6 +70,10 @@ public sealed class ViewConfig : ConfigurationBase
 
         RecentProjectsProperty = ConfigureProperty<CoreList<string>, ViewConfig>(nameof(RecentProjects))
             .Accessor(o => o.RecentProjects, (o, v) => o.RecentProjects = v)
+            .Register();
+
+        LastOpenedProjectFileProperty = ConfigureProperty<string?, ViewConfig>(nameof(LastOpenedProjectFile))
+            .DefaultValue(null)
             .Register();
     }
 
@@ -143,6 +148,12 @@ public sealed class ViewConfig : ConfigurationBase
         set => _recentProjects.Replace(value);
     }
 
+    public string? LastOpenedProjectFile
+    {
+        get => GetValue(LastOpenedProjectFileProperty);
+        set => SetValue(LastOpenedProjectFileProperty, value);
+    }
+
     public enum ViewTheme
     {
         Light,
@@ -204,7 +215,7 @@ public sealed class ViewConfig : ConfigurationBase
     protected override void OnPropertyChanged(PropertyChangedEventArgs args)
     {
         base.OnPropertyChanged(args);
-        if (args.PropertyName is nameof(Theme) or nameof(UICulture) or nameof(UseCustomAccentColor) or nameof(CustomAccentColor) or nameof(ShowExactBoundaries))
+        if (args.PropertyName is nameof(Theme) or nameof(UICulture) or nameof(UseCustomAccentColor) or nameof(CustomAccentColor) or nameof(ShowExactBoundaries) or nameof(LastOpenedProjectFile))
         {
             OnChanged();
         }

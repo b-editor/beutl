@@ -98,6 +98,7 @@ public sealed class ProjectService
             // 値を発行
             _projectObservable.OnNext((New: null, project));
             _app.Project = null;
+            GlobalConfiguration.Instance.ViewConfig.LastOpenedProjectFile = null;
             _logger.LogInformation("Closed project. Project: {Project}", project.Uri);
         }
     }
@@ -156,5 +157,6 @@ public sealed class ProjectService
         ViewConfig viewConfig = GlobalConfiguration.Instance.ViewConfig;
         viewConfig.UpdateRecentProject(file);
         viewConfig.UpdateRecentFile(file);
+        viewConfig.LastOpenedProjectFile = file;
     }
 }
