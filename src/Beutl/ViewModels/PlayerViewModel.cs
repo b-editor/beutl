@@ -36,13 +36,6 @@ public enum PlaybackDirection
     Backward,
 }
 
-public enum LoopMode
-{
-    None,
-    All,
-    Selection,
-}
-
 public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
 {
     private static readonly TimeSpan s_second = TimeSpan.FromSeconds(1);
@@ -303,8 +296,6 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
 
     public ReactivePropertySlim<bool> IsLoopEnabled { get; } = new(false);
 
-    public ReactivePropertySlim<LoopMode> LoopMode { get; } = new(ViewModels.LoopMode.All);
-
     public ReactiveProperty<TimeSpan> CurrentFrame { get; }
 
     public ReadOnlyReactiveProperty<TimeSpan> Duration { get; }
@@ -415,24 +406,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
         TimeSpan durationTime = Scene.Duration;
         int startFrame = (int)startTime.ToFrameNumber(rate);
         int durationFrame = (int)Math.Ceiling(durationTime.ToFrameNumber(rate));
-        int sceneEndFrame = (int)Scene.Start.ToFrameNumber(rate) + durationFrame;
-        (TimeSpan loopStart, TimeSpan loopEnd) = GetLoopRange();
-        // 再生中のループ ON/OFF や LoopMode 変更に追従するため、endFrame / loopActive /
-        // loopStart は IsLoopEnabled / LoopMode の購読で更新する。
-        int endFrame = ComputePlaybackEndFrame(IsLoopEnabled.Value, loopEnd, sceneEndFrame, rate);
-        bool loopActive = IsLoopEnabled.Value;
-        using var loopRangeSubscription = Observable.Merge(
-                IsLoopEnabled.Select(_ => Unit.Default),
-                LoopMode.Select(_ => Unit.Default))
-            .Subscribe(_ =>
-            {
-                if (Scene == null) return;
-                var range = GetLoopRange();
-                loopStart = range.Start;
-                loopEnd = range.End;
-                loopActive = IsLoopEnabled.Value;
-                endFrame = ComputePlaybackEndFrame(loopActive, loopEnd, sceneEndFrame, rate);
-            });
+        int endFrame = (int)Scene.Start.ToFrameNumber(rate) + durationFrame;
         bufferStatus.StartTime.Value = startTime;
         bufferStatus.EndTime.Value = startTime;
         frameCacheManager.Options = frameCacheManager.Options with
@@ -479,7 +453,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                 if (!IsPlaying.Value || expectFrame >= endFrame)
                 {
                     // ループ用に endFrame で打ち切る場合、音声側にも停止を伝える
-                    if (loopActive && expectFrame >= endFrame)
+                    if (IsLoopEnabled.Value && expectFrame >= endFrame)
                     {
                         reachedNaturalEnd = true;
                         IsPlaying.Value = false;
@@ -545,20 +519,11 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
         // loopStart は購読で最新化されているため、再生中の In/Out 変更にも追従する。
         if (IsLoopEnabled.Value && reachedNaturalEnd && Scene != null)
         {
-            _editorClock.CurrentTime.Value = loopStart;
+            _editorClock.CurrentTime.Value = Scene.Start;
             return true;
         }
 
         return false;
-    }
-
-    private static int ComputePlaybackEndFrame(bool loopEnabled, TimeSpan loopEnd, int sceneEndFrame, int rate)
-    {
-        if (!loopEnabled) return sceneEndFrame;
-        int loopEndFrame = (int)Math.Ceiling(loopEnd.ToFrameNumber(rate));
-        if (loopEndFrame > 0 && loopEndFrame < sceneEndFrame)
-            return loopEndFrame;
-        return sceneEndFrame;
     }
 
     public int GetFrameRate()
@@ -577,33 +542,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
         if (Scene == null)
             return (TimeSpan.Zero, TimeSpan.Zero);
 
-        TimeSpan sceneStart = Scene.Start;
-        TimeSpan sceneEnd = sceneStart + Scene.Duration;
-
-        switch (LoopMode.Value)
-        {
-            // None / All いずれもシーン全体を範囲とする。実際のループ可否は IsLoopEnabled が決める。
-            case ViewModels.LoopMode.None:
-            case ViewModels.LoopMode.All:
-                return (TimeSpan.Zero, sceneEnd);
-
-            case ViewModels.LoopMode.Selection:
-                {
-                    Element[] children = Scene.Children.Where(c => c.IsEnabled).ToArray();
-                    if (_editorSelection.SelectedObject.Value is Element single)
-                    {
-                        return (single.Start, single.Range.End);
-                    }
-
-                    if (children.Length == 0)
-                        return (sceneStart, sceneEnd);
-                    TimeSpan minStart = children.Min(c => c.Start);
-                    TimeSpan maxEnd = children.Max(c => c.Range.End);
-                    return (minStart, maxEnd);
-                }
-        }
-
-        return (TimeSpan.Zero, sceneEnd);
+        return (Scene.Start, Scene.Start + Scene.Duration);
     }
 
     public void ToggleLoop()
@@ -705,20 +644,8 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                 Scene.Edited -= OnSceneEdited;
                 // 既存の CurrentFrame 購読は維持して UpdateCurrentFrame 経由でレンダリングを行う
 
-                // ループ範囲とシーン終端は毎tick再計算するとSelectionモードで割り当てが嵩むため、
-                // 関係するプロパティを購読してキャッシュを更新する。
-                (TimeSpan loopStart, TimeSpan loopEnd) cachedLoop = GetLoopRange();
-                TimeSpan cachedSceneEnd = Scene.Start + Scene.Duration;
-                using var loopRangeSubscription = Observable.Merge(
-                        IsLoopEnabled.Select(_ => Unit.Default),
-                        LoopMode.Select(_ => Unit.Default))
-                    .Subscribe(_ =>
-                    {
-                        if (Scene == null) return;
-                        cachedLoop = GetLoopRange();
-                        cachedSceneEnd = Scene.Start + Scene.Duration;
-                    });
-
+                TimeSpan sceneStart = Scene.Start;
+                TimeSpan sceneEnd = sceneStart + Scene.Duration;
                 DateTime lastTime = DateTime.UtcNow;
                 while (_isShuttling && IsPlaying.Value && Scene != null)
                 {
@@ -733,28 +660,37 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                     float speed = PlaybackSpeed.Value;
                     int sign = direction == ViewModels.PlaybackDirection.Forward ? 1 : -1;
                     TimeSpan delta = TimeSpan.FromTicks((long)(elapsed.Ticks * speed * sign));
-                    TimeSpan next = _editorClock.CurrentTime.Value + delta;
+                    TimeSpan currentTime = _editorClock.CurrentTime.Value;
+                    TimeSpan next = currentTime + delta;
 
-                    TimeSpan loopStart = cachedLoop.loopStart;
-                    TimeSpan loopEnd = cachedLoop.loopEnd;
-                    TimeSpan sceneEnd = cachedSceneEnd;
-                    TimeSpan minTime = TimeSpan.Zero;
-                    TimeSpan maxTime = sceneEnd - tick;
-                    if (IsLoopEnabled.Value && loopEnd > loopStart)
+                    // 範囲外から再生開始した場合はその位置から自然に再生する。
+                    // シーン範囲内に入った時点で通常のループ・境界判定に切り替わる。
+                    bool insideRange = currentTime >= sceneStart && currentTime < sceneEnd;
+                    if (insideRange)
                     {
-                        minTime = loopStart;
-                        maxTime = loopEnd - tick;
-                        if (next > loopEnd) next = loopStart;
-                        if (next < loopStart) next = loopEnd - tick;
+                        TimeSpan minTime = sceneStart;
+                        TimeSpan maxTime = sceneEnd - tick;
+                        if (IsLoopEnabled.Value)
+                        {
+                            if (next > sceneEnd) next = minTime;
+                            if (next < sceneStart) next = maxTime;
+                        }
+                        else
+                        {
+                            if (next >= sceneEnd) { next = maxTime; break; }
+                            if (next < sceneStart) { next = minTime; break; }
+                        }
+
+                        if (next < minTime) next = minTime;
+                        if (next > maxTime) next = maxTime;
                     }
                     else
                     {
-                        if (next >= sceneEnd) { next = maxTime; break; }
+                        // 範囲外: シーン範囲に向かう方向のみ進行を許可する。
+                        bool movingTowardRange = currentTime >= sceneEnd ? sign < 0 : sign > 0;
+                        if (!movingTowardRange) break;
                         if (next < TimeSpan.Zero) { next = TimeSpan.Zero; break; }
                     }
-
-                    if (next < minTime) next = minTime;
-                    if (next > maxTime) next = maxTime;
 
                     TimeSpan target = next;
                     Avalonia.Threading.Dispatcher.UIThread.Post(() =>
