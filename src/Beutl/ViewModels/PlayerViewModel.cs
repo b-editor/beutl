@@ -422,16 +422,24 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
         int durationFrame = (int)Math.Ceiling(durationTime.ToFrameNumber(rate));
         int sceneEndFrame = (int)Scene.Start.ToFrameNumber(rate) + durationFrame;
         (TimeSpan loopStart, TimeSpan loopEnd) = GetLoopRange();
-        int endFrame = sceneEndFrame;
+        // 再生中のループ ON/OFF や In/Out 変更に追従するため、endFrame と loopActive、
+        // loopStart は再生中も IsLoopEnabled / LoopMode / InPoint / OutPoint の購読で更新する。
+        int endFrame = ComputePlaybackEndFrame(IsLoopEnabled.Value, loopEnd, sceneEndFrame, rate);
         bool loopActive = IsLoopEnabled.Value;
-        if (loopActive)
-        {
-            int loopEndFrame = (int)Math.Ceiling(loopEnd.ToFrameNumber(rate));
-            if (loopEndFrame > 0 && loopEndFrame < endFrame)
+        using var loopRangeSubscription = Observable.Merge(
+                IsLoopEnabled.Select(_ => Unit.Default),
+                LoopMode.Select(_ => Unit.Default),
+                InPoint.Select(_ => Unit.Default),
+                OutPoint.Select(_ => Unit.Default))
+            .Subscribe(_ =>
             {
-                endFrame = loopEndFrame;
-            }
-        }
+                if (Scene == null) return;
+                var range = GetLoopRange();
+                loopStart = range.Start;
+                loopEnd = range.End;
+                loopActive = IsLoopEnabled.Value;
+                endFrame = ComputePlaybackEndFrame(loopActive, loopEnd, sceneEndFrame, rate);
+            });
         bufferStatus.StartTime.Value = startTime;
         bufferStatus.EndTime.Value = startTime;
         frameCacheManager.Options = frameCacheManager.Options with
@@ -540,14 +548,24 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
         Scene.Edited += OnSceneEdited;
         _logger.LogInformation("End the playback. ({SceneId})", _editViewModel.SceneId);
 
-        // ループが有効でユーザーによる停止ではない場合、ループ先頭に戻して再開を要求
-        if (loopActive && IsLoopEnabled.Value && reachedNaturalEnd && Scene != null)
+        // ループが有効でユーザーによる停止ではない場合、ループ先頭に戻して再開を要求。
+        // loopStart は購読で最新化されているため、再生中の In/Out 変更にも追従する。
+        if (IsLoopEnabled.Value && reachedNaturalEnd && Scene != null)
         {
             _editorClock.CurrentTime.Value = loopStart;
             return true;
         }
 
         return false;
+    }
+
+    private static int ComputePlaybackEndFrame(bool loopEnabled, TimeSpan loopEnd, int sceneEndFrame, int rate)
+    {
+        if (!loopEnabled) return sceneEndFrame;
+        int loopEndFrame = (int)Math.Ceiling(loopEnd.ToFrameNumber(rate));
+        if (loopEndFrame > 0 && loopEndFrame < sceneEndFrame)
+            return loopEndFrame;
+        return sceneEndFrame;
     }
 
     public int GetFrameRate()
