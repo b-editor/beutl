@@ -79,12 +79,6 @@ public partial class EditViewModel : IContextCommandHandler
             case "ShuttleStop" when !isFromTextBox:
                 Player.ShuttleStop();
                 break;
-            case "SetInPoint" when !isFromTextBox:
-                Player.SetInPoint();
-                break;
-            case "SetOutPoint" when !isFromTextBox:
-                Player.SetOutPoint();
-                break;
             case "ToggleLoop" when !isFromTextBox:
                 Player.ToggleLoop();
                 break;

@@ -78,14 +78,6 @@ public sealed class SceneEditorExtension : EditorExtension
         [
             new ContextCommandKeyGesture("K")
         ]),
-        new("SetInPoint", "Set In point", "Set the In point at the current playhead position.",
-        [
-            new ContextCommandKeyGesture("I")
-        ]),
-        new("SetOutPoint", "Set Out point", "Set the Out point at the current playhead position.",
-        [
-            new ContextCommandKeyGesture("O")
-        ]),
         new("ToggleLoop", "Toggle loop", "Toggle loop playback.",
         [
             new ContextCommandKeyGesture("OemQuestion"),

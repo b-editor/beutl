@@ -40,7 +40,6 @@ public enum LoopMode
 {
     None,
     All,
-    InOut,
     Selection,
 }
 
@@ -304,11 +303,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
 
     public ReactivePropertySlim<bool> IsLoopEnabled { get; } = new(false);
 
-    public ReactivePropertySlim<LoopMode> LoopMode { get; } = new(ViewModels.LoopMode.InOut);
-
-    public ReactivePropertySlim<TimeSpan?> InPoint { get; } = new();
-
-    public ReactivePropertySlim<TimeSpan?> OutPoint { get; } = new();
+    public ReactivePropertySlim<LoopMode> LoopMode { get; } = new(ViewModels.LoopMode.All);
 
     public ReactiveProperty<TimeSpan> CurrentFrame { get; }
 
@@ -422,15 +417,13 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
         int durationFrame = (int)Math.Ceiling(durationTime.ToFrameNumber(rate));
         int sceneEndFrame = (int)Scene.Start.ToFrameNumber(rate) + durationFrame;
         (TimeSpan loopStart, TimeSpan loopEnd) = GetLoopRange();
-        // 再生中のループ ON/OFF や In/Out 変更に追従するため、endFrame と loopActive、
-        // loopStart は再生中も IsLoopEnabled / LoopMode / InPoint / OutPoint の購読で更新する。
+        // 再生中のループ ON/OFF や LoopMode 変更に追従するため、endFrame / loopActive /
+        // loopStart は IsLoopEnabled / LoopMode の購読で更新する。
         int endFrame = ComputePlaybackEndFrame(IsLoopEnabled.Value, loopEnd, sceneEndFrame, rate);
         bool loopActive = IsLoopEnabled.Value;
         using var loopRangeSubscription = Observable.Merge(
                 IsLoopEnabled.Select(_ => Unit.Default),
-                LoopMode.Select(_ => Unit.Default),
-                InPoint.Select(_ => Unit.Default),
-                OutPoint.Select(_ => Unit.Default))
+                LoopMode.Select(_ => Unit.Default))
             .Subscribe(_ =>
             {
                 if (Scene == null) return;
@@ -594,14 +587,6 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
             case ViewModels.LoopMode.All:
                 return (TimeSpan.Zero, sceneEnd);
 
-            case ViewModels.LoopMode.InOut:
-                {
-                    TimeSpan start = InPoint.Value ?? sceneStart;
-                    TimeSpan end = OutPoint.Value ?? sceneEnd;
-                    if (end <= start) end = sceneEnd;
-                    return (start, end);
-                }
-
             case ViewModels.LoopMode.Selection:
                 {
                     Element[] children = Scene.Children.Where(c => c.IsEnabled).ToArray();
@@ -619,27 +604,6 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
         }
 
         return (TimeSpan.Zero, sceneEnd);
-    }
-
-    public void SetInPoint()
-    {
-        InPoint.Value = _editorClock.CurrentTime.Value;
-        // In >= Out になるとループ範囲が無効になるため反対側のマーカーを解除する
-        if (OutPoint.Value is { } o && o <= InPoint.Value)
-        {
-            OutPoint.Value = null;
-        }
-    }
-
-    public void SetOutPoint()
-    {
-        TimeSpan time = _editorClock.CurrentTime.Value;
-        // Out <= In になるとループ範囲が無効になるため反対側のマーカーを解除する
-        if (InPoint.Value is { } i && time <= i)
-        {
-            InPoint.Value = null;
-        }
-        OutPoint.Value = time;
     }
 
     public void ToggleLoop()
@@ -747,9 +711,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                 TimeSpan cachedSceneEnd = Scene.Start + Scene.Duration;
                 using var loopRangeSubscription = Observable.Merge(
                         IsLoopEnabled.Select(_ => Unit.Default),
-                        LoopMode.Select(_ => Unit.Default),
-                        InPoint.Select(_ => Unit.Default),
-                        OutPoint.Select(_ => Unit.Default))
+                        LoopMode.Select(_ => Unit.Default))
                     .Subscribe(_ =>
                     {
                         if (Scene == null) return;
