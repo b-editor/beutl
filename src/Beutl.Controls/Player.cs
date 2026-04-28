@@ -3,6 +3,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Presenters;
 using Avalonia.Controls.Primitives;
+using Avalonia.Data;
 
 namespace Beutl.Controls;
 
@@ -22,6 +23,13 @@ public class Player : RangeBase
             nameof(IsPlaying),
             owner => owner.IsPlaying,
             (owner, obj) => owner.IsPlaying = obj);
+
+    public static readonly DirectProperty<Player, bool> IsLoopEnabledProperty =
+        AvaloniaProperty.RegisterDirect<Player, bool>(
+            nameof(IsLoopEnabled),
+            owner => owner.IsLoopEnabled,
+            (owner, obj) => owner.IsLoopEnabled = obj,
+            defaultBindingMode: BindingMode.TwoWay);
 
     public static readonly DirectProperty<Player, ICommand> PlayButtonCommandProperty =
         AvaloniaProperty.RegisterDirect<Player, ICommand>(
@@ -55,6 +63,7 @@ public class Player : RangeBase
 
     private string _currentTime = string.Empty;
     private bool _isPlaying;
+    private bool _isLoopEnabled;
     private ToggleButton _playButton;
     private RepeatButton _nextButton;
     private RepeatButton _previousButton;
@@ -103,6 +112,12 @@ public class Player : RangeBase
     {
         get => _isPlaying;
         set => SetAndRaise(IsPlayingProperty, ref _isPlaying, value);
+    }
+
+    public bool IsLoopEnabled
+    {
+        get => _isLoopEnabled;
+        set => SetAndRaise(IsLoopEnabledProperty, ref _isLoopEnabled, value);
     }
 
     public ICommand PlayButtonCommand

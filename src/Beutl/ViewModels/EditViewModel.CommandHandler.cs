@@ -2,7 +2,6 @@
 using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Media;
 using Beutl.ProjectSystem;
-using ExCSS;
 using Microsoft.Extensions.Logging;
 
 namespace Beutl.ViewModels;
@@ -47,9 +46,10 @@ public partial class EditViewModel : IContextCommandHandler
     {
         if (execution.KeyEventArgs != null)
             execution.KeyEventArgs.Handled = true;
+        bool isFromTextBox = execution.KeyEventArgs?.Source is TextBox;
         switch (execution.CommandName)
         {
-            case "PlayPause" when execution.KeyEventArgs?.Source is not TextBox:
+            case "PlayPause" when !isFromTextBox:
                 Player.PlayPause.Execute();
                 break;
             case "Next":
@@ -64,13 +64,37 @@ public partial class EditViewModel : IContextCommandHandler
             case "SeekEnd":
                 Player.End.Execute();
                 break;
-            case "ToggleMarker" when execution.KeyEventArgs?.Source is not TextBox:
+            case "ShuttleForward" when !isFromTextBox:
+                Player.ShuttleForward();
+                break;
+            case "ShuttleForwardFine" when !isFromTextBox:
+                Player.ShuttleForward(fineGrain: true);
+                break;
+            case "ShuttleBackward" when !isFromTextBox:
+                Player.ShuttleBackward();
+                break;
+            case "ShuttleBackwardFine" when !isFromTextBox:
+                Player.ShuttleBackward(fineGrain: true);
+                break;
+            case "ShuttleStop" when !isFromTextBox:
+                Player.ShuttleStop();
+                break;
+            case "SetInPoint" when !isFromTextBox:
+                Player.SetInPoint();
+                break;
+            case "SetOutPoint" when !isFromTextBox:
+                Player.SetOutPoint();
+                break;
+            case "ToggleLoop" when !isFromTextBox:
+                Player.ToggleLoop();
+                break;
+            case "ToggleMarker" when !isFromTextBox:
                 ToggleMarkerAtCurrentTime();
                 break;
-            case "NextMarker" when execution.KeyEventArgs?.Source is not TextBox:
+            case "NextMarker" when !isFromTextBox:
                 SeekToAdjacentMarker(forward: true);
                 break;
-            case "PreviousMarker" when execution.KeyEventArgs?.Source is not TextBox:
+            case "PreviousMarker" when !isFromTextBox:
                 SeekToAdjacentMarker(forward: false);
                 break;
             default:

@@ -1,9 +1,7 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;
 using Avalonia.Controls;
-using Avalonia.Input;
 using Avalonia.Platform.Storage;
-using Beutl.Models;
 using Beutl.ProjectSystem;
 using Beutl.ViewModels;
 using Beutl.Views;
@@ -59,6 +57,39 @@ public sealed class SceneEditorExtension : EditorExtension
         [
             new ContextCommandKeyGesture("Ctrl+Left"),
             new ContextCommandKeyGesture("Alt+Left", OSPlatform.OSX)
+        ]),
+        new("ShuttleForward", "Shuttle forward", "Shuttle forward (L). Press repeatedly to accelerate.",
+        [
+            new ContextCommandKeyGesture("L")
+        ]),
+        new("ShuttleForwardFine", "Shuttle forward (fine)", "Shuttle forward at half speed.",
+        [
+            new ContextCommandKeyGesture("Shift+L")
+        ]),
+        new("ShuttleBackward", "Shuttle backward", "Shuttle backward (J). Press repeatedly to accelerate.",
+        [
+            new ContextCommandKeyGesture("J")
+        ]),
+        new("ShuttleBackwardFine", "Shuttle backward (fine)", "Shuttle backward at half speed.",
+        [
+            new ContextCommandKeyGesture("Shift+J")
+        ]),
+        new("ShuttleStop", "Shuttle stop", "Stop shuttle playback.",
+        [
+            new ContextCommandKeyGesture("K")
+        ]),
+        new("SetInPoint", "Set In point", "Set the In point at the current playhead position.",
+        [
+            new ContextCommandKeyGesture("I")
+        ]),
+        new("SetOutPoint", "Set Out point", "Set the Out point at the current playhead position.",
+        [
+            new ContextCommandKeyGesture("O")
+        ]),
+        new("ToggleLoop", "Toggle loop", "Toggle loop playback.",
+        [
+            new ContextCommandKeyGesture("OemQuestion"),
+            new ContextCommandKeyGesture("OemSlash")
         ]),
     ];
 
