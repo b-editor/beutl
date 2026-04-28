@@ -90,6 +90,12 @@ internal sealed class IpcSampleProvider : ISampleProvider
     {
         long chunkOffset = (offset / SampleRate) * SampleRate;
 
+        // 既にロード済みのチャンクが要求と一致する場合は何もしない
+        if (_currentChunk != null && _currentChunkOffset == chunkOffset)
+        {
+            return;
+        }
+
         // プリフェッチ済みのチャンクと一致する場合
         if (_prefetchTask != null && _prefetchChunkOffset == chunkOffset)
         {
@@ -103,8 +109,16 @@ internal sealed class IpcSampleProvider : ISampleProvider
             return;
         }
 
-        // プリフェッチと一致しない場合（初回 or シーク）
-        _prefetchTask = null;
+        // プリフェッチが進行中だが要求と一致しない場合は、完了を待ってから結果を破棄する。
+        // ホストへ非順次なリクエストが流出しないよう、参照を捨てるだけでなく必ず await する。
+        // キャンセルや通信エラーはそのまま上位へ伝播させる。
+        if (_prefetchTask != null)
+        {
+            Task<Pcm<Stereo32BitFloat>> staleTask = _prefetchTask;
+            _prefetchTask = null;
+            Pcm<Stereo32BitFloat> stalePcm = await staleTask;
+            stalePcm.Dispose();
+        }
 
         int bufferIndex = 0;
         _currentChunk?.Dispose();
