@@ -70,7 +70,7 @@ public sealed class RestoreLastProjectTask : StartupTask
                 return;
             }
 
-            await ProjectService.Current.OpenProject(file);
+            await Dispatcher.UIThread.InvokeAsync(() => ProjectService.Current.OpenProject(file));
         });
     }
 
