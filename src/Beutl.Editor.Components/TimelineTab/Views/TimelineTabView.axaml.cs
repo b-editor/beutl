@@ -15,6 +15,7 @@ using Beutl.Controls;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.SceneSettingsTab.ViewModels;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
+using Beutl.Editor.Components.Views;
 using Beutl.Editor.Services;
 using Beutl.Engine;
 using Beutl.Logging;
@@ -38,6 +39,11 @@ public sealed partial class TimelineTabView : UserControl
     private TimeSpan _initialStart;
     private TimeSpan _initialDuration;
     private bool _rightButtonPressed;
+    private SceneMarker? _pressedMarker;
+    private TimeSpan _markerInitialTime;
+    private Point _markerPressPosition;
+    private bool _markerDragged;
+    private const double MarkerDragThreshold = 4d;
     private readonly ILogger _logger = Log.CreateLogger<TimelineTabView>();
     private readonly CompositeDisposable _disposables = [];
     private ElementView? _selectedElement;
@@ -289,6 +295,19 @@ public sealed partial class TimelineTabView : UserControl
             // 直接値を更新（コマンド記録なし）
             viewModel.Scene.Duration = newDuration;
         }
+        else if (_mouseFlag == MouseFlags.MarkerPressed && _pressedMarker is { } draggingMarker)
+        {
+            // 閾値を超えるまではドラッグとみなさず、クリックでのフライアウト表示の余地を残す
+            if (!_markerDragged
+                && Math.Abs(pointerPt.Position.X - _markerPressPosition.X) < MarkerDragThreshold
+                && Math.Abs(pointerPt.Position.Y - _markerPressPosition.Y) < MarkerDragThreshold)
+            {
+                return;
+            }
+
+            _markerDragged = true;
+            draggingMarker.Time = _pointerFrame;
+        }
         else if (_mouseFlag == MouseFlags.StartingBarMarkerPressed)
         {
             // Calculate the new starting point for the scene based on the pointer frame
@@ -315,8 +334,9 @@ public sealed partial class TimelineTabView : UserControl
             double startingBarX = viewModel.StartingBarMargin.Value.Left;
             double endingBarX = viewModel.EndingBarMargin.Value.Left;
 
-            // EndingBarマーカーの当たり判定チェック
-            if (TimelineHelper.IsPointInTimelineScaleMarker(pointerPt.Position.X, posScale.Y, startingBarX, endingBarX))
+            // EndingBarマーカーやポイントマーカーの当たり判定チェック
+            if (TimelineHelper.IsPointInTimelineScaleMarker(pointerPt.Position.X, posScale.Y, startingBarX, endingBarX)
+                || (Scale.IsPointerOver && Scale.HitTestMarker(pointerPt.Position.X, posScale.Y) != null))
             {
                 Scale.Cursor = Cursors.SizeWestEast;
             }
@@ -359,6 +379,24 @@ public sealed partial class TimelineTabView : UserControl
             else if (_mouseFlag == MouseFlags.StartingBarMarkerPressed)
             {
                 history.Commit(CommandNames.ChangeSceneStart);
+            }
+            else if (_mouseFlag == MouseFlags.MarkerPressed && _pressedMarker is { } releasedMarker)
+            {
+                if (_markerDragged)
+                {
+                    if (releasedMarker.Time != _markerInitialTime)
+                    {
+                        history.Commit(CommandNames.MoveMarker);
+                    }
+                }
+                else
+                {
+                    // 移動が閾値未満ならクリック扱いで編集フライアウトを開く
+                    ShowMarkerEditFlyout(releasedMarker);
+                }
+
+                _pressedMarker = null;
+                _markerDragged = false;
             }
 
             if (Scale.IsPointerOver && ViewModel.HoveredCacheBlock.Value is { } cache)
@@ -447,7 +485,11 @@ public sealed partial class TimelineTabView : UserControl
                 if (Scale.IsPointerOver
                     && Scale.HitTestMarker(pointerPt.Position.X, scalePoint.Y) is { } hitMarker)
                 {
-                    ShowMarkerEditFlyout(hitMarker, scalePoint);
+                    _mouseFlag = MouseFlags.MarkerPressed;
+                    _pressedMarker = hitMarker;
+                    _markerInitialTime = hitMarker.Time;
+                    _markerPressPosition = pointerPt.Position;
+                    _markerDragged = false;
                     e.Handled = true;
                     return;
                 }
@@ -800,60 +842,62 @@ public sealed partial class TimelineTabView : UserControl
         ContentScroll.Offset = new Avalonia.Vector(offsetX, ContentScroll.Offset.Y);
     }
 
-    private void ShowMarkerEditFlyout(SceneMarker marker, Point anchor)
+    // ポインターがマーカー上にあるときは Scale の ContextFlyout を抑制する
+    private void Scale_ContextRequested(object? sender, ContextRequestedEventArgs e)
+    {
+        if (e.TryGetPosition(Scale, out Point position)
+            && Scale.HitTestMarker(position.X, position.Y) != null)
+        {
+            e.Handled = true;
+        }
+    }
+
+    private void ShowMarkerEditFlyout(SceneMarker marker)
     {
         if (ViewModel == null) return;
 
-        var nameBox = new TextBox { Text = marker.Name, Watermark = "Name", Width = 240 };
-        var noteBox = new TextBox
+        var initialName = marker.Name;
+        var initialNote = marker.Note;
+        var initialColor = marker.Color;
+        bool deleted = false;
+
+        var flyout = new MarkerEditFlyout
         {
-            Text = marker.Note,
-            Watermark = "Note",
-            Width = 240,
-            AcceptsReturn = true,
-            TextWrapping = Avalonia.Media.TextWrapping.Wrap,
-            MinHeight = 60,
-        };
-        var colorButton = new FluentAvalonia.UI.Controls.ColorPickerButton
-        {
+            Time = marker.Time,
+            MarkerName = marker.Name,
+            Note = marker.Note,
             Color = AvaColor.FromArgb(marker.Color.A, marker.Color.R, marker.Color.G, marker.Color.B),
-            UseColorPalette = true,
         };
-        var deleteButton = new Button { Content = "Delete", HorizontalAlignment = HorizontalAlignment.Right };
 
-        var panel = new StackPanel
+        flyout.ValuesChanged += (_, values) =>
         {
-            Spacing = 6,
-            Children =
+            if (deleted) return;
+            marker.Name = values.Name;
+            marker.Note = values.Note;
+            marker.Color = BtlColor.FromArgb(values.Color.A, values.Color.R, values.Color.G, values.Color.B);
+        };
+
+        flyout.DeleteRequested += (_, _) =>
+        {
+            if (ViewModel == null) return;
+            // 削除前にプロパティ変更が残っていれば確定しない（Removeコマンドだけを履歴に残す）
+            marker.Name = initialName;
+            marker.Note = initialNote;
+            marker.Color = initialColor;
+            deleted = true;
+            ViewModel.Scene.Markers.Remove(marker);
+            ViewModel.EditorContext.GetRequiredService<HistoryManager>().Commit(CommandNames.RemoveMarker);
+        };
+
+        flyout.Closed += (_, _) =>
+        {
+            if (deleted || ViewModel == null) return;
+            if (marker.Name != initialName
+                || marker.Note != initialNote
+                || marker.Color != initialColor)
             {
-                new TextBlock { Text = $"Marker @ {marker.Time:hh\\:mm\\:ss\\.ff}" },
-                nameBox,
-                colorButton,
-                noteBox,
-                deleteButton,
+                ViewModel.EditorContext.GetRequiredService<HistoryManager>().Commit(CommandNames.EditMarker);
             }
-        };
-
-        var flyout = new Flyout
-        {
-            Content = panel,
-            Placement = PlacementMode.Bottom,
-            ShowMode = FlyoutShowMode.Standard,
-        };
-
-        nameBox.LostFocus += (_, _) => marker.Name = nameBox.Text ?? string.Empty;
-        noteBox.LostFocus += (_, _) => marker.Note = noteBox.Text ?? string.Empty;
-        colorButton.ColorChanged += (_, args) =>
-        {
-            if (args.NewColor is { } c)
-            {
-                marker.Color = BtlColor.FromArgb(c.A, c.R, c.G, c.B);
-            }
-        };
-        deleteButton.Click += (_, _) =>
-        {
-            ViewModel?.Scene.Markers.Remove(marker);
-            flyout.Hide();
         };
 
         flyout.ShowAt(Scale, true);

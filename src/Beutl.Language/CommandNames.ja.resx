@@ -54,6 +54,15 @@
   <data name="ChangeSceneStart" xml:space="preserve">
     <value>シーンの開始を変更</value>
   </data>
+  <data name="MoveMarker" xml:space="preserve">
+    <value>マーカーを移動</value>
+  </data>
+  <data name="EditMarker" xml:space="preserve">
+    <value>マーカーを編集</value>
+  </data>
+  <data name="RemoveMarker" xml:space="preserve">
+    <value>マーカーを削除</value>
+  </data>
   <data name="MoveLayer" xml:space="preserve">
     <value>レイヤーを移動</value>
   </data>

@@ -132,6 +132,15 @@
   <data name="Name" xml:space="preserve">
     <value>名前</value>
   </data>
+  <data name="Note" xml:space="preserve">
+    <value>メモ</value>
+  </data>
+  <data name="Color" xml:space="preserve">
+    <value>色</value>
+  </data>
+  <data name="EditMarker" xml:space="preserve">
+    <value>マーカーを編集</value>
+  </data>
   <data name="NewFolder" xml:space="preserve">
     <value>新しいフォルダー</value>
   </data>

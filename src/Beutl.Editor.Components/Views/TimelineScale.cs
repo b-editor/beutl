@@ -72,6 +72,12 @@ public sealed class TimelineScale : Control
     public static readonly StyledProperty<IEnumerable?> MarkersProperty
         = AvaloniaProperty.Register<TimelineScale, IEnumerable?>(nameof(Markers));
 
+    public static readonly StyledProperty<IBrush?> MarkerLabelBackgroundProperty
+        = AvaloniaProperty.Register<TimelineScale, IBrush?>(nameof(MarkerLabelBackground));
+
+    public static readonly StyledProperty<IBrush?> MarkerLabelForegroundProperty
+        = AvaloniaProperty.Register<TimelineScale, IBrush?>(nameof(MarkerLabelForeground));
+
     private static readonly Typeface s_typeface = new(FontFamily.Default, FontStyle.Normal, FontWeight.Medium);
     private float _scale = 1;
     private Vector _offset;
@@ -90,8 +96,7 @@ public sealed class TimelineScale : Control
     static TimelineScale()
     {
         _rangeMarker = Geometry.Parse("M 0,0 L 4,0 L 4,8 L 0,16 Z");
-        // 下向き三角ピン: 上辺6px、高さ10px。原点はマーカー時刻のX座標、トップ。
-        _pointMarker = Geometry.Parse("M -6,0 L 6,0 L 0,12 Z");
+        _pointMarker = Geometry.Parse("M -4,0 L 4,0 L 4,8 L 0,16 L -4,8 Z");
         AffectsRender<TimelineScale>(
             ScaleProperty,
             OffsetProperty,
@@ -109,7 +114,9 @@ public sealed class TimelineScale : Control
             CacheBlockBrushProperty,
             LockedCacheBlockBrushProperty,
             BufferBrushProperty,
-            MarkersProperty);
+            MarkersProperty,
+            MarkerLabelBackgroundProperty,
+            MarkerLabelForegroundProperty);
     }
 
     public TimelineScale()
@@ -217,6 +224,18 @@ public sealed class TimelineScale : Control
     {
         get => GetValue(MarkersProperty);
         set => SetValue(MarkersProperty, value);
+    }
+
+    public IBrush? MarkerLabelBackground
+    {
+        get => GetValue(MarkerLabelBackgroundProperty);
+        set => SetValue(MarkerLabelBackgroundProperty, value);
+    }
+
+    public IBrush? MarkerLabelForeground
+    {
+        get => GetValue(MarkerLabelForegroundProperty);
+        set => SetValue(MarkerLabelForegroundProperty, value);
     }
 
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
@@ -486,8 +505,17 @@ public sealed class TimelineScale : Control
             string label = marker.Name;
             if (!string.IsNullOrEmpty(label))
             {
-                using var text = new TextLayout(label, s_typeface, 11, ScaleBrush);
-                text.Draw(context, new Point(x + 8, 1));
+                IBrush? labelBrush = MarkerLabelForeground ?? ScaleBrush;
+                using var text = new TextLayout(label, s_typeface, 11, labelBrush);
+                var origin = new Point(x + 8, 1);
+                if (MarkerLabelBackground is { } bg)
+                {
+                    const double padX = 4;
+                    const double padY = 1;
+                    var bgRect = new Rect(origin.X - padX, origin.Y - padY, text.Width + padX * 2, text.Height + padY * 2);
+                    context.DrawRectangle(bg, null, new RoundedRect(bgRect, 3));
+                }
+                text.Draw(context, origin);
             }
         }
     }
@@ -495,7 +523,7 @@ public sealed class TimelineScale : Control
     public SceneMarker? HitTestMarker(double x, double y)
     {
         if (Markers == null) return null;
-        if (y < 0 || y > 14) return null;
+        if (y < 0 || y > 16) return null;
 
         SceneMarker? best = null;
         double bestDist = double.PositiveInfinity;
