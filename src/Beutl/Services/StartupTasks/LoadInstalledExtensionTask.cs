@@ -1,11 +1,7 @@
-﻿using System.Collections.Concurrent;
-
-using Avalonia.Threading;
+using System.Collections.Concurrent;
 
 using Beutl.Api.Services;
 using Beutl.Logging;
-
-using FluentAvalonia.UI.Controls;
 
 using Microsoft.Extensions.Logging;
 
@@ -34,8 +30,12 @@ public sealed class LoadInstalledExtensionTask : StartupTask
                     resolveTask.Failures.Select(f => f.Package.Id),
                     StringComparer.OrdinalIgnoreCase);
 
+                // クラッシュ復旧プロンプトの結果を待機し、制限モードか判定
+                CrashRecoveryPromptTask promptTask = startup.GetTask<CrashRecoveryPromptTask>();
+                await promptTask.Task;
+                IsRestrictedMode = promptTask.IsRestrictedMode;
+
                 // .beutl/packages/ 内のパッケージを読み込む
-                IsRestrictedMode = await AsksRunInRestrictedMode();
                 if (!IsRestrictedMode)
                 {
                     IReadOnlyList<LocalPackage> packages = await _manager.GetPackages();
@@ -81,30 +81,4 @@ public sealed class LoadInstalledExtensionTask : StartupTask
     public ConcurrentBag<(LocalPackage, Exception)> Failures { get; } = [];
 
     public bool IsRestrictedMode { get; private set; }
-
-    // 最後に実行したとき、例外が発生して終了した場合、
-    // 制限モード (拡張機能を読み込まない) で起動するかを尋ねる。
-    private static async ValueTask<bool> AsksRunInRestrictedMode()
-    {
-        if (UnhandledExceptionHandler.LastExecutionExceptionWasThrown())
-        {
-            await App.WaitWindowOpened();
-            return await Dispatcher.UIThread.InvokeAsync(async () =>
-            {
-                var dialog = new ContentDialog()
-                {
-                    Title = MessageStrings.PreviousSessionErrorTitle,
-                    Content = MessageStrings.RestrictedModePrompt,
-                    PrimaryButtonText = Strings.Yes,
-                    CloseButtonText = Strings.No
-                };
-
-                return await dialog.ShowAsync() == ContentDialogResult.Primary;
-            });
-        }
-        else
-        {
-            return false;
-        }
-    }
 }

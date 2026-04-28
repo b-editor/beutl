@@ -61,6 +61,7 @@ public sealed class Startup
         Register(() => new ResolvePackageDependenciesTask(
             _apiApp.GetResource<InstalledPackageRepository>(),
             _apiApp.GetResource<PackageInstaller>()));
+        Register(() => new CrashRecoveryPromptTask());
         Register(() => new LoadInstalledExtensionTask(
             _apiApp.GetResource<PackageManager>(), this));
         Register(() => new LoadPrimitiveExtensionTask(_apiApp.GetResource<PackageManager>()));

@@ -107,14 +107,17 @@
   <data name="OutputException" xml:space="preserve">
     <value>出力中に例外が発生しました。</value>
   </data>
-  <data name="RestrictedModePrompt" xml:space="preserve">
-    <value>前回エラーが発生して終了したようです。
-原因か不明なため、制限モードで実行しますか。
-
-制限モードでは拡張機能を読み込みません。</value>
-  </data>
   <data name="PreviousSessionErrorTitle" xml:space="preserve">
     <value>前回エラーが発生して終了したようです。</value>
+  </data>
+  <data name="CrashRecoveryDescription" xml:space="preserve">
+    <value>前回 Beutl が予期せず終了しました。今回の起動方法を選択してください。</value>
+  </data>
+  <data name="CrashRecoveryRestoreOption" xml:space="preserve">
+    <value>前回開いていたプロジェクト「{0}」を復元する。</value>
+  </data>
+  <data name="CrashRecoveryRestrictedModeOption" xml:space="preserve">
+    <value>制限モード（拡張機能を読み込まない）で起動する。</value>
   </data>
   <data name="PackageChangesInProgress" xml:space="preserve">
     <value>パッケージが変更中です。</value>
@@ -355,11 +358,5 @@
   </data>
   <data name="CannotPasteFromClipboard" xml:space="preserve">
     <value>貼り付けできません: クリップボードに互換性のあるオブジェクトがありません。</value>
-  </data>
-  <data name="RestoreLastProjectTitle" xml:space="preserve">
-    <value>前回のプロジェクトを開きますか？</value>
-  </data>
-  <data name="RestoreLastProjectPrompt" xml:space="preserve">
-    <value>前回「{0}」を編集中にBeutlが予期せず終了しました。このプロジェクトを再度開きますか？</value>
   </data>
 </root>

@@ -112,14 +112,17 @@ because the new name conflicts with an existing folder.</value>
   <data name="OutputException" xml:space="preserve">
     <value>An exception occurred during output.</value>
   </data>
-  <data name="RestrictedModePrompt" xml:space="preserve">
-    <value>It seems that an error occurred and the program terminated last time.
-Do you want to run in restricted mode because the cause is unknown?
-
-Restricted mode does not load extensions.</value>
-  </data>
   <data name="PreviousSessionErrorTitle" xml:space="preserve">
     <value>Looks like it ended with an error last time.</value>
+  </data>
+  <data name="CrashRecoveryDescription" xml:space="preserve">
+    <value>Beutl was closed unexpectedly last time. Choose how to start this session.</value>
+  </data>
+  <data name="CrashRecoveryRestoreOption" xml:space="preserve">
+    <value>Reopen the previous project "{0}".</value>
+  </data>
+  <data name="CrashRecoveryRestrictedModeOption" xml:space="preserve">
+    <value>Run in restricted mode (extensions are not loaded).</value>
   </data>
   <data name="PackageChangesInProgress" xml:space="preserve">
     <value>Changes to the package are in progress.</value>
@@ -360,11 +363,5 @@ Do you want to restart the application?</value>
   </data>
   <data name="CannotPasteFromClipboard" xml:space="preserve">
     <value>Cannot paste: clipboard does not contain a compatible object.</value>
-  </data>
-  <data name="RestoreLastProjectTitle" xml:space="preserve">
-    <value>Restore previous project?</value>
-  </data>
-  <data name="RestoreLastProjectPrompt" xml:space="preserve">
-    <value>Beutl was closed unexpectedly while editing "{0}". Do you want to reopen this project?</value>
   </data>
 </root>

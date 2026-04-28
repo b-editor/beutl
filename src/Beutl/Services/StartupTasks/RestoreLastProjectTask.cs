@@ -1,9 +1,7 @@
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Threading;
-using Beutl.Configuration;
 using Beutl.Logging;
-using FluentAvalonia.UI.Controls;
 using Microsoft.Extensions.Logging;
 
 namespace Beutl.Services.StartupTasks;
@@ -14,28 +12,25 @@ public sealed class RestoreLastProjectTask : StartupTask
 
     public RestoreLastProjectTask(Startup startup)
     {
-        Task = System.Threading.Tasks.Task.Run(async () =>
+        Task = Task.Run(async () =>
         {
             using Activity? activity = Telemetry.StartActivity("RestoreLastProjectTask");
 
             LoadInstalledExtensionTask loadTask = startup.GetTask<LoadInstalledExtensionTask>();
             await loadTask.Task;
 
-            if (!UnhandledExceptionHandler.LastExecutionExceptionWasThrown())
+            CrashRecoveryPromptTask promptTask = startup.GetTask<CrashRecoveryPromptTask>();
+            await promptTask.Task;
+
+            if (!promptTask.RestoreLastProject)
             {
                 return;
             }
 
-            if (loadTask.IsRestrictedMode)
-            {
-                _logger.LogInformation("Restricted mode: skipping project restore prompt.");
-                return;
-            }
-
-            string? file = GlobalConfiguration.Instance.ViewConfig.LastOpenedProjectFile;
+            string? file = promptTask.LastProjectFile;
             if (string.IsNullOrEmpty(file) || !File.Exists(file))
             {
-                _logger.LogInformation("No last opened project to restore.");
+                _logger.LogInformation("Skipping project restore: file is unavailable.");
                 return;
             }
 
@@ -46,27 +41,6 @@ public sealed class RestoreLastProjectTask : StartupTask
 
             if (Application.Current?.ApplicationLifetime is not IClassicDesktopStyleApplicationLifetime)
             {
-                return;
-            }
-
-            await App.WaitWindowOpened();
-
-            bool yes = await Dispatcher.UIThread.InvokeAsync(async () =>
-            {
-                var dialog = new ContentDialog
-                {
-                    Title = MessageStrings.RestoreLastProjectTitle,
-                    Content = string.Format(MessageStrings.RestoreLastProjectPrompt, Path.GetFileName(file)),
-                    PrimaryButtonText = Strings.Yes,
-                    CloseButtonText = Strings.No,
-                };
-
-                return await dialog.ShowAsync() == ContentDialogResult.Primary;
-            });
-
-            if (!yes)
-            {
-                GlobalConfiguration.Instance.ViewConfig.LastOpenedProjectFile = null;
                 return;
             }
 
