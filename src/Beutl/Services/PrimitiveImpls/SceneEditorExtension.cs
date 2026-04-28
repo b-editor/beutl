@@ -1,6 +1,7 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Platform.Storage;
 using Beutl.Models;
 using Beutl.ProjectSystem;
@@ -45,18 +46,19 @@ public sealed class SceneEditorExtension : EditorExtension
             new ContextCommandKeyGesture("End"),
             new ContextCommandKeyGesture("Cmd+Right", OSPlatform.OSX)
         ]),
-        new("AddMarker", "Add marker", "Add a marker at the current playhead.",
+        new("ToggleMarker", Strings.ToggleMarker, Strings.ToggleMarker_Description,
         [
             new ContextCommandKeyGesture("M")
         ]),
-        new("NextMarker", "Next marker", "Seek to the next marker.",
+        new("NextMarker", Strings.NextMarker, Strings.NextMarker_Description,
         [
-            new ContextCommandKeyGesture("Shift+M")
+            new ContextCommandKeyGesture("Ctrl+Right"),
+            new ContextCommandKeyGesture("Alt+Right", OSPlatform.OSX)
         ]),
-        new("PreviousMarker", "Previous marker", "Seek to the previous marker.",
+        new("PreviousMarker", Strings.PreviousMarker, Strings.PreviousMarker_Description,
         [
-            new ContextCommandKeyGesture("Ctrl+M"),
-            new ContextCommandKeyGesture("Cmd+M", OSPlatform.OSX)
+            new ContextCommandKeyGesture("Ctrl+Left"),
+            new ContextCommandKeyGesture("Alt+Left", OSPlatform.OSX)
         ]),
     ];
 

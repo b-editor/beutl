@@ -1,6 +1,8 @@
 ﻿using Avalonia.Controls;
-using Beutl.Editor.Services;
+using Beutl.Editor.Components.TimelineTab.ViewModels;
+using Beutl.Media;
 using Beutl.ProjectSystem;
+using ExCSS;
 using Microsoft.Extensions.Logging;
 
 namespace Beutl.ViewModels;
@@ -62,8 +64,8 @@ public partial class EditViewModel : IContextCommandHandler
             case "SeekEnd":
                 Player.End.Execute();
                 break;
-            case "AddMarker" when execution.KeyEventArgs?.Source is not TextBox:
-                AddMarkerAtCurrentTime();
+            case "ToggleMarker" when execution.KeyEventArgs?.Source is not TextBox:
+                ToggleMarkerAtCurrentTime();
                 break;
             case "NextMarker" when execution.KeyEventArgs?.Source is not TextBox:
                 SeekToAdjacentMarker(forward: true);
@@ -78,37 +80,46 @@ public partial class EditViewModel : IContextCommandHandler
         }
     }
 
-    private SceneMarker AddMarkerAtCurrentTime()
+    private void ToggleMarkerAtCurrentTime()
     {
-        var clock = (IEditorClock)GetService(typeof(IEditorClock))!;
-        TimeSpan time = clock.CurrentTime.Value;
+        int rate = Player.GetFrameRate();
+        TimeSpan time = _editorClock.CurrentTime.Value.RoundToRate(rate);
         if (time < TimeSpan.Zero) time = TimeSpan.Zero;
 
-        var marker = new SceneMarker(time, $"Marker {Scene.Markers.Count + 1}");
-        Scene.Markers.Add(marker);
-        _logger.LogInformation("Added marker at {Time}.", time);
-        return marker;
+        SceneMarker? existing = Scene.Markers
+            .FirstOrDefault(m => m.Time.RoundToRate(rate) == time);
+        if (existing != null)
+        {
+            Scene.Markers.Remove(existing);
+            _logger.LogInformation("Removed marker at {Time}.", time);
+        }
+        else
+        {
+            Scene.Markers.Add(new SceneMarker(time, $"Marker {Scene.Markers.Count + 1}"));
+            _logger.LogInformation("Added marker at {Time}.", time);
+        }
+
+        HistoryManager.Commit();
     }
 
     private void SeekToAdjacentMarker(bool forward)
     {
-        var clock = (IEditorClock)GetService(typeof(IEditorClock))!;
-        TimeSpan current = clock.CurrentTime.Value;
-        SceneMarker? target = null;
-        foreach (SceneMarker marker in Scene.Markers)
+        TimeSpan current = _editorClock.CurrentTime.Value;
+        TimeSpan? target = null;
+        foreach (TimeSpan marker in Scene.Markers.Select(m => m.Time).Union([TimeSpan.Zero, Scene.Start, Scene.Duration + Scene.Start]))
         {
             if (forward)
             {
-                if (marker.Time > current
-                    && (target == null || marker.Time < target.Time))
+                if (marker > current
+                    && (target == null || marker < target.Value))
                 {
                     target = marker;
                 }
             }
             else
             {
-                if (marker.Time < current
-                    && (target == null || marker.Time > target.Time))
+                if (marker < current
+                    && (target == null || marker > target.Value))
                 {
                     target = marker;
                 }
@@ -117,7 +128,14 @@ public partial class EditViewModel : IContextCommandHandler
 
         if (target != null)
         {
-            clock.CurrentTime.Value = target.Time;
+            _editorClock.CurrentTime.Value = target.Value;
+
+            // ターゲットの位置までタイムラインを横スクロールさせる
+            if (FindToolTab<TimelineTabViewModel>() is { } timeline)
+            {
+                int currentZIndex = timeline.ToLayerNumber(timeline.Options.Value.Offset.Y);
+                timeline.ScrollTo.Execute((new TimeRange(target.Value, TimeSpan.Zero), currentZIndex));
+            }
         }
     }
 }

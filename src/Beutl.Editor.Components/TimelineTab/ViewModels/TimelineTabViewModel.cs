@@ -1148,52 +1148,6 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler
         targets[0].SplitAt(targets, time);
     }
 
-    public SceneMarker AddMarkerAtCurrentTime()
-    {
-        TimeSpan time = CurrentTime.Value;
-        if (time < TimeSpan.Zero) time = TimeSpan.Zero;
-
-        var marker = new SceneMarker(time, $"Marker {Markers.Count + 1}");
-        Markers.Add(marker);
-        _logger.LogInformation("Added marker at {Time}.", time);
-        return marker;
-    }
-
-    public void RemoveMarker(SceneMarker marker)
-    {
-        Markers.Remove(marker);
-    }
-
-    private void SeekToAdjacentMarker(bool forward)
-    {
-        TimeSpan current = CurrentTime.Value;
-        SceneMarker? target = null;
-        foreach (SceneMarker marker in Markers)
-        {
-            if (forward)
-            {
-                if (marker.Time > current
-                    && (target == null || marker.Time < target.Time))
-                {
-                    target = marker;
-                }
-            }
-            else
-            {
-                if (marker.Time < current
-                    && (target == null || marker.Time > target.Time))
-                {
-                    target = marker;
-                }
-            }
-        }
-
-        if (target != null)
-        {
-            CurrentTime.Value = target.Time;
-        }
-    }
-
     private sealed class TrackedLayerTopObservable(int layerNum, TimelineTabViewModel timeline)
         : LightweightObservableBase<double>, IDisposable
     {
