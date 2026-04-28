@@ -750,6 +750,42 @@
   <data name="PreviousMarker_Description" xml:space="preserve">
     <value>前のマーカーへ移動します。</value>
   </data>
+  <data name="ShuttleForward" xml:space="preserve">
+    <value>シャトル早送り</value>
+  </data>
+  <data name="ShuttleForward_Description" xml:space="preserve">
+    <value>シャトル早送り（L）。連打で速度が上がります。</value>
+  </data>
+  <data name="ShuttleForwardFine" xml:space="preserve">
+    <value>シャトル早送り（低速）</value>
+  </data>
+  <data name="ShuttleForwardFine_Description" xml:space="preserve">
+    <value>半分の速度でシャトル早送りします。</value>
+  </data>
+  <data name="ShuttleBackward" xml:space="preserve">
+    <value>シャトル巻き戻し</value>
+  </data>
+  <data name="ShuttleBackward_Description" xml:space="preserve">
+    <value>シャトル巻き戻し（J）。連打で速度が上がります。</value>
+  </data>
+  <data name="ShuttleBackwardFine" xml:space="preserve">
+    <value>シャトル巻き戻し（低速）</value>
+  </data>
+  <data name="ShuttleBackwardFine_Description" xml:space="preserve">
+    <value>半分の速度でシャトル巻き戻しします。</value>
+  </data>
+  <data name="ShuttleStop" xml:space="preserve">
+    <value>シャトル停止</value>
+  </data>
+  <data name="ShuttleStop_Description" xml:space="preserve">
+    <value>シャトル再生を停止します。</value>
+  </data>
+  <data name="ToggleLoop" xml:space="preserve">
+    <value>ループ切替</value>
+  </data>
+  <data name="ToggleLoop_Description" xml:space="preserve">
+    <value>ループ再生のオン/オフを切り替えます。</value>
+  </data>
   <data name="Paste_Description" xml:space="preserve">
     <value>コピーしたデータをペーストします。</value>
   </data>

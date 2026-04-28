@@ -58,30 +58,29 @@ public sealed class SceneEditorExtension : EditorExtension
             new ContextCommandKeyGesture("Ctrl+Left"),
             new ContextCommandKeyGesture("Alt+Left", OSPlatform.OSX)
         ]),
-        new("ShuttleForward", "Shuttle forward", "Shuttle forward (L). Press repeatedly to accelerate.",
+        new("ShuttleForward", Strings.ShuttleForward, Strings.ShuttleForward_Description,
         [
             new ContextCommandKeyGesture("L")
         ]),
-        new("ShuttleForwardFine", "Shuttle forward (fine)", "Shuttle forward at half speed.",
+        new("ShuttleForwardFine", Strings.ShuttleForwardFine, Strings.ShuttleForwardFine_Description,
         [
             new ContextCommandKeyGesture("Shift+L")
         ]),
-        new("ShuttleBackward", "Shuttle backward", "Shuttle backward (J). Press repeatedly to accelerate.",
+        new("ShuttleBackward", Strings.ShuttleBackward, Strings.ShuttleBackward_Description,
         [
             new ContextCommandKeyGesture("J")
         ]),
-        new("ShuttleBackwardFine", "Shuttle backward (fine)", "Shuttle backward at half speed.",
+        new("ShuttleBackwardFine", Strings.ShuttleBackwardFine, Strings.ShuttleBackwardFine_Description,
         [
             new ContextCommandKeyGesture("Shift+J")
         ]),
-        new("ShuttleStop", "Shuttle stop", "Stop shuttle playback.",
+        new("ShuttleStop", Strings.ShuttleStop, Strings.ShuttleStop_Description,
         [
             new ContextCommandKeyGesture("K")
         ]),
-        new("ToggleLoop", "Toggle loop", "Toggle loop playback.",
+        new("ToggleLoop", Strings.ToggleLoop, Strings.ToggleLoop_Description,
         [
-            new ContextCommandKeyGesture("OemQuestion"),
-            new ContextCommandKeyGesture("OemSlash")
+            new ContextCommandKeyGesture("OemQuestion")
         ]),
     ];
 
