@@ -106,12 +106,16 @@ public sealed class SampleProviderImpl : ISampleProvider, IDisposable
                 }
 
                 item.Pcm.Dispose();
-                _logger.LogWarning("This chunk is misaligned. Requested chunk at offset {ChunkOffset}, Received chunk at offset {ReceivedOffset}", chunkOffset, item.Offset);
+                _logger.LogWarning(
+                    "Sample chunks are expected to be requested sequentially, but received offset {ReceivedOffset} while waiting for {ChunkOffset}. Falling back to on-demand composition.",
+                    item.Offset, chunkOffset);
                 return await ComposeChunk(chunkOffset, _cts.Token);
             }
         }
 
-        _logger.LogWarning("Requested chunk at offset {ChunkOffset} was not found in the channel.", chunkOffset);
+        _logger.LogWarning(
+            "Requested chunk at offset {ChunkOffset} is not available in the channel (producer already finished or skipped). Falling back to on-demand composition.",
+            chunkOffset);
         return await ComposeChunk(chunkOffset, _cts.Token);
     }
 
