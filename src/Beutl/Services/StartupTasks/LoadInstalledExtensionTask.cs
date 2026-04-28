@@ -1,4 +1,4 @@
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 
 using Beutl.Api.Services;
 using Beutl.Logging;
