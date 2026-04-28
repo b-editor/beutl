@@ -35,7 +35,8 @@ public sealed class LoadInstalledExtensionTask : StartupTask
                     StringComparer.OrdinalIgnoreCase);
 
                 // .beutl/packages/ 内のパッケージを読み込む
-                if (!await AsksRunInRestrictedMode())
+                IsRestrictedMode = await AsksRunInRestrictedMode();
+                if (!IsRestrictedMode)
                 {
                     IReadOnlyList<LocalPackage> packages = await _manager.GetPackages();
 
@@ -78,6 +79,8 @@ public sealed class LoadInstalledExtensionTask : StartupTask
     public override Task Task { get; }
 
     public ConcurrentBag<(LocalPackage, Exception)> Failures { get; } = [];
+
+    public bool IsRestrictedMode { get; private set; }
 
     // 最後に実行したとき、例外が発生して終了した場合、
     // 制限モード (拡張機能を読み込まない) で起動するかを尋ねる。

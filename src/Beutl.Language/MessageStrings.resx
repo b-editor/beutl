@@ -361,4 +361,10 @@ Do you want to restart the application?</value>
   <data name="CannotPasteFromClipboard" xml:space="preserve">
     <value>Cannot paste: clipboard does not contain a compatible object.</value>
   </data>
+  <data name="RestoreLastProjectTitle" xml:space="preserve">
+    <value>Restore previous project?</value>
+  </data>
+  <data name="RestoreLastProjectPrompt" xml:space="preserve">
+    <value>Beutl was closed unexpectedly while editing "{0}". Do you want to reopen this project?</value>
+  </data>
 </root>

@@ -356,4 +356,10 @@
   <data name="CannotPasteFromClipboard" xml:space="preserve">
     <value>貼り付けできません: クリップボードに互換性のあるオブジェクトがありません。</value>
   </data>
+  <data name="RestoreLastProjectTitle" xml:space="preserve">
+    <value>前回のプロジェクトを開きますか？</value>
+  </data>
+  <data name="RestoreLastProjectPrompt" xml:space="preserve">
+    <value>前回「{0}」を編集中にBeutlが予期せず終了しました。このプロジェクトを再度開きますか？</value>
+  </data>
 </root>
