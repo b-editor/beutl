@@ -134,7 +134,7 @@ public partial class EditViewModel : IContextCommandHandler
             if (FindToolTab<TimelineTabViewModel>() is { } timeline)
             {
                 int currentZIndex = timeline.ToLayerNumber(timeline.Options.Value.Offset.Y);
-                timeline.ScrollTo.Execute((new TimeRange(target.Value, TimeSpan.Zero), currentZIndex));
+                timeline.ScrollTo.Execute((new TimeRange(target.Value, TimeSpan.FromTicks(1)), currentZIndex));
             }
         }
     }
