@@ -59,6 +59,15 @@
   <data name="ChangeSceneStart" xml:space="preserve">
     <value>Change Scene Start</value>
   </data>
+  <data name="MoveMarker" xml:space="preserve">
+    <value>Move Marker</value>
+  </data>
+  <data name="EditMarker" xml:space="preserve">
+    <value>Edit Marker</value>
+  </data>
+  <data name="RemoveMarker" xml:space="preserve">
+    <value>Remove Marker</value>
+  </data>
   <data name="MoveLayer" xml:space="preserve">
     <value>Move Layer</value>
   </data>

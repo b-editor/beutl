@@ -347,6 +347,8 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler
 
     public ReactiveCommandSlim SetEndTimeToCurrentTime { get; } = new();
 
+    public CoreList<SceneMarker> Markers => Scene.Markers;
+
     public ReactiveCommandSlim DeleteAllFrameCache { get; }
 
     public ReactiveCommandSlim DeleteFrameCache { get; }

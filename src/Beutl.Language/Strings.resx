@@ -128,6 +128,15 @@
   <data name="Name" xml:space="preserve">
     <value>Name</value>
   </data>
+  <data name="Note" xml:space="preserve">
+    <value>Note</value>
+  </data>
+  <data name="Color" xml:space="preserve">
+    <value>Color</value>
+  </data>
+  <data name="EditMarker" xml:space="preserve">
+    <value>Edit Marker</value>
+  </data>
   <data name="StartTime" xml:space="preserve">
     <value>Start Time</value>
   </data>
@@ -727,6 +736,24 @@
   </data>
   <data name="MoveToEnd_Description" xml:space="preserve">
     <value>Move to the end of the scene.</value>
+  </data>
+  <data name="ToggleMarker" xml:space="preserve">
+    <value>Toggle marker</value>
+  </data>
+  <data name="ToggleMarker_Description" xml:space="preserve">
+    <value>Toggle a marker at the current playhead. Removes the existing marker if one already exists at this position.</value>
+  </data>
+  <data name="NextMarker" xml:space="preserve">
+    <value>Next marker</value>
+  </data>
+  <data name="NextMarker_Description" xml:space="preserve">
+    <value>Seek to the next marker.</value>
+  </data>
+  <data name="PreviousMarker" xml:space="preserve">
+    <value>Previous marker</value>
+  </data>
+  <data name="PreviousMarker_Description" xml:space="preserve">
+    <value>Seek to the previous marker.</value>
   </data>
   <data name="Paste_Description" xml:space="preserve">
     <value>Paste the copied data.</value>

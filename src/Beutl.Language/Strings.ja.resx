@@ -132,6 +132,15 @@
   <data name="Name" xml:space="preserve">
     <value>名前</value>
   </data>
+  <data name="Note" xml:space="preserve">
+    <value>メモ</value>
+  </data>
+  <data name="Color" xml:space="preserve">
+    <value>色</value>
+  </data>
+  <data name="EditMarker" xml:space="preserve">
+    <value>マーカーを編集</value>
+  </data>
   <data name="NewFolder" xml:space="preserve">
     <value>新しいフォルダー</value>
   </data>
@@ -722,6 +731,24 @@
   </data>
   <data name="MoveToEnd_Description" xml:space="preserve">
     <value>シーンの最後のフレームに移動。</value>
+  </data>
+  <data name="ToggleMarker" xml:space="preserve">
+    <value>マーカーを切り替え</value>
+  </data>
+  <data name="ToggleMarker_Description" xml:space="preserve">
+    <value>再生ヘッドの位置にマーカーを追加または削除します。同じ位置に既存のマーカーがある場合は削除されます。</value>
+  </data>
+  <data name="NextMarker" xml:space="preserve">
+    <value>次のマーカー</value>
+  </data>
+  <data name="NextMarker_Description" xml:space="preserve">
+    <value>次のマーカーへ移動します。</value>
+  </data>
+  <data name="PreviousMarker" xml:space="preserve">
+    <value>前のマーカー</value>
+  </data>
+  <data name="PreviousMarker_Description" xml:space="preserve">
+    <value>前のマーカーへ移動します。</value>
   </data>
   <data name="Paste_Description" xml:space="preserve">
     <value>コピーしたデータをペーストします。</value>

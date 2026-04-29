@@ -42,7 +42,8 @@ public static class TimelineHelper
         SeekBarPressed,
         RangeSelectionPressed,
         EndingBarMarkerPressed,
-        StartingBarMarkerPressed
+        StartingBarMarkerPressed,
+        MarkerPressed
     }
 
     private const int MarkerHeight = 18;
