@@ -1,9 +1,7 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;
 using Avalonia.Controls;
-using Avalonia.Input;
 using Avalonia.Platform.Storage;
-using Beutl.Models;
 using Beutl.ProjectSystem;
 using Beutl.ViewModels;
 using Beutl.Views;
@@ -59,6 +57,30 @@ public sealed class SceneEditorExtension : EditorExtension
         [
             new ContextCommandKeyGesture("Ctrl+Left"),
             new ContextCommandKeyGesture("Alt+Left", OSPlatform.OSX)
+        ]),
+        new("ShuttleForward", Strings.ShuttleForward, Strings.ShuttleForward_Description,
+        [
+            new ContextCommandKeyGesture("L")
+        ]),
+        new("ShuttleForwardFine", Strings.ShuttleForwardFine, Strings.ShuttleForwardFine_Description,
+        [
+            new ContextCommandKeyGesture("Shift+L")
+        ]),
+        new("ShuttleBackward", Strings.ShuttleBackward, Strings.ShuttleBackward_Description,
+        [
+            new ContextCommandKeyGesture("J")
+        ]),
+        new("ShuttleBackwardFine", Strings.ShuttleBackwardFine, Strings.ShuttleBackwardFine_Description,
+        [
+            new ContextCommandKeyGesture("Shift+J")
+        ]),
+        new("ShuttleStop", Strings.ShuttleStop, Strings.ShuttleStop_Description,
+        [
+            new ContextCommandKeyGesture("K")
+        ]),
+        new("ToggleLoop", Strings.ToggleLoop, Strings.ToggleLoop_Description,
+        [
+            new ContextCommandKeyGesture("OemQuestion")
         ]),
     ];
 

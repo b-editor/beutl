@@ -755,6 +755,42 @@
   <data name="PreviousMarker_Description" xml:space="preserve">
     <value>Seek to the previous marker.</value>
   </data>
+  <data name="ShuttleForward" xml:space="preserve">
+    <value>Shuttle forward</value>
+  </data>
+  <data name="ShuttleForward_Description" xml:space="preserve">
+    <value>Shuttle forward (L). Press repeatedly to accelerate.</value>
+  </data>
+  <data name="ShuttleForwardFine" xml:space="preserve">
+    <value>Shuttle forward (fine)</value>
+  </data>
+  <data name="ShuttleForwardFine_Description" xml:space="preserve">
+    <value>Shuttle forward at half speed.</value>
+  </data>
+  <data name="ShuttleBackward" xml:space="preserve">
+    <value>Shuttle backward</value>
+  </data>
+  <data name="ShuttleBackward_Description" xml:space="preserve">
+    <value>Shuttle backward (J). Press repeatedly to accelerate.</value>
+  </data>
+  <data name="ShuttleBackwardFine" xml:space="preserve">
+    <value>Shuttle backward (fine)</value>
+  </data>
+  <data name="ShuttleBackwardFine_Description" xml:space="preserve">
+    <value>Shuttle backward at half speed.</value>
+  </data>
+  <data name="ShuttleStop" xml:space="preserve">
+    <value>Shuttle stop</value>
+  </data>
+  <data name="ShuttleStop_Description" xml:space="preserve">
+    <value>Stop shuttle playback.</value>
+  </data>
+  <data name="ToggleLoop" xml:space="preserve">
+    <value>Toggle loop</value>
+  </data>
+  <data name="ToggleLoop_Description" xml:space="preserve">
+    <value>Toggle loop playback.</value>
+  </data>
   <data name="Paste_Description" xml:space="preserve">
     <value>Paste the copied data.</value>
   </data>

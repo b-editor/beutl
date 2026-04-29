@@ -100,6 +100,14 @@
                                     Theme="{StaticResource TransparentButton}">
                                 <icons:SymbolIcon Symbol="Next" />
                             </Button>
+
+                            <ToggleButton Name="PART_LoopButton"
+                                          Grid.Column="6"
+                                          IsChecked="{TemplateBinding IsLoopEnabled, Mode=TwoWay}"
+                                          Theme="{StaticResource TransparentToggleButton}"
+                                          ToolTip.Tip="Loop">
+                                <icons:SymbolIcon Symbol="ArrowRepeat1" />
+                            </ToggleButton>
                         </StackPanel>
                     </Grid>
                 </Grid>
