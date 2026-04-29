@@ -644,14 +644,16 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                 Scene.Edited -= OnSceneEdited;
                 // 既存の CurrentFrame 購読は維持して UpdateCurrentFrame 経由でレンダリングを行う
 
-                TimeSpan sceneStart = Scene.Start;
-                TimeSpan sceneEnd = sceneStart + Scene.Duration;
                 DateTime lastTime = DateTime.UtcNow;
                 while (_isShuttling && IsPlaying.Value && Scene != null)
                 {
                     var direction = PlaybackDirection.Value;
                     if (direction == ViewModels.PlaybackDirection.Stopped)
                         break;
+
+                    // シャトル再生中に Scene.Start / Duration が変更されても追従できるよう毎回取得
+                    TimeSpan sceneStart = Scene.Start;
+                    TimeSpan sceneEnd = sceneStart + Scene.Duration;
 
                     DateTime now = DateTime.UtcNow;
                     TimeSpan elapsed = now - lastTime;
