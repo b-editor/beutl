@@ -52,7 +52,7 @@
     <PackageVersion Include="Microsoft.Extensions.Logging.Console" Version="10.0.7" />
     <PackageVersion Include="Microsoft.Extensions.ObjectPool" Version="10.0.7" />
     <PackageVersion Include="NAudio.Core" Version="2.3.0" />
-    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.4.0" />
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.5.1" />
     <PackageVersion Include="Nito.AsyncEx" Version="5.1.2" />
     <PackageVersion Include="NuGet.ProjectModel" Version="7.3.1" />
     <PackageVersion Include="NuGet.Protocol" Version="7.3.1" />
