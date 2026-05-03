@@ -22,7 +22,7 @@ public partial class TextBlock : Drawable
     [SuppressResourceClassGeneration]
     [Display(Name = nameof(GraphicsStrings.TextBlock_Size), ResourceType = typeof(GraphicsStrings))]
     [Range(0, float.MaxValue)]
-    public IProperty<float> Size { get; } = Property.Create<float>(12);
+    public IProperty<float> Size { get; } = Property.CreateAnimatable<float>(12);
 
     [SuppressResourceClassGeneration]
     [Display(Name = nameof(GraphicsStrings.TextBlock_FontFamily), ResourceType = typeof(GraphicsStrings))]
@@ -38,10 +38,10 @@ public partial class TextBlock : Drawable
 
     [SuppressResourceClassGeneration]
     [Display(Name = nameof(GraphicsStrings.TextBlock_Spacing), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<float> Spacing { get; } = Property.Create<float>(0);
+    public IProperty<float> Spacing { get; } = Property.CreateAnimatable<float>(0);
 
     [Display(Name = nameof(GraphicsStrings.TextBlock_SplitByCharacters), ResourceType = typeof(GraphicsStrings))]
-    public IProperty<bool> SplitByCharacters { get; } = Property.Create<bool>(false);
+    public IProperty<bool> SplitByCharacters { get; } = Property.CreateAnimatable<bool>(false);
 
     [SuppressResourceClassGeneration]
     [Display(Name = nameof(GraphicsStrings.TextBlock_Text), ResourceType = typeof(GraphicsStrings))]
