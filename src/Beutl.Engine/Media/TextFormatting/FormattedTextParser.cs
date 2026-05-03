@@ -311,7 +311,8 @@ public static class FormattedTextParser
                             MiterLimit = miterLimit,
                             StrokeCap = cap,
                             StrokeJoin = join,
-                            StrokeAlignment = align
+                            StrokeAlignment = align,
+                            TrimEnd = 100,
                         };
 
                         return true;
