@@ -162,10 +162,14 @@ final class Writer {
         }
     }
 
-    // Spin-wait until the input can accept more media data. If the writer transitions to
+    // Wait until the input can accept more media data. If the writer transitions to
     // .failed or .cancelled while we're back-pressured, isReadyForMoreMediaData never flips
     // back to true, so we must surface that as an error instead of sleeping forever.
+    // Uses exponential backoff (0.5ms → 10ms cap) so a 1ms hot loop doesn't peg a core
+    // when the encoder applies sustained back-pressure during HDR/4K encodes.
     private func waitUntilReady(input: AVAssetWriterInput) throws {
+        var sleepInterval: TimeInterval = 0.0005
+        let maxSleepInterval: TimeInterval = 0.010
         while !input.isReadyForMoreMediaData {
             switch writer.status {
             case .failed:
@@ -178,7 +182,8 @@ final class Writer {
             default:
                 break
             }
-            Thread.sleep(forTimeInterval: 0.001)
+            Thread.sleep(forTimeInterval: sleepInterval)
+            sleepInterval = min(sleepInterval * 2, maxSleepInterval)
         }
     }
 
