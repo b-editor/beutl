@@ -749,7 +749,8 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
         }
     }
 
-    private static Pcm<Stereo32BitFloat>? FillAudioData(TimeSpan f, SceneComposer composer)
+    private static Pcm<Stereo32BitFloat>? FillAudioData(
+        TimeSpan f, TimeSpan sceneEndTime, SceneComposer composer)
     {
         return ComposeThread.Dispatcher.Invoke(() =>
         {
@@ -757,6 +758,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
             {
                 var pcm = audio.ToPcm();
                 audio.Dispose();
+                SilenceTailBeyondSceneEnd(pcm, f, sceneEndTime);
                 return pcm;
             }
             else
@@ -764,6 +766,30 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                 return null;
             }
         });
+    }
+
+    // Scene.Start + Duration を超えた末尾サンプルをゼロ埋めする。
+    // 編集中に Duration が縮んでバッファ全体が範囲外になるケースもありうる。
+    private static void SilenceTailBeyondSceneEnd(
+        Pcm<Stereo32BitFloat> pcm, TimeSpan bufferStart, TimeSpan sceneEndTime)
+    {
+        if (sceneEndTime <= bufferStart)
+        {
+            pcm.DataSpan.Clear();
+            return;
+        }
+
+        TimeSpan bufferEnd = bufferStart + pcm.Duration;
+        if (bufferEnd <= sceneEndTime) return;
+
+        double keepSeconds = (sceneEndTime - bufferStart).TotalSeconds;
+        int keepSamples = (int)Math.Ceiling(keepSeconds * pcm.SampleRate);
+        keepSamples = Math.Clamp(keepSamples, 0, pcm.NumSamples);
+
+        if (keepSamples < pcm.NumSamples)
+        {
+            pcm.DataSpan[keepSamples..].Clear();
+        }
     }
 
     private static void Swap<T>(ref T x, ref T y)
@@ -812,7 +838,8 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
         void PrepareBuffer(XAudioBuffer buffer)
         {
             TimeSpan bufferStartTime = cur;
-            Pcm<Stereo32BitFloat>? pcm = FillAudioData(cur, composer);
+            TimeSpan sceneEndTime = scene.Start + scene.Duration;
+            Pcm<Stereo32BitFloat>? pcm = FillAudioData(cur, sceneEndTime, composer);
             if (pcm != null)
             {
                 if (!hasAudio)
@@ -947,7 +974,8 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
             foreach (uint buffer in buffers)
             {
                 TimeSpan bufferStartTime = cur;
-                using Pcm<Stereo32BitFloat>? pcmf = FillAudioData(cur, composer);
+                TimeSpan sceneEndTime = scene.Start + scene.Duration;
+                using Pcm<Stereo32BitFloat>? pcmf = FillAudioData(cur, sceneEndTime, composer);
                 cur += s_second;
                 int fillSamples = 0;
                 if (pcmf != null)
@@ -1008,7 +1036,8 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                     while (processed > 0)
                     {
                         TimeSpan bufferStartTime = cur;
-                        using Pcm<Stereo32BitFloat>? pcmf = FillAudioData(cur, composer);
+                        TimeSpan sceneEndTime = scene.Start + scene.Duration;
+                        using Pcm<Stereo32BitFloat>? pcmf = FillAudioData(cur, sceneEndTime, composer);
                         cur += s_second;
                         uint buffer = audioContext.SourceUnqueueBuffer(source);
                         int fillSamples = 0;
