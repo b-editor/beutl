@@ -334,30 +334,28 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
         get => _maxFrameSize;
         set
         {
+            if (_maxFrameSize == value) return;
             _maxFrameSize = value;
 
-            if (_maxFrameSize != value)
+            FrameCacheManager frameCacheManager = EditViewModel.FrameCacheManager.Value;
+            var frameSize = frameCacheManager.FrameSize.ToSize(1);
+            float scale = (float)Stretch.Uniform.CalculateScaling(_maxFrameSize, frameSize, StretchDirection.Both).X;
+            if (scale != 0)
             {
-                FrameCacheManager frameCacheManager = EditViewModel.FrameCacheManager.Value;
-                var frameSize = frameCacheManager.FrameSize.ToSize(1);
-                float scale = (float)Stretch.Uniform.CalculateScaling(MaxFrameSize, frameSize, StretchDirection.Both).X;
-                if (scale != 0)
+                int den = (int)(1 / scale);
+                if (den % 2 == 1)
                 {
-                    int den = (int)(1 / scale);
-                    if (den % 2 == 1)
-                    {
-                        den++;
-                    }
+                    den++;
+                }
 
-                    frameCacheManager.Options = frameCacheManager.Options with
-                    {
-                        Size = PixelSize.FromSize(frameSize, 1f / den)
-                    };
-                }
-                else
+                frameCacheManager.Options = frameCacheManager.Options with
                 {
-                    frameCacheManager.Options = frameCacheManager.Options with { Size = null };
-                }
+                    Size = PixelSize.FromSize(frameSize, 1f / den)
+                };
+            }
+            else
+            {
+                frameCacheManager.Options = frameCacheManager.Options with { Size = null };
             }
         }
     }
