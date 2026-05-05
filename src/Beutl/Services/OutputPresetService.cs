@@ -161,10 +161,10 @@ public sealed class OutputPresetService
     {
         try
         {
-            _isRestored = true;
             if (!File.Exists(_filePath))
             {
                 _logger.LogWarning("Output preset file not found: {FilePath}", _filePath);
+                _isRestored = true;
                 return;
             }
 
@@ -191,6 +191,11 @@ public sealed class OutputPresetService
                 }
             }
 
+            // 既存ファイルの読み込みに成功した場合のみ書き込みを許可する。
+            // try 冒頭で true にすると、IO 失敗や JSON 破損時に finally の
+            // CreateDefaultPresets/AddPlatformPresets 経由で SaveItems が走り、
+            // ユーザーの保存済みプリセットがデフォルトで上書きされてしまう。
+            _isRestored = true;
             _logger.LogInformation("Restored {Count} OutputPresetItem from file: {FilePath}", _items.Count, _filePath);
         }
         catch (Exception ex)
