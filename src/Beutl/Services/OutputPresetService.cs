@@ -13,13 +13,19 @@ using Reactive.Bindings;
 
 namespace Beutl.Services;
 
-public class OutputPresetItem(OutputExtension extension, JsonObject json, string name)
+public class OutputPresetItem(OutputExtension extension, JsonObject json, string name, string? presetKey = null)
 {
     public OutputExtension Extension { get; } = extension;
 
     public JsonObject Json { get; } = json;
 
     public ReactiveProperty<string> Name { get; } = new(name);
+
+    // ロケール非依存の安定キー。組み込みのプラットフォームプリセットに付与され、
+    // ユーザーの言語切替後でも重複登録を防ぐために使う。ユーザーが UI から作成した
+    // プリセットは null。setter は PresetKey 未対応の保存データから読み込んだ
+    // 既存アイテムにキーをバックフィルする目的でのみ使用する。
+    public string? PresetKey { get; internal set; } = presetKey;
 
     public void Apply(ISupportOutputPreset context)
     {
@@ -41,12 +47,19 @@ public class OutputPresetItem(OutputExtension extension, JsonObject json, string
 
     public static JsonNode ToJson(OutputPresetItem item)
     {
-        return new JsonObject
+        var jsonObject = new JsonObject
         {
             [nameof(Extension)] = TypeFormat.ToString(item.Extension.GetType()),
             [nameof(Json)] = item.Json.DeepClone(),
             [nameof(Name)] = item.Name.Value
         };
+
+        if (item.PresetKey != null)
+        {
+            jsonObject[nameof(PresetKey)] = item.PresetKey;
+        }
+
+        return jsonObject;
     }
 
     public static OutputPresetItem? FromJson(JsonNode json, ILogger logger)
@@ -85,7 +98,13 @@ public class OutputPresetItem(OutputExtension extension, JsonObject json, string
                 return null;
             }
 
-            return new OutputPresetItem(extension, jsonObject, name);
+            string? presetKey = null;
+            if (json[nameof(PresetKey)] is JsonValue keyValue && keyValue.TryGetValue(out string? key))
+            {
+                presetKey = key;
+            }
+
+            return new OutputPresetItem(extension, jsonObject, name, presetKey);
         }
         catch (Exception ex)
         {
@@ -346,10 +365,13 @@ public sealed class OutputPresetService
 
     private void AddPlatformPresets()
     {
-        AddH264Preset(
-            Strings.Preset_YouTube_1080p60,
-            new PixelSize(1920, 1080),
-            new Rational(60, 1),
+        bool changed = false;
+
+        changed |= AddH264Preset(
+            presetKey: "Platform.YouTube_1080p60",
+            name: Strings.Preset_YouTube_1080p60,
+            destinationSize: new PixelSize(1920, 1080),
+            frameRate: new Rational(60, 1),
             videoBitrate: 12_000_000,
             audioBitrate: 192_000,
             preset: "slow",
@@ -357,10 +379,11 @@ public sealed class OutputPresetService
             profile: "high",
             level: "4.2");
 
-        AddH264Preset(
-            Strings.Preset_YouTube_4K60,
-            new PixelSize(3840, 2160),
-            new Rational(60, 1),
+        changed |= AddH264Preset(
+            presetKey: "Platform.YouTube_4K60",
+            name: Strings.Preset_YouTube_4K60,
+            destinationSize: new PixelSize(3840, 2160),
+            frameRate: new Rational(60, 1),
             videoBitrate: 45_000_000,
             audioBitrate: 192_000,
             preset: "slow",
@@ -368,10 +391,11 @@ public sealed class OutputPresetService
             profile: "high",
             level: "5.1");
 
-        AddH264Preset(
-            Strings.Preset_Twitter_1080p,
-            new PixelSize(1920, 1080),
-            new Rational(30, 1),
+        changed |= AddH264Preset(
+            presetKey: "Platform.Twitter_1080p",
+            name: Strings.Preset_Twitter_1080p,
+            destinationSize: new PixelSize(1920, 1080),
+            frameRate: new Rational(30, 1),
             videoBitrate: 25_000_000,
             audioBitrate: 128_000,
             preset: "medium",
@@ -379,10 +403,11 @@ public sealed class OutputPresetService
             profile: "high",
             level: "4.0");
 
-        AddH264Preset(
-            Strings.Preset_Instagram_Reels,
-            new PixelSize(1080, 1920),
-            new Rational(30, 1),
+        changed |= AddH264Preset(
+            presetKey: "Platform.Instagram_Reels",
+            name: Strings.Preset_Instagram_Reels,
+            destinationSize: new PixelSize(1080, 1920),
+            frameRate: new Rational(30, 1),
             videoBitrate: 5_000_000,
             audioBitrate: 128_000,
             preset: "medium",
@@ -390,10 +415,11 @@ public sealed class OutputPresetService
             profile: "high",
             level: "4.0");
 
-        AddH264Preset(
-            Strings.Preset_Instagram_Feed,
-            new PixelSize(1080, 1080),
-            new Rational(30, 1),
+        changed |= AddH264Preset(
+            presetKey: "Platform.Instagram_Feed",
+            name: Strings.Preset_Instagram_Feed,
+            destinationSize: new PixelSize(1080, 1080),
+            frameRate: new Rational(30, 1),
             videoBitrate: 3_500_000,
             audioBitrate: 128_000,
             preset: "medium",
@@ -401,10 +427,11 @@ public sealed class OutputPresetService
             profile: "high",
             level: "4.0");
 
-        AddH264Preset(
-            Strings.Preset_TikTok,
-            new PixelSize(1080, 1920),
-            new Rational(30, 1),
+        changed |= AddH264Preset(
+            presetKey: "Platform.TikTok",
+            name: Strings.Preset_TikTok,
+            destinationSize: new PixelSize(1080, 1920),
+            frameRate: new Rational(30, 1),
             videoBitrate: 6_000_000,
             audioBitrate: 128_000,
             preset: "medium",
@@ -412,10 +439,11 @@ public sealed class OutputPresetService
             profile: "high",
             level: "4.0");
 
-        AddH264Preset(
-            Strings.Preset_Discord_8MB,
-            new PixelSize(720, 480),
-            new Rational(30, 1),
+        changed |= AddH264Preset(
+            presetKey: "Platform.Discord_8MB",
+            name: Strings.Preset_Discord_8MB,
+            destinationSize: new PixelSize(720, 480),
+            frameRate: new Rational(30, 1),
             videoBitrate: 800_000,
             audioBitrate: 64_000,
             preset: "medium",
@@ -423,9 +451,25 @@ public sealed class OutputPresetService
             profile: "main",
             level: "3.1",
             audioSampleRate: 44100);
+
+        if (changed)
+        {
+            // バックフィル / 新規追加を即時永続化しないと、ユーザーが何も操作せず
+            // 終了した後にロケールを切り替えて再起動した場合、前回のマイグレーションが
+            // 失われて重複登録が再発する。
+            try
+            {
+                SaveItems();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "An exception has occurred while saving output presets after platform preset migration.");
+            }
+        }
     }
 
-    private void AddH264Preset(
+    private bool AddH264Preset(
+        string presetKey,
         string name,
         PixelSize destinationSize,
         Rational frameRate,
@@ -437,9 +481,22 @@ public sealed class OutputPresetService
         string level,
         int audioSampleRate = 48000)
     {
-        if (_items.Any(i => i.Name.Value == name))
+        // 既知のプラットフォームプリセットは PresetKey で照合し、ロケール変更で
+        // ローカライズ名が変わっても重複追加されないようにする。PresetKey 未対応の
+        // 保存データから復元したアイテムは PresetKey が null なので、名前一致で
+        // 後方互換照合した上でキーをバックフィルする。
+        OutputPresetItem? existing = _items.FirstOrDefault(
+            i => i.PresetKey == presetKey || (i.PresetKey == null && i.Name.Value == name));
+
+        if (existing != null)
         {
-            return;
+            if (existing.PresetKey == null)
+            {
+                existing.PresetKey = presetKey;
+                return true;
+            }
+
+            return false;
         }
 
         CodecRecord videoCodec = VideoCodecChoicesProvider.GetChoices()
@@ -451,7 +508,7 @@ public sealed class OutputPresetService
 
         if (videoCodec == CodecRecord.Default || audioCodec == CodecRecord.Default)
         {
-            return;
+            return false;
         }
 
         var vid = new FFmpegVideoEncoderSettings
@@ -488,6 +545,9 @@ public sealed class OutputPresetService
                 ["VideoSettings"] = CoreSerializer.SerializeToJsonObject(vid),
                 ["AudioSettings"] = CoreSerializer.SerializeToJsonObject(aud)
             },
-            name));
+            name,
+            presetKey));
+
+        return true;
     }
 }
