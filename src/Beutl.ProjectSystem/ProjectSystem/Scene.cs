@@ -416,7 +416,11 @@ public class Scene : ProjectItem, INotifyEdited
         ImmutableArray<TimeRange>.Builder affectedRange
             = ImmutableArray.CreateBuilder<TimeRange>(Math.Max(e.OldItems?.Count ?? 0, e.NewItems?.Count ?? 0));
 
-        string dirPath = Uri!.LocalPath;
+        // Path.GetRelativePath の基点はディレクトリでなければならない。Uri.LocalPath は
+        // .scene ファイル自身を指すため、そのまま使うと _excludeElements に "../foo.belm"
+        // のような不正パスが入り、Deserialize 側 (Path.GetDirectoryName を使用) と整合せず
+        // 除外パターンが効かない。結果として削除した Element が再読み込みで復活する。
+        string dirPath = Path.GetDirectoryName(Uri!.LocalPath)!;
         if (e.Action == NotifyCollectionChangedAction.Remove
             && e.OldItems != null)
         {
