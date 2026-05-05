@@ -58,6 +58,7 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
 
         FrameCacheManager = scene.GetObservable(Scene.FrameSizeProperty)
             .Select(v => new FrameCacheManager(v, CreateFrameCacheOptions()) { IsEnabled = config.IsFrameCacheEnabled })
+            .DisposePreviousValue()
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables)!;
 

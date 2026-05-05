@@ -159,11 +159,19 @@ internal sealed class IpcSampleProvider : ISampleProvider
             ?? throw new InvalidOperationException("Missing payload for ProvideSample");
 
         var pcm = new Pcm<Stereo32BitFloat>((int)SampleRate, sampleInfo.NumSamples);
-        unsafe
+        try
         {
-            _audioBuffers[bufferIndex].Read(new Span<byte>((void*)pcm.Data, sampleInfo.DataLength));
-        }
+            unsafe
+            {
+                _audioBuffers[bufferIndex].Read(new Span<byte>((void*)pcm.Data, sampleInfo.DataLength));
+            }
 
-        return pcm;
+            return pcm;
+        }
+        catch
+        {
+            pcm.Dispose();
+            throw;
+        }
     }
 }
