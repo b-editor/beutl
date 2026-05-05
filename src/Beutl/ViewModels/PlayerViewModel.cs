@@ -328,7 +328,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
 
     public event EventHandler? PreviewInvalidated;
 
-    // View側から設定
+    // View側から設定、物理ピクセル
     public Size MaxFrameSize
     {
         get => _maxFrameSize;
@@ -339,7 +339,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
 
             FrameCacheManager frameCacheManager = EditViewModel.FrameCacheManager.Value;
             var frameSize = frameCacheManager.FrameSize.ToSize(1);
-            float scale = (float)Stretch.Uniform.CalculateScaling(_maxFrameSize, frameSize, StretchDirection.Both).X;
+            float scale = Stretch.Uniform.CalculateScaling(_maxFrameSize, frameSize).X;
             if (scale != 0)
             {
                 int den = (int)(1 / scale);

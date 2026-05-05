@@ -48,9 +48,11 @@ public partial class PlayerView : UserControl
         framePanel.GetObservable(BoundsProperty)
             .Subscribe(s =>
             {
-                if (DataContext is PlayerViewModel player)
+                if (DataContext is PlayerViewModel player && TopLevel.GetTopLevel(this) is { } topLevel)
                 {
-                    player.MaxFrameSize = new((float)s.Size.Width, (float)s.Size.Height);
+                    player.MaxFrameSize = new Beutl.Graphics.Size(
+                        (float)(s.Size.Width * topLevel.RenderScaling),
+                        (float)(s.Size.Height * topLevel.RenderScaling));
                 }
             });
 
