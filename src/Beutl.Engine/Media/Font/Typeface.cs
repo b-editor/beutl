@@ -36,7 +36,7 @@ public readonly struct Typeface(
 
     internal SKTypeface ToSkia()
     {
-        return FontManager.Instance._fonts[FontFamily].Get(this);
+        return FontManager.Instance.ResolveSkia(this);
     }
 
     public override bool Equals(object? obj)

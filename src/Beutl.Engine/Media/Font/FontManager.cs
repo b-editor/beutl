@@ -14,6 +14,7 @@ public sealed class FontManager
 {
     public static readonly FontManager Instance = new();
     private readonly ILogger _logger = Log.CreateLogger<FontManager>();
+    private readonly Lock _gate = new();
     internal readonly Dictionary<FontFamily, FrozenDictionary<Typeface, SKTypeface>> _fonts = [];
     internal readonly Dictionary<FontFamily, FontName> _fontNames = [];
     private readonly string[] _fontDirs;
@@ -119,15 +120,39 @@ public sealed class FontManager
         DefaultTypeface = GetDefaultTypeface();
     }
 
-    public IEnumerable<FontFamily> FontFamilies => _fonts.Keys;
+    public IEnumerable<FontFamily> FontFamilies
+    {
+        get
+        {
+            // Dictionary はスレッドセーフでない。AddFont と並行して列挙すると
+            // 内部状態が壊れて無限ループや null 例外になり得るのでスナップショットを返す。
+            lock (_gate)
+            {
+                return _fonts.Keys.ToArray();
+            }
+        }
+    }
 
-    public int FontFamilyCount => _fonts.Count;
+    public int FontFamilyCount
+    {
+        get
+        {
+            lock (_gate) return _fonts.Count;
+        }
+    }
 
     public Typeface DefaultTypeface { get; }
 
     public void AddFont(Stream stream)
     {
-        AddFont(SKTypeface.FromStream(stream));
+        SKTypeface? typeface = SKTypeface.FromStream(stream);
+        if (typeface == null) return;
+        // 重複登録された SKTypeface は AddFont 側で false が返るので、
+        // 戻り値を無視せず必ず Dispose する。
+        if (!AddFont(typeface))
+        {
+            typeface.Dispose();
+        }
     }
 
     private bool AddFont(SKTypeface typeface)
@@ -135,29 +160,32 @@ public sealed class FontManager
         string familyName = typeface.FamilyName;
         var fontFamily = new FontFamily(familyName);
 
-        ref FrozenDictionary<Typeface, SKTypeface>? value
-            = ref CollectionsMarshal.GetValueRefOrAddDefault(_fonts, fontFamily, out bool exists);
-
-        if (exists)
+        lock (_gate)
         {
-            var tf = Typeface.FromSKTypeface(typeface);
+            ref FrozenDictionary<Typeface, SKTypeface>? value
+                = ref CollectionsMarshal.GetValueRefOrAddDefault(_fonts, fontFamily, out bool exists);
 
-            if (!value!.ContainsKey(tf))
+            if (exists)
             {
-                value = value.Append(new(tf, typeface))
-                    .ToFrozenDictionary();
+                var tf = Typeface.FromSKTypeface(typeface);
 
-                return true;
+                if (!value!.ContainsKey(tf))
+                {
+                    value = value.Append(new(tf, typeface))
+                        .ToFrozenDictionary();
+
+                    return true;
+                }
+                else
+                {
+                    return false;
+                }
             }
             else
             {
-                return false;
+                value = TypefaceCollection.Create([typeface]);
+                return true;
             }
-        }
-        else
-        {
-            value = TypefaceCollection.Create([typeface]);
-            return true;
         }
     }
 
@@ -176,9 +204,20 @@ public sealed class FontManager
 
     public ImmutableArray<Typeface> GetTypefaces(FontFamily fontFamily)
     {
-        return _fonts.TryGetValue(fontFamily, out FrozenDictionary<Typeface, SKTypeface>? value)
-            ? value.Keys
-            : [];
+        lock (_gate)
+        {
+            return _fonts.TryGetValue(fontFamily, out FrozenDictionary<Typeface, SKTypeface>? value)
+                ? value.Keys
+                : [];
+        }
+    }
+
+    internal SKTypeface ResolveSkia(Typeface typeface)
+    {
+        lock (_gate)
+        {
+            return _fonts[typeface.FontFamily].Get(typeface);
+        }
     }
 }
 
