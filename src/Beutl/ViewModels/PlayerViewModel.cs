@@ -880,7 +880,8 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
 
             // primaryBufferが終了、secondaryが開始
 
-            while (cur < scene.Duration)
+            TimeSpan endTime = scene.Start + scene.Duration;
+            while (cur < endTime)
             {
                 if (!IsPlaying.Value)
                 {
@@ -1042,7 +1043,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                     AnchorClock();
 
                     await Task.Delay(100, cts.Token).ConfigureAwait(false);
-                    if (cur > scene.Duration)
+                    if (cur > scene.Start + scene.Duration)
                         break;
                 }
 
