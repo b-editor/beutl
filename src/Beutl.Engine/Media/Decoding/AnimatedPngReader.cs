@@ -68,7 +68,14 @@ public class AnimatedPngReader : MediaReader
         else
         {
             Rational totalDuration = new Rational(0, 1);
-            for (int rp = 0; rp < _apng.acTLChunk!.NumPlays || _apng.acTLChunk!.NumPlays == 0; rp++)
+            // APNG 仕様で NumPlays == 0 は無限ループ再生を意味する。再生時間がコンテンツ
+            // 全体の duration を超える要求が来た場合、内側ループの seconds <= totalDuration
+            // が一度も成立しないため、numPlays==0 を「真」に評価して外側 for を回し続けると
+            // 永久ループになりレンダリングスレッドがハングする。NumPlays==0 のときは
+            // 内側ループを 1 巡だけ実行して、ヒットしなければループ末尾フレームに丸める。
+            uint numPlays = _apng.acTLChunk!.NumPlays;
+            int maxPlays = numPlays == 0 ? 1 : (int)Math.Min(numPlays, int.MaxValue);
+            for (int rp = 0; rp < maxPlays; rp++)
             {
                 for (int i = 0; i < _frameCount; i++)
                 {
@@ -103,13 +110,15 @@ public class AnimatedPngReader : MediaReader
 
         var bitmap = RenderBitmap(detectedFrame);
         var disposeOp = _apng.Frames[detectedFrame].fcTLChunk!.DisposeOp;
+        // 古いキャッシュは新しいフレームで上書きする前に必ず Dispose する。
+        // 抜けていると進むたびに数 MB の SKBitmap がリークする。
+        _lastFrame?.Dispose();
         if (disposeOp != DisposeOps.APNGDisposeOpBackground)
         {
             _lastFrame = new FrameCache(bitmap, disposeOp, detectedFrame);
         }
         else
         {
-            _lastFrame?.Dispose();
             _lastFrame = null;
         }
 
@@ -187,6 +196,8 @@ public class AnimatedPngReader : MediaReader
         _apng = null!;
         _defaultImage?.Dispose();
         _defaultImage = null;
+        _lastFrame?.Dispose();
+        _lastFrame = null;
     }
 
     private record FrameCache(SKBitmap Bitmap, DisposeOps DisposalMethod, int Index) : IDisposable

@@ -57,8 +57,13 @@ public class AnimatedImageReader : MediaReader
         }
         else
         {
+            // _repetitionCount == -1 (SKCodec で不定/無限ループ扱い) の場合、コンテンツ
+            // 全体の duration を超える要求が来ると内側ループの ms <= totalDuration が一度も
+            // 成立せず、外側 for を回し続けるとレンダリングスレッドがハングする。1 巡だけ
+            // 試して見つからなければ false を返す。
             int totalDuration = 0;
-            for (int rp = 0; rp < _repetitionCount || _repetitionCount == -1; rp++)
+            int maxPlays = _repetitionCount < 0 ? 1 : _repetitionCount;
+            for (int rp = 0; rp < maxPlays; rp++)
             {
                 for (int i = 0; i < _frameCount; i++)
                 {
@@ -87,13 +92,15 @@ public class AnimatedImageReader : MediaReader
 
         var bitmap = RenderBitmap(detectedFrame);
         var disposalMethod = _frameInfo[detectedFrame].DisposalMethod;
+        // 古いキャッシュは新しいフレームで上書きする前に必ず Dispose する。
+        // 抜けていると進むたびに数 MB の SKBitmap がリークする。
+        _lastFrame?.Dispose();
         if (disposalMethod != SKCodecAnimationDisposalMethod.RestoreBackgroundColor)
         {
             _lastFrame = new Frame(bitmap, disposalMethod, detectedFrame);
         }
         else
         {
-            _lastFrame?.Dispose();
             _lastFrame = null;
         }
 
