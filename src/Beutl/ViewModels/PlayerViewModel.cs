@@ -880,8 +880,9 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
 
             // primaryBufferが終了、secondaryが開始
 
-            TimeSpan endTime = scene.Start + scene.Duration;
-            while (cur < endTime)
+            // 再生中に Scene.Start / Duration が編集される可能性があるため毎回再評価する
+            // (ShuttleCore と同じポリシー)
+            while (cur < scene.Start + scene.Duration)
             {
                 if (!IsPlaying.Value)
                 {
@@ -1043,7 +1044,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
                     AnchorClock();
 
                     await Task.Delay(100, cts.Token).ConfigureAwait(false);
-                    if (cur > scene.Start + scene.Duration)
+                    if (cur >= scene.Start + scene.Duration)
                         break;
                 }
 
