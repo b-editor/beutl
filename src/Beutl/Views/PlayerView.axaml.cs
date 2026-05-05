@@ -46,15 +46,7 @@ public partial class PlayerView : UserControl
         framePanel.KeyUp += OnFrameKeyUp;
 
         framePanel.GetObservable(BoundsProperty)
-            .Subscribe(s =>
-            {
-                if (DataContext is PlayerViewModel player && TopLevel.GetTopLevel(this) is { } topLevel)
-                {
-                    player.MaxFrameSize = new Beutl.Graphics.Size(
-                        (float)(s.Size.Width * topLevel.RenderScaling),
-                        (float)(s.Size.Height * topLevel.RenderScaling));
-                }
-            });
+            .Subscribe(_ => UpdateMaxFrameSize());
 
         // PlayerView.axaxml.DragAndDrop.cs
         DragDrop.SetAllowDrop(framePanel, true);
@@ -114,14 +106,44 @@ public partial class PlayerView : UserControl
             });
     }
 
+    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToVisualTree(e);
+        if (e.Root is TopLevel topLevel)
+        {
+            topLevel.ScalingChanged += OnTopLevelScalingChanged;
+        }
+        UpdateMaxFrameSize();
+    }
+
     protected override async void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
+        if (e.Root is TopLevel topLevel)
+        {
+            topLevel.ScalingChanged -= OnTopLevelScalingChanged;
+        }
         base.OnDetachedFromVisualTree(e);
         _imageConfigSubscription?.Dispose();
         _boundsSubscription?.Dispose();
         if (DataContext is PlayerViewModel viewModel && viewModel.IsPlaying.Value)
         {
             await viewModel.Pause();
+        }
+    }
+
+    private void OnTopLevelScalingChanged(object? sender, EventArgs e)
+    {
+        UpdateMaxFrameSize();
+    }
+
+    private void UpdateMaxFrameSize()
+    {
+        if (DataContext is PlayerViewModel player && TopLevel.GetTopLevel(this) is { } topLevel)
+        {
+            var size = framePanel.Bounds.Size;
+            player.MaxFrameSize = new Beutl.Graphics.Size(
+                (float)(size.Width * topLevel.RenderScaling),
+                (float)(size.Height * topLevel.RenderScaling));
         }
     }
 
