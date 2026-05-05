@@ -165,8 +165,19 @@ public sealed class ViewConfig : ConfigurationBase
     public override void Deserialize(ICoreSerializationContext context)
     {
         base.Deserialize(context);
-        RecentFiles = context.GetValue<CoreList<string>>(nameof(RecentFiles))!;
-        RecentProjects = context.GetValue<CoreList<string>>(nameof(RecentProjects))!;
+        // 古い settings.json や手動編集後のファイルでこれらのキーが欠落していると
+        // GetValue が null を返す。null! を素通りさせると _recentFiles.Replace(null) で
+        // ArgumentNullException が起き、後続の Editor/Graphics/Tutorial 設定の
+        // Deserialize もまとめて中断してしまう。null の場合は既存の空リストを保持する。
+        if (context.GetValue<CoreList<string>>(nameof(RecentFiles)) is { } recentFiles)
+        {
+            RecentFiles = recentFiles;
+        }
+
+        if (context.GetValue<CoreList<string>>(nameof(RecentProjects)) is { } recentProjects)
+        {
+            RecentProjects = recentProjects;
+        }
 
         WindowPosition = null;
         if (context.GetValue<WindowPositionRecord?>(nameof(WindowPosition)) is { } pos)
