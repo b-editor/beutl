@@ -88,6 +88,11 @@ public sealed partial class LayerHeader : UserControl
 
     private void Border_PointerReleased(object? sender, PointerReleasedEventArgs e)
     {
+        // Border_PointerPressed で _pressed = true にされるのは左ボタンドラッグ開始時のみ。
+        // 右クリックや単発の左クリックで本ハンドラを通すと _newLayer = 0 のまま
+        // MoveLayerCommand が走り、レイヤーが ZIndex=0 に移動して履歴に commit される。
+        if (!_pressed) return;
+
         _pressed = false;
 
         int newLayerNum = _newLayer;
@@ -104,6 +109,7 @@ public sealed partial class LayerHeader : UserControl
         if (point.Properties.IsLeftButtonPressed && GetOrFindTimeline() is { } timeline)
         {
             _pressed = true;
+            _newLayer = ViewModel.Number.Value;
             _startRel = point.Position;
             _start = e.GetCurrentPoint(timeline.TimelinePanel).Position;
             _elements = ViewModel.Timeline.Elements
