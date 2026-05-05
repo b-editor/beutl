@@ -96,10 +96,35 @@ public static class JsonHelper
 
     public static void JsonSave(this JsonNode node, string filename)
     {
-        using var stream = new FileStream(filename, FileMode.Create, FileAccess.Write, FileShare.Write);
-        using var writer = new Utf8JsonWriter(stream, WriterOptions);
+        // tmp に書いてから rename することで、書き込み中のクラッシュ・電源断・
+        // ディスクフルでターゲットファイルがゼロバイトで残るのを防ぐ。
+        // 既存ファイルは rename 成功時のみ置き換わるため、ユーザーのプロジェクトや
+        // 設定ファイルが破損しない。
+        string tmp = filename + ".tmp";
+        try
+        {
+            using (var stream = new FileStream(tmp, FileMode.Create, FileAccess.Write, FileShare.None))
+            using (var writer = new Utf8JsonWriter(stream, WriterOptions))
+            {
+                node.WriteTo(writer, SerializerOptions);
+                writer.Flush();
+                stream.Flush(flushToDisk: true);
+            }
 
-        node.WriteTo(writer, SerializerOptions);
+            File.Move(tmp, filename, overwrite: true);
+        }
+        catch
+        {
+            try
+            {
+                if (File.Exists(tmp)) File.Delete(tmp);
+            }
+            catch
+            {
+                // 失敗しても元の例外は投げる
+            }
+            throw;
+        }
     }
 
     public static JsonNode? JsonRestore(string filename)
