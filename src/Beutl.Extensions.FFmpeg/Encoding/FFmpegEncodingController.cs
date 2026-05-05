@@ -261,10 +261,13 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
             var outFormat = muxer.Format;
 
             var encoders = new List<(MediaEncoder, MediaStream)>();
+            (MediaEncoder Encoder, MediaStream Stream)? audioRef = null;
+            (MediaEncoder Encoder, MediaStream Stream)? videoRef = null;
             if (outFormat.AudioCodec != AVCodecID.AV_CODEC_ID_NONE)
             {
                 ConfigureAudioStream(outFormat, muxer, audioFrame, out var encoder, out var stream, out swr);
                 encoders.Add((encoder, stream));
+                audioRef = (encoder, stream);
                 encodeAudio = true;
             }
 
@@ -272,6 +275,7 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
             {
                 ConfigureVideoStream(outFormat, muxer, videoFrame, out var encoder, out var stream);
                 encoders.Add((encoder, stream));
+                videoRef = (encoder, stream);
                 encodeVideo = true;
             }
 
@@ -286,16 +290,16 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
                 {
                     if (encodeVideo &&
                         (!encodeAudio || ffmpeg.av_compare_ts(videoState.NextPts,
-                            encoders[1].Item1.TimeBase,
-                            audioState.NextPts, encoders[0].Item1.TimeBase) <= 0))
+                            videoRef!.Value.Encoder.TimeBase,
+                            audioState.NextPts, audioRef!.Value.Encoder.TimeBase) <= 0))
                     {
                         encodeVideo = await WriteVideoFrame(
-                            muxer, encoders[1].Item1, encoders[1].Item2, videoFrame, videoState, frameProvider);
+                            muxer, videoRef!.Value.Encoder, videoRef!.Value.Stream, videoFrame, videoState, frameProvider);
                     }
                     else
                     {
                         encodeAudio = await WriteAudioFrame(
-                            muxer, swr!, encoders[0].Item1, encoders[0].Item2, audioFrame, audioState, sampleProvider);
+                            muxer, swr!, audioRef!.Value.Encoder, audioRef!.Value.Stream, audioFrame, audioState, sampleProvider);
                     }
                 }
             }
