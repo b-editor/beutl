@@ -303,20 +303,28 @@ final class AudioReaderContext {
         self.thresholdSampleCount = Int(options.thresholdSampleCount)
         self.cache.reset(blockAlign: Self.outputBytesPerFrame)
 
-        let sampleRate = Int(track.naturalTimeScale)
-        let (reader, output) = try Self.makeReaderAndOutput(asset: asset, track: track, start: nil, sampleRate: sampleRate)
-        self.reader = reader
-        self.output = output
-
+        // naturalTimeScale はトラックの最頻 timescale で、音声では多くの場合
+        // サンプルレートと一致するが保証ではない (movie track 由来で 600 等に
+        // なり得る)。誤検出時は PTS シーク失敗・高速/低速再生の原因になるため、
+        // ASBD の mSampleRate を優先し、format description が取れないときのみ
+        // naturalTimeScale にフォールバックする。
         var codecFourCC: Int32 = 0
         var channelCount: Int32 = Int32(Self.outputChannels)
+        var resolvedSampleRate: Double = 0
         if let desc = track.formatDescriptions.first {
             let handle = desc as! CMFormatDescription
             codecFourCC = Int32(bitPattern: CMFormatDescriptionGetMediaSubType(handle))
             if let asbdPtr = CMAudioFormatDescriptionGetStreamBasicDescription(handle) {
                 channelCount = Int32(asbdPtr.pointee.mChannelsPerFrame)
+                resolvedSampleRate = asbdPtr.pointee.mSampleRate
             }
         }
+        let sampleRate = resolvedSampleRate > 0
+            ? Int(resolvedSampleRate.rounded())
+            : Int(track.naturalTimeScale)
+        let (reader, output) = try Self.makeReaderAndOutput(asset: asset, track: track, start: nil, sampleRate: sampleRate)
+        self.reader = reader
+        self.output = output
 
         let duration = track.timeRange.duration
         let durationSeconds = CMTimeGetSeconds(duration)
