@@ -340,7 +340,10 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
             FrameCacheManager frameCacheManager = EditViewModel.FrameCacheManager.Value;
             var frameSize = frameCacheManager.FrameSize.ToSize(1);
             float scale = Stretch.Uniform.CalculateScaling(_maxFrameSize, frameSize).X;
-            if (scale != 0)
+            // パネルがフレーム以上のサイズなら縮小キャッシュは不要なので原寸を使う。
+            // ここで scale >= 1 を弾かないと (int)(1/scale) が 0 になり 1/den が +Infinity に発散して
+            // PixelSize.FromSize が int.MaxValue 級のサイズを生成してしまう。
+            if (scale > 0 && scale < 1)
             {
                 int den = (int)(1 / scale);
                 if (den % 2 == 1)
