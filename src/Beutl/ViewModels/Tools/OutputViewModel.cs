@@ -55,7 +55,7 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
                     var videoSettings = CoreSerializer.SerializeToJsonObject(Controller.Value.VideoSettings);
                     CoreSerializer.PopulateFromJsonObject(newController.VideoSettings, videoSettings);
                     var audioSettings = CoreSerializer.SerializeToJsonObject(Controller.Value.AudioSettings);
-                    CoreSerializer.PopulateFromJsonObject(Controller.Value.AudioSettings, audioSettings);
+                    CoreSerializer.PopulateFromJsonObject(newController.AudioSettings, audioSettings);
                     return newController;
                 }
 
