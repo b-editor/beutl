@@ -149,6 +149,7 @@ public sealed class GlobalConfiguration
         FontConfig.ConfigurationChanged += OnConfigurationChanged;
         ViewConfig.ConfigurationChanged += OnConfigurationChanged;
         ExtensionConfig.ConfigurationChanged += OnConfigurationChanged;
+        BackupConfig.ConfigurationChanged += OnConfigurationChanged;
         TelemetryConfig.ConfigurationChanged += OnConfigurationChanged;
         EditorConfig.ConfigurationChanged += OnConfigurationChanged;
         TutorialConfig.ConfigurationChanged += OnConfigurationChanged;
@@ -160,6 +161,7 @@ public sealed class GlobalConfiguration
         FontConfig.ConfigurationChanged -= OnConfigurationChanged;
         ViewConfig.ConfigurationChanged -= OnConfigurationChanged;
         ExtensionConfig.ConfigurationChanged -= OnConfigurationChanged;
+        BackupConfig.ConfigurationChanged -= OnConfigurationChanged;
         TelemetryConfig.ConfigurationChanged -= OnConfigurationChanged;
         EditorConfig.ConfigurationChanged -= OnConfigurationChanged;
         TutorialConfig.ConfigurationChanged -= OnConfigurationChanged;
