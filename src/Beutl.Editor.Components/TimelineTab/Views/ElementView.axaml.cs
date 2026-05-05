@@ -311,6 +311,7 @@ public sealed partial class ElementView : UserControl
             {
                 AssociatedObject.RemoveHandler(PointerMovedEvent, OnPointerMoved);
                 AssociatedObject.border.RemoveHandler(PointerPressedEvent, OnBorderPointerPressed);
+                AssociatedObject.border.RemoveHandler(PointerReleasedEvent, OnBorderPointerReleased);
                 AssociatedObject.border.RemoveHandler(PointerMovedEvent, OnBorderPointerMoved);
             }
         }
@@ -678,7 +679,7 @@ public sealed partial class ElementView : UserControl
             base.OnDetaching();
             if (AssociatedObject == null) return;
 
-            AssociatedObject.AddHandler(PointerPressedEvent, OnPointerPressed, RoutingStrategies.Tunnel);
+            AssociatedObject.RemoveHandler(PointerPressedEvent, OnPointerPressed);
             AssociatedObject.border.RemoveHandler(PointerPressedEvent, OnBorderPointerPressed);
             AssociatedObject.border.RemoveHandler(PointerReleasedEvent, OnBorderPointerReleased);
         }
