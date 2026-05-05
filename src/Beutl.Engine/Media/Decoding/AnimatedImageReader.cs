@@ -57,21 +57,50 @@ public class AnimatedImageReader : MediaReader
         }
         else
         {
-            int totalDuration = 0;
-            for (int rp = 0; rp < _repetitionCount || _repetitionCount == -1; rp++)
+            // 元コードは `for (rp; rp < _repetitionCount || _repetitionCount == -1; rp++)`
+            // で外側を永久ループにしていたため、ms がコンテンツ全体の duration を
+            // 超えるとレンダリングスレッドがハングしていた。1巡分の duration を
+            // 先に計算し、無限ループ素材は ms をその範囲に wrap してフレーム検出する。
+            int cycleDuration = 0;
+            for (int i = 0; i < _frameCount; i++)
             {
-                for (int i = 0; i < _frameCount; i++)
-                {
-                    var info = _frameInfo[i];
-                    if (ms <= totalDuration)
-                    {
-                        detectedFrame = i;
-                        goto BreakNestedLoop;
-                    }
+                cycleDuration += _frameInfo[i].Duration;
+            }
 
-                    totalDuration += info.Duration;
+            if (cycleDuration <= 0)
+            {
+                // 全フレームの duration が 0。元コードなら無限ループだったケース。
+                return false;
+            }
+
+            long effective = ms;
+
+            if (_repetitionCount > 0)
+            {
+                long fullDuration = (long)cycleDuration * _repetitionCount;
+                if (effective >= fullDuration)
+                {
+                    return false;
                 }
             }
+
+            // wrap effective into [0, cycleDuration)
+            effective %= cycleDuration;
+
+            int accumulated = 0;
+            for (int i = 0; i < _frameCount; i++)
+            {
+                if (effective <= accumulated)
+                {
+                    detectedFrame = i;
+                    goto BreakNestedLoop;
+                }
+
+                accumulated += _frameInfo[i].Duration;
+            }
+
+            // 端数で最終フレームを超えた判定になった場合は最終フレームを返す。
+            detectedFrame = _frameCount - 1;
 
         BreakNestedLoop:;
         }
@@ -87,13 +116,15 @@ public class AnimatedImageReader : MediaReader
 
         var bitmap = RenderBitmap(detectedFrame);
         var disposalMethod = _frameInfo[detectedFrame].DisposalMethod;
+        // 古いキャッシュは新しいフレームで上書きする前に必ず Dispose する。
+        // 抜けていると進むたびに数 MB の SKBitmap がリークする。
+        _lastFrame?.Dispose();
         if (disposalMethod != SKCodecAnimationDisposalMethod.RestoreBackgroundColor)
         {
             _lastFrame = new Frame(bitmap, disposalMethod, detectedFrame);
         }
         else
         {
-            _lastFrame?.Dispose();
             _lastFrame = null;
         }
 

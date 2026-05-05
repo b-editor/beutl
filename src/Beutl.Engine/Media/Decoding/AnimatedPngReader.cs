@@ -67,25 +67,77 @@ public class AnimatedPngReader : MediaReader
         }
         else
         {
-            Rational totalDuration = new Rational(0, 1);
-            for (int rp = 0; rp < _apng.acTLChunk!.NumPlays || _apng.acTLChunk!.NumPlays == 0; rp++)
+            // APNG 仕様で NumPlays == 0 は無限ループ再生。元コードは
+            // `for (rp; rp < NumPlays || NumPlays == 0; rp++)` で外側を永久ループに
+            // していたため、要求時間がコンテンツ全体の duration を超えるとレンダリ
+            // ングスレッドがハングしていた。
+            //
+            // 1巡分の duration を先に計算し、無限ループ素材は seconds をその範囲に
+            // wrap してフレーム検出する。これでハングを防ぎつつ、playhead が 1 巡分
+            // を超えても正しいフレームが返るので「再生が止まる」回帰も起きない。
+            Rational cycleDuration = new Rational(0, 1);
+            for (int i = 0; i < _frameCount; i++)
             {
-                for (int i = 0; i < _frameCount; i++)
+                var f = _apng.Frames[i];
+                if (f.fcTLChunk == null) continue;
+
+                long delayDen = f.fcTLChunk.DelayDen == 0 ? 100 : f.fcTLChunk.DelayDen;
+                cycleDuration += f.fcTLChunk.DelayNum == 0
+                    ? new Rational(1, 1000)
+                    : new Rational(f.fcTLChunk.DelayNum, delayDen);
+            }
+
+            if (cycleDuration <= new Rational(0, 1))
+            {
+                // 進行する frame chunk が一つも無い。元のロジックなら無限ループだったケース。
+                return false;
+            }
+
+            uint numPlays = _apng.acTLChunk!.NumPlays;
+            Rational effective = seconds;
+
+            if (numPlays != 0)
+            {
+                Rational fullDuration = cycleDuration * (long)numPlays;
+                if (effective >= fullDuration)
                 {
-                    var f = _apng.Frames[i];
-                    if (f.fcTLChunk == null)
-                        continue;
+                    // 最終再生分の最後を超えた要求は元コードでは detectedFrame=-1 のまま。
+                    return false;
+                }
+            }
 
-                    if (seconds <= totalDuration)
-                    {
-                        detectedFrame = i;
-                        goto BreakNestedLoop;
-                    }
+            // wrap effective into [0, cycleDuration) for both finite and infinite loops.
+            while (effective >= cycleDuration)
+            {
+                effective -= cycleDuration;
+            }
 
-                    long delayDen = f.fcTLChunk.DelayDen == 0 ? 100 : f.fcTLChunk.DelayDen;
-                    totalDuration += f.fcTLChunk.DelayNum == 0
-                        ? new Rational(1, 1000)
-                        : new Rational(f.fcTLChunk.DelayNum, delayDen);
+            Rational accumulated = new Rational(0, 1);
+            for (int i = 0; i < _frameCount; i++)
+            {
+                var f = _apng.Frames[i];
+                if (f.fcTLChunk == null) continue;
+
+                if (effective <= accumulated)
+                {
+                    detectedFrame = i;
+                    goto BreakNestedLoop;
+                }
+
+                long delayDen = f.fcTLChunk.DelayDen == 0 ? 100 : f.fcTLChunk.DelayDen;
+                accumulated += f.fcTLChunk.DelayNum == 0
+                    ? new Rational(1, 1000)
+                    : new Rational(f.fcTLChunk.DelayNum, delayDen);
+            }
+
+            // wrap 後でもヒットしない（端数などで最終フレーム超えと判定された）場合は
+            // 1 巡の最終 fcTL フレームを返す。
+            for (int i = _frameCount - 1; i >= 0; i--)
+            {
+                if (_apng.Frames[i].fcTLChunk != null)
+                {
+                    detectedFrame = i;
+                    break;
                 }
             }
 
@@ -103,13 +155,15 @@ public class AnimatedPngReader : MediaReader
 
         var bitmap = RenderBitmap(detectedFrame);
         var disposeOp = _apng.Frames[detectedFrame].fcTLChunk!.DisposeOp;
+        // 古いキャッシュは新しいフレームで上書きする前に必ず Dispose する。
+        // 抜けていると進むたびに数 MB の SKBitmap がリークする。
+        _lastFrame?.Dispose();
         if (disposeOp != DisposeOps.APNGDisposeOpBackground)
         {
             _lastFrame = new FrameCache(bitmap, disposeOp, detectedFrame);
         }
         else
         {
-            _lastFrame?.Dispose();
             _lastFrame = null;
         }
 
@@ -187,6 +241,8 @@ public class AnimatedPngReader : MediaReader
         _apng = null!;
         _defaultImage?.Dispose();
         _defaultImage = null;
+        _lastFrame?.Dispose();
+        _lastFrame = null;
     }
 
     private record FrameCache(SKBitmap Bitmap, DisposeOps DisposalMethod, int Index) : IDisposable
