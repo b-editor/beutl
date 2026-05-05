@@ -111,33 +111,51 @@ final class Writer {
             mBitsPerChannel: 32,
             mReserved: 0)
 
+        // Tag the format with an explicit Stereo layout so the AAC encoder doesn't have to
+        // guess from mChannelsPerFrame alone. The pre-Swift-rewrite version did this (see
+        // commit 3022d321c, "Specify ChannelLayout in CMAudioFormatDescription") and dropping
+        // it in the rewrite is the regression source for malformed audio output.
+        var layout = AudioChannelLayout()
+        layout.mChannelLayoutTag = kAudioChannelLayoutTag_Stereo
         var formatDesc: CMFormatDescription?
-        let fmtStatus = CMAudioFormatDescriptionCreate(
-            allocator: kCFAllocatorDefault,
-            asbd: &asbd,
-            layoutSize: 0, layout: nil,
-            magicCookieSize: 0, magicCookie: nil,
-            extensions: nil,
-            formatDescriptionOut: &formatDesc)
+        let fmtStatus = withUnsafePointer(to: &layout) { layoutPtr -> OSStatus in
+            CMAudioFormatDescriptionCreate(
+                allocator: kCFAllocatorDefault,
+                asbd: &asbd,
+                layoutSize: MemoryLayout<AudioChannelLayout>.size,
+                layout: layoutPtr,
+                magicCookieSize: 0, magicCookie: nil,
+                extensions: nil,
+                formatDescriptionOut: &formatDesc)
+        }
         guard fmtStatus == noErr, let fmt = formatDesc else {
             throw BeutlAVFError.writerFailed("CMAudioFormatDescriptionCreate failed: \(fmtStatus)")
         }
 
         let dataLength = numSamples * 8  // 2ch × Float32
+        // Allocate a buffer the CMBlockBuffer fully owns, then memcpy the caller's PCM in.
+        // Going through (memoryBlock: pcm, blockAllocator: kCFAllocatorNull, kCMBlockBufferAlwaysCopyDataFlag)
+        // is ambiguous in practice — kCFAllocatorNull means "don't deallocate", which the docs
+        // pair with non-copy retention, not with the always-copy flag. The pre-rewrite version
+        // passed NULL (= kCFAllocatorDefault) for blockAllocator, not kCFAllocatorNull.
         var blockBuffer: CMBlockBuffer?
         let bbStatus = CMBlockBufferCreateWithMemoryBlock(
             allocator: kCFAllocatorDefault,
-            memoryBlock: pcm,
+            memoryBlock: nil,
             blockLength: dataLength,
-            blockAllocator: kCFAllocatorNull,
+            blockAllocator: kCFAllocatorDefault,
             customBlockSource: nil,
             offsetToData: 0,
             dataLength: dataLength,
-            // Copy so the caller's buffer can be freed immediately after append returns.
-            flags: kCMBlockBufferAlwaysCopyDataFlag,
+            flags: 0,
             blockBufferOut: &blockBuffer)
         guard bbStatus == noErr, let bb = blockBuffer else {
             throw BeutlAVFError.writerFailed("CMBlockBufferCreateWithMemoryBlock failed: \(bbStatus)")
+        }
+        let copyStatus = CMBlockBufferReplaceDataBytes(
+            with: pcm, blockBuffer: bb, offsetIntoDestination: 0, dataLength: dataLength)
+        guard copyStatus == noErr else {
+            throw BeutlAVFError.writerFailed("CMBlockBufferReplaceDataBytes failed: \(copyStatus)")
         }
 
         let pts = CMTime(value: CMTimeValue(ptsSamples), timescale: CMTimeScale(sampleRate))
