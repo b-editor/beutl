@@ -1,4 +1,5 @@
-﻿using Beutl.Extensions.AVFoundation.Decoding;
+﻿using System.Runtime.InteropServices;
+using Beutl.Extensions.AVFoundation.Decoding;
 using Beutl.Extensions.AVFoundation.Encoding;
 using Beutl.Media;
 using Beutl.Media.Decoding;
@@ -104,6 +105,86 @@ public class EncodeDecodeRoundTripTests
                 "Decoded audio should not be silent; 440 Hz tone should survive round trip.");
             Assert.That(peak, Is.LessThanOrEqualTo(1.0f),
                 "Decoded samples must stay within [-1, 1] for Stereo32BitFloat.");
+        }
+    }
+
+    // Regression: every audio chunk used to land in the file as a stale copy of one earlier
+    // chunk because the CMBlockBuffer retained the C# PCM pointer that was freed before the
+    // encoder thread read it. Encode 2 s of a sweeping tone and verify chunks across the
+    // timeline are non-silent and pairwise distinct.
+    [Test]
+    public async Task EncodedAudioPreservesTimeline()
+    {
+        string outputPath = Path.Combine(_workDir, "timeline.mp4");
+        var controller = new AVFEncodingController(outputPath);
+
+        const int width = 64;
+        const int height = 64;
+        const int sampleRate = 44100;
+        const int durationSeconds = 2;
+        const int sampleCount = sampleRate * durationSeconds;
+        const int frameRateNum = 30;
+        const int frameRateDen = 1;
+        const int frameCount = frameRateNum * durationSeconds;
+        const int chunkSize = 1024;
+
+        controller.VideoSettings.DestinationSize = new PixelSize(width, height);
+        controller.VideoSettings.SourceSize = new PixelSize(width, height);
+        controller.VideoSettings.FrameRate = new Rational(frameRateNum, frameRateDen);
+
+        controller.AudioSettings.SampleRate = sampleRate;
+        controller.AudioSettings.Channels = 2;
+
+        var frameProvider = new GradientFrameProvider(
+            frameCount, new Rational(frameRateNum, frameRateDen), width, height);
+        // Sweeping tone so successive chunks contain genuinely different waveforms; a stale-buffer
+        // bug shows up as later chunks being bitwise identical to an earlier one.
+        var sampleProvider = new SweepSampleProvider(sampleCount, sampleRate);
+
+        await controller.Encode(frameProvider, sampleProvider, CancellationToken.None);
+
+        var decodingExtension = new AVFDecodingExtension();
+        using var reader = new AVFReader(outputPath, new MediaOptions(), decodingExtension);
+        Assert.That(reader.HasAudio, Is.True);
+        Assert.That(reader.AudioInfo.SampleRate, Is.EqualTo(sampleRate));
+
+        int[] probes =
+        {
+            chunkSize,                       // skip the first chunk; AAC priming usually leaves it quiet
+            sampleCount / 4,
+            sampleCount / 2,
+            3 * sampleCount / 4,
+            sampleCount - chunkSize * 2,
+        };
+        var probeBytes = new byte[probes.Length][];
+
+        for (int p = 0; p < probes.Length; p++)
+        {
+            bool ok = reader.ReadAudio(start: probes[p], length: chunkSize, out var probe);
+            Assert.That(ok, Is.True, $"Audio chunk at sample {probes[p]} must decode.");
+            using (probe)
+            {
+                var pcm = (Pcm<Stereo32BitFloat>)probe!.Value;
+                var samples = pcm.DataSpan;
+                float peak = 0f;
+                for (int i = 0; i < samples.Length; i++)
+                {
+                    peak = Math.Max(peak, Math.Max(Math.Abs(samples[i].Left), Math.Abs(samples[i].Right)));
+                }
+                Assert.That(peak, Is.GreaterThan(0.01f),
+                    $"Chunk at sample {probes[p]} should have audible energy.");
+
+                probeBytes[p] = MemoryMarshal.AsBytes(samples).ToArray();
+            }
+        }
+
+        for (int i = 0; i < probes.Length; i++)
+        {
+            for (int j = i + 1; j < probes.Length; j++)
+            {
+                Assert.That(probeBytes[i].AsSpan().SequenceEqual(probeBytes[j]), Is.False,
+                    $"Chunks at samples {probes[i]} and {probes[j]} must not be bitwise identical.");
+            }
         }
     }
 
