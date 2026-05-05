@@ -232,12 +232,38 @@ public static class CoreSerializer
                 Directory.CreateDirectory(directory);
             }
 
-            using var stream = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.Write);
-            using var writer = new Utf8JsonWriter(stream, JsonHelper.WriterOptions);
-
+            // tmp に書き出してから rename する。書き込み中のクラッシュや電源断で
+            // 既存のプロジェクトファイル / Element ファイルがゼロバイト化したり
+            // 中途半端な状態で残るのを防ぐ。
+            // 固定 `.tmp` サフィックスだとユーザーや他ツールが既に持つ同名ファイルを
+            // 上書きしてしまうため、ランダムサフィックスを付与して衝突を避ける。
             var options = new CoreSerializerOptions { BaseUri = uri, Mode = mode ?? CoreSerializationMode.Write | CoreSerializationMode.SaveReferencedObjects };
-            SerializeToJsonObject(obj, options)
-                .WriteTo(writer, JsonHelper.SerializerOptions);
+            string tmp = $"{path}.{Guid.NewGuid():N}.tmp";
+            try
+            {
+                using (var stream = new FileStream(tmp, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+                using (var writer = new Utf8JsonWriter(stream, JsonHelper.WriterOptions))
+                {
+                    SerializeToJsonObject(obj, options)
+                        .WriteTo(writer, JsonHelper.SerializerOptions);
+                    writer.Flush();
+                    stream.Flush(flushToDisk: true);
+                }
+
+                File.Move(tmp, path, overwrite: true);
+            }
+            catch
+            {
+                try
+                {
+                    if (File.Exists(tmp)) File.Delete(tmp);
+                }
+                catch
+                {
+                    // 失敗しても元の例外は投げる
+                }
+                throw;
+            }
         }
         else
         {
