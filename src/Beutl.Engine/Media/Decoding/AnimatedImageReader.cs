@@ -57,26 +57,50 @@ public class AnimatedImageReader : MediaReader
         }
         else
         {
-            // _repetitionCount == -1 (SKCodec で不定/無限ループ扱い) の場合、コンテンツ
-            // 全体の duration を超える要求が来ると内側ループの ms <= totalDuration が一度も
-            // 成立せず、外側 for を回し続けるとレンダリングスレッドがハングする。1 巡だけ
-            // 試して見つからなければ false を返す。
-            int totalDuration = 0;
-            int maxPlays = _repetitionCount < 0 ? 1 : _repetitionCount;
-            for (int rp = 0; rp < maxPlays; rp++)
+            // 元コードは `for (rp; rp < _repetitionCount || _repetitionCount == -1; rp++)`
+            // で外側を永久ループにしていたため、ms がコンテンツ全体の duration を
+            // 超えるとレンダリングスレッドがハングしていた。1巡分の duration を
+            // 先に計算し、無限ループ素材は ms をその範囲に wrap してフレーム検出する。
+            int cycleDuration = 0;
+            for (int i = 0; i < _frameCount; i++)
             {
-                for (int i = 0; i < _frameCount; i++)
-                {
-                    var info = _frameInfo[i];
-                    if (ms <= totalDuration)
-                    {
-                        detectedFrame = i;
-                        goto BreakNestedLoop;
-                    }
+                cycleDuration += _frameInfo[i].Duration;
+            }
 
-                    totalDuration += info.Duration;
+            if (cycleDuration <= 0)
+            {
+                // 全フレームの duration が 0。元コードなら無限ループだったケース。
+                return false;
+            }
+
+            long effective = ms;
+
+            if (_repetitionCount > 0)
+            {
+                long fullDuration = (long)cycleDuration * _repetitionCount;
+                if (effective >= fullDuration)
+                {
+                    return false;
                 }
             }
+
+            // wrap effective into [0, cycleDuration)
+            effective %= cycleDuration;
+
+            int accumulated = 0;
+            for (int i = 0; i < _frameCount; i++)
+            {
+                if (effective <= accumulated)
+                {
+                    detectedFrame = i;
+                    goto BreakNestedLoop;
+                }
+
+                accumulated += _frameInfo[i].Duration;
+            }
+
+            // 端数で最終フレームを超えた判定になった場合は最終フレームを返す。
+            detectedFrame = _frameCount - 1;
 
         BreakNestedLoop:;
         }
