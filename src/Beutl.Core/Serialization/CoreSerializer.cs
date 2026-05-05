@@ -235,11 +235,13 @@ public static class CoreSerializer
             // tmp に書き出してから rename する。書き込み中のクラッシュや電源断で
             // 既存のプロジェクトファイル / Element ファイルがゼロバイト化したり
             // 中途半端な状態で残るのを防ぐ。
+            // 固定 `.tmp` サフィックスだとユーザーや他ツールが既に持つ同名ファイルを
+            // 上書きしてしまうため、ランダムサフィックスを付与して衝突を避ける。
             var options = new CoreSerializerOptions { BaseUri = uri, Mode = mode ?? CoreSerializationMode.Write | CoreSerializationMode.SaveReferencedObjects };
-            string tmp = path + ".tmp";
+            string tmp = $"{path}.{Guid.NewGuid():N}.tmp";
             try
             {
-                using (var stream = new FileStream(tmp, FileMode.Create, FileAccess.Write, FileShare.None))
+                using (var stream = new FileStream(tmp, FileMode.CreateNew, FileAccess.Write, FileShare.None))
                 using (var writer = new Utf8JsonWriter(stream, JsonHelper.WriterOptions))
                 {
                     SerializeToJsonObject(obj, options)

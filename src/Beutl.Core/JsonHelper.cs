@@ -100,10 +100,12 @@ public static class JsonHelper
         // ディスクフルでターゲットファイルがゼロバイトで残るのを防ぐ。
         // 既存ファイルは rename 成功時のみ置き換わるため、ユーザーのプロジェクトや
         // 設定ファイルが破損しない。
-        string tmp = filename + ".tmp";
+        // 固定の `.tmp` サフィックスだとユーザーや他ツールが既に持つ同名ファイルを
+        // 上書きしてしまうため、ランダムサフィックスを付与して衝突を避ける。
+        string tmp = $"{filename}.{Guid.NewGuid():N}.tmp";
         try
         {
-            using (var stream = new FileStream(tmp, FileMode.Create, FileAccess.Write, FileShare.None))
+            using (var stream = new FileStream(tmp, FileMode.CreateNew, FileAccess.Write, FileShare.None))
             using (var writer = new Utf8JsonWriter(stream, WriterOptions))
             {
                 node.WriteTo(writer, SerializerOptions);
