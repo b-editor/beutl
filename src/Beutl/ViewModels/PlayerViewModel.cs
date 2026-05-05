@@ -595,6 +595,14 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
         if (IsPlaying.Value && !_isShuttling)
         {
             await Pause();
+
+            // await 中に別の ShuttleCore が先行して StartShuttle を完了している可能性がある。
+            // そのまま続行すると後続の PlaybackSpeed/Direction 設定で先行分を上書きしてしまうため、
+            // 状態が変化していたらこの呼び出しは何もせずに抜ける。
+            if (_isShuttling || IsPlaying.Value)
+            {
+                return;
+            }
         }
 
         if (PlaybackDirection.Value != newDirection)
