@@ -124,12 +124,12 @@ jobs:
             末尾の HTML コメントマーカーは将来の検索用に必ず付与する。
 
             ## Draft 投入
-            指摘ごとに本文を `mktemp` で作成したファイルに書き出し、次のコマンドで投入する:
+            指摘ごとに本文を `mktemp` で作成したファイルに書き出し、次のコマンドで投入する（`gh project item-create` は `--body-file` を持たないため、`cat` でファイル内容を `--body` に展開すること）:
             ```
             gh project item-create 9 \
               --owner b-editor \
               --title "<title>" \
-              --body-file "$f"
+              --body "$(cat "$f")"
             ```
 
             ## 件数の上限
