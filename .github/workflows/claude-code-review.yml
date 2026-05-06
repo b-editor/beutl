@@ -12,11 +12,10 @@ on:
 
 jobs:
   claude-review:
-    # Optional: Filter by PR author
-    # if: |
-    #   github.event.pull_request.user.login == 'external-contributor' ||
-    #   github.event.pull_request.user.login == 'new-developer' ||
-    #   github.event.pull_request.author_association == 'FIRST_TIME_CONTRIBUTOR'
+    # Skip PRs from forks: repository secrets (CLAUDE_CODE_OAUTH_TOKEN) are not
+    # available on pull_request events from forks, so the review step would fail
+    # with an empty token. Restrict to PRs from branches in this repository.
+    if: github.event.pull_request.head.repo.fork == false
 
     runs-on: ubuntu-latest
     permissions:
