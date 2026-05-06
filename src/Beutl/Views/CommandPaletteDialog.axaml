@@ -1,0 +1,74 @@
+<ui:ContentDialog x:Class="Beutl.Views.CommandPaletteDialog"
+                  xmlns="https://github.com/avaloniaui"
+                  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                  xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+                  xmlns:lang="using:Beutl.Language"
+                  xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+                  xmlns:ui="using:FluentAvalonia.UI.Controls"
+                  xmlns:vm="using:Beutl.ViewModels"
+                  Title="{x:Static lang:Strings.CommandPalette}"
+                  d:DesignHeight="400"
+                  d:DesignWidth="640"
+                  x:DataType="vm:CommandPaletteViewModel"
+                  CloseButtonText="{x:Static lang:Strings.Close}"
+                  IsPrimaryButtonEnabled="False"
+                  IsSecondaryButtonEnabled="False"
+                  mc:Ignorable="d">
+    <Grid Width="600"
+          MinHeight="120"
+          RowDefinitions="Auto,Auto,*">
+        <TextBox x:Name="SearchBox"
+                 Grid.Row="0"
+                 Margin="0,0,0,8"
+                 FontSize="14"
+                 Text="{Binding SearchQuery.Value, Mode=TwoWay}"
+                 Watermark="{x:Static lang:Strings.CommandPalette_Placeholder}" />
+
+        <TextBlock Grid.Row="1"
+                   Margin="0,4,0,8"
+                   IsVisible="{Binding IsEmpty.Value}"
+                   Opacity="0.6"
+                   Text="{x:Static lang:Strings.CommandPalette_NoResults}" />
+
+        <ListBox x:Name="ResultsList"
+                 Grid.Row="2"
+                 MaxHeight="380"
+                 BorderThickness="0"
+                 Focusable="False"
+                 IsVisible="{Binding !IsEmpty.Value}"
+                 ItemsSource="{Binding Results}"
+                 SelectedIndex="{Binding SelectedIndex.Value, Mode=TwoWay}">
+            <ListBox.ItemTemplate>
+                <DataTemplate DataType="vm:CommandPaletteResult">
+                    <Grid Margin="0,2"
+                          ColumnDefinitions="*,Auto"
+                          RowDefinitions="Auto,Auto">
+                        <TextBlock Grid.Row="0"
+                                   Grid.Column="0"
+                                   FontSize="14"
+                                   Text="{Binding DisplayName}"
+                                   TextTrimming="CharacterEllipsis" />
+                        <TextBlock Grid.Row="1"
+                                   Grid.Column="0"
+                                   FontSize="11"
+                                   Opacity="0.6"
+                                   Text="{Binding Category}"
+                                   TextTrimming="CharacterEllipsis" />
+                        <Border Grid.Row="0"
+                                Grid.RowSpan="2"
+                                Grid.Column="1"
+                                Padding="6,2"
+                                VerticalAlignment="Center"
+                                Background="{DynamicResource ControlAltFillColorSecondaryBrush}"
+                                CornerRadius="4"
+                                IsVisible="{Binding HasKeyGesture}">
+                            <TextBlock FontFamily="{DynamicResource SymbolThemeFontFamily}"
+                                       FontSize="11"
+                                       Text="{Binding KeyGesture}" />
+                        </Border>
+                    </Grid>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+    </Grid>
+</ui:ContentDialog>

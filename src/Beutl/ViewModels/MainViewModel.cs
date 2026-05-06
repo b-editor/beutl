@@ -98,6 +98,8 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
 
     public ContextCommandManager? ContextCommandManager { get; }
 
+    public event EventHandler? OpenCommandPaletteRequested;
+
     public SettingsDialogViewModel CreateSettingsDialog()
     {
         return new SettingsDialogViewModel(_beutlClients);
@@ -199,6 +201,9 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
                 break;
             case "Exit":
                 MenuBar.Exit.Execute(null);
+                break;
+            case "OpenCommandPalette":
+                OpenCommandPaletteRequested?.Invoke(this, EventArgs.Empty);
                 break;
             default:
                 if (execution.KeyEventArgs != null)

@@ -64,5 +64,10 @@ public class MainViewExtension : ViewExtension
             new ContextCommandKeyGesture("Alt+F4"),
             new ContextCommandKeyGesture("Cmd+Q", OSPlatform.OSX),
         ]),
+        new("OpenCommandPalette", Strings.CommandPalette, Strings.CommandPalette_Description,
+        [
+            new ContextCommandKeyGesture("Ctrl+Shift+P"),
+            new ContextCommandKeyGesture("Cmd+Shift+P", OSPlatform.OSX),
+        ]),
     ];
 }

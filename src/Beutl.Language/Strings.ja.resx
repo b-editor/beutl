@@ -976,4 +976,31 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="EnterTemplateName" xml:space="preserve">
     <value>テンプレート名を入力</value>
   </data>
+  <data name="CommandPalette" xml:space="preserve">
+    <value>コマンドパレット</value>
+  </data>
+  <data name="CommandPalette_Description" xml:space="preserve">
+    <value>コマンドを検索して実行します。</value>
+  </data>
+  <data name="CommandPalette_Placeholder" xml:space="preserve">
+    <value>コマンドを入力...</value>
+  </data>
+  <data name="CommandPalette_NoResults" xml:space="preserve">
+    <value>一致するコマンドはありません</value>
+  </data>
+  <data name="CommandPalette_File" xml:space="preserve">
+    <value>ファイル</value>
+  </data>
+  <data name="CommandPalette_Edit" xml:space="preserve">
+    <value>編集</value>
+  </data>
+  <data name="CommandPalette_Scene" xml:space="preserve">
+    <value>シーン</value>
+  </data>
+  <data name="CommandPalette_View" xml:space="preserve">
+    <value>表示</value>
+  </data>
+  <data name="CommandPalette_General" xml:space="preserve">
+    <value>全般</value>
+  </data>
 </root>

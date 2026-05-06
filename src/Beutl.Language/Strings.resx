@@ -982,4 +982,31 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="EnterTemplateName" xml:space="preserve">
     <value>Enter template name</value>
   </data>
+  <data name="CommandPalette" xml:space="preserve">
+    <value>Command Palette</value>
+  </data>
+  <data name="CommandPalette_Description" xml:space="preserve">
+    <value>Search and run any command.</value>
+  </data>
+  <data name="CommandPalette_Placeholder" xml:space="preserve">
+    <value>Type a command...</value>
+  </data>
+  <data name="CommandPalette_NoResults" xml:space="preserve">
+    <value>No matching commands</value>
+  </data>
+  <data name="CommandPalette_File" xml:space="preserve">
+    <value>File</value>
+  </data>
+  <data name="CommandPalette_Edit" xml:space="preserve">
+    <value>Edit</value>
+  </data>
+  <data name="CommandPalette_Scene" xml:space="preserve">
+    <value>Scene</value>
+  </data>
+  <data name="CommandPalette_View" xml:space="preserve">
+    <value>View</value>
+  </data>
+  <data name="CommandPalette_General" xml:space="preserve">
+    <value>General</value>
+  </data>
 </root>

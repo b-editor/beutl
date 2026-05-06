@@ -27,6 +27,11 @@ public partial class MainView
 
     private void InitializeCommands(MainViewModel viewModel)
     {
+        EventHandler openCommandPaletteHandler = OnOpenCommandPaletteRequested;
+        viewModel.OpenCommandPaletteRequested += openCommandPaletteHandler;
+        Disposable.Create(() => viewModel.OpenCommandPaletteRequested -= openCommandPaletteHandler)
+            .AddTo(_disposables);
+
         viewModel.MenuBar.CreateNewProject.Subscribe(async () =>
         {
             var dialog = new CreateNewProject();
@@ -56,6 +61,34 @@ public partial class MainView
 
         viewModel.MenuBar.ExportProject.Subscribe(OnExportProject).AddTo(_disposables);
         viewModel.MenuBar.ImportProject.Subscribe(OnImportProject).AddTo(_disposables);
+    }
+
+    private async void OnOpenCommandPaletteRequested(object? sender, EventArgs e)
+    {
+        if (DataContext is not MainViewModel viewModel)
+            return;
+
+        var paletteVm = new CommandPaletteViewModel(viewModel);
+        try
+        {
+            var dialog = new CommandPaletteDialog { DataContext = paletteVm };
+            await dialog.ShowAsync();
+            // ダイアログが閉じてから保留中のコマンドを実行する
+            // (vm の Dispose 前に同期実行することで、Post 経由による
+            // 破棄済み vm への参照を回避する)
+            if (dialog.PendingExecution is { } entry)
+            {
+                paletteVm.Execute(entry);
+            }
+        }
+        catch (Exception ex)
+        {
+            await ex.Handle();
+        }
+        finally
+        {
+            paletteVm.Dispose();
+        }
     }
 
     private void InitializeRecentItems(MainViewModel viewModel)
