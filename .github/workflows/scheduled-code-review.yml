@@ -1,0 +1,143 @@
+name: Scheduled Code Review
+
+on:
+  schedule:
+    - cron: '0 0 * * *'  # Daily at 00:00 UTC = 09:00 JST
+  workflow_dispatch:
+    inputs:
+      since:
+        description: 'git log target window (e.g. "1 day ago"). Leave empty to run scope-scan mode against the directory in `scope`.'
+        required: false
+        default: ''
+        type: string
+      scope:
+        description: 'Target directory (pathspec). Required when `since` is empty.'
+        required: false
+        default: ''
+        type: string
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run Claude Code scheduled review
+        uses: anthropics/claude-code-action@v1
+        env:
+          GH_TOKEN: ${{ secrets.PROJECTS_TOKEN }}
+          # cron 実行時は inputs が空なので '1 day ago' を注入し Diff モードで動作。
+          # workflow_dispatch で since を空欄起動した場合は '' のままで Scope-scan モードへ。
+          REVIEW_SINCE: ${{ inputs.since || (github.event_name == 'schedule' && '1 day ago' || '') }}
+          REVIEW_SCOPE: ${{ inputs.scope || '' }}
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          claude_args: '--allowed-tools "Bash(git log:*),Bash(git diff:*),Bash(git show:*),Bash(git rev-parse:*),Bash(cat:*),Bash(mktemp:*),Bash(printf:*),Bash(jq:*),Bash(date:*),Bash(gh project item-create:*),Bash(gh project item-list:*),Read,Grep,Glob"'
+          prompt: |
+            ## 役割
+            あなたは `${{ github.repository }}` の定期コードレビューを担当する熟練の C#/.NET レビュアーです。GitHub Projects v2 (org=`b-editor`, project number=`9`) にレビュー結果を Draft アイテムとして投入します。
+
+            ## 入力
+            - `REVIEW_SINCE` = `$REVIEW_SINCE`
+            - `REVIEW_SCOPE` = `$REVIEW_SCOPE`
+            - 今日の日付（UTC, `YYYY-MM-DD`）は `date -u +%Y-%m-%d` で取得すること。
+
+            ## モード判定
+
+            - `REVIEW_SINCE` が **空でない** 場合: **Diff モード**
+            - `REVIEW_SINCE` が **空** で `REVIEW_SCOPE` が **非空** の場合: **Scope-scan モード**
+            - 両方とも空の場合: 何もせず `missing input: provide either REVIEW_SINCE or REVIEW_SCOPE` とログに残して終了する。
+
+            ## 冪等性チェック（Draft 投入前に必ず実行）
+
+            実行ごとに同日プレフィックス（後述）が既に存在しないかを確認する:
+
+            1. `gh project item-list 9 --owner b-editor --format json --limit 400 | jq -r '.items[] | select(.content.type=="DraftIssue") | .content.title'` で既存 Draft タイトル一覧を取得。
+            2. プレフィックスが既存 Draft のタイトルの先頭と一致すれば **その実行全体を丸ごとスキップ** し、ログに `skip: same-day prefix already exists` と残して終了。
+               - Diff モードのプレフィックス: `[YYYY-MM-DD][diff]`
+               - Scope-scan モードのプレフィックス: `[YYYY-MM-DD][scope:<REVIEW_SCOPE>]`
+            3. 一致するものがなければ後続のレビューと Draft 投入に進む。
+
+            ## Diff モードの手順
+
+            1. `git log --since="$REVIEW_SINCE" --no-merges --pretty=format:'%h %s' origin/main -- $REVIEW_SCOPE` で対象コミットを列挙する。0 件なら **何も投稿せず** `no recent changes` とログに残して終了する。
+            2. 主要なコミットの差分 (`git show`, `git diff`) を読み、後述「観点」に沿って重要度の高い指摘を抽出する。
+            3. 「投入方針」「Draft タイトル」「Draft 本文フォーマット」「Draft 投入」に従って Draft Item を作成する。
+
+            ## Scope-scan モードの手順
+
+            1. `Glob`/`Read`/`Grep` を使って `$REVIEW_SCOPE` 配下の C#/XAML/設定ファイルを横断的に読む。git 履歴は参照しない。
+            2. 後述「観点」に沿って **構造的・横断的な改善ポイント** を抽出する（重複コード、責務肥大、テスト不足、設計の崩れ、セキュリティ）。直近差分ではなく "現状コード" のレビューであることを明示する。
+            3. 「投入方針」「Draft タイトル」「Draft 本文フォーマット」「Draft 投入」に従って Draft Item を作成する。
+
+            ## 観点（両モード共通）
+            - バグ・ロジック誤り・例外時の挙動
+            - スレッド/非同期/破棄安全性
+            - パフォーマンス・大きなアロケーション
+            - 公開 API 設計と互換性
+            - テスト不足・回帰リスク
+            - セキュリティ（入力検証、シリアライズ、外部呼び出し）
+            - 重箱の隅は落とし、実害のある指摘に絞る。
+
+            ## 投入方針
+            **指摘 1 件 = Draft Item 1 件** として、見つかった指摘ぶんだけ Draft を作る。指摘ゼロの場合は何も投入せず終了する。
+
+            ## Draft タイトル
+            次の形式（`date -u +%Y-%m-%d` の出力を `YYYY-MM-DD` として埋め込む）:
+
+            - Diff モード: `[YYYY-MM-DD][diff][<severity>] <短い指摘タイトル>`
+            - Scope-scan モード: `[YYYY-MM-DD][scope:<REVIEW_SCOPE>][<severity>] <短い指摘タイトル>`
+
+            `<severity>` は `high` / `medium` / `low` のいずれか。`<短い指摘タイトル>` は 60 文字以内で要点を表す英または日本語フレーズ。
+
+            ## Draft 本文フォーマット
+            ```
+            ## 指摘
+            <指摘の要約 1〜2 文>
+
+            ## 該当箇所
+            - `path/to/file.cs:LINE`
+            (複数あれば箇条書き)
+
+            ## 重要度
+            high|medium|low
+
+            ## 提案
+            <修正方針・代替案・リファクタ案など>
+
+            ## コンテキスト
+            - モード: Diff / Scope-scan
+            - REVIEW_SINCE: ...
+            - REVIEW_SCOPE: ...
+            - 関連コミット: `<short SHA> <subject>` (Diff モードのみ。複数可)
+
+            ---
+            <!-- generated-by: scheduled-code-review.yml -->
+            ```
+
+            末尾の HTML コメントマーカーは将来の検索用に必ず付与する。
+
+            ## Draft 投入
+            指摘ごとに本文を `mktemp` で作成したファイルに書き出し、次のコマンドで投入する（`gh project item-create` は `--body-file` を持たないため、`cat` でファイル内容を `--body` に展開すること）:
+            ```
+            gh project item-create 9 \
+              --owner b-editor \
+              --title "<title>" \
+              --body "$(cat "$f")"
+            ```
+
+            ## 件数の上限
+            重要度順に最大 10 件までを Draft 化する。それを超える場合は重要度の高い 10 件のみを投入し、最後に投入した Draft の本文末尾（マーカーの直前）に `> 他にも軽微な指摘が <N> 件ありますが、ノイズ抑制のため省略しました。` の引用ブロックを追記する。
+
+            ## 制約
+            - 指摘ゼロの場合は **何も投入せず終了** する。
+            - 投入対象は **重要度 `medium` 以上** を基本とする。`low` 単独の指摘は Draft 化しない。
+            - `gh project item-edit` / `--delete-item` 等の破壊的操作は禁止。
+            - 既存 Issue / Discussion / Release / コードを編集しない。
+            - PR を作らない。コミットを作らない。
