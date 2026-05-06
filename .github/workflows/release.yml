@@ -114,3 +114,79 @@ jobs:
           draft: true
           makeLatest: true
           generateReleaseNotes: true
+
+  format-release-notes:
+    if: ${{ github.event_name == 'push' || github.event.inputs['dry-run'] != 'true' }}
+    needs: [ determine-version, create-release ]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Reformat release notes with Claude
+        uses: anthropics/claude-code-action@v1
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          claude_args: '--allowed-tools "Bash(gh release view:*),Bash(gh release edit:*),Bash(cat:*),Bash(mktemp:*),Bash(printf:*)"'
+          prompt: |
+            You are reformatting the body of the draft GitHub release `v${{ needs.determine-version.outputs.semVer }}` in `${{ github.repository }}` to match the style of https://github.com/b-editor/beutl/releases/tag/v2.0.0-preview.2.
+
+            ## Steps
+
+            1. Fetch the current auto-generated body:
+               `gh release view v${{ needs.determine-version.outputs.semVer }} -R ${{ github.repository }} --json body,tagName,isDraft`
+               Capture the body verbatim — you will both summarize it and embed it.
+
+            2. Build the new body in this exact order:
+
+               a. `## What's Changed`
+
+               b. Download links (use these exact URLs — the tag is `v${{ needs.determine-version.outputs.semVer }}`):
+                  - Windows
+                    - `[Installer](https://github.com/${{ github.repository }}/releases/download/v${{ needs.determine-version.outputs.semVer }}/beutl-standalone-setup.exe)`
+                    - `[Installer (.NET Runtime required)](https://github.com/${{ github.repository }}/releases/download/v${{ needs.determine-version.outputs.semVer }}/beutl-setup.exe)`
+                  - macOS
+                    - `[Zip (arm64)](https://github.com/${{ github.repository }}/releases/download/v${{ needs.determine-version.outputs.semVer }}/Beutl.osx_arm64.app.zip)`
+                    - `[Zip (x64)](https://github.com/${{ github.repository }}/releases/download/v${{ needs.determine-version.outputs.semVer }}/Beutl.osx_x64.app.zip)`
+                  - Linux
+                    - `[Debian package](https://github.com/${{ github.repository }}/releases/download/v${{ needs.determine-version.outputs.semVer }}/beutl_${{ needs.determine-version.outputs.simpleVer }}-${{ needs.determine-version.outputs.revision }}ubuntu22.04_amd64.deb)`
+                    - `[Zip (.NET Runtime required)](https://github.com/${{ github.repository }}/releases/download/v${{ needs.determine-version.outputs.semVer }}/Beutl-linux-x64-${{ needs.determine-version.outputs.semVer }}.zip)`
+                    - `[Zip](https://github.com/${{ github.repository }}/releases/download/v${{ needs.determine-version.outputs.semVer }}/Beutl-linux-x64-standalone-${{ needs.determine-version.outputs.semVer }}.zip)`
+
+               c. Categorized summary derived from the auto-generated `* <prefix>: ... by @user in <PR-URL>` list. Use these section headings only, and OMIT any heading that has zero entries:
+                  - `**New Features**` ← PR titles starting with `feat:` / `feature:`
+                  - `**Improvements & Refactoring**` ← `refactor:` / `perf:` / `improve:` / `chore(refactor):` style
+                  - `**Bug Fixes**` ← `fix:`
+                  - `**Other**` ← any other user-visible PR. Skip dependabot bumps and pure `chore:` / `ci:` / `build:` / `docs:` / `test:` PRs that have no end-user impact.
+
+                  Each bullet should describe the user-visible change in past tense, paraphrasing the PR title (do NOT copy `* feat: ... by @user in ...` verbatim into the summary). Group related PRs as a single bullet when natural. If multiple PRs touch one feature area, you may use a nested list as in the v2.0.0-preview.2 example (e.g. `- Audio` with sub-bullets).
+
+               d. Wrap the original auto-generated `* ... by @user in <PR-URL>` block exactly as captured (no edits, in the same order GitHub generated) inside:
+                  ```
+                  <details>
+                  <summary>Changelog</summary>
+
+                  ...original list...
+
+                  </details>
+                  ```
+
+               e. Preserve the trailing `**Full Changelog**: https://github.com/.../compare/...` line that the auto-generated body provides, on its own paragraph at the very end.
+
+            3. Write the new body to a temp file via `mktemp` + `printf` / `cat <<'EOF' > "$f"` (do not pass it inline because it has backticks and newlines), then run:
+               `gh release edit v${{ needs.determine-version.outputs.semVer }} -R ${{ github.repository }} --notes-file "$f" --draft=true`
+
+            ## Constraints
+
+            - The release MUST remain a draft (`--draft=true`).
+            - DO NOT add a "日本語のリリースノートはこちら" line — that is appended later by a separate workflow when the corresponding Discussion is created.
+            - DO NOT publish the release, edit the tag, modify assets, or open issues/PRs.
+            - DO NOT touch any other release.
+            - If the release body already looks reformatted (i.e., contains `## What's Changed` followed by the platform list), exit without changes.
