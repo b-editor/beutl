@@ -87,4 +87,19 @@
   <data name="Equalizer_Gain" xml:space="preserve">
     <value>Gain</value>
   </data>
+  <data name="LimiterEffect" xml:space="preserve">
+    <value>Limiter</value>
+  </data>
+  <data name="LimiterEffect_Threshold" xml:space="preserve">
+    <value>Threshold (dB)</value>
+  </data>
+  <data name="LimiterEffect_Release" xml:space="preserve">
+    <value>Release (ms)</value>
+  </data>
+  <data name="LimiterEffect_Lookahead" xml:space="preserve">
+    <value>Lookahead (ms)</value>
+  </data>
+  <data name="LimiterEffect_MakeupGain" xml:space="preserve">
+    <value>Makeup Gain (dB)</value>
+  </data>
 </root>
