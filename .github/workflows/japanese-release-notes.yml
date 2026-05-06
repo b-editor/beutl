@@ -59,18 +59,22 @@ jobs:
                - Translate the `**Full Changelog**` line label to `**フルチェンジログ**` but keep the URL.
                - Do not add or remove sections.
 
-            3. Before posting, check whether a Japanese-translation comment already exists on this discussion (to keep the workflow idempotent):
+            3. Check whether a Japanese-translation comment already exists on this discussion (to keep step 4 idempotent and to support repairing a previous half-completed run):
                ```
                gh api graphql -F number=${{ github.event.discussion.number }} -F owner='${{ github.repository_owner }}' -F repo='${{ github.event.repository.name }}' -f query='
                  query($owner: String!, $repo: String!, $number: Int!) {
                    repository(owner: $owner, name: $repo) {
-                     discussion(number: $number) { comments(first: 50) { nodes { id author { login } body } } }
+                     discussion(number: $number) { comments(first: 50) { nodes { id url body } } }
                    }
                  }'
                ```
-               If any existing comment already contains the marker line `<!-- japanese-release-notes -->`, exit without posting again.
+               Find the first comment whose body contains the marker line `<!-- japanese-release-notes -->`. Define `COMMENT_URL`:
+                 - If such a comment exists, set `COMMENT_URL` to its `url`. Skip step 4 — do NOT post another comment.
+                 - Otherwise, leave `COMMENT_URL` unset and proceed to step 4 to create the comment.
 
-            4. Post the translated body as a NEW comment on the discussion. Write the body to a temp file (it contains backticks, quotes, and newlines) and prepend the marker line `<!-- japanese-release-notes -->` followed by a blank line so future runs can detect it. Then:
+               In either case, ALWAYS continue to step 5 — a previous run may have posted the comment but failed to update the release body, and step 5 must be allowed to repair that.
+
+            4. (Only if `COMMENT_URL` was not set in step 3.) Post the translated body as a NEW comment on the discussion. Write the body to a temp file (it contains backticks, quotes, and newlines) and prepend the marker line `<!-- japanese-release-notes -->` followed by a blank line so future runs can detect it. Then:
                ```
                gh api graphql -F discussionId='${{ github.event.discussion.node_id }}' -F body=@"$comment_file" -f query='
                  mutation($discussionId: ID!, $body: String!) {
@@ -80,10 +84,10 @@ jobs:
                  }'
                ```
                (Use `-F body=@<file>` so the file contents are sent as the variable value.)
-               Capture the returned `comment.url` (e.g. `https://github.com/<owner>/<repo>/discussions/<n>#discussioncomment-<id>`) — you will use it in the next step.
+               Set `COMMENT_URL` to the returned `comment.url` (e.g. `https://github.com/<owner>/<repo>/discussions/<n>#discussioncomment-<id>`).
                Do NOT modify the discussion body itself — only add a comment.
 
-            5. If the release body does NOT already contain the substring `日本語のリリースノートは`, prepend exactly this paragraph (followed by one blank line) to the existing release body, using the comment URL captured in step 4 as `<COMMENT_URL>`:
+            5. If the release body does NOT already contain the substring `日本語のリリースノートは`, prepend exactly this paragraph (followed by one blank line) to the existing release body, using `COMMENT_URL` from step 3 or step 4:
                ```
                日本語のリリースノートは[こちら](<COMMENT_URL>)です。
                ```
