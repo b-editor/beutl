@@ -1,0 +1,104 @@
+name: Japanese Release Notes
+
+on:
+  discussion:
+    types: [created]
+
+jobs:
+  translate:
+    if: |
+      startsWith(github.event.discussion.title, 'v') &&
+      contains(github.event.discussion.title, '.')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      discussions: write
+      id-token: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Translate discussion and link from release
+        uses: anthropics/claude-code-action@v1
+        env:
+          GH_TOKEN: ${{ secrets.DISCUSSION_TOKEN }}
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ secrets.DISCUSSION_TOKEN }}
+          claude_args: '--allowed-tools "Bash(gh release view:*),Bash(gh release edit:*),Bash(gh api graphql:*),Bash(cat:*),Bash(mktemp:*),Bash(printf:*),Bash(jq:*)"'
+          prompt: |
+            A new GitHub Discussion was just created in `${{ github.repository }}`. Treat its title as a release tag and:
+              1. translate the matching release body into Japanese and post it as a NEW COMMENT on the discussion (do not edit the discussion body itself), and
+              2. prepend a Japanese link to that release's body so users can find the translation.
+
+            ## Discussion context (from the event)
+            - number: `${{ github.event.discussion.number }}`
+            - node_id: `${{ github.event.discussion.node_id }}`
+            - title (use as release tag): `${{ github.event.discussion.title }}`
+            - url: `${{ github.event.discussion.html_url }}`
+            - category: `${{ github.event.discussion.category.name }}`
+
+            ## Steps
+
+            1. Use the discussion title verbatim as the release tag (e.g. `v2.0.0-preview.3`). Fetch the release body:
+               `gh release view "${{ github.event.discussion.title }}" -R ${{ github.repository }} --json body,tagName,isDraft,url`
+               If the release does not exist, exit cleanly with a message — do not modify anything.
+
+            2. Translate the release body into natural Japanese:
+               - Keep all markdown structure (headings, bullets, nesting, `<details>`/`<summary>`, code spans, links) intact.
+               - Translate human-readable text including section headings:
+                 - `## What's Changed` → `## 変更点`
+                 - `**New Features**` → `**新機能**`
+                 - `**Improvements & Refactoring**` → `**改善・リファクタリング**`
+                 - `**Bug Fixes**` → `**バグ修正**`
+                 - `**Other**` → `**その他**`
+                 - Download link labels: `Installer` → `インストーラー`, `Installer (.NET Runtime required)` → `インストーラー (.NET Runtime 必須)`, `Zip (arm64)` / `Zip (x64)` はそのまま、`Debian package` → `Debian パッケージ`, `Zip (.NET Runtime required)` → `Zip (.NET Runtime 必須)`.
+               - Inside the `<details><summary>Changelog</summary>` block, keep the auto-generated `* <prefix>: ... by @user in <PR-URL>` lines untranslated (they are PR titles).
+               - Translate the `**Full Changelog**` line label to `**フルチェンジログ**` but keep the URL.
+               - Do not add or remove sections.
+
+            3. Check whether a Japanese-translation comment already exists on this discussion (to keep step 4 idempotent and to support repairing a previous half-completed run):
+               ```
+               gh api graphql -F number=${{ github.event.discussion.number }} -F owner='${{ github.repository_owner }}' -F repo='${{ github.event.repository.name }}' -f query='
+                 query($owner: String!, $repo: String!, $number: Int!) {
+                   repository(owner: $owner, name: $repo) {
+                     discussion(number: $number) { comments(first: 50) { nodes { id url body } } }
+                   }
+                 }'
+               ```
+               Find the first comment whose body contains the marker line `<!-- japanese-release-notes -->`. Define `COMMENT_URL`:
+                 - If such a comment exists, set `COMMENT_URL` to its `url`. Skip step 4 — do NOT post another comment.
+                 - Otherwise, leave `COMMENT_URL` unset and proceed to step 4 to create the comment.
+
+               In either case, ALWAYS continue to step 5 — a previous run may have posted the comment but failed to update the release body, and step 5 must be allowed to repair that.
+
+            4. (Only if `COMMENT_URL` was not set in step 3.) Post the translated body as a NEW comment on the discussion. Write the body to a temp file (it contains backticks, quotes, and newlines) and prepend the marker line `<!-- japanese-release-notes -->` followed by a blank line so future runs can detect it. Then:
+               ```
+               gh api graphql -F discussionId='${{ github.event.discussion.node_id }}' -F body=@"$comment_file" -f query='
+                 mutation($discussionId: ID!, $body: String!) {
+                   addDiscussionComment(input: { discussionId: $discussionId, body: $body }) {
+                     comment { id url }
+                   }
+                 }'
+               ```
+               (Use `-F body=@<file>` so the file contents are sent as the variable value.)
+               Set `COMMENT_URL` to the returned `comment.url` (e.g. `https://github.com/<owner>/<repo>/discussions/<n>#discussioncomment-<id>`).
+               Do NOT modify the discussion body itself — only add a comment.
+
+            5. If the release body does NOT already contain the substring `日本語のリリースノートは`, prepend exactly this paragraph (followed by one blank line) to the existing release body, using `COMMENT_URL` from step 3 or step 4:
+               ```
+               日本語のリリースノートは[こちら](<COMMENT_URL>)です。
+               ```
+               Then write the combined body back to a temp file and run:
+               `gh release edit "${{ github.event.discussion.title }}" -R ${{ github.repository }} --notes-file "$f"`
+               Preserve `--draft=true` if the release was a draft (use the `isDraft` value you fetched).
+               If the substring is already present, do not edit the release.
+
+            ## Constraints
+
+            - Do not edit the discussion body, title, or category — only ADD a comment.
+            - Do not publish the release, edit the tag, or touch assets.
+            - Do not modify any other discussion or release.
+            - If anything is ambiguous (release missing, translation refused, API error), exit without partial writes.
