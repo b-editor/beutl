@@ -131,6 +131,33 @@
           SkipUnchangedFiles="true" />
   </Target>
 
+  <Target Name="CopyBeutlAVFDylibForPublish"
+          AfterTargets="Publish"
+          Condition="'$(RuntimeIdentifier)' != '' And $(RuntimeIdentifier.StartsWith('osx'))">
+    <PropertyGroup>
+      <_BeutlAVFPublishSource>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)../Beutl.Extensions.AVFoundation/runtimes/$(RuntimeIdentifier)/native/libBeutlAVF.dylib'))</_BeutlAVFPublishSource>
+    </PropertyGroup>
+    <Copy SourceFiles="$(_BeutlAVFPublishSource)"
+          DestinationFolder="$(PublishDir)"
+          SkipUnchangedFiles="true"
+          Condition="Exists('$(_BeutlAVFPublishSource)')" />
+
+    <!-- Sweep every libBeutlAVF.dylib that Build mirrored into runtimes/, then
+         drop any folders left empty by the cleanup. CopyBeutlAVFDylibsForApp
+         intentionally seeds runtimes/<rid>/native for all RIDs so non-macOS
+         pipelines can reuse them, but those copies are redundant once we have
+         the dylib in the publish root, so we strip them here. -->
+    <ItemGroup>
+      <_BeutlAVFPublishStaleDylib Include="$(PublishDir)runtimes/**/libBeutlAVF.dylib" />
+    </ItemGroup>
+    <Delete Files="@(_BeutlAVFPublishStaleDylib)" />
+    <ItemGroup>
+      <_BeutlAVFPublishRuntimesRemain Include="$(PublishDir)runtimes/**" />
+    </ItemGroup>
+    <RemoveDir Directories="$(PublishDir)runtimes"
+               Condition="Exists('$(PublishDir)runtimes') And '@(_BeutlAVFPublishRuntimesRemain)' == ''" />
+  </Target>
+
   <ItemGroup>
     <None Update="ViewModels\Editors\VectorEditorViewModels.tt">
       <Generator>TextTemplatingFileGenerator</Generator>
