@@ -40,6 +40,7 @@ jobs:
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           github_token: ${{ secrets.DISCUSSION_TOKEN }}
+          allowed_bots: "github-actions"
           claude_args: '--allowed-tools "Bash(gh release view:*),Bash(gh release edit:*),Bash(gh api graphql:*),Bash(cat:*),Bash(mktemp:*),Bash(printf:*),Bash(jq:*)"'
           prompt: |
             A new GitHub Discussion was created in `${{ github.repository }}`. Treat its title as a release tag and:
