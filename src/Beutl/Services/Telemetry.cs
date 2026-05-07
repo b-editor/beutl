@@ -3,6 +3,7 @@
 using System.IO.Compression;
 using System.Reflection;
 using System.Runtime.CompilerServices;
+using System.Text.RegularExpressions;
 using Avalonia.Threading;
 using Beutl.Configuration;
 using Microsoft.Extensions.Logging;
@@ -279,26 +280,33 @@ internal class Telemetry : IDisposable
 
     internal static class SensitiveData
     {
-        private static readonly (string Value, string Token)[] s_patterns;
+        private readonly record struct Pattern(string Value, string Token, Regex? BoundaryRegex)
+        {
+            public bool UseBoundary => BoundaryRegex is not null;
+        }
+
+        private static readonly Pattern[] s_patterns;
 
         static SensitiveData()
         {
-            var list = new List<(string Value, string Token)>(4);
+            var list = new List<Pattern>(4);
             var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
             if (!string.IsNullOrWhiteSpace(home))
-                list.Add((home, "<Home>"));
+                list.Add(new Pattern(home, "<Home>", null));
 
             string temp = Path.GetTempPath();
             if (!string.IsNullOrWhiteSpace(temp))
-                list.Add((temp, "<Temp>"));
+                list.Add(new Pattern(temp, "<Temp>", null));
 
+            // UserName / MachineName は短く一般的な単語 (dev, pc, admin など) になり得るため、
+            // 部分文字列の誤マッチを避けて識別子境界 (英数字以外) で挟まれた箇所のみ置換する。
             string user = Environment.UserName;
             if (!string.IsNullOrWhiteSpace(user))
-                list.Add((user, "<User>"));
+                list.Add(new Pattern(user, "<User>", CreateBoundaryRegex(user)));
 
             string machine = Environment.MachineName;
             if (!string.IsNullOrWhiteSpace(machine))
-                list.Add((machine, "<Machine>"));
+                list.Add(new Pattern(machine, "<Machine>", CreateBoundaryRegex(machine)));
 
             // Temp が Home の subset になる場合 (Windows: %LOCALAPPDATA%\Temp) に
             // Home が先に当たって <Home>\...\Temp\ のように残るのを防ぐため、長い順に置換する。
@@ -306,16 +314,32 @@ internal class Telemetry : IDisposable
             s_patterns = [.. list];
         }
 
+        private static Regex CreateBoundaryRegex(string value)
+        {
+            // (?<![A-Za-z0-9_]) <value> (?![A-Za-z0-9_]) — 識別子境界マッチ。
+            // パスセグメント (\, /, ., 空白等) や行頭・行末でのみマッチさせる。
+            return new Regex(
+                $@"(?<![A-Za-z0-9_]){Regex.Escape(value)}(?![A-Za-z0-9_])",
+                RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.Compiled);
+        }
+
         public static string? Sanitize(string? input)
         {
             if (string.IsNullOrEmpty(input)) return input;
 
             string current = input;
-            foreach ((string value, string token) in s_patterns)
+            foreach (Pattern pattern in s_patterns)
             {
-                if (current.IndexOf(value, StringComparison.OrdinalIgnoreCase) < 0)
-                    continue;
-                current = current.Replace(value, token, StringComparison.OrdinalIgnoreCase);
+                if (pattern.UseBoundary)
+                {
+                    current = pattern.BoundaryRegex!.Replace(current, pattern.Token);
+                }
+                else
+                {
+                    if (current.IndexOf(pattern.Value, StringComparison.OrdinalIgnoreCase) < 0)
+                        continue;
+                    current = current.Replace(pattern.Value, pattern.Token, StringComparison.OrdinalIgnoreCase);
+                }
             }
             return current;
         }
