@@ -156,9 +156,18 @@ public static class CoreSerializer
         if (node is not JsonObject jsonObject) throw new JsonException();
 
         // 互換性処理
-        if (type == typeof(ProjectItem) && !node.TryGetDiscriminator(out Type? _))
+        // 1.x で作成されたファイルでは一部のオブジェクトに $type が付与されないため、
+        // 期待される型に基づいてディスクリミネータを補完する。
+        if (!node.TryGetDiscriminator(out Type? _))
         {
-            node["$type"] = "[Beutl.ProjectSystem]:Scene";
+            if (type == typeof(ProjectItem))
+            {
+                node["$type"] = "[Beutl.ProjectSystem]:Scene";
+            }
+            else if (type.FullName == "Beutl.ProjectSystem.Element")
+            {
+                node["$type"] = "[Beutl.ProjectSystem]:Element";
+            }
         }
 
         Type? actualType = type.IsSealed ? type : jsonObject.GetDiscriminator(type);

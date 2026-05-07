@@ -180,6 +180,28 @@ public class JsonSerializationTest
         Assert.That(elm1, Is.Not.Null);
     }
 
+    // 1.xで作成されたファイルではScene/Elementに$typeが付かないため、
+    // RestoreFromUriで補完されることを確認する。
+    [Test]
+    public void RestoreFromUri_FillsMissingDiscriminatorForLegacyFiles()
+    {
+        var basePath = Path.GetFullPath(ArtifactProvider.GetArtifactDirectory());
+        var scenePath = Path.Combine(basePath, "legacy.scene");
+        var layerPath = Path.Combine(basePath, "legacy.belm");
+        if (File.Exists(scenePath)) File.Delete(scenePath);
+        if (File.Exists(layerPath)) File.Delete(layerPath);
+
+        // $typeを持たない1.x形式のJSONを書き出す
+        File.WriteAllText(scenePath, "{\"Width\":1920,\"Height\":1080}");
+        File.WriteAllText(layerPath, "{\"Start\":\"00:00:00\",\"Length\":\"00:00:01\"}");
+
+        var scene = CoreSerializer.RestoreFromUri<ProjectItem>(UriHelper.CreateFromPath(scenePath));
+        Assert.That(scene, Is.InstanceOf<Scene>());
+
+        var element = CoreSerializer.RestoreFromUri<Element>(UriHelper.CreateFromPath(layerPath));
+        Assert.That(element, Is.InstanceOf<Element>());
+    }
+
     [Test]
     public void Resolve()
     {
