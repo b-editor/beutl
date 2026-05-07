@@ -1,0 +1,85 @@
+name: Build Flatpak Package
+
+on:
+  workflow_call:
+    inputs:
+      semVer:
+        required: true
+        type: string
+      simpleVer:
+        required: true
+        type: string
+      nugetVer:
+        required: true
+        type: string
+    outputs:
+      artifact-run-id:
+        description: Run ID that published the artifacts
+        value: ${{ jobs.build-flatpak-package.outputs.artifact-run-id }}
+
+jobs:
+  build-flatpak-package:
+    runs-on: ubuntu-latest
+    outputs:
+      artifact-run-id: ${{ steps.run-id.outputs.run-id }}
+
+    steps:
+      - name: Set artifact run id
+        id: run-id
+        run: echo "run-id=${{ github.run_id }}" >> $GITHUB_OUTPUT
+
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install flatpak toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y flatpak flatpak-builder
+          flatpak remote-add --if-not-exists --user flathub \
+            https://flathub.org/repo/flathub.flatpakrepo
+          flatpak install -y --user flathub \
+            org.freedesktop.Platform//24.08 \
+            org.freedesktop.Sdk//24.08
+
+      - name: Download Linux executable artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: beutl-linux_x64-standalone-${{ inputs.semVer }}
+          path: artifacts
+
+      - name: Stage source for flatpak-builder
+        run: |
+          mkdir -p packages/flatpak/sources/Beutl-linux-x64-standalone
+          unzip -q "${{ github.workspace }}/artifacts/Beutl-linux-x64-standalone-${{ inputs.nugetVer }}.zip" \
+            -d packages/flatpak/sources/Beutl-linux-x64-standalone
+
+      - name: Copy logo as Flatpak icon
+        run: cp assets/logos/logo.svg packages/flatpak/net.beditor.Beutl.svg
+
+      - name: Inject version and date into metainfo
+        run: |
+          cd packages/flatpak
+          TODAY=$(date -u +%Y-%m-%d)
+          sed -i "s/VERSION_PLACEHOLDER/${{ inputs.semVer }}/g" net.beditor.Beutl.metainfo.xml
+          sed -i "s/DATE_PLACEHOLDER/${TODAY}/g" net.beditor.Beutl.metainfo.xml
+
+      - name: Run flatpak-builder
+        run: |
+          cd packages/flatpak
+          flatpak-builder --user --force-clean \
+            --install-deps-from=flathub \
+            --repo=repo build-dir \
+            net.beditor.Beutl.yml
+
+      - name: Build single-file bundle
+        run: |
+          cd packages/flatpak
+          flatpak build-bundle repo \
+            "${{ github.workspace }}/artifacts/Beutl-${{ inputs.semVer }}.flatpak" \
+            net.beditor.Beutl
+
+      - name: Upload Flatpak artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: beutl-flatpak-${{ inputs.semVer }}
+          path: ./artifacts/*.flatpak

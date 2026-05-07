@@ -54,18 +54,43 @@ public sealed class CheckForUpdatesTask : StartupTask
                     if (!v3.IsLatest)
                     {
                         _logger.LogInformation("A new version is available: {DownloadUrl}", v3.DownloadUrl);
-                        NotificationService.ShowInformation(
-                            MessageStrings.NewVersionAvailable,
-                            message: MessageStrings.ConfirmInstall,
-                            onActionButtonClick: () =>
+                        if (IsFlatpak())
+                        {
+                            // /app is read-only in Flatpak; UpdateDialog would invoke update.sh
+                            // and overwrite AppContext.BaseDirectory which always fails.
+                            // Direct users to the release page instead — flatpak update is the supported path.
+                            string? releaseUrl = v3.Url ?? v3.DownloadUrl;
+                            if (!string.IsNullOrEmpty(releaseUrl))
                             {
-                                var viewModel = new UpdateDialogViewModel(v3);
-                                var dialog = new UpdateDialog { DataContext = viewModel };
-                                dialog.ShowAsync();
-                                viewModel.Start();
-                            },
-                            // TODO: Stringsに移動
-                            actionButtonText: ExtensionsStrings.Install);
+                                NotificationService.ShowInformation(
+                                    MessageStrings.NewVersionAvailable,
+                                    releaseUrl,
+                                    onActionButtonClick: () =>
+                                    {
+                                        Process.Start(new ProcessStartInfo(releaseUrl) { UseShellExecute = true, Verb = "open" });
+                                    },
+                                    actionButtonText: Strings.Open);
+                            }
+                            else
+                            {
+                                _logger.LogWarning("New version is available but no release URL was provided.");
+                            }
+                        }
+                        else
+                        {
+                            NotificationService.ShowInformation(
+                                MessageStrings.NewVersionAvailable,
+                                message: MessageStrings.ConfirmInstall,
+                                onActionButtonClick: () =>
+                                {
+                                    var viewModel = new UpdateDialogViewModel(v3);
+                                    var dialog = new UpdateDialog { DataContext = viewModel };
+                                    dialog.ShowAsync();
+                                    viewModel.Start();
+                                },
+                                // TODO: Stringsに移動
+                                actionButtonText: ExtensionsStrings.Install);
+                        }
                     }
                     else if (v3.MustLatest)
                     {
@@ -84,6 +109,11 @@ public sealed class CheckForUpdatesTask : StartupTask
     }
 
     public override Task Task { get; }
+
+    private static bool IsFlatpak()
+    {
+        return !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("FLATPAK_ID"));
+    }
 
     private async ValueTask<(CheckForUpdatesResponse? V1, AppUpdateResponse? V3)> CheckForUpdates(Activity? activity)
     {

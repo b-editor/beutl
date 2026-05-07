@@ -44,6 +44,14 @@ jobs:
       simpleVer: ${{ needs.determine-version.outputs.simpleVer }}
       revision: ${{ needs.determine-version.outputs.revision }}
 
+  build-flatpak-package:
+    needs: [ determine-version, build-executable ]
+    uses: ./.github/workflows/build-flatpak-package.yml
+    with:
+      semVer: ${{ needs.determine-version.outputs.semVer }}
+      simpleVer: ${{ needs.determine-version.outputs.simpleVer }}
+      nugetVer: ${{ needs.determine-version.outputs.nugetVer }}
+
   build-app-bundle:
     needs: [ determine-version ]
     uses: ./.github/workflows/build-macos-app.yml
@@ -71,7 +79,7 @@ jobs:
 
   create-release:
     if: ${{ github.event_name == 'push' || github.event.inputs['dry-run'] != 'true' }}
-    needs: [ determine-version, build-executable, build-windows-installer, build-debian-package, build-nuget, build-app-bundle ]
+    needs: [ determine-version, build-executable, build-windows-installer, build-debian-package, build-flatpak-package, build-nuget, build-app-bundle ]
     runs-on: ubuntu-latest
     steps:
       - name: Download executable artifacts
@@ -92,6 +100,12 @@ jobs:
           run-id: ${{ needs.build-debian-package.outputs.artifact-run-id }}
           path: artifacts
 
+      - name: Download Flatpak artifacts
+        uses: actions/download-artifact@v8
+        with:
+          run-id: ${{ needs.build-flatpak-package.outputs.artifact-run-id }}
+          path: artifacts
+
       - name: Download macOS app artifacts
         uses: actions/download-artifact@v8
         with:
@@ -110,7 +124,7 @@ jobs:
       - uses: ncipollo/release-action@v1
         id: create_release
         with:
-          artifacts: "artifacts/**/*.zip,artifacts/**/*.deb,artifacts/beutl-setup/beutl-setup.exe,artifacts/beutl-standalone-setup/beutl-standalone-setup.exe"
+          artifacts: "artifacts/**/*.zip,artifacts/**/*.deb,artifacts/**/*.flatpak,artifacts/beutl-setup/beutl-setup.exe,artifacts/beutl-standalone-setup/beutl-standalone-setup.exe"
           draft: true
           makeLatest: true
           generateReleaseNotes: true

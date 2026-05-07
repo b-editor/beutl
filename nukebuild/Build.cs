@@ -143,6 +143,77 @@ class Build : NukeBuild
             mainOutput.CompressTo(ArtifactsDirectory / fileName.ToString());
         });
 
+    Target PackageFlatpak => _ => _
+        .Description("Build a Flatpak bundle from the existing linux-x64 standalone zip. Linux-only; requires flatpak and flatpak-builder.")
+        .Executes(() =>
+        {
+            if (!OperatingSystem.IsLinux())
+            {
+                throw new InvalidOperationException(
+                    "PackageFlatpak target requires a Linux host with flatpak-builder installed.");
+            }
+
+            AbsolutePath flatpakDir = RootDirectory / "packages" / "flatpak";
+            AbsolutePath sourcesDir = flatpakDir / "sources";
+            AbsolutePath manifest = flatpakDir / "net.beditor.Beutl.yml";
+            AbsolutePath buildDir = flatpakDir / "build-dir";
+            AbsolutePath repoDir = flatpakDir / "repo";
+            AbsolutePath logoSvg = RootDirectory / "assets" / "logos" / "logo.svg";
+            AbsolutePath iconSvg = flatpakDir / "net.beditor.Beutl.svg";
+            AbsolutePath metainfo = flatpakDir / "net.beditor.Beutl.metainfo.xml";
+
+            string zipName = $"Beutl-linux-x64-standalone-{Version}.zip";
+            AbsolutePath zipPath = ArtifactsDirectory / zipName;
+            if (!zipPath.FileExists())
+            {
+                throw new FileNotFoundException(
+                    $"Required artifact not found: {zipPath}. " +
+                    "Run Zip target first with --runtime linux-x64 --self-contained true.");
+            }
+
+            // Stage source tree expected by the manifest (sources/Beutl-linux-x64-standalone)
+            sourcesDir.CreateOrCleanDirectory();
+            AbsolutePath staging = sourcesDir / "Beutl-linux-x64-standalone";
+            staging.CreateOrCleanDirectory();
+            zipPath.UnZipTo(staging);
+
+            // Copy logo into the manifest directory so flatpak-builder can install it.
+            logoSvg.Copy(iconSvg, ExistsPolicy.FileOverwrite);
+
+            // Substitute version/date placeholders in the metainfo (write to a temp copy
+            // first so the working tree stays clean if the build aborts).
+            string metainfoText = File.ReadAllText(metainfo);
+            string substituted = metainfoText
+                .Replace("VERSION_PLACEHOLDER", Version)
+                .Replace("DATE_PLACEHOLDER", DateTime.UtcNow.ToString("yyyy-MM-dd"));
+            File.WriteAllText(metainfo, substituted);
+
+            try
+            {
+                buildDir.CreateOrCleanDirectory();
+                repoDir.CreateOrCleanDirectory();
+
+                StartProcess(
+                    "flatpak-builder",
+                    $"--user --force-clean --install-deps-from=flathub --repo={repoDir} {buildDir} {manifest}",
+                    workingDirectory: flatpakDir)
+                    .AssertZeroExitCode();
+
+                AbsolutePath outBundle = ArtifactsDirectory / $"Beutl-{Version}.flatpak";
+                outBundle.DeleteFile();
+                StartProcess(
+                    "flatpak",
+                    $"build-bundle {repoDir} {outBundle} net.beditor.Beutl",
+                    workingDirectory: flatpakDir)
+                    .AssertZeroExitCode();
+            }
+            finally
+            {
+                // Restore the metainfo placeholders so VCS state is unchanged.
+                File.WriteAllText(metainfo, metainfoText);
+            }
+        });
+
     Target BuildInstaller => _ => _
         .DependsOn(Publish)
         .Executes(() =>

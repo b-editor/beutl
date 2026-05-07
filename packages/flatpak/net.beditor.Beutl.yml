@@ -1,0 +1,57 @@
+app-id: net.beditor.Beutl
+runtime: org.freedesktop.Platform
+runtime-version: '24.08'
+sdk: org.freedesktop.Sdk
+command: beutl
+
+finish-args:
+  - --socket=wayland
+  - --socket=fallback-x11
+  - --share=ipc
+  - --device=dri
+  - --socket=pulseaudio
+  - --share=network
+  - --filesystem=host
+  - --filesystem=xdg-config/fontconfig:ro
+  - --filesystem=xdg-data/fonts:ro
+  - --filesystem=~/.fonts:ro
+  - --talk-name=org.freedesktop.Notifications
+
+cleanup:
+  - /include
+  - /lib/pkgconfig
+  - /man
+  - /share/doc
+  - /share/gtk-doc
+  - /share/man
+  - /share/pkgconfig
+  - '*.la'
+  - '*.a'
+
+modules:
+  - name: beutl
+    buildsystem: simple
+    build-commands:
+      - mkdir -p /app/lib/beutl
+      - cp -r beutl-bin/. /app/lib/beutl/
+      - chmod +x /app/lib/beutl/Beutl
+      - chmod +x /app/lib/beutl/Beutl.ExceptionHandler
+      - chmod +x /app/lib/beutl/Beutl.PackageTools.UI
+      - chmod +x /app/lib/beutl/Beutl.WaitingDialog
+      - chmod +x /app/lib/beutl/Beutl.FFmpegWorker
+      - install -Dm755 beutl-launcher.sh /app/bin/beutl
+      - install -Dm644 net.beditor.Beutl.desktop /app/share/applications/net.beditor.Beutl.desktop
+      - install -Dm644 net.beditor.Beutl.metainfo.xml /app/share/metainfo/net.beditor.Beutl.metainfo.xml
+      - install -Dm644 net.beditor.Beutl.svg /app/share/icons/hicolor/scalable/apps/net.beditor.Beutl.svg
+    sources:
+      - type: dir
+        path: sources/Beutl-linux-x64-standalone
+        dest: beutl-bin
+      - type: file
+        path: beutl-launcher.sh
+      - type: file
+        path: net.beditor.Beutl.desktop
+      - type: file
+        path: net.beditor.Beutl.metainfo.xml
+      - type: file
+        path: net.beditor.Beutl.svg

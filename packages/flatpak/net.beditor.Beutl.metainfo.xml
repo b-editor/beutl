@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>net.beditor.Beutl</id>
+  <name>Beutl</name>
+  <summary>Cross-platform compositing video editor</summary>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT AND GPL-3.0-or-later</project_license>
+  <developer id="net.beditor">
+    <name>b-editor</name>
+  </developer>
+  <description>
+    <p>
+      Beutl is a free, cross-platform video editor focused on keyframe-based
+      compositing and effect chains. It provides a plug-in based extension
+      system, GPU-accelerated rendering with Vulkan and Skia, and an FFmpeg
+      worker process for encoding and decoding.
+    </p>
+    <p>Features:</p>
+    <ul>
+      <li>Timeline editing with keyframe animation</li>
+      <li>Composable visual effects and node graph</li>
+      <li>Hardware-accelerated rendering and encoding</li>
+      <li>Extension system with installable packages</li>
+    </ul>
+  </description>
+  <launchable type="desktop-id">net.beditor.Beutl.desktop</launchable>
+  <url type="homepage">https://github.com/b-editor/beutl</url>
+  <url type="bugtracker">https://github.com/b-editor/beutl/issues</url>
+  <url type="vcs-browser">https://github.com/b-editor/beutl</url>
+  <screenshots>
+    <screenshot type="default">
+      <image>https://raw.githubusercontent.com/b-editor/beutl/main/assets/screenshot/main.png</image>
+      <caption>Editing timeline view</caption>
+    </screenshot>
+  </screenshots>
+  <categories>
+    <category>AudioVideo</category>
+    <category>Video</category>
+    <category>AudioVideoEditing</category>
+  </categories>
+  <content_rating type="oars-1.1" />
+  <releases>
+    <release version="VERSION_PLACEHOLDER" date="DATE_PLACEHOLDER" />
+  </releases>
+</component>

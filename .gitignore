@@ -357,6 +357,12 @@ tools/*
 !packages/ubuntu22.04_amd64/
 packages/ubuntu22.04_amd64/usr/lib/
 packages/ubuntu22.04_amd64/usr/bin/
+!packages/flatpak/
+packages/flatpak/sources/
+packages/flatpak/build-dir/
+packages/flatpak/repo/
+packages/flatpak/.flatpak-builder/
+packages/flatpak/net.beditor.Beutl.svg
 /output
 
 .DS_Store
