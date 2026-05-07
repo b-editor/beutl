@@ -279,7 +279,46 @@ internal class Telemetry : IDisposable
 
     internal static class SensitiveData
     {
-        public static readonly string Home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        private static readonly (string Value, string Token)[] s_patterns;
+
+        static SensitiveData()
+        {
+            var list = new List<(string Value, string Token)>(4);
+            var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+            if (!string.IsNullOrWhiteSpace(home))
+                list.Add((home, "<Home>"));
+
+            string temp = Path.GetTempPath();
+            if (!string.IsNullOrWhiteSpace(temp))
+                list.Add((temp, "<Temp>"));
+
+            string user = Environment.UserName;
+            if (!string.IsNullOrWhiteSpace(user))
+                list.Add((user, "<User>"));
+
+            string machine = Environment.MachineName;
+            if (!string.IsNullOrWhiteSpace(machine))
+                list.Add((machine, "<Machine>"));
+
+            // Temp が Home の subset になる場合 (Windows: %LOCALAPPDATA%\Temp) に
+            // Home が先に当たって <Home>\...\Temp\ のように残るのを防ぐため、長い順に置換する。
+            list.Sort((a, b) => b.Value.Length.CompareTo(a.Value.Length));
+            s_patterns = [.. list];
+        }
+
+        public static string? Sanitize(string? input)
+        {
+            if (string.IsNullOrEmpty(input)) return input;
+
+            string current = input;
+            foreach ((string value, string token) in s_patterns)
+            {
+                if (current.IndexOf(value, StringComparison.OrdinalIgnoreCase) < 0)
+                    continue;
+                current = current.Replace(value, token, StringComparison.OrdinalIgnoreCase);
+            }
+            return current;
+        }
     }
 
     internal class RemoveSensitiveDataProcessor : BaseProcessor<Activity>
@@ -287,11 +326,28 @@ internal class Telemetry : IDisposable
         public override void OnEnd(Activity data)
         {
             base.OnEnd(data);
+
             foreach (KeyValuePair<string, string?> pair in data.Tags)
             {
-                if (pair.Value?.Contains(SensitiveData.Home) == true)
+                string? sanitized = SensitiveData.Sanitize(pair.Value);
+                if (!ReferenceEquals(sanitized, pair.Value))
                 {
-                    data.SetTag(pair.Key, pair.Value.Replace(SensitiveData.Home, "<Home>"));
+                    data.SetTag(pair.Key, sanitized);
+                }
+            }
+
+            string? sanitizedName = SensitiveData.Sanitize(data.DisplayName);
+            if (sanitizedName is not null && !ReferenceEquals(sanitizedName, data.DisplayName))
+            {
+                data.DisplayName = sanitizedName;
+            }
+
+            if (!string.IsNullOrEmpty(data.StatusDescription))
+            {
+                string? sanitizedDesc = SensitiveData.Sanitize(data.StatusDescription);
+                if (!ReferenceEquals(sanitizedDesc, data.StatusDescription))
+                {
+                    data.SetStatus(data.Status, sanitizedDesc);
                 }
             }
         }
@@ -302,20 +358,64 @@ internal class Telemetry : IDisposable
         public override void OnEnd(LogRecord data)
         {
             base.OnEnd(data);
-            if (data.Attributes != null)
-            {
-                data.Attributes =
-                [
-                    ..data.Attributes.Select(i =>
-                    {
-                        if (i.Value is string str && str.Contains(SensitiveData.Home))
-                        {
-                            return new KeyValuePair<string, object?>(i.Key, str.Replace(SensitiveData.Home, "<Home>"));
-                        }
 
-                        return i;
-                    })
-                ];
+            if (data.Body is { } body)
+            {
+                string? sanitized = SensitiveData.Sanitize(body);
+                if (!ReferenceEquals(sanitized, body))
+                {
+                    data.Body = sanitized;
+                }
+            }
+
+            if (data.FormattedMessage is { } formatted)
+            {
+                string? sanitized = SensitiveData.Sanitize(formatted);
+                if (!ReferenceEquals(sanitized, formatted))
+                {
+                    data.FormattedMessage = sanitized;
+                }
+            }
+
+            if (data.Attributes is { } attrs)
+            {
+                bool changed = false;
+                foreach (KeyValuePair<string, object?> kv in attrs)
+                {
+                    if (kv.Value is string s &&
+                        !ReferenceEquals(SensitiveData.Sanitize(s), s))
+                    {
+                        changed = true;
+                        break;
+                    }
+                }
+
+                if (changed)
+                {
+                    data.Attributes =
+                    [
+                        ..attrs.Select(kv => kv.Value is string s
+                            ? new KeyValuePair<string, object?>(kv.Key, SensitiveData.Sanitize(s))
+                            : kv)
+                    ];
+                }
+            }
+
+            if (data.Exception is { } ex)
+            {
+                var extra = new[]
+                {
+                    new KeyValuePair<string, object?>("exception.type",
+                        ex.GetType().FullName ?? ex.GetType().Name),
+                    new KeyValuePair<string, object?>("exception.message",
+                        SensitiveData.Sanitize(ex.Message) ?? string.Empty),
+                    new KeyValuePair<string, object?>("exception.stacktrace",
+                        SensitiveData.Sanitize(ex.ToString()) ?? string.Empty),
+                };
+                data.Attributes = data.Attributes is null
+                    ? extra
+                    : [..data.Attributes, ..extra];
+                data.Exception = null;
             }
         }
     }
