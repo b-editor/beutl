@@ -414,7 +414,7 @@ internal class Telemetry : IDisposable
                 };
                 data.Attributes = data.Attributes is null
                     ? extra
-                    : [..data.Attributes, ..extra];
+                    : [.. data.Attributes, .. extra];
                 data.Exception = null;
             }
         }
