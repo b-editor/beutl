@@ -3,6 +3,7 @@
 using System.IO.Compression;
 using System.Reflection;
 using System.Runtime.CompilerServices;
+using System.Text.RegularExpressions;
 using Avalonia.Threading;
 using Beutl.Configuration;
 using Microsoft.Extensions.Logging;
@@ -279,7 +280,69 @@ internal class Telemetry : IDisposable
 
     internal static class SensitiveData
     {
-        public static readonly string Home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        private readonly record struct Pattern(string Value, string Token, Regex? BoundaryRegex)
+        {
+            public bool UseBoundary => BoundaryRegex is not null;
+        }
+
+        private static readonly Pattern[] s_patterns;
+
+        static SensitiveData()
+        {
+            var list = new List<Pattern>(4);
+            var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+            if (!string.IsNullOrWhiteSpace(home))
+                list.Add(new Pattern(home, "<Home>", null));
+
+            string temp = Path.GetTempPath();
+            if (!string.IsNullOrWhiteSpace(temp))
+                list.Add(new Pattern(temp, "<Temp>", null));
+
+            // UserName / MachineName は短く一般的な単語 (dev, pc, admin など) になり得るため、
+            // 部分文字列の誤マッチを避けて識別子境界 (英数字以外) で挟まれた箇所のみ置換する。
+            string user = Environment.UserName;
+            if (!string.IsNullOrWhiteSpace(user))
+                list.Add(new Pattern(user, "<User>", CreateBoundaryRegex(user)));
+
+            string machine = Environment.MachineName;
+            if (!string.IsNullOrWhiteSpace(machine))
+                list.Add(new Pattern(machine, "<Machine>", CreateBoundaryRegex(machine)));
+
+            // Temp が Home の subset になる場合 (Windows: %LOCALAPPDATA%\Temp) に
+            // Home が先に当たって <Home>\...\Temp\ のように残るのを防ぐため、長い順に置換する。
+            list.Sort((a, b) => b.Value.Length.CompareTo(a.Value.Length));
+            s_patterns = [.. list];
+        }
+
+        private static Regex CreateBoundaryRegex(string value)
+        {
+            // (?<![A-Za-z0-9_]) <value> (?![A-Za-z0-9_]) — 識別子境界マッチ。
+            // パスセグメント (\, /, ., 空白等) や行頭・行末でのみマッチさせる。
+            return new Regex(
+                $@"(?<![A-Za-z0-9_]){Regex.Escape(value)}(?![A-Za-z0-9_])",
+                RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.Compiled);
+        }
+
+        public static string? Sanitize(string? input)
+        {
+            if (string.IsNullOrEmpty(input)) return input;
+
+            string current = input;
+            foreach (Pattern pattern in s_patterns)
+            {
+                if (pattern.UseBoundary)
+                {
+                    current = pattern.BoundaryRegex!.Replace(current, pattern.Token);
+                }
+                else
+                {
+                    if (current.IndexOf(pattern.Value, StringComparison.OrdinalIgnoreCase) < 0)
+                        continue;
+                    current = current.Replace(pattern.Value, pattern.Token, StringComparison.OrdinalIgnoreCase);
+                }
+            }
+            return current;
+        }
     }
 
     internal class RemoveSensitiveDataProcessor : BaseProcessor<Activity>
@@ -287,11 +350,28 @@ internal class Telemetry : IDisposable
         public override void OnEnd(Activity data)
         {
             base.OnEnd(data);
+
             foreach (KeyValuePair<string, string?> pair in data.Tags)
             {
-                if (pair.Value?.Contains(SensitiveData.Home) == true)
+                string? sanitized = SensitiveData.Sanitize(pair.Value);
+                if (!ReferenceEquals(sanitized, pair.Value))
                 {
-                    data.SetTag(pair.Key, pair.Value.Replace(SensitiveData.Home, "<Home>"));
+                    data.SetTag(pair.Key, sanitized);
+                }
+            }
+
+            string? sanitizedName = SensitiveData.Sanitize(data.DisplayName);
+            if (sanitizedName is not null && !ReferenceEquals(sanitizedName, data.DisplayName))
+            {
+                data.DisplayName = sanitizedName;
+            }
+
+            if (!string.IsNullOrEmpty(data.StatusDescription))
+            {
+                string? sanitizedDesc = SensitiveData.Sanitize(data.StatusDescription);
+                if (!ReferenceEquals(sanitizedDesc, data.StatusDescription))
+                {
+                    data.SetStatus(data.Status, sanitizedDesc);
                 }
             }
         }
@@ -302,20 +382,64 @@ internal class Telemetry : IDisposable
         public override void OnEnd(LogRecord data)
         {
             base.OnEnd(data);
-            if (data.Attributes != null)
-            {
-                data.Attributes =
-                [
-                    ..data.Attributes.Select(i =>
-                    {
-                        if (i.Value is string str && str.Contains(SensitiveData.Home))
-                        {
-                            return new KeyValuePair<string, object?>(i.Key, str.Replace(SensitiveData.Home, "<Home>"));
-                        }
 
-                        return i;
-                    })
-                ];
+            if (data.Body is { } body)
+            {
+                string? sanitized = SensitiveData.Sanitize(body);
+                if (!ReferenceEquals(sanitized, body))
+                {
+                    data.Body = sanitized;
+                }
+            }
+
+            if (data.FormattedMessage is { } formatted)
+            {
+                string? sanitized = SensitiveData.Sanitize(formatted);
+                if (!ReferenceEquals(sanitized, formatted))
+                {
+                    data.FormattedMessage = sanitized;
+                }
+            }
+
+            if (data.Attributes is { } attrs)
+            {
+                bool changed = false;
+                foreach (KeyValuePair<string, object?> kv in attrs)
+                {
+                    if (kv.Value is string s &&
+                        !ReferenceEquals(SensitiveData.Sanitize(s), s))
+                    {
+                        changed = true;
+                        break;
+                    }
+                }
+
+                if (changed)
+                {
+                    data.Attributes =
+                    [
+                        ..attrs.Select(kv => kv.Value is string s
+                            ? new KeyValuePair<string, object?>(kv.Key, SensitiveData.Sanitize(s))
+                            : kv)
+                    ];
+                }
+            }
+
+            if (data.Exception is { } ex)
+            {
+                var extra = new[]
+                {
+                    new KeyValuePair<string, object?>("exception.type",
+                        ex.GetType().FullName ?? ex.GetType().Name),
+                    new KeyValuePair<string, object?>("exception.message",
+                        SensitiveData.Sanitize(ex.Message) ?? string.Empty),
+                    new KeyValuePair<string, object?>("exception.stacktrace",
+                        SensitiveData.Sanitize(ex.ToString()) ?? string.Empty),
+                };
+                data.Attributes = data.Attributes is null
+                    ? extra
+                    : [.. data.Attributes, .. extra];
+                data.Exception = null;
             }
         }
     }
