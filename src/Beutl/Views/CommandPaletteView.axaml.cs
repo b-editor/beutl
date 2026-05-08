@@ -1,0 +1,115 @@
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Input;
+using Avalonia.Interactivity;
+using Avalonia.Threading;
+using Beutl.ViewModels;
+using Reactive.Bindings.Extensions;
+
+namespace Beutl.Views;
+
+public partial class CommandPaletteView : UserControl
+{
+    private readonly CompositeDisposable _disposables = [];
+
+    public CommandPaletteView()
+    {
+        InitializeComponent();
+    }
+
+    protected override void OnDataContextChanged(EventArgs e)
+    {
+        base.OnDataContextChanged(e);
+        _disposables.Clear();
+
+        if (DataContext is CommandPaletteViewModel viewModel)
+        {
+            viewModel.IsOpen
+                .Subscribe(open =>
+                {
+                    if (open)
+                    {
+                        Dispatcher.UIThread.Post(() =>
+                        {
+                            QueryTextBox.Focus();
+                            QueryTextBox.SelectAll();
+                        }, DispatcherPriority.Background);
+                    }
+                })
+                .AddTo(_disposables);
+        }
+    }
+
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        _disposables.Dispose();
+        base.OnDetachedFromVisualTree(e);
+    }
+
+    private void OnBackdropPointerPressed(object? sender, Avalonia.Input.PointerPressedEventArgs e)
+    {
+        if (DataContext is CommandPaletteViewModel viewModel)
+        {
+            viewModel.Close();
+            e.Handled = true;
+        }
+    }
+
+    private const int PageStep = 8;
+
+    private void OnQueryKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (DataContext is not CommandPaletteViewModel viewModel)
+        {
+            return;
+        }
+
+        switch (e.Key)
+        {
+            case Key.Escape:
+                viewModel.Close();
+                e.Handled = true;
+                break;
+            case Key.Down:
+                viewModel.MoveSelection(1);
+                ScrollSelectionIntoView(viewModel);
+                e.Handled = true;
+                break;
+            case Key.Up:
+                viewModel.MoveSelection(-1);
+                ScrollSelectionIntoView(viewModel);
+                e.Handled = true;
+                break;
+            case Key.PageDown:
+                viewModel.MoveSelection(PageStep);
+                ScrollSelectionIntoView(viewModel);
+                e.Handled = true;
+                break;
+            case Key.PageUp:
+                viewModel.MoveSelection(-PageStep);
+                ScrollSelectionIntoView(viewModel);
+                e.Handled = true;
+                break;
+            case Key.Home:
+                viewModel.SelectFirst();
+                ScrollSelectionIntoView(viewModel);
+                e.Handled = true;
+                break;
+            case Key.End:
+                viewModel.SelectLast();
+                ScrollSelectionIntoView(viewModel);
+                e.Handled = true;
+                break;
+            case Key.Enter:
+                viewModel.ExecuteSelected();
+                e.Handled = true;
+                break;
+        }
+    }
+
+    private void ScrollSelectionIntoView(CommandPaletteViewModel viewModel)
+    {
+        if (viewModel.SelectedCommand.Value is { } selected)
+            ResultsListBox.ScrollIntoView(selected);
+    }
+}

@@ -337,6 +337,10 @@
         <tutorial:TutorialOverlay x:Name="TutorialOverlayPanel"
                                   Grid.RowSpan="3"
                                   IsVisible="False" />
+
+        <!-- コマンドパレット -->
+        <views:CommandPaletteView Grid.RowSpan="3"
+                                  DataContext="{Binding CommandPalette}" />
     </Grid>
 
 </UserControl>

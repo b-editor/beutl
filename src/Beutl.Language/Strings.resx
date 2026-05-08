@@ -1114,4 +1114,19 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="EstimatedSize" xml:space="preserve">
     <value>Estimated</value>
   </data>
+  <data name="ShowCommandPalette" xml:space="preserve">
+    <value>Show command palette</value>
+  </data>
+  <data name="ShowCommandPalette_Description" xml:space="preserve">
+    <value>Open the searchable command list</value>
+  </data>
+  <data name="CommandPalette_Placeholder" xml:space="preserve">
+    <value>Type a command name…</value>
+  </data>
+  <data name="CommandPalette_NoResults" xml:space="preserve">
+    <value>No matching commands</value>
+  </data>
+  <data name="CommandPalette_MenuCategory" xml:space="preserve">
+    <value>Menu</value>
+  </data>
 </root>

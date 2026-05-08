@@ -35,6 +35,12 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
             .ToReadOnlyReactivePropertySlim("Beutl");
         TitleBreadcrumbBar = new TitleBreadcrumbBarViewModel(this, EditorService.Current);
 
+        var paletteService = new CommandPaletteService(
+            ContextCommandManager,
+            new CommandPaletteHandlerProvider(() => this),
+            () => MenuBar);
+        CommandPalette = new CommandPaletteViewModel(paletteService);
+
         ICoreReadOnlyList<Extension> allExtension = ExtensionProvider.Current.AllExtensions;
 
         var comparer = SortExpressionComparer<Extension>.Ascending(i => i.Name);
@@ -98,6 +104,8 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
 
     public ContextCommandManager? ContextCommandManager { get; }
 
+    public CommandPaletteViewModel CommandPalette { get; }
+
     public SettingsDialogViewModel CreateSettingsDialog()
     {
         return new SettingsDialogViewModel(_beutlClients);
@@ -122,6 +130,7 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
 
     public override void Dispose()
     {
+        CommandPalette.Dispose();
         ProjectService.Current.CloseProject();
         BeutlApplication.Current.Items.Clear();
     }
@@ -199,6 +208,9 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
                 break;
             case "Exit":
                 MenuBar.Exit.Execute(null);
+                break;
+            case "ShowCommandPalette":
+                CommandPalette.Toggle();
                 break;
             default:
                 if (execution.KeyEventArgs != null)
