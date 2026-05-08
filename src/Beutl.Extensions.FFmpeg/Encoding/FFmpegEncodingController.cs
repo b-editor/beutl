@@ -308,6 +308,7 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
                 muxer.FlushCodecs(encoders.Select(i => i.Item1));
                 muxer.WriteTrailer();
                 encoders.ForEach(t => t.Item1.Dispose());
+                swr?.Dispose();
                 _filterGraph?.Dispose();
                 _filterGraph = null;
                 _bufferSrcCtx = null;
