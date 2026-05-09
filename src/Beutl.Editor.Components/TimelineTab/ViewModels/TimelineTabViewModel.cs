@@ -1058,6 +1058,16 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler
         return Elements.FirstOrDefault(x => x.Model == element);
     }
 
+    public bool CanExecute(ContextCommandExecution execution)
+    {
+        return execution.CommandName switch
+        {
+            "Copy" or "Cut" or "Delete" or "Exclude" or "ToggleGroup" => SelectedElements.Count > 0,
+            "ExitRazorMode" => IsRazorMode.Value,
+            _ => true,
+        };
+    }
+
     public void Execute(ContextCommandExecution execution)
     {
         _logger.LogDebug("Executing context command {CommandName}.", execution.CommandName);

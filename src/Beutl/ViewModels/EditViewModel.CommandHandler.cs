@@ -42,6 +42,19 @@ public partial class EditViewModel : IContextCommandHandler
     //     Player.End.Execute();
     // }
 
+    public bool CanExecute(ContextCommandExecution execution)
+    {
+        return execution.CommandName switch
+        {
+            "PlayPause" => ((System.Windows.Input.ICommand)Player.PlayPause).CanExecute(null),
+            "Next" => ((System.Windows.Input.ICommand)Player.Next).CanExecute(null),
+            "Previous" => ((System.Windows.Input.ICommand)Player.Previous).CanExecute(null),
+            "SeekStart" => ((System.Windows.Input.ICommand)Player.Start).CanExecute(null),
+            "SeekEnd" => ((System.Windows.Input.ICommand)Player.End).CanExecute(null),
+            _ => true,
+        };
+    }
+
     public void Execute(ContextCommandExecution execution)
     {
         if (execution.KeyEventArgs != null)

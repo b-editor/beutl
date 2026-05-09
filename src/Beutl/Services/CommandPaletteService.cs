@@ -34,7 +34,9 @@ public sealed class CommandPaletteService
 
         if (_commandManager != null)
         {
-            Type? activeEditorExtensionType = EditorService.Current.SelectedTabItem.Value?.Extension.Value?.GetType();
+            EditorTabItem? activeTab = EditorService.Current.SelectedTabItem.Value;
+            Type? activeEditorExtensionType = activeTab?.Extension.Value?.GetType();
+            EditViewModel? activeEditor = activeTab?.Context.Value as EditViewModel;
 
             foreach (ContextCommandEntry entry in _commandManager.GetDefinitions())
             {
@@ -46,6 +48,13 @@ public sealed class CommandPaletteService
                 // 編集中のタブと一致しないエディタ拡張のコマンドは表示しない。
                 if (typeof(EditorExtension).IsAssignableFrom(entry.ExtensionType)
                     && entry.ExtensionType != activeEditorExtensionType)
+                {
+                    continue;
+                }
+
+                // 開いていない ToolTab のコマンドはハンドラーを解決できないため除外する。
+                if (typeof(ToolTabExtension).IsAssignableFrom(entry.ExtensionType)
+                    && (activeEditor is null || activeEditor.DockHost.FindToolContext(entry.ExtensionType) is null))
                 {
                     continue;
                 }

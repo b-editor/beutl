@@ -35,6 +35,17 @@ internal sealed class CommandPaletteHandlerProvider : ICommandPaletteHandlerProv
             return null;
         }
 
+        if (typeof(ToolTabExtension).IsAssignableFrom(extensionType))
+        {
+            EditorTabItem? tab = EditorService.Current.SelectedTabItem.Value;
+            if (tab?.Context.Value is EditViewModel editor)
+            {
+                return editor.DockHost.FindToolContext(extensionType) as IContextCommandHandler;
+            }
+
+            return null;
+        }
+
         return null;
     }
 }

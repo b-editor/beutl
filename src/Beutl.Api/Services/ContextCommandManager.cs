@@ -233,10 +233,19 @@ public class ContextCommandManager(
                             continue;
                         }
 
-                        compiledHandler.Execute(new ContextCommandExecution(entry.Definition.Name)
+                        var execution = new ContextCommandExecution(entry.Definition.Name)
                         {
                             KeyEventArgs = args
-                        });
+                        };
+
+                        // ハンドラが CanExecute で false を返した場合は実行をスキップして
+                        // 同じジェスチャの後続バインディング（フォールバック）に処理を委ねる。
+                        if (!compiledHandler.CanExecute(execution))
+                        {
+                            continue;
+                        }
+
+                        compiledHandler.Execute(execution);
                         return;
                     }
                 }

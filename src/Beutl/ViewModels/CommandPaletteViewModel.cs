@@ -14,6 +14,7 @@ public sealed class CommandPaletteViewModel : BaseViewModel
     private readonly ObservableCollection<CommandPaletteItemViewModel> _filteredCommands = [];
     private IReadOnlyList<PaletteCommand> _snapshot = [];
     private readonly IDisposable _querySubscription;
+    private readonly IDisposable _activeTabSubscription;
 
     public CommandPaletteViewModel(CommandPaletteService service)
     {
@@ -25,6 +26,19 @@ public sealed class CommandPaletteViewModel : BaseViewModel
             .Throttle(s_queryThrottle)
             .ObserveOnUIDispatcher()
             .Subscribe(_ => RefreshFiltered());
+
+        // パレット表示中にアクティブタブが切り替わったらスナップショットを取り直して
+        // コマンド一覧と CanExecute 結果を最新の状態に追従させる。
+        _activeTabSubscription = EditorService.Current.SelectedTabItem
+            .Skip(1)
+            .ObserveOnUIDispatcher()
+            .Subscribe(_ =>
+            {
+                if (IsOpen.Value)
+                {
+                    RebuildSnapshot();
+                }
+            });
     }
 
     public ReactivePropertySlim<bool> IsOpen { get; } = new(false);
@@ -51,11 +65,16 @@ public sealed class CommandPaletteViewModel : BaseViewModel
 
     public void Open()
     {
-        _snapshot = _service.EnumerateCommands();
         Query.Value = string.Empty;
+        RebuildSnapshot();
+        IsOpen.Value = true;
+    }
+
+    private void RebuildSnapshot()
+    {
+        _snapshot = _service.EnumerateCommands();
         // Throttle 経由ではなく即時に最新のスナップショットへ反映する
         RefreshFiltered();
-        IsOpen.Value = true;
     }
 
     public void Close()
@@ -212,6 +231,7 @@ public sealed class CommandPaletteViewModel : BaseViewModel
     public override void Dispose()
     {
         _querySubscription.Dispose();
+        _activeTabSubscription.Dispose();
         IsOpen.Dispose();
         Query.Dispose();
         SelectedCommand.Dispose();
