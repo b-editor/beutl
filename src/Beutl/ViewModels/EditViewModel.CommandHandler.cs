@@ -1,4 +1,5 @@
-﻿using Avalonia.Controls;
+﻿using System.Reactive.Subjects;
+using Avalonia.Controls;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Media;
 using Beutl.ProjectSystem;
@@ -6,8 +7,47 @@ using Microsoft.Extensions.Logging;
 
 namespace Beutl.ViewModels;
 
-public partial class EditViewModel : IContextCommandHandler
+public partial class EditViewModel : IContextCommandHandler, IContextCommandStateNotifier
 {
+    private readonly Subject<System.Reactive.Unit> _commandStateChangedSubject = new();
+    private bool _commandStateNotifierDisposed;
+
+    public IObservable<System.Reactive.Unit> CanExecuteChanged => _commandStateChangedSubject;
+
+    // EditViewModel ctor で Player を初期化した直後に呼び、Player 系コマンドの ICommand.CanExecuteChanged を
+    // 通知 Subject へ流す。これによりパレット表示中の再生状態遷移にも CanExecute が追従する。
+    private void HookCommandStateNotifier()
+    {
+        ((System.Windows.Input.ICommand)Player.PlayPause).CanExecuteChanged += OnPlayerCanExecuteChanged;
+        ((System.Windows.Input.ICommand)Player.Next).CanExecuteChanged += OnPlayerCanExecuteChanged;
+        ((System.Windows.Input.ICommand)Player.Previous).CanExecuteChanged += OnPlayerCanExecuteChanged;
+        ((System.Windows.Input.ICommand)Player.Start).CanExecuteChanged += OnPlayerCanExecuteChanged;
+        ((System.Windows.Input.ICommand)Player.End).CanExecuteChanged += OnPlayerCanExecuteChanged;
+    }
+
+    private void OnPlayerCanExecuteChanged(object? sender, EventArgs e)
+    {
+        if (!_commandStateNotifierDisposed)
+        {
+            _commandStateChangedSubject.OnNext(System.Reactive.Unit.Default);
+        }
+    }
+
+    private void DisposeCommandStateNotifier()
+    {
+        _commandStateNotifierDisposed = true;
+        if (Player is { } player)
+        {
+            ((System.Windows.Input.ICommand)player.PlayPause).CanExecuteChanged -= OnPlayerCanExecuteChanged;
+            ((System.Windows.Input.ICommand)player.Next).CanExecuteChanged -= OnPlayerCanExecuteChanged;
+            ((System.Windows.Input.ICommand)player.Previous).CanExecuteChanged -= OnPlayerCanExecuteChanged;
+            ((System.Windows.Input.ICommand)player.Start).CanExecuteChanged -= OnPlayerCanExecuteChanged;
+            ((System.Windows.Input.ICommand)player.End).CanExecuteChanged -= OnPlayerCanExecuteChanged;
+        }
+
+        _commandStateChangedSubject.Dispose();
+    }
+
     // IContextCommandHandler を実装しない場合、以下のように ContextCommandAttribute を使用してコマンドを定義します。
     // [ContextCommand]
     // public void PlayPause(KeyEventArgs e)

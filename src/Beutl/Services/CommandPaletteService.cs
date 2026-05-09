@@ -67,6 +67,8 @@ public sealed class CommandPaletteService
                     .FirstOrDefault(i => i.Platform == s_currentPlatform)?.KeyGesture;
 
                 ContextCommandEntry capturedEntry = entry;
+                // スナップショット時に解決したハンドラーを Execute / CanExecute / StateChanged 全てで共有し、
+                // 列挙時と実行時で別インスタンスへ向くケースを防ぐ。タブ切替時は RebuildSnapshot で再列挙される。
                 IContextCommandHandler? snapshotHandler = _handlerProvider.Resolve(entry.ExtensionType);
                 IObservable<System.Reactive.Unit>? stateChanged =
                     (snapshotHandler as IContextCommandStateNotifier)?.CanExecuteChanged;
@@ -77,12 +79,8 @@ public sealed class CommandPaletteService
                     Description: entry.Definition.Description,
                     CategoryName: category,
                     KeyGesture: gesture,
-                    CanExecute: () => CanExecuteContextCommand(capturedEntry),
-                    Execute: () =>
-                    {
-                        var handler = _handlerProvider.Resolve(capturedEntry.ExtensionType);
-                        handler?.Execute(new ContextCommandExecution(capturedEntry.Definition.Name));
-                    })
+                    CanExecute: () => snapshotHandler?.CanExecute(new ContextCommandExecution(capturedEntry.Definition.Name)) ?? false,
+                    Execute: () => snapshotHandler?.Execute(new ContextCommandExecution(capturedEntry.Definition.Name)))
                 {
                     StateChanged = stateChanged
                 });
@@ -92,17 +90,6 @@ public sealed class CommandPaletteService
         AppendMenuCommands(result);
 
         return result;
-    }
-
-    private bool CanExecuteContextCommand(ContextCommandEntry entry)
-    {
-        IContextCommandHandler? handler = _handlerProvider.Resolve(entry.ExtensionType);
-        if (handler == null)
-        {
-            return false;
-        }
-
-        return handler.CanExecute(new ContextCommandExecution(entry.Definition.Name));
     }
 
     private string ResolveCategoryName(Type extensionType)

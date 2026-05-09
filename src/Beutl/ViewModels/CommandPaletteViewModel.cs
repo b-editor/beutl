@@ -16,7 +16,7 @@ public sealed class CommandPaletteViewModel : BaseViewModel
     private IReadOnlyList<PaletteCommand> _snapshot = [];
     private readonly IDisposable _querySubscription;
     private readonly IDisposable _activeTabSubscription;
-    private readonly CompositeDisposable _stateChangeSubscriptions = [];
+    private CompositeDisposable _stateChangeSubscriptions = [];
 
     public CommandPaletteViewModel(CommandPaletteService service)
     {
@@ -74,8 +74,11 @@ public sealed class CommandPaletteViewModel : BaseViewModel
 
     private void RebuildSnapshot()
     {
-        _stateChangeSubscriptions.Clear();
         _snapshot = _service.EnumerateCommands();
+
+        // 旧購読を Dispose する前に新購読を確立し、Clear→Subscribe の隙間で通知が落ちる窓を排除する。
+        // 重複期間は Throttle が吸収し、後で旧購読は破棄される。
+        var newSubscriptions = new CompositeDisposable();
 
         // 同じハンドラーから複数のコマンドが来る場合 StateChanged の observable は同一インスタンスになるため
         // Distinct で重複購読を避ける。通知時はバースト抑止のため軽くスロットリングして RefreshFiltered する。
@@ -94,8 +97,12 @@ public sealed class CommandPaletteViewModel : BaseViewModel
                         RefreshFiltered();
                     }
                 })
-                .AddTo(_stateChangeSubscriptions);
+                .AddTo(newSubscriptions);
         }
+
+        CompositeDisposable previous = _stateChangeSubscriptions;
+        _stateChangeSubscriptions = newSubscriptions;
+        previous.Dispose();
 
         // Throttle 経由ではなく即時に最新のスナップショットへ反映する
         RefreshFiltered();
