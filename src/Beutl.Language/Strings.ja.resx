@@ -1108,4 +1108,19 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="EstimatedSize" xml:space="preserve">
     <value>推定サイズ</value>
   </data>
+  <data name="ShowCommandPalette" xml:space="preserve">
+    <value>コマンドパレットを開く</value>
+  </data>
+  <data name="ShowCommandPalette_Description" xml:space="preserve">
+    <value>検索可能なコマンド一覧を開きます</value>
+  </data>
+  <data name="CommandPalette_Placeholder" xml:space="preserve">
+    <value>コマンド名を入力…</value>
+  </data>
+  <data name="CommandPalette_NoResults" xml:space="preserve">
+    <value>一致するコマンドがありません</value>
+  </data>
+  <data name="CommandPalette_MenuCategory" xml:space="preserve">
+    <value>メニュー</value>
+  </data>
 </root>

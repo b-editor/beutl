@@ -65,6 +65,7 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
         config.PropertyChanged += OnEditorConfigPropertyChanged;
 
         Player = new PlayerViewModel(this);
+        HookCommandStateNotifier();
         Commands = new KnownCommandsImpl(scene, this);
         var sequenceGenerator = new OperationSequenceGenerator();
         var observer = new CoreObjectOperationObserver(null, Scene, sequenceGenerator)
@@ -324,6 +325,8 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
         GlobalConfiguration.Instance.EditorConfig.PropertyChanged -= OnEditorConfigPropertyChanged;
         SaveState();
         _editorSelection.SelectedObject.Value = null;
+        // Player を破棄する前にイベント購読を外し、Subject 破棄後の OnNext を抑止する。
+        DisposeCommandStateNotifier();
         await Player.DisposeAsync();
         _disposables.Dispose();
         IsEnabled.Dispose();

@@ -29,12 +29,14 @@ using Reactive.Bindings.Extensions;
 
 namespace Beutl.Editor.Components.TimelineTab.ViewModels;
 
-public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler
+public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler, IContextCommandStateNotifier
 {
     private readonly ILogger _logger = Log.CreateLogger<TimelineTabViewModel>();
     private readonly CompositeDisposable _disposables = [];
     private readonly Subject<LayerHeaderViewModel> _layerHeightChanged = new();
+    private readonly Subject<System.Reactive.Unit> _canExecuteChangedSubject = new();
     private readonly Dictionary<int, TrackedLayerTopObservable> _trackerCache = [];
+    private bool _isDisposed;
 
     public TimelineTabViewModel(IEditorContext editorContext)
     {
@@ -207,7 +209,20 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler
                 BufferStatus.UpdateBlocks();
             });
 
+        // CanExecute がレイザーモード切替に追従するよう変更通知へ流す。
+        IsRazorMode
+            .Subscribe(_ => RaiseCanExecuteChanged())
+            .AddTo(_disposables);
+
         _logger.LogInformation("TimelineTabViewModel initialized successfully.");
+    }
+
+    private void RaiseCanExecuteChanged()
+    {
+        if (!_isDisposed)
+        {
+            _canExecuteChangedSubject.OnNext(System.Reactive.Unit.Default);
+        }
     }
 
     private void SetStartTimeCore(TimeSpan time)
@@ -385,11 +400,15 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler
 
     public IObservable<LayerHeaderViewModel> LayerHeightChanged => _layerHeightChanged;
 
+    public IObservable<System.Reactive.Unit> CanExecuteChanged => _canExecuteChangedSubject;
+
     public string Header => Strings.Timeline;
 
     public void Dispose()
     {
         _logger.LogInformation("Disposing TimelineViewModel.");
+        // 以降の OnNext を抑止してから内部 Subject を Dispose する。
+        _isDisposed = true;
         _disposables.Dispose();
         foreach (ElementViewModel? item in Elements.GetMarshal().Value)
         {
@@ -417,6 +436,7 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler
         }
 
         _layerHeightChanged.Dispose();
+        _canExecuteChangedSubject.Dispose();
 
         Inlines.Clear();
         LayerHeaders.Clear();
@@ -1022,12 +1042,14 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler
         }
 
         SelectedElements.Clear();
+        RaiseCanExecuteChanged();
     }
 
     public void SelectElement(ElementViewModel item)
     {
         SelectedElements.Add(item);
         item.IsSelected.Value = true;
+        RaiseCanExecuteChanged();
     }
 
     public void SwitchSelectedElement(ElementViewModel item)
@@ -1041,6 +1063,8 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler
         {
             SelectedElements.Remove(item);
         }
+
+        RaiseCanExecuteChanged();
     }
 
     internal void RaiseLayerHeightChanged(LayerHeaderViewModel value)
@@ -1056,6 +1080,18 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler
     public ElementViewModel? GetViewModelFor(Element element)
     {
         return Elements.FirstOrDefault(x => x.Model == element);
+    }
+
+    public bool CanExecute(ContextCommandExecution execution)
+    {
+        return execution.CommandName switch
+        {
+            "Copy" or "Cut" or "Delete" or "Exclude" => SelectedElements.Count > 0,
+            "ToggleGroup" => SelectedElements.FirstOrDefault() is { } first
+                && (first.CanUngroupSelectedElements() || first.CanGroupSelectedElements()),
+            "ExitRazorMode" => IsRazorMode.Value,
+            _ => true,
+        };
     }
 
     public void Execute(ContextCommandExecution execution)

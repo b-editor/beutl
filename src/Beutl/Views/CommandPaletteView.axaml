@@ -1,0 +1,107 @@
+<UserControl x:Class="Beutl.Views.CommandPaletteView"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:lang="using:Beutl.Language"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:viewModels="using:Beutl.ViewModels"
+             d:DesignHeight="480"
+             d:DesignWidth="800"
+             x:CompileBindings="True"
+             x:DataType="viewModels:CommandPaletteViewModel"
+             IsHitTestVisible="{Binding IsOpen.Value}"
+             IsVisible="{Binding IsOpen.Value}"
+             mc:Ignorable="d">
+    <Panel>
+        <!-- Light-dismiss backdrop -->
+        <Border x:Name="Backdrop"
+                Background="Transparent"
+                IsHitTestVisible="True"
+                PointerPressed="OnBackdropPointerPressed" />
+
+        <!-- Palette container -->
+        <Border x:Name="PaletteContainer"
+                MinWidth="320"
+                MaxWidth="640"
+                MaxHeight="480"
+                Margin="16,80,16,16"
+                Padding="0"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Top"
+                Background="{DynamicResource SolidBackgroundFillColorBaseBrush}"
+                BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
+                BorderThickness="1"
+                BoxShadow="0 8 32 0 #40000000"
+                CornerRadius="8">
+            <Grid RowDefinitions="Auto,Auto,*">
+                <TextBox x:Name="QueryTextBox"
+                         Margin="8,8,8,4"
+                         BorderThickness="0"
+                         FontSize="16"
+                         KeyDown="OnQueryKeyDown"
+                         Text="{Binding Query.Value, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                         Watermark="{x:Static lang:Strings.CommandPalette_Placeholder}" />
+
+                <Border Grid.Row="1"
+                        Margin="8,0"
+                        BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
+                        BorderThickness="0,0,0,1" />
+
+                <ListBox x:Name="ResultsListBox"
+                         Grid.Row="2"
+                         Margin="4,4,4,8"
+                         Background="Transparent"
+                         BorderThickness="0"
+                         DoubleTapped="OnResultsDoubleTapped"
+                         IsVisible="{Binding !HasNoResults.Value}"
+                         ItemsSource="{Binding FilteredCommands}"
+                         SelectedItem="{Binding SelectedCommand.Value, Mode=TwoWay}">
+                    <ListBox.Styles>
+                        <Style Selector="ListBoxItem">
+                            <Setter Property="Padding" Value="8,6" />
+                        </Style>
+                    </ListBox.Styles>
+                    <ListBox.ItemTemplate>
+                        <DataTemplate x:DataType="viewModels:CommandPaletteItemViewModel">
+                            <Grid ColumnDefinitions="*,Auto"
+                                  IsEnabled="{Binding IsEnabled}">
+                                <StackPanel Grid.Column="0" Spacing="2">
+                                    <TextBlock FontWeight="SemiBold"
+                                               Text="{Binding DisplayName}"
+                                               TextTrimming="CharacterEllipsis" />
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <TextBlock FontSize="11"
+                                                   Foreground="{DynamicResource TextFillColorTertiaryBrush}"
+                                                   Text="{Binding CategoryName}" />
+                                        <TextBlock FontSize="11"
+                                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                                   IsVisible="{Binding Description, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                                   Text="{Binding Description}"
+                                                   TextTrimming="CharacterEllipsis" />
+                                    </StackPanel>
+                                </StackPanel>
+                                <Border Grid.Column="1"
+                                        Padding="6,2"
+                                        VerticalAlignment="Center"
+                                        Background="{DynamicResource ControlAltFillColorSecondaryBrush}"
+                                        CornerRadius="4"
+                                        IsVisible="{Binding KeyGestureText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                                    <TextBlock FontSize="11"
+                                               Text="{Binding KeyGestureText}" />
+                                </Border>
+                            </Grid>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+
+                <TextBlock Grid.Row="2"
+                           Margin="16"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Center"
+                           Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                           IsVisible="{Binding HasNoResults.Value}"
+                           Text="{x:Static lang:Strings.CommandPalette_NoResults}" />
+            </Grid>
+        </Border>
+    </Panel>
+</UserControl>

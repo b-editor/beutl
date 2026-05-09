@@ -35,6 +35,12 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
             .ToReadOnlyReactivePropertySlim("Beutl");
         TitleBreadcrumbBar = new TitleBreadcrumbBarViewModel(this, EditorService.Current);
 
+        var paletteService = new CommandPaletteService(
+            ContextCommandManager,
+            new CommandPaletteHandlerProvider(() => this),
+            () => MenuBar);
+        CommandPalette = new CommandPaletteViewModel(paletteService);
+
         ICoreReadOnlyList<Extension> allExtension = ExtensionProvider.Current.AllExtensions;
 
         var comparer = SortExpressionComparer<Extension>.Ascending(i => i.Name);
@@ -98,6 +104,8 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
 
     public ContextCommandManager? ContextCommandManager { get; }
 
+    public CommandPaletteViewModel CommandPalette { get; }
+
     public SettingsDialogViewModel CreateSettingsDialog()
     {
         return new SettingsDialogViewModel(_beutlClients);
@@ -122,6 +130,7 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
 
     public override void Dispose()
     {
+        CommandPalette.Dispose();
         ProjectService.Current.CloseProject();
         BeutlApplication.Current.Items.Clear();
     }
@@ -168,42 +177,31 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
     {
         if (execution.KeyEventArgs != null)
             execution.KeyEventArgs.Handled = true;
-        switch (execution.CommandName)
+
+        if (execution.CommandName == "ShowCommandPalette")
         {
-            case "CreateNewProject":
-                MenuBar.CreateNewProject.Execute(null);
-                break;
-            case "CreateNewFile":
-                MenuBar.CreateNew.Execute(null);
-                break;
-            case "OpenProject":
-                MenuBar.OpenProject.Execute(null);
-                break;
-            case "OpenFile":
-                MenuBar.OpenFile.Execute(null);
-                break;
-            case "Save":
-                MenuBar.Save.Execute(null);
-                break;
-            case "SaveAll":
-                MenuBar.SaveAll.Execute(null);
-                break;
-            case "CloseProject":
-                MenuBar.CloseProject.Execute(null);
-                break;
-            case "Undo":
-                MenuBar.Undo.Execute(null);
-                break;
-            case "Redo":
-                MenuBar.Redo.Execute(null);
-                break;
-            case "Exit":
-                MenuBar.Exit.Execute(null);
-                break;
-            default:
-                if (execution.KeyEventArgs != null)
-                    execution.KeyEventArgs.Handled = false;
-                break;
+            CommandPalette.Toggle();
+            return;
         }
+
+        if (MenuBar.FindContextCommand(execution.CommandName) is { } command)
+        {
+            if (command.CanExecute(null))
+                command.Execute(null);
+            return;
+        }
+
+        if (execution.KeyEventArgs != null)
+            execution.KeyEventArgs.Handled = false;
+    }
+
+    public bool CanExecute(ContextCommandExecution execution)
+    {
+        if (execution.CommandName == "ShowCommandPalette")
+            return true;
+
+        // 未知のコマンドは false を返し、ContextCommandManager のフォールバックバインディングや
+        // 他のハンドラーへキーイベントを委ねられるようにする。
+        return MenuBar.FindContextCommand(execution.CommandName)?.CanExecute(null) ?? false;
     }
 }

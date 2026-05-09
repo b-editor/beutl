@@ -6,6 +6,8 @@ namespace Beutl.Services.PrimitiveImpls;
 [PrimitiveImpl]
 public class MainViewExtension : ViewExtension
 {
+    public const string ShowCommandPaletteCommandName = "ShowCommandPalette";
+
     public static readonly MainViewExtension Instance = new();
 
     public override string Name => "MainView";
@@ -63,6 +65,11 @@ public class MainViewExtension : ViewExtension
         [
             new ContextCommandKeyGesture("Alt+F4"),
             new ContextCommandKeyGesture("Cmd+Q", OSPlatform.OSX),
+        ]),
+        new(ShowCommandPaletteCommandName, Strings.ShowCommandPalette, Strings.ShowCommandPalette_Description,
+        [
+            new ContextCommandKeyGesture("Ctrl+Shift+P"),
+            new ContextCommandKeyGesture("Cmd+Shift+P", OSPlatform.OSX),
         ]),
     ];
 }

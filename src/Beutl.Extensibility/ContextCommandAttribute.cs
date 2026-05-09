@@ -1,4 +1,5 @@
-﻿using System.Runtime.InteropServices;
+﻿using System.Reactive;
+using System.Runtime.InteropServices;
 using Avalonia.Input;
 
 namespace Beutl.Extensibility;
@@ -6,6 +7,16 @@ namespace Beutl.Extensibility;
 public interface IContextCommandHandler
 {
     void Execute(ContextCommandExecution execution);
+
+    bool CanExecute(ContextCommandExecution execution) => true;
+}
+
+// CanExecute の判定が状態変化に応じて変わる場合に実装する optional インターフェース。
+// CommandPalette はスナップショット中のハンドラーが提供する CanExecuteChanged を購読し、
+// 通知を受け取った時点でフィルタ結果を再評価する。
+public interface IContextCommandStateNotifier
+{
+    IObservable<Unit> CanExecuteChanged { get; }
 }
 
 public class ContextCommandExecution
