@@ -49,7 +49,9 @@ public partial class CommandPaletteView : UserControl
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
-        _disposables.Dispose();
+        // Dispose ではなく Clear を呼ぶことで、Avalonia により Detach→再 Attach された際の
+        // OnDataContextChanged 内 _disposables.Clear() が破棄済みインスタンスに対して呼ばれる事態を避ける。
+        _disposables.Clear();
         base.OnDetachedFromVisualTree(e);
     }
 

@@ -200,6 +200,8 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
         if (execution.CommandName == "ShowCommandPalette")
             return true;
 
-        return MenuBar.FindContextCommand(execution.CommandName)?.CanExecute(null) ?? true;
+        // 未知のコマンドは false を返し、ContextCommandManager のフォールバックバインディングや
+        // 他のハンドラーへキーイベントを委ねられるようにする。
+        return MenuBar.FindContextCommand(execution.CommandName)?.CanExecute(null) ?? false;
     }
 }
