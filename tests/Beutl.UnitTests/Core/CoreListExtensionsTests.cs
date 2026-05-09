@@ -1,4 +1,4 @@
-using System.ComponentModel;
+﻿using System.ComponentModel;
 using Beutl.Collections;
 
 namespace Beutl.UnitTests.Core;

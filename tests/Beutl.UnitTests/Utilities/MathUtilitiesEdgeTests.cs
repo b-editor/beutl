@@ -1,4 +1,4 @@
-using Beutl.Utilities;
+﻿using Beutl.Utilities;
 
 namespace Beutl.UnitTests.Utilities;
 

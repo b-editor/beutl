@@ -1,4 +1,4 @@
-using System.Numerics;
+﻿using System.Numerics;
 using Beutl.Converters;
 using Beutl.Graphics;
 using Beutl.Media;

@@ -1,4 +1,4 @@
-using Beutl.Collections;
+﻿using Beutl.Collections;
 
 namespace Beutl.UnitTests.Core;
 

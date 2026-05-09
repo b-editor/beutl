@@ -1,4 +1,4 @@
-using Beutl.Audio;
+﻿using Beutl.Audio;
 
 namespace Beutl.UnitTests.Engine;
 

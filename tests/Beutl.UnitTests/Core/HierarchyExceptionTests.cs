@@ -1,4 +1,4 @@
-namespace Beutl.UnitTests.Core;
+﻿namespace Beutl.UnitTests.Core;
 
 public class HierarchyExceptionTests
 {

@@ -1,4 +1,4 @@
-using System.Numerics;
+﻿using System.Numerics;
 using Beutl.ProjectSystem;
 
 namespace Beutl.UnitTests.ProjectSystem;

@@ -1,4 +1,4 @@
-using Beutl.Graphics.Rendering;
+﻿using Beutl.Graphics.Rendering;
 
 namespace Beutl.UnitTests.Engine.Graphics.Backend;
 

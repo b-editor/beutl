@@ -1,4 +1,4 @@
-using System.Reactive.Disposables;
+﻿using System.Reactive.Disposables;
 using Beutl.Reactive;
 
 namespace Beutl.UnitTests.Core;

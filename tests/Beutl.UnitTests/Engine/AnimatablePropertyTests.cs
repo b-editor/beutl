@@ -1,4 +1,4 @@
-using Beutl.Animation;
+﻿using Beutl.Animation;
 using Beutl.Animation.Easings;
 using Beutl.Composition;
 using Beutl.Engine;

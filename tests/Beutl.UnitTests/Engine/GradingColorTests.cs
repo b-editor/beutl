@@ -1,4 +1,4 @@
-using System.Numerics;
+﻿using System.Numerics;
 using Beutl.Media;
 
 namespace Beutl.UnitTests.Engine;

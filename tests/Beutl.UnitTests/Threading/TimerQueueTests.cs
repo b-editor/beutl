@@ -1,4 +1,4 @@
-using Beutl.Threading;
+﻿using Beutl.Threading;
 using Microsoft.Extensions.Time.Testing;
 
 namespace Beutl.UnitTests.Threading;

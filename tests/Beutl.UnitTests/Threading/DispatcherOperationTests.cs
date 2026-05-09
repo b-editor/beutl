@@ -1,4 +1,4 @@
-using Beutl.Threading;
+﻿using Beutl.Threading;
 
 namespace Beutl.UnitTests.Threading;
 

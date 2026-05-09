@@ -1,4 +1,4 @@
-using Beutl.Media;
+﻿using Beutl.Media;
 using Beutl.ProjectSystem;
 
 namespace Beutl.UnitTests.ProjectSystem;

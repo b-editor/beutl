@@ -1,4 +1,4 @@
-namespace Beutl.UnitTests.ProjectSystem;
+﻿namespace Beutl.UnitTests.ProjectSystem;
 
 [TestFixture]
 public class ListExtensionsTests

@@ -1,4 +1,4 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using Beutl.Validation;
 using RangeAttribute = System.ComponentModel.DataAnnotations.RangeAttribute;
 using ValidationContext = Beutl.Validation.ValidationContext;

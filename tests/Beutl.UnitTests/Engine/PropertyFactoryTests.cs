@@ -1,4 +1,4 @@
-using Beutl.Engine;
+﻿using Beutl.Engine;
 using DisplayAttribute = System.ComponentModel.DataAnnotations.DisplayAttribute;
 using RangeAttribute = System.ComponentModel.DataAnnotations.RangeAttribute;
 using ValidationAttribute = System.ComponentModel.DataAnnotations.ValidationAttribute;

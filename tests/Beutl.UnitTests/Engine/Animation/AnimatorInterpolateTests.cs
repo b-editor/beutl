@@ -1,4 +1,4 @@
-using System.Numerics;
+﻿using System.Numerics;
 
 using Beutl.Animation.Animators;
 using Beutl.Graphics;

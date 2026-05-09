@@ -1,4 +1,4 @@
-using Beutl.Reactive;
+﻿using Beutl.Reactive;
 
 namespace Beutl.UnitTests.Core;
 
