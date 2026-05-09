@@ -9,6 +9,10 @@ public class OptionalJsonConverterTests
     [Test]
     public void Serialize_EmptyOptional_WritesNothing()
     {
+        // The Optional<T> JSON converter intentionally writes nothing when HasValue is false.
+        // This relies on the parent serializer skipping the property entirely (Optional<T> is
+        // never the root of a serialized payload), so the standalone output here is not a
+        // valid JSON document by design.
         Optional<int> empty = default;
         string json = JsonSerializer.Serialize(empty, Options);
         Assert.That(json, Is.Empty);

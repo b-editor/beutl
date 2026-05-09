@@ -84,15 +84,15 @@ public class SuppressionTests
     }
 
     [Test]
-    public async Task PublishingSuppression_AsyncLocal_NotLeakedAcrossThreads()
+    public async Task PublishingSuppression_AsyncLocal_FlowsIntoChildTaskAndPreservesParent()
     {
         using IDisposable scope = PublishingSuppression.Enter();
         Assert.That(PublishingSuppression.IsSuppressed, Is.True);
 
         bool seenInOtherTask = await Task.Run(() => PublishingSuppression.IsSuppressed);
 
-        // AsyncLocal flows into Task.Run, but the captured snapshot remains true.
-        // After we explore a child task and return, parent state must still be true.
+        // AsyncLocal flows the suppression flag into Task.Run, and parent state is preserved
+        // after the child task completes.
         Assert.That(seenInOtherTask, Is.True);
         Assert.That(PublishingSuppression.IsSuppressed, Is.True);
     }
