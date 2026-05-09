@@ -66,14 +66,23 @@ public class WeakEventTests
         Assert.That(s2.Received, Is.EqualTo(new[] { "hello" }));
     }
 
+    private sealed class GenericEventSource
+    {
+        public event EventHandler<PropertyChangedEventArgs>? Changed;
+
+        public void Raise(string property)
+            => Changed?.Invoke(this, new PropertyChangedEventArgs(property));
+    }
+
     [Test]
     public void Register_ActionStyle_AlsoWorks()
     {
-        WeakEvent<Source, PropertyChangedEventArgs> ev = WeakEvent.Register<Source, PropertyChangedEventArgs>(
-            (s, h) => s.PropertyChanged += new PropertyChangedEventHandler(h),
-            (s, h) => s.PropertyChanged -= new PropertyChangedEventHandler(h));
+        WeakEvent<GenericEventSource, PropertyChangedEventArgs> ev =
+            WeakEvent.Register<GenericEventSource, PropertyChangedEventArgs>(
+                (s, h) => s.Changed += h,
+                (s, h) => s.Changed -= h);
 
-        var src = new Source();
+        var src = new GenericEventSource();
         var sub = new Subscriber();
         ev.Subscribe(src, sub);
         src.Raise("x");
