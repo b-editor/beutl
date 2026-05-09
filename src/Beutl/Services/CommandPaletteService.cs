@@ -1,4 +1,4 @@
-using System.Runtime.InteropServices;
+﻿using System.Runtime.InteropServices;
 using Avalonia.Input;
 using Beutl.Api.Services;
 using Beutl.Services.PrimitiveImpls;

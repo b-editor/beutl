@@ -1,4 +1,4 @@
-using Avalonia.Input;
+﻿using Avalonia.Input;
 using Beutl.Services;
 
 namespace Beutl.ViewModels;
