@@ -139,11 +139,11 @@ public class ThicknessTests
             new Thickness(1, 2, 3, 4),
         };
 
+        Span<char> chars = stackalloc char[64];
+        Span<byte> bytes = stackalloc byte[64];
+
         foreach (Thickness t in values)
         {
-            Span<char> chars = stackalloc char[64];
-            Span<byte> bytes = stackalloc byte[64];
-
             Assert.That(t.TryFormat(chars, out int cw), Is.True);
             Assert.That(t.TryFormat(bytes, out int bw), Is.True);
 
