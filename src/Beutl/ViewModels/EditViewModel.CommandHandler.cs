@@ -36,15 +36,11 @@ public partial class EditViewModel : IContextCommandHandler, IContextCommandStat
     private void DisposeCommandStateNotifier()
     {
         _commandStateNotifierDisposed = true;
-        if (Player is { } player)
-        {
-            ((System.Windows.Input.ICommand)player.PlayPause).CanExecuteChanged -= OnPlayerCanExecuteChanged;
-            ((System.Windows.Input.ICommand)player.Next).CanExecuteChanged -= OnPlayerCanExecuteChanged;
-            ((System.Windows.Input.ICommand)player.Previous).CanExecuteChanged -= OnPlayerCanExecuteChanged;
-            ((System.Windows.Input.ICommand)player.Start).CanExecuteChanged -= OnPlayerCanExecuteChanged;
-            ((System.Windows.Input.ICommand)player.End).CanExecuteChanged -= OnPlayerCanExecuteChanged;
-        }
-
+        ((System.Windows.Input.ICommand)Player.PlayPause).CanExecuteChanged -= OnPlayerCanExecuteChanged;
+        ((System.Windows.Input.ICommand)Player.Next).CanExecuteChanged -= OnPlayerCanExecuteChanged;
+        ((System.Windows.Input.ICommand)Player.Previous).CanExecuteChanged -= OnPlayerCanExecuteChanged;
+        ((System.Windows.Input.ICommand)Player.Start).CanExecuteChanged -= OnPlayerCanExecuteChanged;
+        ((System.Windows.Input.ICommand)Player.End).CanExecuteChanged -= OnPlayerCanExecuteChanged;
         _commandStateChangedSubject.Dispose();
     }
 

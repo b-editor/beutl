@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using Avalonia.Threading;
 using Beutl.Services;
 using Beutl.ViewModels.ExtensionsPages;
 using Reactive.Bindings;
@@ -74,6 +75,10 @@ public sealed class CommandPaletteViewModel : BaseViewModel
 
     private void RebuildSnapshot()
     {
+        // _snapshot / _stateChangeSubscriptions / _filteredCommands は同期化していないため、
+        // UI スレッドからのみ呼び出されることを明示的にチェックする。
+        Dispatcher.UIThread.VerifyAccess();
+
         _snapshot = _service.EnumerateCommands();
 
         // 旧購読を Dispose する前に新購読を確立し、Clear→Subscribe の隙間で通知が落ちる窓を排除する。
@@ -112,6 +117,14 @@ public sealed class CommandPaletteViewModel : BaseViewModel
     {
         IsOpen.Value = false;
         SelectedCommand.Value = null;
+
+        // パレットを閉じた時点で snapshot 内の closure に閉じ込めたハンドラー参照と購読を解放し、
+        // 開いていない間にハンドラーや Subject を不必要に保持しないようにする。
+        _filteredCommands.Clear();
+        _snapshot = [];
+        CompositeDisposable previous = _stateChangeSubscriptions;
+        _stateChangeSubscriptions = [];
+        previous.Dispose();
     }
 
     public void ExecuteSelected()
