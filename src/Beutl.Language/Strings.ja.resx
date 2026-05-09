@@ -225,6 +225,9 @@
   <data name="History_Initial" xml:space="preserve">
     <value>初期状態</value>
   </data>
+  <data name="History_Unnamed" xml:space="preserve">
+    <value>(無題)</value>
+  </data>
   <data name="Search" xml:space="preserve">
     <value>検索</value>
   </data>

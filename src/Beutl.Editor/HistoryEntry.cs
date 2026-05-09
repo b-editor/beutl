@@ -1,3 +1,5 @@
+using Beutl.Language;
+
 namespace Beutl.Editor;
 
 public sealed class HistoryEntry
@@ -23,6 +25,12 @@ public sealed class HistoryEntry
     public DateTime Timestamp { get; }
 
     public bool IsInitial { get; }
+
+    public string DisplayLabel => IsInitial
+        ? Strings.History_Initial
+        : DisplayName ?? Name ?? Strings.History_Unnamed;
+
+    public string TransactionLabel => TransactionId?.ToString() ?? "•";
 
     internal static HistoryEntry CreateInitial()
     {

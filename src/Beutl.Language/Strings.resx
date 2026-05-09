@@ -107,6 +107,9 @@
   <data name="History_Initial" xml:space="preserve">
     <value>Initial state</value>
   </data>
+  <data name="History_Unnamed" xml:space="preserve">
+    <value>(Unnamed)</value>
+  </data>
   <data name="Settings" xml:space="preserve">
     <value>Settings</value>
   </data>

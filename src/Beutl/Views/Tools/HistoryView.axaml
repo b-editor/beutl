@@ -20,10 +20,10 @@
                            VerticalAlignment="Center"
                            FontFamily="Consolas, monospace"
                            Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                           Text="{Binding TransactionId, FallbackValue=&#x2022;}" />
+                           Text="{Binding TransactionLabel}" />
                 <TextBlock Grid.Column="2"
                            VerticalAlignment="Center"
-                           Text="{Binding DisplayName, FallbackValue={x:Static lang:Strings.History_Initial}}"
+                           Text="{Binding DisplayLabel}"
                            TextTrimming="CharacterEllipsis" />
                 <TextBlock Grid.Column="4"
                            VerticalAlignment="Center"
