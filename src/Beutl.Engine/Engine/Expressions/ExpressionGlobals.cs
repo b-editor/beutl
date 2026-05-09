@@ -1,9 +1,12 @@
-﻿using System.Numerics;
+﻿using System.Collections.Concurrent;
+using System.Numerics;
+using System.Reflection;
 
 namespace Beutl.Engine.Expressions;
 
 public class ExpressionGlobals
 {
+    private static readonly ConcurrentDictionary<Type, MethodInfo?> s_getValueMethods = new();
     private readonly ExpressionContext _context;
 
     public ExpressionGlobals(ExpressionContext context)
@@ -117,6 +120,42 @@ public class ExpressionGlobals
     public double Wiggle(double freq, double amp, int octaves, double ampMult) => Wiggle(freq, amp, octaves, ampMult, Time);
 
     public double Wiggle(double freq, double amp, int octaves, double ampMult, double t)
+        => WiggleSample(freq, amp, octaves, ampMult, t, 0);
+
+    public Vector2 Wiggle(Vector2 baseValue, double freq, double amp)
+        => Wiggle(baseValue, freq, amp, 1, 0.5, Time);
+
+    public Vector2 Wiggle(Vector2 baseValue, double freq, double amp, int octaves, double ampMult, double t)
+    {
+        return new Vector2(
+            baseValue.X + (float)WiggleSample(freq, amp, octaves, ampMult, t, 0),
+            baseValue.Y + (float)WiggleSample(freq, amp, octaves, ampMult, t, 1));
+    }
+
+    public Vector3 Wiggle(Vector3 baseValue, double freq, double amp)
+        => Wiggle(baseValue, freq, amp, 1, 0.5, Time);
+
+    public Vector3 Wiggle(Vector3 baseValue, double freq, double amp, int octaves, double ampMult, double t)
+    {
+        return new Vector3(
+            baseValue.X + (float)WiggleSample(freq, amp, octaves, ampMult, t, 0),
+            baseValue.Y + (float)WiggleSample(freq, amp, octaves, ampMult, t, 1),
+            baseValue.Z + (float)WiggleSample(freq, amp, octaves, ampMult, t, 2));
+    }
+
+    public Vector4 Wiggle(Vector4 baseValue, double freq, double amp)
+        => Wiggle(baseValue, freq, amp, 1, 0.5, Time);
+
+    public Vector4 Wiggle(Vector4 baseValue, double freq, double amp, int octaves, double ampMult, double t)
+    {
+        return new Vector4(
+            baseValue.X + (float)WiggleSample(freq, amp, octaves, ampMult, t, 0),
+            baseValue.Y + (float)WiggleSample(freq, amp, octaves, ampMult, t, 1),
+            baseValue.Z + (float)WiggleSample(freq, amp, octaves, ampMult, t, 2),
+            baseValue.W + (float)WiggleSample(freq, amp, octaves, ampMult, t, 3));
+    }
+
+    private static double WiggleSample(double freq, double amp, int octaves, double ampMult, double t, int seedOffset)
     {
         if (octaves < 1) octaves = 1;
         double sum = 0.0;
@@ -125,7 +164,7 @@ public class ExpressionGlobals
         double normalizer = 0.0;
         for (int i = 0; i < octaves; i++)
         {
-            double seed = (i + 1) * 12.9898;
+            double seed = (i + 1) * 12.9898 + seedOffset * 78.233;
             double phase = Math.Sin(seed) * 43758.5453;
             phase -= Math.Floor(phase);
             sum += currentAmp * Math.Sin((t * freq * currentFreq + phase) * 2.0 * Math.PI);
@@ -142,12 +181,17 @@ public class ExpressionGlobals
     public double LoopOut(double t, double period, string type)
     {
         if (period <= 0) return t;
-        return type?.ToLowerInvariant() switch
+        if (type == null) return Mod(t, period);
+        return type.ToLowerInvariant() switch
         {
+            "cycle" => Mod(t, period),
             "pingpong" => PingPong(t, period),
-            "offset" => t,
-            "continue" => t,
-            _ => Mod(t, period),
+            "offset" => throw new NotSupportedException(
+                "LoopOut 'offset' mode requires keyframe access and is not supported in this expression engine."),
+            "continue" => throw new NotSupportedException(
+                "LoopOut 'continue' mode requires keyframe access and is not supported in this expression engine."),
+            _ => throw new ArgumentException(
+                $"Unknown LoopOut type '{type}'. Valid values are 'cycle' or 'pingpong'.", nameof(type)),
         };
     }
 
@@ -165,24 +209,124 @@ public class ExpressionGlobals
 
     public T ValueAtTime<T>(double t)
     {
-        IProperty current = _context.CurrentProperty;
-        if (current is IProperty<T> typedProperty)
+        if (_context.CurrentProperty is not IProperty<T> typedProperty)
         {
-            var prevContext = new ExpressionContext(TimeSpan.FromSeconds(t + Start), current, _context.PropertyLookup);
-            return typedProperty.GetValue(prevContext);
+            return default!;
         }
-        return default!;
+        TimeSpan saved = _context.Time;
+        try
+        {
+            _context.Time = TimeSpan.FromSeconds(t + Start);
+            return typedProperty.GetValue(_context);
+        }
+        finally
+        {
+            _context.Time = saved;
+        }
     }
 
     public T ValueAtTime<T>(Guid objectId, string propertyName, double t)
     {
-        var prevContext = new ExpressionContext(
-            TimeSpan.FromSeconds(t + Start), _context.CurrentProperty, _context.PropertyLookup);
-        if (prevContext.TryGetPropertyValue<T>(objectId, propertyName, out var value))
+        TimeSpan saved = _context.Time;
+        try
         {
-            return value!;
+            _context.Time = TimeSpan.FromSeconds(t + Start);
+            if (_context.TryGetPropertyValue<T>(objectId, propertyName, out var value))
+            {
+                return value!;
+            }
+            return default!;
         }
-        return default!;
+        finally
+        {
+            _context.Time = saved;
+        }
+    }
+
+    public double ValueAtTime(double t) => ConvertToDouble(ValueAtTimeAsObject(t));
+
+    public double ValueAtTime(Guid objectId, string propertyName, double t)
+        => ConvertToDouble(ValueAtTimeAsObject(objectId, propertyName, t));
+
+    public Vector2 ValueAtTimeAsVector2(double t) => ValueAtTime<Vector2>(t);
+    public Vector2 ValueAtTimeAsVector2(Guid objectId, string propertyName, double t)
+        => ValueAtTime<Vector2>(objectId, propertyName, t);
+
+    public Vector3 ValueAtTimeAsVector3(double t) => ValueAtTime<Vector3>(t);
+    public Vector3 ValueAtTimeAsVector3(Guid objectId, string propertyName, double t)
+        => ValueAtTime<Vector3>(objectId, propertyName, t);
+
+    public Vector4 ValueAtTimeAsVector4(double t) => ValueAtTime<Vector4>(t);
+    public Vector4 ValueAtTimeAsVector4(Guid objectId, string propertyName, double t)
+        => ValueAtTime<Vector4>(objectId, propertyName, t);
+
+    public object? ValueAtTimeAsObject(double t)
+    {
+        IProperty current = _context.CurrentProperty;
+        TimeSpan saved = _context.Time;
+        try
+        {
+            _context.Time = TimeSpan.FromSeconds(t + Start);
+            return InvokeGetValue(current, _context);
+        }
+        finally
+        {
+            _context.Time = saved;
+        }
+    }
+
+    public object? ValueAtTimeAsObject(Guid objectId, string propertyName, double t)
+    {
+        IProperty? property = FindProperty(objectId, propertyName);
+        if (property == null) return null;
+        TimeSpan saved = _context.Time;
+        try
+        {
+            _context.Time = TimeSpan.FromSeconds(t + Start);
+            return InvokeGetValue(property, _context);
+        }
+        finally
+        {
+            _context.Time = saved;
+        }
+    }
+
+    private IProperty? FindProperty(Guid objectId, string propertyName)
+    {
+        if (_context.PropertyLookup.FindById(objectId) is not EngineObject engineObject)
+        {
+            return null;
+        }
+        return engineObject.Properties.FirstOrDefault(p =>
+            string.Equals(p.Name, propertyName, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static object? InvokeGetValue(IProperty property, ExpressionContext context)
+    {
+        MethodInfo? method = s_getValueMethods.GetOrAdd(property.GetType(), static t =>
+        {
+            Type? iface = t.GetInterfaces().FirstOrDefault(i =>
+                i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IProperty<>));
+            return iface?.GetMethod("GetValue", new[] { typeof(Beutl.Composition.CompositionContext) });
+        });
+        return method?.Invoke(property, [context]);
+    }
+
+    private static double ConvertToDouble(object? value)
+    {
+        if (value == null) return 0.0;
+        try
+        {
+            return Convert.ToDouble(value);
+        }
+        catch (InvalidCastException)
+        {
+            return 0.0;
+        }
+        catch (FormatException)
+        {
+            return 0.0;
+        }
     }
 
     public double PosterizeTime(double fps)
@@ -280,6 +424,12 @@ public class ExpressionGlobals
     public double wiggle(double freq, double amp, int octaves) => Wiggle(freq, amp, octaves);
     public double wiggle(double freq, double amp, int octaves, double ampMult) => Wiggle(freq, amp, octaves, ampMult);
     public double wiggle(double freq, double amp, int octaves, double ampMult, double t) => Wiggle(freq, amp, octaves, ampMult, t);
+    public Vector2 wiggle(Vector2 baseValue, double freq, double amp) => Wiggle(baseValue, freq, amp);
+    public Vector2 wiggle(Vector2 baseValue, double freq, double amp, int octaves, double ampMult, double t) => Wiggle(baseValue, freq, amp, octaves, ampMult, t);
+    public Vector3 wiggle(Vector3 baseValue, double freq, double amp) => Wiggle(baseValue, freq, amp);
+    public Vector3 wiggle(Vector3 baseValue, double freq, double amp, int octaves, double ampMult, double t) => Wiggle(baseValue, freq, amp, octaves, ampMult, t);
+    public Vector4 wiggle(Vector4 baseValue, double freq, double amp) => Wiggle(baseValue, freq, amp);
+    public Vector4 wiggle(Vector4 baseValue, double freq, double amp, int octaves, double ampMult, double t) => Wiggle(baseValue, freq, amp, octaves, ampMult, t);
 
     public double loopOut(double t, double period) => LoopOut(t, period);
     public double loopOut(double t, double period, string type) => LoopOut(t, period, type);
@@ -289,6 +439,16 @@ public class ExpressionGlobals
 
     public T valueAtTime<T>(double t) => ValueAtTime<T>(t);
     public T valueAtTime<T>(Guid objectId, string propertyName, double t) => ValueAtTime<T>(objectId, propertyName, t);
+    public double valueAtTime(double t) => ValueAtTime(t);
+    public double valueAtTime(Guid objectId, string propertyName, double t) => ValueAtTime(objectId, propertyName, t);
+    public Vector2 valueAtTimeAsVector2(double t) => ValueAtTimeAsVector2(t);
+    public Vector2 valueAtTimeAsVector2(Guid objectId, string propertyName, double t) => ValueAtTimeAsVector2(objectId, propertyName, t);
+    public Vector3 valueAtTimeAsVector3(double t) => ValueAtTimeAsVector3(t);
+    public Vector3 valueAtTimeAsVector3(Guid objectId, string propertyName, double t) => ValueAtTimeAsVector3(objectId, propertyName, t);
+    public Vector4 valueAtTimeAsVector4(double t) => ValueAtTimeAsVector4(t);
+    public Vector4 valueAtTimeAsVector4(Guid objectId, string propertyName, double t) => ValueAtTimeAsVector4(objectId, propertyName, t);
+    public object? valueAtTimeAsObject(double t) => ValueAtTimeAsObject(t);
+    public object? valueAtTimeAsObject(Guid objectId, string propertyName, double t) => ValueAtTimeAsObject(objectId, propertyName, t);
 
     public double posterizeTime(double fps) => PosterizeTime(fps);
     public double posterizeTime(double fps, double t) => PosterizeTime(fps, t);

@@ -502,4 +502,192 @@ public class ExpressionGlobalsTests
         Assert.That(globals.DegToRad(180.0), Is.EqualTo(Math.PI).Within(0.0001));
         Assert.That(globals.RadToDeg(Math.PI), Is.EqualTo(180.0).Within(0.0001));
     }
+
+    [Test]
+    public void LoopOut_OffsetMode_ShouldThrowNotSupported()
+    {
+        var context = TestHelper.CreateExpressionContext(TimeSpan.Zero);
+        var globals = new ExpressionGlobals(context);
+
+        Assert.Throws<NotSupportedException>(() => globals.LoopOut(1.0, 0.5, "offset"));
+    }
+
+    [Test]
+    public void LoopOut_ContinueMode_ShouldThrowNotSupported()
+    {
+        var context = TestHelper.CreateExpressionContext(TimeSpan.Zero);
+        var globals = new ExpressionGlobals(context);
+
+        Assert.Throws<NotSupportedException>(() => globals.LoopOut(1.0, 0.5, "continue"));
+    }
+
+    [Test]
+    public void LoopOut_UnknownMode_ShouldThrowArgumentException()
+    {
+        var context = TestHelper.CreateExpressionContext(TimeSpan.Zero);
+        var globals = new ExpressionGlobals(context);
+
+        Assert.Throws<ArgumentException>(() => globals.LoopOut(1.0, 0.5, "bogus"));
+    }
+
+    [Test]
+    public void Wiggle_Vector2_ShouldOffsetBaseValuePerComponent()
+    {
+        var context = TestHelper.CreateExpressionContext(TimeSpan.FromSeconds(0.5));
+        var globals = new ExpressionGlobals(context);
+
+        var baseValue = new System.Numerics.Vector2(100f, 200f);
+        var result = globals.Wiggle(baseValue, 2.0, 50.0, 1, 0.5, 0.5);
+
+        Assert.That(result.X, Is.GreaterThanOrEqualTo(50f));
+        Assert.That(result.X, Is.LessThanOrEqualTo(150f));
+        Assert.That(result.Y, Is.GreaterThanOrEqualTo(150f));
+        Assert.That(result.Y, Is.LessThanOrEqualTo(250f));
+        // Components must use independent seeds, so offsets should not be identical.
+        Assert.That(result.X - baseValue.X, Is.Not.EqualTo(result.Y - baseValue.Y));
+    }
+
+    [Test]
+    public void Wiggle_Vector3_ShouldOffsetBaseValuePerComponent()
+    {
+        var context = TestHelper.CreateExpressionContext(TimeSpan.FromSeconds(0.25));
+        var globals = new ExpressionGlobals(context);
+
+        var baseValue = new System.Numerics.Vector3(10f, 20f, 30f);
+        var result = globals.Wiggle(baseValue, 1.0, 5.0, 1, 0.5, 0.25);
+
+        double dx = result.X - baseValue.X;
+        double dy = result.Y - baseValue.Y;
+        double dz = result.Z - baseValue.Z;
+        Assert.That(Math.Abs(dx), Is.LessThanOrEqualTo(5.0));
+        Assert.That(Math.Abs(dy), Is.LessThanOrEqualTo(5.0));
+        Assert.That(Math.Abs(dz), Is.LessThanOrEqualTo(5.0));
+        Assert.That(dx, Is.Not.EqualTo(dy));
+        Assert.That(dy, Is.Not.EqualTo(dz));
+    }
+
+    [Test]
+    public void Wiggle_Vector4_ShouldOffsetBaseValuePerComponent()
+    {
+        var context = TestHelper.CreateExpressionContext(TimeSpan.FromSeconds(0.1));
+        var globals = new ExpressionGlobals(context);
+
+        var baseValue = new System.Numerics.Vector4(1f, 2f, 3f, 4f);
+        var result = globals.Wiggle(baseValue, 3.0, 1.0, 1, 0.5, 0.1);
+
+        Assert.That(Math.Abs(result.X - baseValue.X), Is.LessThanOrEqualTo(1.0));
+        Assert.That(Math.Abs(result.Y - baseValue.Y), Is.LessThanOrEqualTo(1.0));
+        Assert.That(Math.Abs(result.Z - baseValue.Z), Is.LessThanOrEqualTo(1.0));
+        Assert.That(Math.Abs(result.W - baseValue.W), Is.LessThanOrEqualTo(1.0));
+    }
+
+    [Test]
+    public void ValueAtTime_NonGeneric_ShouldReturnDouble()
+    {
+        // Arrange - target a double property reachable via Guid+name.
+        var root = new TestEngineObject();
+        var child = new TestEngineObject();
+        child.Value.CurrentValue = 7.5;
+        root.AddChild(child);
+
+        var lookup = new PropertyLookup(root);
+        var property = Property.Create(0.0);
+        var context = new ExpressionContext(TimeSpan.FromSeconds(1), property, lookup);
+        var globals = new ExpressionGlobals(context);
+
+        // Act
+        double result = globals.ValueAtTime(child.Id, "Value", 0.0);
+
+        // Assert
+        Assert.That(result, Is.EqualTo(7.5).Within(0.0001));
+    }
+
+    [Test]
+    public void ValueAtTimeAsObject_ShouldReturnRawObject()
+    {
+        var root = new TestEngineObject();
+        var child = new TestEngineObject();
+        child.Value.CurrentValue = 42.0;
+        root.AddChild(child);
+
+        var lookup = new PropertyLookup(root);
+        var property = Property.Create(0.0);
+        var context = new ExpressionContext(TimeSpan.Zero, property, lookup);
+        var globals = new ExpressionGlobals(context);
+
+        object? result = globals.ValueAtTimeAsObject(child.Id, "Value", 0.0);
+
+        Assert.That(result, Is.EqualTo(42.0));
+    }
+
+    [Test]
+    public void ValueAtTime_OnSelfProperty_ShouldReturnDefaultWithoutStackOverflow()
+    {
+        // Arrange: a property with an expression that, if invoked, would recurse.
+        // BeginEvaluation marks the property as currently evaluating; the shared
+        // eval-stack guard must short-circuit and return DefaultValue rather than
+        // calling Expression.Evaluate again.
+        const double defaultValue = 99.0;
+        var property = Property.CreateAnimatable(defaultValue);
+        property.SetAttributes("Self", []);
+        var stubExpression = new RecursionTrackingExpression();
+        property.Expression = stubExpression;
+
+        var root = new TestCoreObject();
+        var lookup = new PropertyLookup(root);
+        var context = new ExpressionContext(TimeSpan.FromSeconds(1.0), property, lookup);
+        context.BeginEvaluation(property);
+        try
+        {
+            var globals = new ExpressionGlobals(context);
+
+            double result = globals.ValueAtTime<double>(0.5);
+
+            Assert.That(result, Is.EqualTo(defaultValue));
+            Assert.That(stubExpression.EvaluateCallCount, Is.EqualTo(0),
+                "Expression.Evaluate must not be re-entered while the property is on the eval stack.");
+        }
+        finally
+        {
+            context.EndEvaluation(property);
+        }
+    }
+
+    private sealed class RecursionTrackingExpression : IExpression<double>
+    {
+        public int EvaluateCallCount { get; private set; }
+
+        public string ExpressionString => "stub";
+
+        public bool Validate(out string? error)
+        {
+            error = null;
+            return true;
+        }
+
+        public double Evaluate(ExpressionContext context)
+        {
+            EvaluateCallCount++;
+            return 0.0;
+        }
+    }
+
+    [Test]
+    public void ValueAtTime_ShouldRestoreContextTimeAfterCall()
+    {
+        var root = new TestEngineObject();
+        var child = new TestEngineObject();
+        child.Value.CurrentValue = 1.0;
+        root.AddChild(child);
+
+        var lookup = new PropertyLookup(root);
+        var property = Property.Create(0.0);
+        TimeSpan originalTime = TimeSpan.FromSeconds(2.0);
+        var context = new ExpressionContext(originalTime, property, lookup);
+        var globals = new ExpressionGlobals(context);
+
+        _ = globals.ValueAtTime<double>(child.Id, "Value", 0.5);
+
+        Assert.That(context.Time, Is.EqualTo(originalTime));
+    }
 }
