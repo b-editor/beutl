@@ -690,4 +690,121 @@ public class ExpressionGlobalsTests
 
         Assert.That(context.Time, Is.EqualTo(originalTime));
     }
+
+    [Test]
+    public void ValueAtTime_ByGuid_ShouldSetCurrentPropertyToTarget()
+    {
+        // Target property has an expression that records the CurrentProperty
+        // observed during evaluation. Caller is a different property; we verify
+        // the context was correctly switched to the target during the call.
+        var root = new TestEngineObject();
+        var target = new TestEngineObject();
+        root.AddChild(target);
+
+        var inspector = new CurrentPropertyInspector();
+        target.Value.Expression = inspector;
+
+        var caller = Property.CreateAnimatable(0.0);
+        caller.SetAttributes("Caller", []);
+        var lookup = new PropertyLookup(root);
+        var context = new ExpressionContext(TimeSpan.FromSeconds(1), caller, lookup);
+        var globals = new ExpressionGlobals(context);
+
+        _ = globals.ValueAtTime<double>(target.Id, "Value", 0.5);
+
+        Assert.That(inspector.ObservedCurrentProperty, Is.SameAs(target.Value),
+            "ExpressionContext.CurrentProperty must point at the target property while its expression evaluates.");
+        Assert.That(context.CurrentProperty, Is.SameAs(caller),
+            "Caller's CurrentProperty must be restored after the call.");
+    }
+
+    [Test]
+    public void ValueAtTime_NonGeneric_ByGuid_ShouldFallBackToCoreProperty()
+    {
+        var root = new CorePropertyHost();
+        root.SetValue(CorePropertyHost.RatioProperty, 0.42);
+
+        var caller = Property.Create(0.0);
+        var lookup = new PropertyLookup(root);
+        var context = new ExpressionContext(TimeSpan.Zero, caller, lookup);
+        var globals = new ExpressionGlobals(context);
+
+        double result = globals.ValueAtTime(root.Id, "Ratio", 0.0);
+        object? raw = globals.ValueAtTimeAsObject(root.Id, "Ratio", 0.0);
+
+        Assert.That(result, Is.EqualTo(0.42).Within(0.0001));
+        Assert.That(raw, Is.EqualTo(0.42));
+    }
+
+    [Test]
+    public void PosterizeTime_NoBaseTime_ShouldUpdateTimeForSubsequentCalls()
+    {
+        var context = TestHelper.CreateExpressionContext(TimeSpan.FromSeconds(0.37));
+        var globals = new ExpressionGlobals(context);
+
+        Assert.That(globals.Time, Is.EqualTo(0.37).Within(0.0001));
+        double quantized = globals.PosterizeTime(10.0);
+
+        Assert.That(quantized, Is.EqualTo(0.3).Within(0.0001));
+        Assert.That(globals.Time, Is.EqualTo(0.3).Within(0.0001));
+    }
+
+    [Test]
+    public void PosterizeTime_WithExplicitTime_ShouldNotMutateTime()
+    {
+        var context = TestHelper.CreateExpressionContext(TimeSpan.FromSeconds(0.37));
+        var globals = new ExpressionGlobals(context);
+
+        double quantized = globals.PosterizeTime(10.0, 0.99);
+
+        Assert.That(quantized, Is.EqualTo(0.9).Within(0.0001));
+        Assert.That(globals.Time, Is.EqualTo(0.37).Within(0.0001));
+    }
+
+    [Test]
+    public void PosterizeTime_ShouldQuantizeWiggleSamples()
+    {
+        var contextA = TestHelper.CreateExpressionContext(TimeSpan.FromSeconds(0.37));
+        var globalsA = new ExpressionGlobals(contextA);
+        globalsA.PosterizeTime(10.0);
+        double withPosterize = globalsA.Wiggle(2.0, 50.0);
+
+        var contextB = TestHelper.CreateExpressionContext(TimeSpan.FromSeconds(0.3));
+        var globalsB = new ExpressionGlobals(contextB);
+        double atQuantized = globalsB.Wiggle(2.0, 50.0);
+
+        Assert.That(withPosterize, Is.EqualTo(atQuantized).Within(0.0001));
+    }
+
+    private sealed class CurrentPropertyInspector : IExpression<double>
+    {
+        public IProperty? ObservedCurrentProperty { get; private set; }
+
+        public string ExpressionString => "inspector";
+
+        public bool Validate(out string? error)
+        {
+            error = null;
+            return true;
+        }
+
+        public double Evaluate(ExpressionContext context)
+        {
+            ObservedCurrentProperty = context.CurrentProperty;
+            return 0.0;
+        }
+    }
+
+    private sealed class CorePropertyHost : CoreObject
+    {
+        public static readonly CoreProperty<double> RatioProperty
+            = ConfigureProperty<double, CorePropertyHost>(nameof(Ratio))
+                .Accessor(o => o.Ratio, (o, v) => o.Ratio = v)
+                .DefaultValue(0.0)
+                .Register();
+
+        // Auto-property; the Accessor wires CoreObject.GetValue/SetValue
+        // through these directly to avoid recursive routing.
+        public double Ratio { get; set; }
+    }
 }

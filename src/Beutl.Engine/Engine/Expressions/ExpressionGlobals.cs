@@ -18,7 +18,7 @@ public class ExpressionGlobals
         Time = _context.Time.TotalSeconds - Start;
     }
 
-    public double Time { get; }
+    public double Time { get; private set; }
 
     public double Start { get; }
 
@@ -227,10 +227,17 @@ public class ExpressionGlobals
 
     public T ValueAtTime<T>(Guid objectId, string propertyName, double t)
     {
-        TimeSpan saved = _context.Time;
+        TimeSpan savedTime = _context.Time;
+        IProperty savedProperty = _context.CurrentProperty;
         try
         {
             _context.Time = TimeSpan.FromSeconds(t + Start);
+            if (FindProperty(objectId, propertyName) is IProperty<T> typed)
+            {
+                _context.CurrentProperty = typed;
+                return typed.GetValue(_context);
+            }
+            // CoreProperty fallback (no expressions, CurrentProperty unchanged).
             if (_context.TryGetPropertyValue<T>(objectId, propertyName, out var value))
             {
                 return value!;
@@ -239,7 +246,8 @@ public class ExpressionGlobals
         }
         finally
         {
-            _context.Time = saved;
+            _context.Time = savedTime;
+            _context.CurrentProperty = savedProperty;
         }
     }
 
@@ -277,17 +285,39 @@ public class ExpressionGlobals
 
     public object? ValueAtTimeAsObject(Guid objectId, string propertyName, double t)
     {
-        IProperty? property = FindProperty(objectId, propertyName);
-        if (property == null) return null;
-        TimeSpan saved = _context.Time;
+        TimeSpan savedTime = _context.Time;
+        IProperty savedProperty = _context.CurrentProperty;
         try
         {
             _context.Time = TimeSpan.FromSeconds(t + Start);
-            return InvokeGetValue(property, _context);
+            if (_context.PropertyLookup.FindById(objectId) is not CoreObject coreObject)
+            {
+                return null;
+            }
+            if (coreObject is EngineObject engineObject)
+            {
+                IProperty? property = engineObject.Properties.FirstOrDefault(p =>
+                    string.Equals(p.Name, propertyName, StringComparison.OrdinalIgnoreCase));
+                if (property is not null)
+                {
+                    _context.CurrentProperty = property;
+                    return InvokeGetValue(property, _context);
+                }
+            }
+            // CoreProperty fallback for non-engine objects (or engine objects
+            // exposing only registered CoreProperties).
+            CoreProperty? coreProperty = PropertyRegistry.GetRegistered(coreObject.GetType())
+                .FirstOrDefault(p => string.Equals(p.Name, propertyName, StringComparison.OrdinalIgnoreCase));
+            if (coreProperty is not null)
+            {
+                return coreObject.GetValue(coreProperty);
+            }
+            return null;
         }
         finally
         {
-            _context.Time = saved;
+            _context.Time = savedTime;
+            _context.CurrentProperty = savedProperty;
         }
     }
 
@@ -329,12 +359,16 @@ public class ExpressionGlobals
         }
     }
 
+    // AE-compatible side-effecting form: quantizes Time so that subsequent
+    // helpers (Wiggle, etc.) read the posterized value through `Time`.
     public double PosterizeTime(double fps)
     {
         if (fps <= 0) return Time;
-        return Math.Floor(Time * fps) / fps;
+        Time = Math.Floor(Time * fps) / fps;
+        return Time;
     }
 
+    // Pure form: quantize an arbitrary time value without touching `Time`.
     public double PosterizeTime(double fps, double t)
     {
         if (fps <= 0) return t;
