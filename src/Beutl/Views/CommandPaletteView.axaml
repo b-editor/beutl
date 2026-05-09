@@ -1,6 +1,7 @@
 <UserControl x:Class="Beutl.Views.CommandPaletteView"
              xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="using:Beutl.Controls"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:lang="using:Beutl.Language"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -39,7 +40,8 @@
                          FontSize="16"
                          KeyDown="OnQueryKeyDown"
                          Text="{Binding Query.Value, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                         Watermark="{x:Static lang:Strings.CommandPalette_Placeholder}" />
+                         Watermark="{x:Static lang:Strings.CommandPalette_Placeholder}"
+                         controls:TextBoxAttachment.EnterDownBehavior="None" />
 
                 <Border Grid.Row="1"
                         Margin="8,0"
