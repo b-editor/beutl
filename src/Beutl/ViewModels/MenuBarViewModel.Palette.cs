@@ -19,4 +19,21 @@ public partial class MenuBarViewModel
         yield return new("MenuBar.ResetDockLayout", Strings.ResetDockLayout, ResetDockLayout);
         yield return new("MenuBar.ShowSceneSettings", Strings.SceneSettings, ShowSceneSettings);
     }
+
+    // MainViewExtension の ContextCommand 名から MenuBar 上の ICommand への単一マッピング。
+    // MainViewModel.Execute / CanExecute と CommandPalette が共通で参照するためここに集約している。
+    public ICommand? FindContextCommand(string commandName) => commandName switch
+    {
+        "CreateNewProject" => CreateNewProject,
+        "CreateNewFile" => CreateNew,
+        "OpenProject" => OpenProject,
+        "OpenFile" => OpenFile,
+        "Save" => Save,
+        "SaveAll" => SaveAll,
+        "CloseProject" => CloseProject,
+        "Undo" => Undo,
+        "Redo" => Redo,
+        "Exit" => Exit,
+        _ => null
+    };
 }

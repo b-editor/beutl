@@ -6,6 +6,8 @@ namespace Beutl.Extensibility;
 public interface IContextCommandHandler
 {
     void Execute(ContextCommandExecution execution);
+
+    bool CanExecute(ContextCommandExecution execution) => true;
 }
 
 public class ContextCommandExecution

@@ -177,45 +177,29 @@ public sealed class MainViewModel : BasePageViewModel, IContextCommandHandler
     {
         if (execution.KeyEventArgs != null)
             execution.KeyEventArgs.Handled = true;
-        switch (execution.CommandName)
+
+        if (execution.CommandName == "ShowCommandPalette")
         {
-            case "CreateNewProject":
-                MenuBar.CreateNewProject.Execute(null);
-                break;
-            case "CreateNewFile":
-                MenuBar.CreateNew.Execute(null);
-                break;
-            case "OpenProject":
-                MenuBar.OpenProject.Execute(null);
-                break;
-            case "OpenFile":
-                MenuBar.OpenFile.Execute(null);
-                break;
-            case "Save":
-                MenuBar.Save.Execute(null);
-                break;
-            case "SaveAll":
-                MenuBar.SaveAll.Execute(null);
-                break;
-            case "CloseProject":
-                MenuBar.CloseProject.Execute(null);
-                break;
-            case "Undo":
-                MenuBar.Undo.Execute(null);
-                break;
-            case "Redo":
-                MenuBar.Redo.Execute(null);
-                break;
-            case "Exit":
-                MenuBar.Exit.Execute(null);
-                break;
-            case "ShowCommandPalette":
-                CommandPalette.Toggle();
-                break;
-            default:
-                if (execution.KeyEventArgs != null)
-                    execution.KeyEventArgs.Handled = false;
-                break;
+            CommandPalette.Toggle();
+            return;
         }
+
+        if (MenuBar.FindContextCommand(execution.CommandName) is { } command)
+        {
+            if (command.CanExecute(null))
+                command.Execute(null);
+            return;
+        }
+
+        if (execution.KeyEventArgs != null)
+            execution.KeyEventArgs.Handled = false;
+    }
+
+    public bool CanExecute(ContextCommandExecution execution)
+    {
+        if (execution.CommandName == "ShowCommandPalette")
+            return true;
+
+        return MenuBar.FindContextCommand(execution.CommandName)?.CanExecute(null) ?? true;
     }
 }

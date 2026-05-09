@@ -2,11 +2,14 @@ using System.Collections.ObjectModel;
 using Beutl.Services;
 using Beutl.ViewModels.ExtensionsPages;
 using Reactive.Bindings;
+using Reactive.Bindings.Extensions;
 
 namespace Beutl.ViewModels;
 
 public sealed class CommandPaletteViewModel : BaseViewModel
 {
+    private static readonly TimeSpan s_queryThrottle = TimeSpan.FromMilliseconds(80);
+
     private readonly CommandPaletteService _service;
     private readonly ObservableCollection<CommandPaletteItemViewModel> _filteredCommands = [];
     private IReadOnlyList<PaletteCommand> _snapshot = [];
@@ -17,7 +20,11 @@ public sealed class CommandPaletteViewModel : BaseViewModel
         _service = service;
         FilteredCommands = new ReadOnlyObservableCollection<CommandPaletteItemViewModel>(_filteredCommands);
 
-        _querySubscription = Query.Subscribe(_ => RefreshFiltered());
+        _querySubscription = Query
+            .Skip(1)
+            .Throttle(s_queryThrottle)
+            .ObserveOnUIDispatcher()
+            .Subscribe(_ => RefreshFiltered());
     }
 
     public ReactivePropertySlim<bool> IsOpen { get; } = new(false);
@@ -45,16 +52,9 @@ public sealed class CommandPaletteViewModel : BaseViewModel
     public void Open()
     {
         _snapshot = _service.EnumerateCommands();
-        if (Query.Value.Length == 0)
-        {
-            RefreshFiltered();
-        }
-        else
-        {
-            // Query.Value への代入で _querySubscription 経由で RefreshFiltered が走る
-            Query.Value = string.Empty;
-        }
-
+        Query.Value = string.Empty;
+        // Throttle 経由ではなく即時に最新のスナップショットへ反映する
+        RefreshFiltered();
         IsOpen.Value = true;
     }
 
@@ -138,14 +138,41 @@ public sealed class CommandPaletteViewModel : BaseViewModel
             return string.Compare(a.DisplayName, b.DisplayName, StringComparison.CurrentCultureIgnoreCase);
         });
 
-        _filteredCommands.Clear();
-        foreach (CommandPaletteItemViewModel item in matches)
+        ApplyFilteredCommands(matches);
+        HasNoResults.Value = _filteredCommands.Count == 0 && !string.IsNullOrEmpty(query);
+    }
+
+    // Clear+Add せず、同じ Id・IsEnabled の項目はそのまま再利用してリスト更新時のチラつきを抑える。
+    private void ApplyFilteredCommands(List<CommandPaletteItemViewModel> next)
+    {
+        string? previousSelectedId = SelectedCommand.Value?.Command.Id;
+
+        int common = Math.Min(_filteredCommands.Count, next.Count);
+        for (int i = 0; i < common; i++)
         {
-            _filteredCommands.Add(item);
+            CommandPaletteItemViewModel existing = _filteredCommands[i];
+            CommandPaletteItemViewModel candidate = next[i];
+            if (existing.Command.Id != candidate.Command.Id
+                || existing.IsEnabled != candidate.IsEnabled)
+            {
+                _filteredCommands[i] = candidate;
+            }
         }
 
-        SelectedCommand.Value = _filteredCommands.FirstOrDefault();
-        HasNoResults.Value = _filteredCommands.Count == 0 && !string.IsNullOrEmpty(query);
+        while (_filteredCommands.Count > next.Count)
+        {
+            _filteredCommands.RemoveAt(_filteredCommands.Count - 1);
+        }
+
+        for (int i = _filteredCommands.Count; i < next.Count; i++)
+        {
+            _filteredCommands.Add(next[i]);
+        }
+
+        CommandPaletteItemViewModel? preserved = previousSelectedId is null
+            ? null
+            : _filteredCommands.FirstOrDefault(i => i.Command.Id == previousSelectedId);
+        SelectedCommand.Value = preserved ?? _filteredCommands.FirstOrDefault();
     }
 
     private static int ScoreMatch(PaletteCommand command, string query)

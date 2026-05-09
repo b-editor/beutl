@@ -21,9 +21,10 @@
 
         <!-- Palette container -->
         <Border x:Name="PaletteContainer"
-                Width="640"
+                MinWidth="320"
+                MaxWidth="640"
                 MaxHeight="480"
-                Margin="0,80,0,0"
+                Margin="16,80,16,16"
                 Padding="0"
                 HorizontalAlignment="Center"
                 VerticalAlignment="Top"
@@ -51,6 +52,7 @@
                          Margin="4,4,4,8"
                          Background="Transparent"
                          BorderThickness="0"
+                         DoubleTapped="OnResultsDoubleTapped"
                          IsVisible="{Binding !HasNoResults.Value}"
                          ItemsSource="{Binding FilteredCommands}"
                          SelectedItem="{Binding SelectedCommand.Value, Mode=TwoWay}">

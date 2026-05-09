@@ -1,7 +1,6 @@
 using System.Runtime.InteropServices;
 using Avalonia.Input;
 using Beutl.Api.Services;
-using Beutl.Language;
 using Beutl.Services.PrimitiveImpls;
 using Beutl.ViewModels;
 
@@ -35,9 +34,18 @@ public sealed class CommandPaletteService
 
         if (_commandManager != null)
         {
+            Type? activeEditorExtensionType = EditorService.Current.SelectedTabItem.Value?.Extension.Value?.GetType();
+
             foreach (ContextCommandEntry entry in _commandManager.GetDefinitions())
             {
                 if (entry.Definition.Name == MainViewExtension.ShowCommandPaletteCommandName)
+                {
+                    continue;
+                }
+
+                // 編集中のタブと一致しないエディタ拡張のコマンドは表示しない。
+                if (typeof(EditorExtension).IsAssignableFrom(entry.ExtensionType)
+                    && entry.ExtensionType != activeEditorExtensionType)
                 {
                     continue;
                 }
@@ -78,32 +86,8 @@ public sealed class CommandPaletteService
             return false;
         }
 
-        if (entry.ExtensionType == typeof(MainViewExtension))
-        {
-            MenuBarViewModel? menuBar = _menuBarAccessor();
-            if (menuBar != null && TryGetMenuBarCommand(menuBar, entry.Definition.Name) is { } command)
-            {
-                return command.CanExecute(null);
-            }
-        }
-
-        return true;
+        return handler.CanExecute(new ContextCommandExecution(entry.Definition.Name));
     }
-
-    private static System.Windows.Input.ICommand? TryGetMenuBarCommand(MenuBarViewModel menuBar, string name) => name switch
-    {
-        "CreateNewProject" => menuBar.CreateNewProject,
-        "CreateNewFile" => menuBar.CreateNew,
-        "OpenProject" => menuBar.OpenProject,
-        "OpenFile" => menuBar.OpenFile,
-        "Save" => menuBar.Save,
-        "SaveAll" => menuBar.SaveAll,
-        "CloseProject" => menuBar.CloseProject,
-        "Undo" => menuBar.Undo,
-        "Redo" => menuBar.Redo,
-        "Exit" => menuBar.Exit,
-        _ => null
-    };
 
     private string ResolveCategoryName(Type extensionType)
     {

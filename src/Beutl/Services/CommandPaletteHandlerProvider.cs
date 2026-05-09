@@ -26,7 +26,13 @@ internal sealed class CommandPaletteHandlerProvider : ICommandPaletteHandlerProv
 
         if (typeof(EditorExtension).IsAssignableFrom(extensionType))
         {
-            return EditorService.Current.SelectedTabItem.Value?.Context.Value as IContextCommandHandler;
+            EditorTabItem? tab = EditorService.Current.SelectedTabItem.Value;
+            if (tab?.Extension.Value is { } extension && extension.GetType() == extensionType)
+            {
+                return tab.Context.Value as IContextCommandHandler;
+            }
+
+            return null;
         }
 
         return null;
