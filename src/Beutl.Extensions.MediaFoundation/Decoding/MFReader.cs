@@ -15,8 +15,10 @@ using static NAudio.Wave.MediaFoundationReader;
 
 #if MF_BUILD_IN
 namespace Beutl.Embedding.MediaFoundation.Decoding;
+using Beutl.Embedding.MediaFoundation;
 #else
 namespace Beutl.Extensions.MediaFoundation.Decoding;
+using Beutl.Extensions.MediaFoundation;
 #endif
 
 public class MFReader : MediaReader
@@ -26,6 +28,7 @@ public class MFReader : MediaReader
 
     private readonly MFDecoder? _decoder;
     private readonly VideoStreamInfo? _videoInfo;
+    private readonly BitmapColorSpace _videoColorSpace;
 
     private readonly AudioStreamInfo? _audioInfo;
     private readonly MediaFoundationReader? _audioReader;
@@ -36,6 +39,7 @@ public class MFReader : MediaReader
     {
         _file = file;
         _options = options;
+        _videoColorSpace = BitmapColorSpace.Srgb;
         try
         {
             if (options.StreamsToLoad.HasFlag(MediaMode.Video))
@@ -47,6 +51,14 @@ public class MFReader : MediaReader
                     info.TotalFrameCount,
                     new PixelSize(info.ImageFormat.Width, info.ImageFormat.Height),
                     new Rational(info.Fps.Numerator, info.Fps.Denominator));
+                // Resolve the target color space exactly once. HDR inputs get the luminance-
+                // scaled gamut so the editor preview matches the FFmpeg/AVF paths. If the user
+                // opts into ForceSrgbGamma, we stay on sRGB — the YUY2 8-bit pixels stop
+                // carrying HDR information after conversion anyway and sRGB avoids surprising
+                // downstream color managed code.
+                _videoColorSpace = (info.IsHdr && !extension.Settings.ForceSrgbGamma)
+                    ? MFColorSpaceHelper.BuildHdrColorSpace(info.TransferFunction, info.ColorPrimaries)
+                    : MFColorSpaceHelper.BuildTargetColorSpace(info.TransferFunction, info.ColorPrimaries);
                 HasVideo = true;
             }
 
@@ -126,7 +138,11 @@ public class MFReader : MediaReader
 
             if (r != 0)
             {
-                var result = new Bitmap(w, h);
+                // Tag the Bitmap with the source's color space (not sRGB) so Skia
+                // applies the right transfer function on sampling. For HDR input
+                // this is PQ/HLG + Rec.2020 with luminance scaling already baked in.
+                var result = new Bitmap(w, h,
+                    BitmapColorType.Bgra8888, BitmapAlphaType.Premul, _videoColorSpace);
                 fixed (byte* srcPtr = yuy2Buffer)
                 {
                     YuvConversion.Yuy2ToBgra(srcPtr, (byte*)result.Data, result.RowBytes, w, h);

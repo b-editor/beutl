@@ -20,8 +20,10 @@ using WAVEFORMATEX = Windows.Win32.Media.Audio.WAVEFORMATEX;
 
 #if MF_BUILD_IN
 namespace Beutl.Embedding.MediaFoundation.Decoding;
+using Beutl.Embedding.MediaFoundation;
 #else
 namespace Beutl.Extensions.MediaFoundation.Decoding;
+using Beutl.Extensions.MediaFoundation;
 #endif
 
 #pragma warning disable CA1416 // プラットフォームの互換性を検証
@@ -64,7 +66,13 @@ internal sealed class MFDecoder : IDisposable
         _sampleCache =
             new MFSampleCache(new(extension.Settings.MaxVideoBufferSize, extension.Settings.MaxAudioBufferSize));
 
-        _useDXVA2 = InitializeDXVA2(false /* extension.Settings.UseDXVA2 */);
+        // Honor the setting. The old code hard-coded false which silently
+        // defeated the DXVA2 code path even when the user opted in.
+        // HardwareAcceleration.None also wins over UseDXVA2 to keep a
+        // consistent meaning across the two settings.
+        bool wantDxva = extension.Settings.UseDXVA2
+            && extension.Settings.HardwareAcceleration != HardwareAccelerationMode.None;
+        _useDXVA2 = InitializeDXVA2(wantDxva);
 
         try
         {
@@ -478,10 +486,17 @@ internal sealed class MFDecoder : IDisposable
         using IMFMediaType mediaType = _videoSourceReader.GetCurrentMediaType(_mediaInfo.VideoStreamIndex);
 
         Guid subType = mediaType.GetGUID(MediaTypeAttributeKeys.Subtype);
-        // TODO: すでにYUY2の場合は何もしないようにする
 
         string? subTypeText = VideoFormatName.GetName(subType) ?? subType.ToString();
         _logger.LogInformation("GetCurrentMediaType subType: {SubType}", subTypeText);
+
+        // If Source Reader + its video-processing attributes already delivered
+        // YUY2, VideoProcessorMFT would be an identity transform. Skip it —
+        // the ProcessInput/ProcessOutput round-trip is pure overhead in that case.
+        if (subType == VideoFormatGuids.YUY2)
+        {
+            return;
+        }
 
         ulong aspectRatio = mediaType.GetUInt64(MediaTypeAttributeKeys.PixelAspectRatio);
         uint pixelNume = (uint)(aspectRatio >> 32);
@@ -679,6 +694,21 @@ internal sealed class MFDecoder : IDisposable
         {
             BitmapInfoHeader bih = default;
 
+            // Read color metadata from the *native* (pre-conversion) type so that
+            // HDR tags survive even though we configure YUY2 as the output subtype.
+            // If the container doesn't tag these, leave them at Unknown — MFColorSpaceHelper
+            // will fall back to sRGB/Rec.709 defaults.
+            using (IMFMediaType nativeType = sourceReader.GetNativeMediaType(_mediaInfo.VideoStreamIndex, 0))
+            {
+                _mediaInfo.TransferFunction = TryGetEnum<VideoTransferFunction>(
+                    nativeType, MediaTypeAttributeKeys.TransferFunction, VideoTransferFunction.FuncUnknown);
+                _mediaInfo.ColorPrimaries = TryGetEnum<VideoPrimaries>(
+                    nativeType, MediaTypeAttributeKeys.VideoPrimaries, VideoPrimaries.Unknown);
+                _mediaInfo.YCbCrMatrix = TryGetEnum<VideoTransferMatrix>(
+                    nativeType, MediaTypeAttributeKeys.YuvMatrix, VideoTransferMatrix.Unknown);
+                _mediaInfo.IsHdr = MFColorSpaceHelper.IsHdrTransfer(_mediaInfo.TransferFunction);
+            }
+
             IMFMediaType mediaType = sourceReader.GetCurrentMediaType(_mediaInfo.VideoStreamIndex);
 
             MediaFactory.MFCreateMFVideoFormatFromMFMediaType(mediaType, out IntPtr pMFVF, out var pcbSize);
@@ -700,11 +730,15 @@ internal sealed class MFDecoder : IDisposable
             Marshal.FreeCoTaskMem((nint)ppMFVF);
 
             Guid subType = mediaType.GetGUID(MediaTypeAttributeKeys.Subtype);
-            // YUY2
+            // YUY2 — still the Source Reader output, even for HDR input. We do carry
+            // the original PQ/HLG transfer tag up to MFReader so Skia reinterprets the
+            // 8-bit samples in the right color space. True 10-bit preservation would
+            // need a P010 output path; that's a future extension on this code.
             bih.Compression = new FourCC("YUY2");
             bih.BitCount = 16;
 
             _mediaInfo.ImageFormat = bih;
+            _mediaInfo.OutputSubType = subType;
             _mediaInfo.TotalFrameCount =
                 TimestampUtilities.ConvertFrameFromTimeStamp(_mediaInfo.HnsDuration, _mediaInfo.Fps);
             _mediaInfo.OutImageBufferSize = bih.Width * bih.Height * (bih.BitCount / 8);
@@ -778,6 +812,23 @@ internal sealed class MFDecoder : IDisposable
 
         _firstGapTimeStamp = Math.Max(firstVideoTimeStamp, firstAudioTimeStamp);
         _logger.LogInformation("TestFirstReadSample - firstGapTimeStamp: {firstGapTimeStamp}", _firstGapTimeStamp);
+    }
+
+    // IMFMediaType.Get* throws when the attribute isn't set. For optional color
+    // metadata (a lot of legacy files lack these tags) we want a soft default
+    // rather than an exception bubbling up through the constructor.
+    private static TEnum TryGetEnum<TEnum>(IMFMediaType mediaType, Guid key, TEnum fallback)
+        where TEnum : struct, Enum
+    {
+        try
+        {
+            uint value = mediaType.GetUInt32(key);
+            return (TEnum)Enum.ToObject(typeof(TEnum), (int)value);
+        }
+        catch
+        {
+            return fallback;
+        }
     }
 
     public void Dispose()

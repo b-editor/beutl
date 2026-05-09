@@ -127,4 +127,19 @@
   <data name="Cache" xml:space="preserve">
     <value>Cache</value>
   </data>
+  <data name="HardwareAcceleration" xml:space="preserve">
+    <value>Hardware acceleration</value>
+  </data>
+  <data name="HardwareAcceleration_Description" xml:space="preserve">
+    <value>Select the hardware acceleration path for video decoding. Auto picks D3D11VA on Windows 10 or newer, otherwise DXVA2.</value>
+  </data>
+  <data name="ForceSrgbGamma" xml:space="preserve">
+    <value>Force sRGB gamma for HDR</value>
+  </data>
+  <data name="ForceSrgbGamma_Description" xml:space="preserve">
+    <value>Clip HDR (PQ / HLG) input to SDR sRGB when you do not have an HDR-aware viewer for the editor preview. Output is unaffected.</value>
+  </data>
+  <data name="EncodingName" xml:space="preserve">
+    <value>Media Foundation Encoding</value>
+  </data>
 </root>

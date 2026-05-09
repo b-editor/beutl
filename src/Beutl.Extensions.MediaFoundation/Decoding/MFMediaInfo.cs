@@ -1,4 +1,5 @@
-﻿using System.Text;
+using System.Text;
+using Vortice.MediaFoundation;
 using Vortice.Multimedia;
 using Vortice.Win32;
 using Windows.Win32.Media.MediaFoundation;
@@ -24,6 +25,17 @@ internal struct MFMediaInfo
     public int TotalAudioSampleCount;
     public WaveFormat AudioFormat;
 
+    // Color-space metadata extracted from the input stream's IMFMediaType.
+    // TransferFunction is the only HDR signal we trust — primaries/matrix default to
+    // Unknown when the container omits the tag, which is common for SDR files.
+    public VideoTransferFunction TransferFunction;
+    public VideoPrimaries ColorPrimaries;
+    public VideoTransferMatrix YCbCrMatrix;
+    public bool IsHdr;
+
+    // The subtype we asked Source Reader to emit (YUY2 for SDR, P010 for HDR).
+    // Decoders downstream use this to pick the right YUV→RGB conversion.
+    public Guid OutputSubType;
 
     public readonly string GetMediaInfoText()
     {
@@ -38,6 +50,10 @@ internal struct MFMediaInfo
             sb.AppendLine($"  Fps: {fps}");
             sb.AppendLine($"  TotalFrameCount: {TotalFrameCount}");
             sb.AppendLine($"  FrameSize: {ImageFormat.Width}x{ImageFormat.Height}");
+            sb.AppendLine($"  TransferFunction: {TransferFunction}");
+            sb.AppendLine($"  ColorPrimaries: {ColorPrimaries}");
+            sb.AppendLine($"  YCbCrMatrix: {YCbCrMatrix}");
+            sb.AppendLine($"  IsHdr: {IsHdr}");
         }
         if (AudioStreamIndex != -1)
         {
