@@ -263,29 +263,31 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
             var encoders = new List<(MediaEncoder, MediaStream)>();
             (MediaEncoder Encoder, MediaStream Stream)? audioRef = null;
             (MediaEncoder Encoder, MediaStream Stream)? videoRef = null;
-            if (outFormat.AudioCodec != AVCodecID.AV_CODEC_ID_NONE)
-            {
-                ConfigureAudioStream(outFormat, muxer, audioFrame, out var encoder, out var stream, out swr);
-                encoders.Add((encoder, stream));
-                audioRef = (encoder, stream);
-                encodeAudio = true;
-            }
-
-            if (outFormat.VideoCodec != AVCodecID.AV_CODEC_ID_NONE)
-            {
-                ConfigureVideoStream(outFormat, muxer, videoFrame, out var encoder, out var stream);
-                encoders.Add((encoder, stream));
-                videoRef = (encoder, stream);
-                encodeVideo = true;
-            }
-
-            muxer.DumpFormat();
-            muxer.WriteHeader();
-
-            var videoState = new EncodeState();
-            var audioState = new EncodeState();
+            bool headerWritten = false;
             try
             {
+                if (outFormat.AudioCodec != AVCodecID.AV_CODEC_ID_NONE)
+                {
+                    ConfigureAudioStream(outFormat, muxer, audioFrame, out var encoder, out var stream, out swr);
+                    encoders.Add((encoder, stream));
+                    audioRef = (encoder, stream);
+                    encodeAudio = true;
+                }
+
+                if (outFormat.VideoCodec != AVCodecID.AV_CODEC_ID_NONE)
+                {
+                    ConfigureVideoStream(outFormat, muxer, videoFrame, out var encoder, out var stream);
+                    encoders.Add((encoder, stream));
+                    videoRef = (encoder, stream);
+                    encodeVideo = true;
+                }
+
+                muxer.DumpFormat();
+                muxer.WriteHeader();
+                headerWritten = true;
+
+                var videoState = new EncodeState();
+                var audioState = new EncodeState();
                 while ((encodeVideo || encodeAudio) && !cancellationToken.IsCancellationRequested)
                 {
                     if (encodeVideo &&
@@ -305,9 +307,13 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
             }
             finally
             {
-                muxer.FlushCodecs(encoders.Select(i => i.Item1));
-                muxer.WriteTrailer();
+                if (headerWritten)
+                {
+                    muxer.FlushCodecs(encoders.Select(i => i.Item1));
+                    muxer.WriteTrailer();
+                }
                 encoders.ForEach(t => t.Item1.Dispose());
+                swr?.Dispose();
                 _filterGraph?.Dispose();
                 _filterGraph = null;
                 _bufferSrcCtx = null;
