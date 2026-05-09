@@ -1090,7 +1090,10 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
             "ToggleGroup" => SelectedElements.FirstOrDefault() is { } first
                 && (first.CanUngroupSelectedElements() || first.CanGroupSelectedElements()),
             "ExitRazorMode" => IsRazorMode.Value,
-            _ => true,
+            "Paste" or "SetStartTime" or "SetEndTime" or "ToggleRazorMode" => true,
+            // Rename / Split など Execute で対応 case が無いコマンドは false を返し、
+            // パレットやショートカット経路で誤って enabled として扱われないようにする。
+            _ => false,
         };
     }
 

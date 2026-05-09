@@ -205,7 +205,9 @@ public sealed class CommandPaletteViewModel : BaseViewModel
         HasNoResults.Value = _filteredCommands.Count == 0 && !string.IsNullOrEmpty(query);
     }
 
-    // Clear+Add せず、同じ Id・IsEnabled の項目はそのまま再利用してリスト更新時のチラつきを抑える。
+    // Clear+Add せず、同じ PaletteCommand インスタンスかつ IsEnabled が同一の項目は再利用して
+    // リスト更新時のチラつきを抑える。RebuildSnapshot 後は Id が同じでも別インスタンスの
+    // デリゲートを保持する PaletteCommand に差し替わるため、参照同一性で比較して必ず置換する。
     private void ApplyFilteredCommands(List<CommandPaletteItemViewModel> next)
     {
         string? previousSelectedId = SelectedCommand.Value?.Command.Id;
@@ -215,7 +217,7 @@ public sealed class CommandPaletteViewModel : BaseViewModel
         {
             CommandPaletteItemViewModel existing = _filteredCommands[i];
             CommandPaletteItemViewModel candidate = next[i];
-            if (existing.Command.Id != candidate.Command.Id
+            if (!ReferenceEquals(existing.Command, candidate.Command)
                 || existing.IsEnabled != candidate.IsEnabled)
             {
                 _filteredCommands[i] = candidate;
