@@ -21,8 +21,7 @@
 
         <!-- Palette container -->
         <Border x:Name="PaletteContainer"
-                MinWidth="320"
-                MaxWidth="640"
+                Width="640"
                 MaxHeight="480"
                 Margin="16,80,16,16"
                 Padding="0"
