@@ -31,13 +31,13 @@ jobs:
       - name: Run Claude Code scheduled review
         uses: anthropics/claude-code-action@v1
         env:
-          GH_TOKEN: ${{ secrets.PROJECTS_TOKEN }}
           # cron 実行時は inputs が空なので '1 day ago' を注入し Diff モードで動作。
           # workflow_dispatch で since を空欄起動した場合は '' のままで Scope-scan モードへ。
           REVIEW_SINCE: ${{ inputs.since || (github.event_name == 'schedule' && '1 day ago' || '') }}
           REVIEW_SCOPE: ${{ inputs.scope || '' }}
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ secrets.PROJECTS_TOKEN }}
           claude_args: '--allowed-tools "Bash(git log:*),Bash(git diff:*),Bash(git show:*),Bash(git rev-parse:*),Bash(cat:*),Bash(mktemp:*),Bash(printf:*),Bash(jq:*),Bash(date:*),Bash(gh project item-create:*),Bash(gh project item-list:*),Read,Grep,Glob"'
           prompt: |
             ## 役割
