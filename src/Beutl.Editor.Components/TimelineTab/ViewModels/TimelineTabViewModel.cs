@@ -29,11 +29,12 @@ using Reactive.Bindings.Extensions;
 
 namespace Beutl.Editor.Components.TimelineTab.ViewModels;
 
-public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler
+public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler, IContextCommandStateNotifier
 {
     private readonly ILogger _logger = Log.CreateLogger<TimelineTabViewModel>();
     private readonly CompositeDisposable _disposables = [];
     private readonly Subject<LayerHeaderViewModel> _layerHeightChanged = new();
+    private readonly Subject<System.Reactive.Unit> _canExecuteChangedSubject = new();
     private readonly Dictionary<int, TrackedLayerTopObservable> _trackerCache = [];
 
     public TimelineTabViewModel(IEditorContext editorContext)
@@ -206,6 +207,11 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler
                 BufferStatus.UnlockCache(block.StartFrame, block.StartFrame + block.LengthFrame);
                 BufferStatus.UpdateBlocks();
             });
+
+        // CanExecute がレイザーモード切替に追従するよう変更通知へ流す。
+        IsRazorMode
+            .Subscribe(_ => _canExecuteChangedSubject.OnNext(System.Reactive.Unit.Default))
+            .AddTo(_disposables);
 
         _logger.LogInformation("TimelineTabViewModel initialized successfully.");
     }
@@ -385,6 +391,8 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler
 
     public IObservable<LayerHeaderViewModel> LayerHeightChanged => _layerHeightChanged;
 
+    public IObservable<System.Reactive.Unit> CanExecuteChanged => _canExecuteChangedSubject;
+
     public string Header => Strings.Timeline;
 
     public void Dispose()
@@ -417,6 +425,7 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler
         }
 
         _layerHeightChanged.Dispose();
+        _canExecuteChangedSubject.Dispose();
 
         Inlines.Clear();
         LayerHeaders.Clear();
@@ -1022,12 +1031,14 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler
         }
 
         SelectedElements.Clear();
+        _canExecuteChangedSubject.OnNext(System.Reactive.Unit.Default);
     }
 
     public void SelectElement(ElementViewModel item)
     {
         SelectedElements.Add(item);
         item.IsSelected.Value = true;
+        _canExecuteChangedSubject.OnNext(System.Reactive.Unit.Default);
     }
 
     public void SwitchSelectedElement(ElementViewModel item)
@@ -1041,6 +1052,8 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler
         {
             SelectedElements.Remove(item);
         }
+
+        _canExecuteChangedSubject.OnNext(System.Reactive.Unit.Default);
     }
 
     internal void RaiseLayerHeightChanged(LayerHeaderViewModel value)

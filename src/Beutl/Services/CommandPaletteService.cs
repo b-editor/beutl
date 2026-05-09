@@ -67,6 +67,10 @@ public sealed class CommandPaletteService
                     .FirstOrDefault(i => i.Platform == s_currentPlatform)?.KeyGesture;
 
                 ContextCommandEntry capturedEntry = entry;
+                IContextCommandHandler? snapshotHandler = _handlerProvider.Resolve(entry.ExtensionType);
+                IObservable<System.Reactive.Unit>? stateChanged =
+                    (snapshotHandler as IContextCommandStateNotifier)?.CanExecuteChanged;
+
                 result.Add(new PaletteCommand(
                     Id: $"{entry.ExtensionType.FullName}.{entry.Definition.Name}",
                     DisplayName: displayName,
@@ -78,7 +82,10 @@ public sealed class CommandPaletteService
                     {
                         var handler = _handlerProvider.Resolve(capturedEntry.ExtensionType);
                         handler?.Execute(new ContextCommandExecution(capturedEntry.Definition.Name));
-                    }));
+                    })
+                {
+                    StateChanged = stateChanged
+                });
             }
         }
 

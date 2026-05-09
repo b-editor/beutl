@@ -9,12 +9,14 @@ namespace Beutl.ViewModels;
 public sealed class CommandPaletteViewModel : BaseViewModel
 {
     private static readonly TimeSpan s_queryThrottle = TimeSpan.FromMilliseconds(80);
+    private static readonly TimeSpan s_stateChangeThrottle = TimeSpan.FromMilliseconds(50);
 
     private readonly CommandPaletteService _service;
     private readonly ObservableCollection<CommandPaletteItemViewModel> _filteredCommands = [];
     private IReadOnlyList<PaletteCommand> _snapshot = [];
     private readonly IDisposable _querySubscription;
     private readonly IDisposable _activeTabSubscription;
+    private readonly CompositeDisposable _stateChangeSubscriptions = [];
 
     public CommandPaletteViewModel(CommandPaletteService service)
     {
@@ -72,7 +74,29 @@ public sealed class CommandPaletteViewModel : BaseViewModel
 
     private void RebuildSnapshot()
     {
+        _stateChangeSubscriptions.Clear();
         _snapshot = _service.EnumerateCommands();
+
+        // 同じハンドラーから複数のコマンドが来る場合 StateChanged の observable は同一インスタンスになるため
+        // Distinct で重複購読を避ける。通知時はバースト抑止のため軽くスロットリングして RefreshFiltered する。
+        foreach (IObservable<Unit> observable in _snapshot
+            .Select(c => c.StateChanged)
+            .OfType<IObservable<Unit>>()
+            .Distinct())
+        {
+            observable
+                .Throttle(s_stateChangeThrottle)
+                .ObserveOnUIDispatcher()
+                .Subscribe(_ =>
+                {
+                    if (IsOpen.Value)
+                    {
+                        RefreshFiltered();
+                    }
+                })
+                .AddTo(_stateChangeSubscriptions);
+        }
+
         // Throttle 経由ではなく即時に最新のスナップショットへ反映する
         RefreshFiltered();
     }
@@ -232,6 +256,7 @@ public sealed class CommandPaletteViewModel : BaseViewModel
     {
         _querySubscription.Dispose();
         _activeTabSubscription.Dispose();
+        _stateChangeSubscriptions.Dispose();
         IsOpen.Dispose();
         Query.Dispose();
         SelectedCommand.Dispose();
