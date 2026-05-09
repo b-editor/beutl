@@ -14,6 +14,7 @@ public partial class CommandPaletteView : UserControl
     private const int PageStep = 8;
 
     private readonly CompositeDisposable _disposables = [];
+    private WeakReference<IInputElement>? _previouslyFocused;
 
     public CommandPaletteView()
     {
@@ -31,19 +32,50 @@ public partial class CommandPaletteView : UserControl
 
         if (DataContext is CommandPaletteViewModel viewModel)
         {
+            // Skip(1) で初期値の false を読み飛ばし、購読セット時にフォーカス操作を行わないようにする。
             viewModel.IsOpen
-                .Subscribe(open =>
-                {
-                    if (open)
-                    {
-                        Dispatcher.UIThread.Post(() =>
-                        {
-                            QueryTextBox.Focus();
-                            QueryTextBox.SelectAll();
-                        }, DispatcherPriority.Background);
-                    }
-                })
+                .Skip(1)
+                .Subscribe(HandleIsOpenChanged)
                 .AddTo(_disposables);
+        }
+    }
+
+    private void HandleIsOpenChanged(bool open)
+    {
+        if (open)
+        {
+            // パレットを閉じた時に呼び出し元へフォーカスを戻せるよう、開く直前のフォーカス位置を控えておく。
+            IInputElement? focused = TopLevel.GetTopLevel(this)?.FocusManager?.GetFocusedElement();
+            _previouslyFocused = focused is not null ? new WeakReference<IInputElement>(focused) : null;
+
+            Dispatcher.UIThread.Post(() =>
+            {
+                QueryTextBox.Focus();
+                QueryTextBox.SelectAll();
+            }, DispatcherPriority.Background);
+        }
+        else
+        {
+            // パレットが閉じた直後に IsVisible=false へ遷移するため、TextBox がフォーカスを保持したまま
+            // 不可視化されると Avalonia がフォーカスをクリアし、以後 MainView の KeyDown ハンドラに
+            // ショートカット (Ctrl+Shift+P) が到達しなくなって再表示できなくなる。
+            // 開いたときに保存しておいた呼び出し元へフォーカスを戻す。失効していた場合は MainView へ。
+            WeakReference<IInputElement>? captured = _previouslyFocused;
+            _previouslyFocused = null;
+
+            Dispatcher.UIThread.Post(() =>
+            {
+                if (captured is not null
+                    && captured.TryGetTarget(out IInputElement? target)
+                    && target is Visual { IsEffectivelyVisible: true } visual
+                    && visual.GetVisualRoot() is not null)
+                {
+                    target.Focus();
+                    return;
+                }
+
+                this.FindAncestorOfType<MainView>()?.Focus();
+            }, DispatcherPriority.Background);
         }
     }
 
@@ -66,6 +98,12 @@ public partial class CommandPaletteView : UserControl
 
     private void OnQueryKeyDown(object? sender, KeyEventArgs e)
     {
+        // IME 変換中のキー入力（候補ナビゲーション等）はパレット操作に奪わずに IME に委ねる。
+        if (e.Key == Key.ImeProcessed)
+        {
+            return;
+        }
+
         if (DataContext is not CommandPaletteViewModel viewModel)
         {
             return;
@@ -108,7 +146,8 @@ public partial class CommandPaletteView : UserControl
 
     private void OnRootKeyDown(object? sender, KeyEventArgs e)
     {
-        if (e.Handled || DataContext is not CommandPaletteViewModel viewModel)
+        // IME 変換中の Enter/Escape は IME による確定・取消に使われるため横取りしない。
+        if (e.Handled || e.Key == Key.ImeProcessed || DataContext is not CommandPaletteViewModel viewModel)
         {
             return;
         }
