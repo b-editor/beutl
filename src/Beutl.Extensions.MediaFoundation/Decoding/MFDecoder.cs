@@ -68,11 +68,7 @@ internal sealed class MFDecoder : IDisposable
 
         // Honor the setting. The old code hard-coded false which silently
         // defeated the DXVA2 code path even when the user opted in.
-        // HardwareAcceleration.None also wins over UseDXVA2 to keep a
-        // consistent meaning across the two settings.
-        bool wantDxva = extension.Settings.UseDXVA2
-            && extension.Settings.HardwareAcceleration != HardwareAccelerationMode.None;
-        _useDXVA2 = InitializeDXVA2(wantDxva);
+        _useDXVA2 = InitializeDXVA2(extension.Settings.UseDXVA2);
 
         try
         {

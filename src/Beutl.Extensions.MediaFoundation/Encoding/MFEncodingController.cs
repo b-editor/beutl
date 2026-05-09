@@ -52,6 +52,7 @@ public class MFEncodingController : EncodingController
         CancellationToken cancellationToken)
     {
         bool isHdr = VideoSettings.IsHdr;
+        bool audioOnly = IsAudioOnlyContainer(OutputFile);
 
         using IMFAttributes sinkAttrs = MediaFactory.MFCreateAttributes(2);
         // Lets Sink Writer pick hardware encoder MFTs (QSV / NVENC / AMD VCE).
@@ -61,13 +62,17 @@ public class MFEncodingController : EncodingController
 
         using IMFSinkWriter sinkWriter = MediaFactory.MFCreateSinkWriterFromURL(OutputFile, null, sinkAttrs);
 
-        int videoStreamIndex = ConfigureVideoStream(sinkWriter, isHdr);
-        int audioStreamIndex = ConfigureAudioStream(sinkWriter, sampleProvider.SampleRate);
+        // Audio-only containers (.wav/.mp3/.aac/.adts/.m4a) cannot mux a video stream;
+        // adding one here makes BeginWriting fail. Pure-audio outputs run through the
+        // audio path only.
+        int videoStreamIndex = audioOnly ? -1 : ConfigureVideoStream(sinkWriter, isHdr);
+        int audioChannels = ResolveAudioChannels();
+        int audioStreamIndex = ConfigureAudioStream(sinkWriter, sampleProvider.SampleRate, audioChannels);
 
         // Pre-compute the HDR target color space once per encode. Reusing the object
         // saves Skia from rebuilding the SKColorSpace on every frame convert.
         BitmapColorSpace? hdrTargetColorSpace = null;
-        if (isHdr)
+        if (!audioOnly && isHdr)
         {
             hdrTargetColorSpace = MFColorSpaceHelper.BuildHdrColorSpace(
                 MapTransferForHelper(VideoSettings.ColorTransfer),
@@ -80,7 +85,7 @@ public class MFEncodingController : EncodingController
         {
             long frameCount = 0;
             long sampleCount = 0;
-            bool encodeVideo = true;
+            bool encodeVideo = videoStreamIndex >= 0;
             bool encodeAudio = audioStreamIndex >= 0;
 
             long frameRateNum = VideoSettings.FrameRate.Numerator;
@@ -110,7 +115,7 @@ public class MFEncodingController : EncodingController
                 else if (encodeAudio)
                 {
                     WriteAudioFrame(sinkWriter, audioStreamIndex, sampleProvider,
-                        sampleCount, AudioFrameSize, sampleRate)
+                        sampleCount, AudioFrameSize, sampleRate, audioChannels)
                         .GetAwaiter().GetResult();
                     sampleCount += AudioFrameSize;
                     if (sampleCount >= sampleProvider.SampleCount)
@@ -227,15 +232,34 @@ public class MFEncodingController : EncodingController
 
     // -------------------- Audio stream setup --------------------
 
-    private int ConfigureAudioStream(IMFSinkWriter sinkWriter, long sourceSampleRate)
+    // The renderer always hands us Pcm<Stereo32BitFloat>. We can faithfully emit mono
+    // (downmix L+R) or stereo (passthrough); anything wider than 2 has no source data
+    // to fill it, so clamping is safer than declaring a layout we cannot populate.
+    private int ResolveAudioChannels()
+    {
+        int requested = AudioSettings.Channels;
+        if (requested <= 0) return 2;
+        if (requested >= 2) return 2;
+        return 1;
+    }
+
+    private static bool IsAudioOnlyContainer(string outputFile)
+    {
+        string ext = Path.GetExtension(outputFile);
+        return ext.Equals(".m4a", StringComparison.OrdinalIgnoreCase)
+            || ext.Equals(".wav", StringComparison.OrdinalIgnoreCase)
+            || ext.Equals(".mp3", StringComparison.OrdinalIgnoreCase)
+            || ext.Equals(".aac", StringComparison.OrdinalIgnoreCase)
+            || ext.Equals(".adts", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private int ConfigureAudioStream(IMFSinkWriter sinkWriter, long sourceSampleRate, int channels)
     {
         int sampleRate = AudioSettings.SampleRate > 0 ? AudioSettings.SampleRate : (int)sourceSampleRate;
         if (sampleRate <= 0)
         {
             return -1;
         }
-
-        int channels = AudioSettings.Channels > 0 ? AudioSettings.Channels : 2;
 
         using IMFMediaType outType = MediaFactory.MFCreateMediaType();
         outType.Set(MediaTypeAttributeKeys.MajorType, MediaTypeGuids.Audio);
@@ -366,10 +390,9 @@ public class MFEncodingController : EncodingController
     private static async ValueTask WriteAudioFrame(
         IMFSinkWriter sinkWriter, int streamIndex,
         ISampleProvider sampleProvider,
-        long startSample, int length, long sampleRate)
+        long startSample, int length, long sampleRate, int channels)
     {
         using Pcm<Stereo32BitFloat> floatPcm = await sampleProvider.Sample(startSample, length);
-        int channels = Stereo32BitFloat.GetNumChannels();
         int numSamples = floatPcm.NumSamples;
         int byteCount = numSamples * channels * 2; // int16
 
@@ -381,10 +404,23 @@ public class MFEncodingController : EncodingController
             try
             {
                 ReadOnlySpan<Stereo32BitFloat> src = floatPcm.DataSpan;
-                for (int i = 0; i < src.Length; i++)
+                if (channels == 1)
                 {
-                    dst[i * 2 + 0] = FloatToPcm16(src[i].Left);
-                    dst[i * 2 + 1] = FloatToPcm16(src[i].Right);
+                    // L+R averaged into a single channel keeps both sides audible without
+                    // doubling perceived amplitude.
+                    for (int i = 0; i < src.Length; i++)
+                    {
+                        float mono = (src[i].Left + src[i].Right) * 0.5f;
+                        dst[i] = FloatToPcm16(mono);
+                    }
+                }
+                else
+                {
+                    for (int i = 0; i < src.Length; i++)
+                    {
+                        dst[i * 2 + 0] = FloatToPcm16(src[i].Left);
+                        dst[i * 2 + 1] = FloatToPcm16(src[i].Right);
+                    }
                 }
             }
             finally

@@ -52,13 +52,20 @@ public class MFReader : MediaReader
                     new PixelSize(info.ImageFormat.Width, info.ImageFormat.Height),
                     new Rational(info.Fps.Numerator, info.Fps.Denominator));
                 // Resolve the target color space exactly once. HDR inputs get the luminance-
-                // scaled gamut so the editor preview matches the FFmpeg/AVF paths. If the user
-                // opts into ForceSrgbGamma, we stay on sRGB — the YUY2 8-bit pixels stop
-                // carrying HDR information after conversion anyway and sRGB avoids surprising
-                // downstream color managed code.
-                _videoColorSpace = (info.IsHdr && !extension.Settings.ForceSrgbGamma)
-                    ? MFColorSpaceHelper.BuildHdrColorSpace(info.TransferFunction, info.ColorPrimaries)
-                    : MFColorSpaceHelper.BuildTargetColorSpace(info.TransferFunction, info.ColorPrimaries);
+                // scaled gamut so the editor preview matches the FFmpeg/AVF paths. ForceSrgbGamma
+                // is the SDR escape hatch — the YUY2 8-bit decode path strips HDR information
+                // anyway, so labelling the bitmap as plain sRGB matches what the pixels actually
+                // carry and prevents downstream color-managed code from re-applying a PQ/HLG curve.
+                if (info.IsHdr)
+                {
+                    _videoColorSpace = extension.Settings.ForceSrgbGamma
+                        ? BitmapColorSpace.Srgb
+                        : MFColorSpaceHelper.BuildHdrColorSpace(info.TransferFunction, info.ColorPrimaries);
+                }
+                else
+                {
+                    _videoColorSpace = MFColorSpaceHelper.BuildTargetColorSpace(info.TransferFunction, info.ColorPrimaries);
+                }
                 HasVideo = true;
             }
 
