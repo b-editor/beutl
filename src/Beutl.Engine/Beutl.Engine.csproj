@@ -53,20 +53,29 @@
     Silk.NET 側のローダ (Microsoft.DotNet.PlatformAbstractions.RuntimeEnvironment.GetRuntimeIdentifier) は
     Ubuntu などディストリ固有 RID (例: ubuntu.24.04-x64) を返し、リポジトリ内 fallback リストにも "ubuntu" が無いため
     runtimes/linux-x64/native/libshaderc_shared.so を解決できず libshaderc が読めなくなる。
-    回避策として、現在ビルドしているホスト OS/アーキに合わせたネイティブを bin 直下にもコピーし、
+    回避策として、ターゲット OS/アーキに合わせたネイティブを bin 直下にもコピーし、
     Silk.NET の BaseDirectoryResolver で拾えるようにする。
+
+    クロスターゲットビルド (例: x64 ホストから dotnet publish -r linux-arm64) では $(RuntimeIdentifier) が
+    指定されるので、それを優先して使う。未指定時のみホスト OS/アーキを検出してフォールバックする。
   -->
   <PropertyGroup>
-    <_ShadercNativeRid Condition="'$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Linux)))' == 'true' And '$([System.Runtime.InteropServices.RuntimeInformation]::ProcessArchitecture)' == 'X64'">linux-x64</_ShadercNativeRid>
-    <_ShadercNativeRid Condition="'$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Linux)))' == 'true' And '$([System.Runtime.InteropServices.RuntimeInformation]::ProcessArchitecture)' == 'Arm64'">linux-arm64</_ShadercNativeRid>
-    <_ShadercNativeRid Condition="'$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::OSX)))' == 'true' And '$([System.Runtime.InteropServices.RuntimeInformation]::ProcessArchitecture)' == 'X64'">osx-x64</_ShadercNativeRid>
-    <_ShadercNativeRid Condition="'$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::OSX)))' == 'true' And '$([System.Runtime.InteropServices.RuntimeInformation]::ProcessArchitecture)' == 'Arm64'">osx-arm64</_ShadercNativeRid>
-    <_ShadercNativeRid Condition="'$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Windows)))' == 'true' And '$([System.Runtime.InteropServices.RuntimeInformation]::ProcessArchitecture)' == 'X64'">win-x64</_ShadercNativeRid>
-    <_ShadercNativeRid Condition="'$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Windows)))' == 'true' And '$([System.Runtime.InteropServices.RuntimeInformation]::ProcessArchitecture)' == 'Arm64'">win-arm64</_ShadercNativeRid>
-    <_ShadercNativeRid Condition="'$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Windows)))' == 'true' And '$([System.Runtime.InteropServices.RuntimeInformation]::ProcessArchitecture)' == 'X86'">win-x86</_ShadercNativeRid>
+    <_ShadercNativeRid Condition="'$(RuntimeIdentifier)' != ''">$(RuntimeIdentifier)</_ShadercNativeRid>
+
+    <_ShadercNativeRid Condition="'$(_ShadercNativeRid)' == '' And '$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Linux)))' == 'true' And '$([System.Runtime.InteropServices.RuntimeInformation]::ProcessArchitecture)' == 'X64'">linux-x64</_ShadercNativeRid>
+    <_ShadercNativeRid Condition="'$(_ShadercNativeRid)' == '' And '$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Linux)))' == 'true' And '$([System.Runtime.InteropServices.RuntimeInformation]::ProcessArchitecture)' == 'Arm64'">linux-arm64</_ShadercNativeRid>
+    <_ShadercNativeRid Condition="'$(_ShadercNativeRid)' == '' And '$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::OSX)))' == 'true' And '$([System.Runtime.InteropServices.RuntimeInformation]::ProcessArchitecture)' == 'X64'">osx-x64</_ShadercNativeRid>
+    <_ShadercNativeRid Condition="'$(_ShadercNativeRid)' == '' And '$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::OSX)))' == 'true' And '$([System.Runtime.InteropServices.RuntimeInformation]::ProcessArchitecture)' == 'Arm64'">osx-arm64</_ShadercNativeRid>
+    <_ShadercNativeRid Condition="'$(_ShadercNativeRid)' == '' And '$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Windows)))' == 'true' And '$([System.Runtime.InteropServices.RuntimeInformation]::ProcessArchitecture)' == 'X64'">win-x64</_ShadercNativeRid>
+    <_ShadercNativeRid Condition="'$(_ShadercNativeRid)' == '' And '$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Windows)))' == 'true' And '$([System.Runtime.InteropServices.RuntimeInformation]::ProcessArchitecture)' == 'Arm64'">win-arm64</_ShadercNativeRid>
+    <_ShadercNativeRid Condition="'$(_ShadercNativeRid)' == '' And '$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Windows)))' == 'true' And '$([System.Runtime.InteropServices.RuntimeInformation]::ProcessArchitecture)' == 'X86'">win-x86</_ShadercNativeRid>
   </PropertyGroup>
 
-  <ItemGroup Condition="'$(_ShadercNativeRid)' != '' And '$(PkgSilk_NET_Shaderc_Native)' != ''">
+  <!--
+    Exists() ガードで、パッケージに含まれていない RID (例: linux-musl-x64, osx.13-arm64 など) が
+    指定された場合に空 Content にフェイルし、ビルド失敗を回避する。
+  -->
+  <ItemGroup Condition="'$(_ShadercNativeRid)' != '' And '$(PkgSilk_NET_Shaderc_Native)' != '' And Exists('$(PkgSilk_NET_Shaderc_Native)\runtimes\$(_ShadercNativeRid)\native')">
     <Content Include="$(PkgSilk_NET_Shaderc_Native)\runtimes\$(_ShadercNativeRid)\native\*">
       <Link>%(Filename)%(Extension)</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
