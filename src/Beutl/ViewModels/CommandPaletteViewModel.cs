@@ -164,8 +164,8 @@ public sealed class CommandPaletteViewModel : BaseViewModel
         SelectedCommand.Value = _filteredCommands.LastOrDefault();
     }
 
-    // CanExecute はパレットを開いた時点とクエリ変更時のスナップショットで評価する。
-    // 表示中に外部の状態が変化しても再評価しないが、コマンドパレットは短命 UI のため許容している。
+    // CanExecute はパレットを開いた時点とクエリ変更時に評価するほか、
+    // RebuildSnapshot で購読した StateChanged 通知 (s_stateChangeThrottle 経由) でも再評価される。
     private void RefreshFiltered()
     {
         string query = Query.Value?.Trim() ?? string.Empty;

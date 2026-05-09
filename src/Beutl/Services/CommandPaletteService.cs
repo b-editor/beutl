@@ -80,7 +80,21 @@ public sealed class CommandPaletteService
                     CategoryName: category,
                     KeyGesture: gesture,
                     CanExecute: () => snapshotHandler?.CanExecute(new ContextCommandExecution(capturedEntry.Definition.Name)) ?? false,
-                    Execute: () => snapshotHandler?.Execute(new ContextCommandExecution(capturedEntry.Definition.Name)))
+                    Execute: () =>
+                    {
+                        if (snapshotHandler is null)
+                        {
+                            return;
+                        }
+
+                        // スロットル窓や状態変化で表示と実行可否がずれる可能性があるため、
+                        // 実行直前にもう一度 CanExecute を確認してから Execute する。
+                        var execution = new ContextCommandExecution(capturedEntry.Definition.Name);
+                        if (snapshotHandler.CanExecute(execution))
+                        {
+                            snapshotHandler.Execute(execution);
+                        }
+                    })
                 {
                     StateChanged = stateChanged
                 });

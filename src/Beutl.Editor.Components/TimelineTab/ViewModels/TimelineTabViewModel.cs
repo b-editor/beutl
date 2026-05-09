@@ -1086,7 +1086,9 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
     {
         return execution.CommandName switch
         {
-            "Copy" or "Cut" or "Delete" or "Exclude" or "ToggleGroup" => SelectedElements.Count > 0,
+            "Copy" or "Cut" or "Delete" or "Exclude" => SelectedElements.Count > 0,
+            "ToggleGroup" => SelectedElements.FirstOrDefault() is { } first
+                && (first.CanUngroupSelectedElements() || first.CanGroupSelectedElements()),
             "ExitRazorMode" => IsRazorMode.Value,
             _ => true,
         };
