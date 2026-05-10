@@ -12,10 +12,20 @@ namespace Beutl.Audio.Effects;
 /// exponential (one-pole IIR) release.
 /// </summary>
 /// <remarks>
+/// <para>
 /// The DSP layer (<see cref="Beutl.Audio.Graph.Nodes.LimiterNode"/>) re-clamps
 /// every parameter to the ranges declared here, so the constants double as the
 /// authoritative range and as the safety net for animations or restored project
 /// files that bypass the <see cref="RangeAttribute"/> validation.
+/// </para>
+/// <para>
+/// Setting <see cref="Lookahead"/> above 0 ms shifts the entire signal later by
+/// that amount and drops the same number of samples at the end of each clip,
+/// because Beutl's audio graph processes effects inline (output length equals
+/// input length) and has no latency-reporting/compensation hook. Use 0 ms when
+/// sample-accurate timing matters; non-zero values trade transient transparency
+/// for a fixed delay matching standard external lookahead limiters.
+/// </para>
 /// </remarks>
 [Display(Name = nameof(AudioStrings.LimiterEffect), ResourceType = typeof(AudioStrings))]
 public sealed partial class LimiterEffect : AudioEffect
@@ -60,7 +70,9 @@ public sealed partial class LimiterEffect : AudioEffect
 
     /// <summary>
     /// Lookahead window in milliseconds. The output is delayed by this amount
-    /// so that gain reduction can begin before a peak arrives.
+    /// so that gain reduction can begin before a peak arrives. See the type-level
+    /// remarks for the latency trade-off — non-zero values shift the clip later
+    /// and drop the same number of samples from the tail.
     /// </summary>
     [Range(MinLookaheadMs, MaxLookaheadMs)]
     [Display(Name = nameof(AudioStrings.LimiterEffect_Lookahead), ResourceType = typeof(AudioStrings))]
