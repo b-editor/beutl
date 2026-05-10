@@ -70,10 +70,9 @@ public partial class CommandPaletteView : UserControl
             {
                 // 閉じた時点で既にパレット外の要素へフォーカスが移っている場合は奪い返さない
                 // (典型例: コマンドが同期的にダイアログを開いてフォーカスを取った後)。
-                // 非同期にダイアログを開くコマンドはここで一旦 captured に focus が戻るが、
-                // ダイアログ表示時に Avalonia 側で auto-focus されるため奪い返される問題は通常起きない。
-                // 一方フォーカスを動かさない単純コマンド (ToggleRazorMode 等) ではこの restore が
-                // 必須で、これを怠ると focused element が null のまま残り Ctrl+Shift+P が壊れる。
+                // それ以外の経路 (Esc / Backdrop / フォーカスを動かさない単純コマンド) は
+                // 必ず restore しないと focused element が null のまま残り、ContextCommandManager
+                // が登録した KeyDown ハンドラに Ctrl+Shift+P が届かなくなって再表示できなくなる。
                 IInputElement? current = TopLevel.GetTopLevel(this)?.FocusManager?.GetFocusedElement();
                 if (current is Visual currentVisual
                     && currentVisual.FindAncestorOfType<CommandPaletteView>(includeSelf: true) is null)
