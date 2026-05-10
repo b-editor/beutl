@@ -1,5 +1,4 @@
-﻿using System.ComponentModel;
-using Avalonia.Controls;
+﻿using Avalonia.Controls;
 using Avalonia.Threading;
 using Beutl.Api;
 using Beutl.Api.Clients;
@@ -56,25 +55,13 @@ public sealed class CheckForUpdatesTask : StartupTask
                         _logger.LogDebug("Flatpak sandbox detected: {IsFlatpak}", isFlatpak);
                         if (isFlatpak)
                         {
-                            // /app is read-only in Flatpak so the in-app updater cannot overwrite
-                            // AppContext.BaseDirectory. Open the release page instead and let the
-                            // user update through Flathub / `flatpak update`. We deliberately do NOT
-                            // fall back to DownloadUrl: it points at the raw .flatpak asset, which
-                            // contradicts the Flathub-update guidance and leaves the user with a
-                            // bundle they cannot install from inside the sandbox.
-                            string releaseUrl;
-                            if (v3.Url is { } url)
-                            {
-                                releaseUrl = url;
-                            }
-                            else
-                            {
-                                _logger.LogWarning(
-                                    "AppUpdateResponse for {LatestVersion} had no Url; falling back to releases page.",
-                                    v3.LatestVersion);
-                                activity?.SetTag("UpdateUrlMissing", true);
-                                releaseUrl = "https://github.com/b-editor/beutl/releases";
-                            }
+                            // /app is read-only in Flatpak so the standalone-zip in-app updater (the else
+                            // branch below) cannot overwrite AppContext.BaseDirectory. Send the user to
+                            // the release page so the update happens through Flathub / `flatpak update`.
+                            // We deliberately do NOT fall back to DownloadUrl: the standalone-zip updater
+                            // cannot install a Flatpak bundle from inside the sandbox, so following it
+                            // would either fail or pull the user off the Flathub update path.
+                            string releaseUrl = GetReleaseUrl(v3, activity);
                             NotificationService.ShowInformation(
                                 MessageStrings.NewVersionAvailable,
                                 releaseUrl,
@@ -100,9 +87,10 @@ public sealed class CheckForUpdatesTask : StartupTask
                     else if (v3.MustLatest)
                     {
                         _logger.LogWarning("Current version must be updated to the latest version.");
+                        string releaseUrl = GetReleaseUrl(v3, activity);
                         await ShowDialogAndClose(new CheckForUpdatesResponse
                         {
-                            Url = v3.Url!,
+                            Url = releaseUrl,
                             IsLatest = v3.IsLatest,
                             MustLatest = v3.MustLatest,
                             LatestVersion = v3.LatestVersion
@@ -117,10 +105,25 @@ public sealed class CheckForUpdatesTask : StartupTask
 
     private static bool IsFlatpak()
     {
-        // /.flatpak-info is bind-mounted by the Flatpak runtime; FLATPAK_ID is checked as a
-        // defensive fallback in case the file probe misbehaves on unusual mount namespaces.
+        // /.flatpak-info is the canonical sandbox marker (bind-mounted read-only by the runtime).
+        // FLATPAK_ID is checked as a backup signal so detection still works if the marker file is
+        // ever moved or hidden by host customizations.
         return File.Exists("/.flatpak-info")
             || !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("FLATPAK_ID"));
+    }
+
+    private string GetReleaseUrl(AppUpdateResponse v3, Activity? activity)
+    {
+        if (v3.Url is { } url)
+        {
+            return url;
+        }
+
+        _logger.LogWarning(
+            "AppUpdateResponse for {LatestVersion} had no Url; falling back to releases page.",
+            v3.LatestVersion);
+        activity?.SetTag("UpdateUrlMissing", true);
+        return "https://github.com/b-editor/beutl/releases";
     }
 
     private void OpenUrl(string url)
@@ -129,14 +132,10 @@ public sealed class CheckForUpdatesTask : StartupTask
         {
             Process.Start(new ProcessStartInfo(url) { UseShellExecute = true, Verb = "open" });
         }
-        catch (Exception ex) when (ex is Win32Exception
-                                      or InvalidOperationException
-                                      or FileNotFoundException
-                                      or PlatformNotSupportedException
-                                      or IOException)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger.LogError(ex, "Failed to open URL: {Url}", url);
-            NotificationService.ShowError(MessageStrings.OperationFailed, url);
+            NotificationService.ShowError(Strings.Open, MessageStrings.OperationFailed);
         }
     }
 
@@ -146,7 +145,7 @@ public sealed class CheckForUpdatesTask : StartupTask
         {
             return await _beutlApiApplication.CheckForUpdatesAsync(BeutlApplication.Version);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             activity?.SetStatus(ActivityStatusCode.Error);
             _logger.LogError(ex, "An error occurred while checking for updates");

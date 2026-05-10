@@ -1,7 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-: "${XDG_DATA_HOME:=$HOME/.local/share}"
+# XDG Base Directory Spec: XDG_DATA_HOME must be an absolute path; if it is unset,
+# empty, or relative, fall back to the spec's default ($HOME/.local/share).
+case "${XDG_DATA_HOME:-}" in
+    /*) ;;
+    *)  XDG_DATA_HOME="$HOME/.local/share" ;;
+esac
+export XDG_DATA_HOME
 export BEUTL_HOME="${BEUTL_HOME:-$XDG_DATA_HOME/beutl}"
 # /app is read-only in Flatpak, so redirect the .NET single-file bundle's extraction directory
 # to a writable XDG location. Without this, the apphost fails to extract the embedded payload.

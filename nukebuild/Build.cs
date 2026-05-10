@@ -176,8 +176,10 @@ class Build : NukeBuild
             AbsolutePath staging = sourcesDir / "Beutl-linux-x64-standalone";
             zipPath.UnZipTo(staging);
 
-            // asset_metadata.type=="flatpak" routes BeutlApiApplication.CheckForUpdatesAsync to
-            // the Flatpak update channel instead of the standalone-zip channel.
+            // Tag the metadata as type=flatpak so the update API can return Flatpak-channel
+            // release info (instead of the standalone-zip channel). The client just forwards
+            // metadata.Type to IAppClient.GetUpdate as a query parameter; the actual channel
+            // selection happens server-side.
             AbsolutePath assetMetadata = staging / "asset_metadata.json";
             JsonObject metadataNode = JsonNode.Parse(File.ReadAllText(assetMetadata)) as JsonObject
                 ?? throw new InvalidOperationException(
@@ -188,9 +190,10 @@ class Build : NukeBuild
 
             logoSvg.Copy(iconSvg, ExistsPolicy.FileOverwrite);
 
-            // The manifest references net.beditor.Beutl.metainfo.xml by relative path, so we
-            // must template in place. The finally block restores the file so this target leaves
-            // no working-tree changes.
+            // flatpak-builder copies net.beditor.Beutl.metainfo.xml from the working tree as a
+            // manifest source (sources: type: file), so version/date placeholders must be
+            // substituted in place. The finally block restores the original file so this target
+            // leaves no working-tree changes (the generated svg is .gitignored).
             string metainfoText = File.ReadAllText(metainfo);
             if (!metainfoText.Contains("VERSION_PLACEHOLDER") || !metainfoText.Contains("DATE_PLACEHOLDER"))
             {
@@ -210,7 +213,7 @@ class Build : NukeBuild
 
                 StartProcess(
                     "flatpak-builder",
-                    $"--user --force-clean --disable-rofiles-fuse --install-deps-from=flathub --repo={repoDir} {buildDir} {manifest}",
+                    $"--user --force-clean --disable-rofiles-fuse --install-deps-from=flathub --repo=\"{repoDir}\" \"{buildDir}\" \"{manifest}\"",
                     workingDirectory: flatpakDir)
                     .AssertZeroExitCode();
 
@@ -220,7 +223,7 @@ class Build : NukeBuild
                 // org.freedesktop.Platform//24.08 on machines without Flathub configured.
                 StartProcess(
                     "flatpak",
-                    $"build-bundle --runtime-repo=https://flathub.org/repo/flathub.flatpakrepo {repoDir} {outBundle} net.beditor.Beutl",
+                    $"build-bundle --runtime-repo=https://flathub.org/repo/flathub.flatpakrepo \"{repoDir}\" \"{outBundle}\" net.beditor.Beutl",
                     workingDirectory: flatpakDir)
                     .AssertZeroExitCode();
             }

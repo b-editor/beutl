@@ -5,7 +5,10 @@ sdk: org.freedesktop.Sdk
 command: beutl
 
 finish-args:
-  # Display + GPU + IPC for Avalonia/Skia rendering.
+  # --socket=wayland / --socket=fallback-x11 / --device=dri: display + GPU access for
+  # Avalonia/Skia rendering.
+  # --share=ipc: required by the X11 MIT-SHM extension (used when falling back to X11)
+  # for efficient frame transfer; also recommended by Flatpak docs for GUI apps.
   - --socket=wayland
   - --socket=fallback-x11
   - --share=ipc
@@ -36,16 +39,11 @@ finish-args:
   # libnotify toasts emitted by NotificationService.
   - --talk-name=org.freedesktop.Notifications
 
-cleanup:
-  - /include
-  - /lib/pkgconfig
-  - /man
-  - /share/doc
-  - /share/gtk-doc
-  - /share/man
-  - /share/pkgconfig
-  - '*.la'
-  - '*.a'
+# No top-level cleanup: this manifest does not build native dependencies, it only
+# copies the prebuilt self-contained .NET output. Glob patterns like '*.a' would risk
+# matching .NET runtime artifacts (e.g. libSystem.Globalization.Native.a in some AOT
+# scenarios), and the directory rules (/include, /lib/pkgconfig, /man, ...) would all
+# be no-ops because nothing is generated there.
 
 modules:
   - name: beutl

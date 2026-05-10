@@ -40,6 +40,11 @@
   </categories>
   <content_rating type="oars-1.1" />
   <releases>
-    <release version="VERSION_PLACEHOLDER" date="DATE_PLACEHOLDER" />
+    <release version="VERSION_PLACEHOLDER" date="DATE_PLACEHOLDER">
+      <description>
+        <p>See the GitHub release page for the full changelog.</p>
+      </description>
+      <url>https://github.com/b-editor/beutl/releases/tag/vVERSION_PLACEHOLDER</url>
+    </release>
   </releases>
 </component>
