@@ -209,6 +209,13 @@ public class MFEncodingController : EncodingController
         inType.Set(MediaTypeAttributeKeys.FrameSize, PackUint64((uint)width, (uint)height));
         inType.Set(MediaTypeAttributeKeys.FrameRate, PackUint64((uint)frNum, (uint)frDen));
         inType.Set(MediaTypeAttributeKeys.PixelAspectRatio, PackUint64(1, 1));
+        // Tell MF the actual byte stride of the buffers we hand it. For odd
+        // widths (e.g. 853) the chroma row needs ceil(width/2)*2 bytes, which
+        // is one byte wider than width — without this attribute the encoder
+        // MFT computes stride from FrameSize and reads each row off-by-one.
+        int chromaWidth = ((width + 1) / 2) * 2;
+        int defaultStride = isHdr ? chromaWidth * 2 : chromaWidth;
+        inType.Set(MediaTypeAttributeKeys.DefaultStride, defaultStride);
         ApplyColorTags(inType, isHdr);
 
         sinkWriter.SetInputMediaType(streamIndex, inType, null);
