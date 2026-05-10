@@ -236,42 +236,28 @@ internal sealed class MFDecoder : IDisposable
             IMFSample yuy2Sample = sample;
             if (_useDXVA2 && _mfOutBufferSample != null)
             {
-                IMFSample input = sample;
-                // Hardware VideoProcessorMFTs sometimes hold a frame of latency
-                // (the first ProcessInput returns NEED_MORE_INPUT). Feed extra
-                // samples from the same stream until output is produced; bail
-                // out only on a hard error or when the stream is exhausted.
-                const int MaxFeedRetries = 4;
-                int retries = 0;
-                while (true)
+                ConvertColorStatus status = ConvertColor(sample);
+                if (status == ConvertColorStatus.Success)
                 {
-                    ConvertColorStatus status = ConvertColor(input);
-                    if (status == ConvertColorStatus.Success)
-                    {
-                        yuy2Sample = _mfOutBufferSample;
-                        break;
-                    }
-                    if (status == ConvertColorStatus.HardError)
-                    {
-                        // ConvertColor already logged the HRESULT.
-                        return 0;
-                    }
-                    if (retries++ >= MaxFeedRetries)
-                    {
-                        _logger.LogWarning(
-                            "VideoProcessorMFT still returns NEED_MORE_INPUT after {MaxRetries} feeds at frame {Frame}; dropping",
-                            MaxFeedRetries, frame);
-                        return 0;
-                    }
-                    IMFSample? next = ReadSample(_mediaInfo.VideoStreamIndex);
-                    if (next is null)
+                    yuy2Sample = _mfOutBufferSample;
+                }
+                else
+                {
+                    // VideoProcessorMFT (CLSID_VideoProcessorMFT) is documented
+                    // as a synchronous MFT, so a 1:1 ProcessInput → ProcessOutput
+                    // mapping is the contract. NEED_MORE_INPUT here implies a
+                    // non-sync hardware variant; feeding the next ReadSample
+                    // would queue it in _sampleCache and cause a duplicate
+                    // ProcessInput on the next ReadFrame call. Drop the frame
+                    // instead and surface the anomaly. HardError already
+                    // logged its HRESULT inside ConvertColor.
+                    if (status == ConvertColorStatus.NeedMoreInput)
                     {
                         _logger.LogWarning(
-                            "VideoProcessorMFT needs more input but stream ended at frame {Frame}; dropping",
+                            "VideoProcessorMFT returned NEED_MORE_INPUT for a synchronous converter at frame {Frame}; dropping",
                             frame);
-                        return 0;
                     }
-                    input = next;
+                    return 0;
                 }
             }
 

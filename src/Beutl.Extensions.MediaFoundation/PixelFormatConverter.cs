@@ -64,12 +64,12 @@ internal static unsafe class PixelFormatConverter
         in YuvMatrix8 matrix)
     {
         // BGRA8888 source: 4 bytes/px. NV12 dest: Y plane width bytes/row, then UV
-        // plane stacked directly after, sharing dstStride. Stride < width or non-
-        // positive dimensions would let the loops walk into the UV plane (or past
-        // the buffer end) and silently corrupt memory.
+        // plane stacked directly after, sharing dstStride. The shared stride must
+        // hold the chroma row (ceil(width/2)*2 bytes), otherwise odd widths walk
+        // one byte past every UV row.
         Debug.Assert(width >= 0 && height >= 0, "negative dimensions");
         Debug.Assert(srcStride >= width * 4, "BGRA srcStride too small");
-        Debug.Assert(dstStride >= width, "NV12 dstStride too small");
+        Debug.Assert(dstStride >= ((width + 1) / 2) * 2, "NV12 dstStride too small for chroma row");
 
         int yPlaneBytes = dstStride * height;
         byte* yPlane = dst;
@@ -168,11 +168,12 @@ internal static unsafe class PixelFormatConverter
         byte* dst, int dstStride,
         int width, int height)
     {
-        // RGBA16 source: 8 bytes/px. P010 dest: 2 bytes/sample. dstStride must be
-        // even because we reinterpret it as a ushort* stride below.
+        // RGBA16 source: 8 bytes/px. P010 dest: 2 bytes/sample, chroma row is
+        // ceil(width/2)*2 ushorts = ceil(width/2)*4 bytes. dstStride must hold
+        // that and stay even (it gets reinterpreted as a ushort* stride below).
         Debug.Assert(width >= 0 && height >= 0, "negative dimensions");
         Debug.Assert(srcStride >= width * 8, "RGBA16 srcStride too small");
-        Debug.Assert(dstStride >= width * 2, "P010 dstStride too small");
+        Debug.Assert(dstStride >= ((width + 1) / 2) * 4, "P010 dstStride too small for chroma row");
         Debug.Assert((dstStride & 1) == 0, "P010 dstStride must be even");
 
         ushort* y16Plane = (ushort*)dst;
