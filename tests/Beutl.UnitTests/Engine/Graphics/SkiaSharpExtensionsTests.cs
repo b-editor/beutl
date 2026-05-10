@@ -1,4 +1,4 @@
-using Beutl.Graphics;
+﻿using Beutl.Graphics;
 using Beutl.Media;
 using SkiaSharp;
 using Vector = Beutl.Graphics.Vector;

@@ -1,4 +1,4 @@
-using System.Text.Json.Nodes;
+﻿using System.Text.Json.Nodes;
 using Beutl.Serialization;
 
 namespace Beutl.UnitTests.Core;

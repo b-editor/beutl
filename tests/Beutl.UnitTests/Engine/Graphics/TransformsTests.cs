@@ -1,4 +1,4 @@
-using Beutl.Composition;
+﻿using Beutl.Composition;
 using Beutl.Graphics;
 using Beutl.Graphics.Transformation;
 using Beutl.Utilities;

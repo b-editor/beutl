@@ -1,4 +1,4 @@
-using Beutl.Serialization;
+﻿using Beutl.Serialization;
 
 namespace Beutl.UnitTests.Core;
 

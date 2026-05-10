@@ -1,4 +1,4 @@
-using System.Runtime.InteropServices;
+﻿using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 
 namespace Beutl.UnitTests.Core;
