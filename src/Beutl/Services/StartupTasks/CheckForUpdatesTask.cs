@@ -145,13 +145,22 @@ public sealed class CheckForUpdatesTask : StartupTask
         {
             return await _beutlApiApplication.CheckForUpdatesAsync(BeutlApplication.Version);
         }
-        // TaskCanceledException is raised by HttpClient on timeout; we want to log/handle that
+        // TaskCanceledException is raised by HttpClient on timeout; we want to log/notify that
         // like any other failure. Pure OperationCanceledException (e.g. app shutdown) bubbles up.
         catch (Exception ex) when (ex is TaskCanceledException || ex is not OperationCanceledException)
         {
             activity?.SetStatus(ActivityStatusCode.Error);
             _logger.LogError(ex, "An error occurred while checking for updates");
-            await ex.Handle();
+            if (ex is TaskCanceledException)
+            {
+                // DefaultExceptionHandler.Handle silently swallows OperationCanceledException
+                // and all its subclasses, so notify the user directly for HTTP timeouts.
+                NotificationService.ShowError(Strings.Error, ex.Message);
+            }
+            else
+            {
+                await ex.Handle();
+            }
             return default;
         }
     }
