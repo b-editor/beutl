@@ -23,6 +23,8 @@ public partial class HistoryView : UserControl
         InitializeComponent();
         DataContextChanged += OnDataContextChanged;
         DetachedFromVisualTree += OnDetachedFromVisualTree;
+        HistoryList.ContainerPrepared += OnContainerPrepared;
+        HistoryList.ContainerClearing += OnContainerClearing;
     }
 
     private void OnDataContextChanged(object? sender, EventArgs e)
@@ -96,9 +98,34 @@ public partial class HistoryView : UserControl
         {
             if (HistoryList.ContainerFromIndex(i) is not ListBoxItem item) continue;
 
-            item.Classes.Set("current", i == current);
-            item.Classes.Set("future", i > current);
+            ApplyItemClasses(item, i, current);
         }
+    }
+
+    // ContainerPrepared fires whenever a ListBoxItem becomes realized
+    // (including after recycling), so this is where freshly attached
+    // containers get their current/future classes set.
+    private void OnContainerPrepared(object? sender, ContainerPreparedEventArgs e)
+    {
+        if (_currentViewModel is null || e.Container is not ListBoxItem item) return;
+
+        ApplyItemClasses(item, e.Index, _currentViewModel.CurrentIndex.Value);
+    }
+
+    // Strip our state classes when a container is recycled so it does not
+    // re-appear at a new index carrying stale styling.
+    private void OnContainerClearing(object? sender, ContainerClearingEventArgs e)
+    {
+        if (e.Container is not ListBoxItem item) return;
+
+        item.Classes.Set("current", false);
+        item.Classes.Set("future", false);
+    }
+
+    private static void ApplyItemClasses(ListBoxItem item, int index, int currentIndex)
+    {
+        item.Classes.Set("current", index == currentIndex);
+        item.Classes.Set("future", index > currentIndex);
     }
 
     private void OnSelectionChanged(object? sender, SelectionChangedEventArgs e)

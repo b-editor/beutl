@@ -27,7 +27,7 @@ public abstract class HistoryEntry
 
     internal static HistoryEntry CreateInitial()
     {
-        return new InitialHistoryEntry(DateTime.UtcNow);
+        return new InitialHistoryEntry(DateTime.Now);
     }
 
     internal static HistoryEntry FromTransaction(HistoryTransaction transaction)
@@ -37,7 +37,7 @@ public abstract class HistoryEntry
             transaction.Name,
             transaction.DisplayName,
             transaction.OperationCount,
-            DateTime.UtcNow);
+            DateTime.Now);
     }
 }
 
