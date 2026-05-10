@@ -123,7 +123,8 @@ public sealed class FFmpegWorkerProcess : IDisposable
             _process = Process.Start(startInfo)
                 ?? throw new InvalidOperationException("Failed to start FFmpeg worker process");
 
-            // stderrを非同期に消費してバッファ溢れによるデッドロックを防止
+            // stdout/stderrを非同期に消費してバッファ溢れによるデッドロックを防止しつつ、
+            // 受信した出力をホスト側ロガーへ転送する
             _process.ErrorDataReceived += (_, e) => LogWorkerOutput("stderr", e.Data);
             _process.OutputDataReceived += (_, e) => LogWorkerOutput("stdout", e.Data);
             _process.BeginErrorReadLine();
@@ -211,13 +212,26 @@ public sealed class FFmpegWorkerProcess : IDisposable
         if (data == null)
             return;
 
-        var (level, message) = ParseLevel(channel, data);
-        s_logger.Log(level, "{Channel} {Message}", channel, message);
+        // Process.*DataReceived ハンドラから例外を漏らすとホストプロセスが UnhandledException で落ちるため、
+        // ロガー基盤（Serilog/OTLP）の障害は最終フォールバックの Console.Error で握りつぶす
+        try
+        {
+            var (level, message) = ParseLevel(channel, data);
+            s_logger.Log(level, "{Channel} {Message}", channel, message);
+        }
+        catch (Exception ex)
+        {
+            try { Console.Error.WriteLine($"[FFmpegWorker:{channel}] log dispatch failed: {ex}"); }
+            catch { /* stderrまで死んでいたら諦める */ }
+        }
     }
 
     private static (LogLevel Level, string Message) ParseLevel(string channel, string data)
     {
-        // FFmpegLoaderWorker.SetupLogging が "[ffmpeg:<Level>] ..." 形式で書き出すプレフィックスを解釈する
+        // ワーカー側の FFmpegLoaderWorker.SetupLogging は FFmpeg ライブラリの Warning 以上のログのみ
+        // "[ffmpeg:<Level>] ..." 形式で stderr に書き出す。プレフィックス付き行はそれを解釈し、
+        // 非プレフィックス行（バージョンバナーや handler 由来の Console.Error 出力等）は
+        // チャネルベースのフォールバック（stderr=Warning / stdout=Information）扱いにする。
         const string prefix = "[ffmpeg:";
         if (data.StartsWith(prefix, StringComparison.Ordinal))
         {
