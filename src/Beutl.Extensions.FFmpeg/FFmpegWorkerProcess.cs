@@ -34,11 +34,15 @@ public sealed class FFmpegWorkerProcess : IDisposable
         if (_connection != null && _process is { HasExited: false })
             return _connection;
 
+        ThrowIfLibrariesMissing();
+
         _startLock.Wait();
         try
         {
             if (_connection != null && _process is { HasExited: false })
                 return _connection;
+
+            ThrowIfLibrariesMissing();
 
             // 同期コンテキストから非同期メソッドを呼び出す（タイムアウト付き）
             StartWorkerAsync(CancellationToken.None).GetAwaiter().GetResult();
@@ -55,11 +59,15 @@ public sealed class FFmpegWorkerProcess : IDisposable
         if (_connection != null && _process is { HasExited: false })
             return _connection;
 
+        ThrowIfLibrariesMissing();
+
         await _startLock.WaitAsync(ct);
         try
         {
             if (_connection != null && _process is { HasExited: false })
                 return _connection;
+
+            ThrowIfLibrariesMissing();
 
             await StartWorkerAsync(ct);
             return _connection!;
@@ -67,6 +75,15 @@ public sealed class FFmpegWorkerProcess : IDisposable
         finally
         {
             _startLock.Release();
+        }
+    }
+
+    private static void ThrowIfLibrariesMissing()
+    {
+        if (FFmpegInstallNotifier.IsLibrariesMissing)
+        {
+            throw new FFmpegLibrariesNotFoundException(
+                "FFmpeg libraries are missing; install FFmpeg before starting the worker.");
         }
     }
 

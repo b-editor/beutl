@@ -9,9 +9,14 @@ internal static class FFmpegInstallNotifier
 {
     private const long ThrottleMs = 10_000;
     private static long s_lastNotifiedTicks;
+    private static volatile bool s_librariesMissing;
+
+    public static bool IsLibrariesMissing => s_librariesMissing;
 
     public static void NotifyMissing()
     {
+        s_librariesMissing = true;
+
         long now = Environment.TickCount64;
         long last = Interlocked.Read(ref s_lastNotifiedTicks);
         if (last != 0 && now - last < ThrottleMs)
@@ -23,6 +28,17 @@ internal static class FFmpegInstallNotifier
             Strings.Make_sure_you_have_FFmpeg_installed,
             onActionButtonClick: ShowInstallDialog,
             actionButtonText: Strings.Install);
+    }
+
+    public static void MarkInstalled()
+    {
+        s_librariesMissing = false;
+        Interlocked.Exchange(ref s_lastNotifiedTicks, 0);
+    }
+
+    public static void MarkMissing()
+    {
+        s_librariesMissing = true;
     }
 
     private static void ShowInstallDialog()
