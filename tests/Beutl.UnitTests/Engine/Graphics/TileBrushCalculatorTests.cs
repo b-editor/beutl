@@ -10,21 +10,29 @@ public class TileBrushCalculatorTests
     [Test]
     public void Constructor_TileNone_AddsDestinationTranslation()
     {
+        // 宛先矩形を targetSize に対する非ゼロ位置に置き、TileMode.None で
+        // IntermediateTransform に destinationRect.Position への translate が
+        // 実際に積まれていることを translation 成分で直接検証する。
+        var destinationRel = new RelativeRect(0.25f, 0.5f, 0.5f, 0.5f, RelativeUnit.Relative);
         var calc = new TileBrushCalculator(
             TileMode.None,
             Stretch.Fill,
             AlignmentX.Left,
             AlignmentY.Top,
             FullRect,
-            FullRect,
+            destinationRel,
             new Size(100, 100),
             new Size(200, 200));
 
+        // destinationRel.ToPixels(target) = (50, 100, 100, 100)
         Assert.Multiple(() =>
         {
+            Assert.That(calc.DestinationRect, Is.EqualTo(new Rect(50, 100, 100, 100)));
             Assert.That(calc.IntermediateSize, Is.EqualTo(new Size(200, 200)));
-            // TileMode.None の場合、宛先位置への translate が追加され、Identity ではない
-            Assert.That(calc.IntermediateTransform, Is.Not.EqualTo(Matrix.Identity));
+            // source/destination が同サイズかつ scale=1, translate=0 なので、
+            // 最終 transform はちょうど destination 位置への translate になる
+            Assert.That(calc.IntermediateTransform.M31, Is.EqualTo(50f).Within(1e-5));
+            Assert.That(calc.IntermediateTransform.M32, Is.EqualTo(100f).Within(1e-5));
         });
     }
 

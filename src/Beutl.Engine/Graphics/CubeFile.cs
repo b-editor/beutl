@@ -1,4 +1,5 @@
-﻿using System.Numerics;
+﻿using System.Globalization;
+using System.Numerics;
 using System.Text.RegularExpressions;
 
 namespace Beutl.Graphics;
@@ -153,9 +154,9 @@ public partial class CubeFile : IEquatable<CubeFile>
                 string[] values = line.Split(' ');
                 if (values.Length != 3) continue;
 
-                if (float.TryParse(values[0], out float r) &&
-                    float.TryParse(values[1], out float g) &&
-                    float.TryParse(values[2], out float b))
+                if (float.TryParse(values[0], NumberStyles.Float, CultureInfo.InvariantCulture, out float r) &&
+                    float.TryParse(values[1], NumberStyles.Float, CultureInfo.InvariantCulture, out float g) &&
+                    float.TryParse(values[2], NumberStyles.Float, CultureInfo.InvariantCulture, out float b))
                 {
                     data[i] = new(r, g, b);
                     i++;
@@ -198,7 +199,7 @@ public partial class CubeFile : IEquatable<CubeFile>
                         throw new Exception();
                     lutSizeFound = true;
                     Match match = s_lutSizeReg.Match(line);
-                    size = int.Parse(match.Groups["size"].Value);
+                    size = int.Parse(match.Groups["size"].Value, CultureInfo.InvariantCulture);
                     switch (match.Groups["dim"].Value)
                     {
                         case "3D":
@@ -227,18 +228,18 @@ public partial class CubeFile : IEquatable<CubeFile>
                 {
                     maxFound = true;
                     Match match = s_domainMaxReg.Match(line);
-                    float r = float.Parse(match.Groups["red"].Value);
-                    float g = float.Parse(match.Groups["green"].Value);
-                    float b = float.Parse(match.Groups["blue"].Value);
+                    float r = float.Parse(match.Groups["red"].Value, CultureInfo.InvariantCulture);
+                    float g = float.Parse(match.Groups["green"].Value, CultureInfo.InvariantCulture);
+                    float b = float.Parse(match.Groups["blue"].Value, CultureInfo.InvariantCulture);
                     max = new(r, g, b);
                 }
                 else if (s_domainMinReg.IsMatch(line))
                 {
                     minFound = true;
                     Match match = s_domainMinReg.Match(line);
-                    float r = float.Parse(match.Groups["red"].Value);
-                    float g = float.Parse(match.Groups["green"].Value);
-                    float b = float.Parse(match.Groups["blue"].Value);
+                    float r = float.Parse(match.Groups["red"].Value, CultureInfo.InvariantCulture);
+                    float g = float.Parse(match.Groups["green"].Value, CultureInfo.InvariantCulture);
+                    float b = float.Parse(match.Groups["blue"].Value, CultureInfo.InvariantCulture);
                     min = new(r, g, b);
                 }
             }

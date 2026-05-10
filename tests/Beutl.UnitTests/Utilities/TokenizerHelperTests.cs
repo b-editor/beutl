@@ -5,6 +5,20 @@ namespace Beutl.UnitTests.Utilities;
 
 public class TokenizerHelperTests
 {
+    // 名前付きカルチャを user override 無しで取得する。
+    // globalization-invariant モードのランタイムでは null を返し、テストはスキップさせる。
+    private static CultureInfo? TryGetCulture(string name)
+    {
+        try
+        {
+            return new CultureInfo(name, useUserOverride: false);
+        }
+        catch (CultureNotFoundException)
+        {
+            return null;
+        }
+    }
+
     [Test]
     public void GetSeparator_NullProvider_ReturnsComma()
     {
@@ -22,7 +36,8 @@ public class TokenizerHelperTests
     [Test]
     public void GetSeparator_USEnglishCulture_ReturnsComma()
     {
-        var en = CultureInfo.GetCultureInfo("en-US");
+        CultureInfo? en = TryGetCulture("en-US");
+        Assume.That(en, Is.Not.Null, "en-US culture not available (globalization-invariant runtime)");
         char c = TokenizerHelper.GetSeparatorFromFormatProvider(en);
         Assert.That(c, Is.EqualTo(','));
     }
@@ -32,7 +47,8 @@ public class TokenizerHelperTests
     {
         // ドイツ語ロケールでは小数点の区切り文字がカンマなので、
         // セパレーターはセミコロンへ切り替わる
-        var de = CultureInfo.GetCultureInfo("de-DE");
+        CultureInfo? de = TryGetCulture("de-DE");
+        Assume.That(de, Is.Not.Null, "de-DE culture not available (globalization-invariant runtime)");
         char c = TokenizerHelper.GetSeparatorFromFormatProvider(de);
         Assert.That(c, Is.EqualTo(';'));
     }
@@ -40,7 +56,8 @@ public class TokenizerHelperTests
     [Test]
     public void GetSeparator_FrenchCulture_ReturnsSemicolon()
     {
-        var fr = CultureInfo.GetCultureInfo("fr-FR");
+        CultureInfo? fr = TryGetCulture("fr-FR");
+        Assume.That(fr, Is.Not.Null, "fr-FR culture not available (globalization-invariant runtime)");
         char c = TokenizerHelper.GetSeparatorFromFormatProvider(fr);
         Assert.That(c, Is.EqualTo(';'));
     }
