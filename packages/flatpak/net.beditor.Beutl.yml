@@ -5,12 +5,18 @@ sdk: org.freedesktop.Sdk
 command: beutl
 
 finish-args:
-  # --socket=wayland / --socket=fallback-x11 / --device=dri: display + GPU access for
-  # Avalonia/Skia rendering.
-  # --share=ipc: required by the X11 MIT-SHM extension (used when falling back to X11)
-  # for efficient frame transfer; also recommended by Flatpak docs for GUI apps.
+  # --socket=x11 / --device=dri: display + GPU access for Avalonia/Skia rendering.
+  # Avalonia ships only an X11 backend on Linux, so we need an X11 socket on every
+  # session. --socket=fallback-x11 is *not* enough: on a Wayland host it is suppressed
+  # (because a Wayland socket is provided), and Avalonia would then fail with
+  # `XOpenDisplay failed`. --socket=x11 forces the X11 socket to always be mounted,
+  # which on Wayland sessions transparently routes through XWayland.
+  # --socket=wayland is kept so future Avalonia Wayland support (or embedded helper
+  # processes that prefer Wayland) can opt in without another permission change.
+  # --share=ipc: required by the X11 MIT-SHM extension for efficient frame transfer;
+  # also recommended by Flatpak docs for GUI apps.
+  - --socket=x11
   - --socket=wayland
-  - --socket=fallback-x11
   - --share=ipc
   - --device=dri
   # Audio playback during preview/export (PulseAudio/PipeWire via the pulse socket).
