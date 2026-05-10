@@ -101,6 +101,18 @@
   <data name="Output" xml:space="preserve">
     <value>Output</value>
   </data>
+  <data name="History" xml:space="preserve">
+    <value>History</value>
+  </data>
+  <data name="History_Initial" xml:space="preserve">
+    <value>Initial state</value>
+  </data>
+  <data name="History_Unnamed" xml:space="preserve">
+    <value>(Unnamed)</value>
+  </data>
+  <data name="History_OperationFailed" xml:space="preserve">
+    <value>History operation failed.</value>
+  </data>
   <data name="Settings" xml:space="preserve">
     <value>Settings</value>
   </data>

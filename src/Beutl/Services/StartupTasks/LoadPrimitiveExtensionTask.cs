@@ -49,6 +49,7 @@ public sealed class LoadPrimitiveExtensionTask : StartupTask
         EqualizerPropertiesExtension.Instance,
         ScriptEditorExtension.Instance,
         FileBrowserTabExtension.Instance,
+        HistoryTabExtension.Instance,
         DefaultTutorialExtension.Instance
     ];
 

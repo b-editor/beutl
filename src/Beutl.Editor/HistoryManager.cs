@@ -1,4 +1,7 @@
-﻿using System.Reactive.Linq;
+﻿using System.Collections.ObjectModel;
+using System.Collections.Specialized;
+using System.Reactive.Disposables;
+using System.Reactive.Linq;
 using System.Reactive.Subjects;
 using System.Runtime.CompilerServices;
 using Beutl.Editor.Observers;
@@ -18,6 +21,8 @@ public sealed class HistoryManager : IDisposable
     private readonly Subject<HistoryState> _stateChanged = new();
     private readonly List<IDisposable> _subscriptions = new();
     private readonly object _lock = new();
+    private readonly ObservableCollection<HistoryEntry> _entries = new();
+    private readonly ReadOnlyObservableCollection<HistoryEntry> _readOnlyEntries;
     private long _transactionIdCounter;
     private HistoryTransaction _currentTransaction;
     private bool _isDisposed;
@@ -28,6 +33,8 @@ public sealed class HistoryManager : IDisposable
         _sequenceGenerator = sequenceGenerator ?? throw new ArgumentNullException(nameof(sequenceGenerator));
         _context = new OperationExecutionContext(root);
         _currentTransaction = new HistoryTransaction(Interlocked.Increment(ref _transactionIdCounter));
+        _entries.Add(HistoryEntry.CreateInitial());
+        _readOnlyEntries = new ReadOnlyObservableCollection<HistoryEntry>(_entries);
     }
 
     public CoreObject Root { get; }
@@ -41,6 +48,65 @@ public sealed class HistoryManager : IDisposable
 
     public IObservable<HistoryState> StateChanged => _stateChanged.AsObservable();
 
+    public ReadOnlyObservableCollection<HistoryEntry> Entries => _readOnlyEntries;
+
+    public int CurrentIndex => _undoStack.Count;
+
+    /// <summary>
+    /// Returns a thread-safe snapshot of the current entries taken under the
+    /// internal lock. Use this from threads other than the writer to avoid
+    /// racing with concurrent <see cref="Commit"/>, <see cref="Clear"/>, or
+    /// <see cref="JumpTo"/> mutations.
+    /// </summary>
+    public HistoryEntry[] GetEntriesSnapshot()
+    {
+        ThrowIfDisposed();
+        lock (_lock)
+        {
+            return [.. _entries];
+        }
+    }
+
+    /// <summary>
+    /// Atomically takes an initial snapshot and subscribes to subsequent
+    /// <see cref="INotifyCollectionChanged.CollectionChanged"/> events on
+    /// <see cref="Entries"/>. Use this when the consumer needs to mirror the
+    /// collection without dropping events that fire between the snapshot and
+    /// the subscription on a separate thread.
+    /// </summary>
+    /// <returns>
+    /// A tuple containing the unsubscribe disposable, the initial snapshot,
+    /// and the current index captured atomically with the snapshot.
+    /// </returns>
+    public (IDisposable Subscription, HistoryEntry[] InitialSnapshot, int InitialCurrentIndex) SubscribeEntries(
+        NotifyCollectionChangedEventHandler handler)
+    {
+        ThrowIfDisposed();
+        ArgumentNullException.ThrowIfNull(handler);
+
+        INotifyCollectionChanged source = _entries;
+        HistoryEntry[] snapshot;
+        int currentIndex;
+        lock (_lock)
+        {
+            snapshot = [.. _entries];
+            currentIndex = _undoStack.Count;
+            source.CollectionChanged += handler;
+        }
+
+        // Unsubscribe under the same lock that mutators hold so a concurrent
+        // Commit/Clear/JumpTo cannot fire one last event after Dispose returns.
+        var subscription = Disposable.Create(() =>
+        {
+            lock (_lock)
+            {
+                source.CollectionChanged -= handler;
+            }
+        });
+
+        return (subscription, snapshot, currentIndex);
+    }
+
     public void Commit(string? name = null, [CallerArgumentExpression(nameof(name))] string? expression = null)
     {
         ThrowIfDisposed();
@@ -53,8 +119,11 @@ public sealed class HistoryManager : IDisposable
                 _currentTransaction.DisplayName = name;
                 _logger.LogDebug("Committing transaction: {TransactionName} (ID: {TransactionId}, Operations: {OperationCount})",
                     expression, _currentTransaction.Id, _currentTransaction.OperationCount);
+                int currentEntryIndex = _undoStack.Count;
                 _undoStack.Push(_currentTransaction);
                 _redoStack.Clear();
+                TruncateEntriesAfter(currentEntryIndex);
+                _entries.Add(HistoryEntry.FromTransaction(_currentTransaction));
                 _currentTransaction = new HistoryTransaction(Interlocked.Increment(ref _transactionIdCounter));
             }
             else
@@ -171,10 +240,144 @@ public sealed class HistoryManager : IDisposable
             int redoCount = _redoStack.Count;
             _undoStack.Clear();
             _redoStack.Clear();
+
+            // Avoid Clear() + Add(): a VM mirror on a different thread would
+            // queue both events; the Reset path would resync to the already
+            // re-added initial entry, and the queued Add would then duplicate
+            // it. Emitting Replace + RemoveAt lets each event apply
+            // independently without a Reset.
+            HistoryEntry newInitial = HistoryEntry.CreateInitial();
+            if (_entries.Count == 0)
+            {
+                _entries.Add(newInitial);
+            }
+            else
+            {
+                _entries[0] = newInitial;
+                for (int i = _entries.Count - 1; i > 0; i--)
+                {
+                    _entries.RemoveAt(i);
+                }
+            }
+
             _logger.LogDebug("Cleared history stacks (Undo: {UndoCount}, Redo: {RedoCount})", undoCount, redoCount);
         }
 
         NotifyStateChanged();
+    }
+
+    public bool JumpTo(int index)
+    {
+        ThrowIfDisposed();
+
+        bool moved = false;
+        bool stateMutated = false;
+        Exception? failure = null;
+
+        try
+        {
+            lock (_lock)
+            {
+                if (index < 0 || index >= _entries.Count)
+                {
+                    _logger.LogDebug("JumpTo requested with out-of-range index: {Index} (Entries: {EntryCount})",
+                        index, _entries.Count);
+                    return false;
+                }
+
+                if (_currentTransaction.HasOperations)
+                {
+                    _logger.LogDebug("Rolling back current transaction before JumpTo");
+                    // Always replace the current transaction even if Revert throws,
+                    // otherwise the same operations would re-apply on the next commit.
+                    try
+                    {
+                        using (SuppressRecording())
+                        {
+                            _currentTransaction.Revert(_context);
+                        }
+                    }
+                    finally
+                    {
+                        _currentTransaction = new HistoryTransaction(Interlocked.Increment(ref _transactionIdCounter));
+                        stateMutated = true;
+                    }
+                }
+
+                try
+                {
+                    // Peek-then-pop preserves stack integrity if Revert/Apply throws:
+                    // the failing transaction stays on the originating stack so it
+                    // is not lost from history altogether.
+                    while (_undoStack.Count > index)
+                    {
+                        HistoryTransaction transaction = _undoStack.Peek();
+                        _logger.LogDebug("JumpTo undoing transaction: {TransactionName} (ID: {TransactionId})", transaction.Name, transaction.Id);
+                        using (SuppressRecording())
+                        {
+                            transaction.Revert(_context);
+                        }
+                        _undoStack.Pop();
+                        _redoStack.Push(transaction);
+                        moved = true;
+                        stateMutated = true;
+                    }
+
+                    while (_undoStack.Count < index && _redoStack.Count > 0)
+                    {
+                        HistoryTransaction transaction = _redoStack.Peek();
+                        _logger.LogDebug("JumpTo redoing transaction: {TransactionName} (ID: {TransactionId})", transaction.Name, transaction.Id);
+                        using (SuppressRecording())
+                        {
+                            transaction.Apply(_context);
+                        }
+                        _redoStack.Pop();
+                        _undoStack.Push(transaction);
+                        moved = true;
+                        stateMutated = true;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "JumpTo failed at undo={UndoCount}, redo={RedoCount}, target={Target}; history is in a partial state",
+                        _undoStack.Count, _redoStack.Count, index);
+                    failure = ex;
+                }
+
+                // Forward loop exits when _redoStack is empty; if that happened
+                // before reaching the requested index (e.g. residual stack drift
+                // from a previously-failed step), do not silently report success.
+                if (failure is null && _undoStack.Count != index)
+                {
+                    _logger.LogError(
+                        "JumpTo could not reach target index {Target} (undo={UndoCount}, redo={RedoCount}); stacks are out of sync with entries",
+                        index, _undoStack.Count, _redoStack.Count);
+                    failure = new InvalidOperationException(
+                        $"JumpTo could not reach target index {index} (undo={_undoStack.Count}, redo={_redoStack.Count}).");
+                }
+            }
+        }
+        finally
+        {
+            if (stateMutated)
+            {
+                NotifyStateChanged();
+            }
+        }
+
+        if (failure is not null)
+        {
+            throw failure;
+        }
+        return moved;
+    }
+
+    private void TruncateEntriesAfter(int lastKeptIndex)
+    {
+        for (int i = _entries.Count - 1; i > lastKeptIndex; i--)
+        {
+            _entries.RemoveAt(i);
+        }
     }
 
     public IDisposable Subscribe(IOperationObserver observer)

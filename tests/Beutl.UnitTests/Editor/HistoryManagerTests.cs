@@ -1,4 +1,5 @@
-﻿using Beutl.Editor;
+﻿using System.Collections.Specialized;
+using Beutl.Editor;
 using Beutl.Editor.Operations;
 using Beutl.Logging;
 using Microsoft.Extensions.Logging;
@@ -575,10 +576,581 @@ public class HistoryManagerTests
             "Test Operation");
     }
 
+    private CustomOperation CreateValueOperation(HistoryManager manager, int targetValue, int previousValue, string description)
+    {
+        var op = CustomOperation.Create(
+            () => _root.Value = targetValue,
+            () => _root.Value = previousValue,
+            _sequenceGenerator,
+            description);
+        op.Apply(new OperationExecutionContext(_root));
+        manager.Record(op);
+        return op;
+    }
+
     private class TestCoreObject : CoreObject
     {
         public int Value { get; set; }
     }
+
+    #region JumpTo / Entries Tests
+
+    [Test]
+    public void Entries_AfterConstruction_ShouldContainSingleInitialEntry()
+    {
+        using var manager = new HistoryManager(_root, _sequenceGenerator);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(manager.Entries.Count, Is.EqualTo(1));
+            Assert.That(manager.Entries[0].IsInitial, Is.True);
+            Assert.That(manager.CurrentIndex, Is.EqualTo(0));
+        });
+    }
+
+    [Test]
+    public void Entries_AfterCommit_ShouldAppendTransactionEntry()
+    {
+        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        _root.Value = 0;
+        CreateValueOperation(manager, 100, 0, "Set");
+        manager.Commit("First");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(manager.Entries.Count, Is.EqualTo(2));
+            Assert.That(manager.Entries[0].IsInitial, Is.True);
+            Assert.That(manager.Entries[1].IsInitial, Is.False);
+            Assert.That(manager.Entries[1].DisplayName, Is.EqualTo("First"));
+            Assert.That(manager.CurrentIndex, Is.EqualTo(1));
+        });
+    }
+
+    [Test]
+    public void Commit_AfterUndo_ShouldTruncateEntriesAndKeepInitial()
+    {
+        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        _root.Value = 0;
+        CreateValueOperation(manager, 100, 0, "Step1");
+        manager.Commit("Step1");
+        CreateValueOperation(manager, 200, 100, "Step2");
+        manager.Commit("Step2");
+
+        manager.Undo();
+        Assert.That(manager.Entries.Count, Is.EqualTo(3));
+
+        CreateValueOperation(manager, 50, 100, "Replacement");
+        manager.Commit("Replacement");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(manager.Entries.Count, Is.EqualTo(3));
+            Assert.That(manager.Entries[0].IsInitial, Is.True);
+            Assert.That(manager.Entries[1].DisplayName, Is.EqualTo("Step1"));
+            Assert.That(manager.Entries[2].DisplayName, Is.EqualTo("Replacement"));
+        });
+    }
+
+    [Test]
+    public void Clear_ShouldLeaveSingleInitialEntry()
+    {
+        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        CreateValueOperation(manager, 100, 0, "Step1");
+        manager.Commit("Step1");
+        CreateValueOperation(manager, 200, 100, "Step2");
+        manager.Commit("Step2");
+
+        manager.Clear();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(manager.Entries.Count, Is.EqualTo(1));
+            Assert.That(manager.Entries[0].IsInitial, Is.True);
+            Assert.That(manager.CurrentIndex, Is.EqualTo(0));
+        });
+    }
+
+    [Test]
+    public void JumpTo_OutOfRangeIndex_ShouldReturnFalseWithoutMutation()
+    {
+        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        _root.Value = 0;
+        CreateValueOperation(manager, 100, 0, "Step1");
+        manager.Commit("Step1");
+
+        int countBefore = manager.UndoCount;
+        bool moved1 = manager.JumpTo(-1);
+        bool moved2 = manager.JumpTo(manager.Entries.Count);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(moved1, Is.False);
+            Assert.That(moved2, Is.False);
+            Assert.That(manager.UndoCount, Is.EqualTo(countBefore));
+            Assert.That(_root.Value, Is.EqualTo(100));
+        });
+    }
+
+    [Test]
+    public void JumpTo_ToCurrentIndex_ShouldReturnFalseAndNotNotify()
+    {
+        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        CreateValueOperation(manager, 100, 0, "Step1");
+        manager.Commit("Step1");
+
+        HistoryState? receivedState = null;
+        using var sub = manager.StateChanged.Subscribe(s => receivedState = s);
+
+        bool moved = manager.JumpTo(manager.CurrentIndex);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(moved, Is.False);
+            Assert.That(receivedState, Is.Null);
+        });
+    }
+
+    [Test]
+    public void JumpTo_ToPastIndex_ShouldRevertInLifoOrder()
+    {
+        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        _root.Value = 0;
+        CreateValueOperation(manager, 100, 0, "Step1");
+        manager.Commit("Step1");
+        CreateValueOperation(manager, 200, 100, "Step2");
+        manager.Commit("Step2");
+        CreateValueOperation(manager, 300, 200, "Step3");
+        manager.Commit("Step3");
+
+        bool moved = manager.JumpTo(0);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(moved, Is.True);
+            Assert.That(_root.Value, Is.EqualTo(0));
+            Assert.That(manager.UndoCount, Is.EqualTo(0));
+            Assert.That(manager.RedoCount, Is.EqualTo(3));
+        });
+    }
+
+    [Test]
+    public void JumpTo_ToFutureIndex_ShouldReapplyInOrder()
+    {
+        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        _root.Value = 0;
+        CreateValueOperation(manager, 100, 0, "Step1");
+        manager.Commit("Step1");
+        CreateValueOperation(manager, 200, 100, "Step2");
+        manager.Commit("Step2");
+        CreateValueOperation(manager, 300, 200, "Step3");
+        manager.Commit("Step3");
+
+        manager.JumpTo(0);
+        Assert.That(_root.Value, Is.EqualTo(0));
+
+        bool moved = manager.JumpTo(2);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(moved, Is.True);
+            Assert.That(_root.Value, Is.EqualTo(200));
+            Assert.That(manager.UndoCount, Is.EqualTo(2));
+            Assert.That(manager.RedoCount, Is.EqualTo(1));
+        });
+    }
+
+    [Test]
+    public void JumpTo_WithUncommittedOperations_ShouldRollbackBeforeJumping()
+    {
+        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        _root.Value = 0;
+        CreateValueOperation(manager, 100, 0, "Committed");
+        manager.Commit("Committed");
+
+        // Uncommitted operation that mutates state.
+        var pending = CustomOperation.Create(
+            () => _root.Value = 999,
+            () => _root.Value = 100,
+            _sequenceGenerator,
+            "Pending");
+        pending.Apply(new OperationExecutionContext(_root));
+        manager.Record(pending);
+
+        bool moved = manager.JumpTo(0);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(moved, Is.True);
+            Assert.That(_root.Value, Is.EqualTo(0));
+            // The uncommitted operation must not survive into a future commit.
+            CreateValueOperation(manager, 50, 0, "AfterJump");
+            manager.Commit("AfterJump");
+            Assert.That(manager.PeekUndo()?.OperationCount, Is.EqualTo(1));
+        });
+    }
+
+    [Test]
+    public void JumpTo_ToInitialIndex_ShouldRestoreInitialState()
+    {
+        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        _root.Value = 0;
+        CreateValueOperation(manager, 100, 0, "Step1");
+        manager.Commit("Step1");
+
+        bool moved = manager.JumpTo(0);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(moved, Is.True);
+            Assert.That(manager.CurrentIndex, Is.EqualTo(0));
+            Assert.That(manager.CanUndo, Is.False);
+            Assert.That(manager.CanRedo, Is.True);
+            Assert.That(_root.Value, Is.EqualTo(0));
+        });
+    }
+
+    #endregion
+
+    #region HistoryEntry Tests
+
+    [Test]
+    public void HistoryEntry_Initial_ShouldUseInitialLabel()
+    {
+        var entry = HistoryEntry.CreateInitial();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(entry.IsInitial, Is.True);
+            Assert.That(entry.TransactionId, Is.Null);
+            Assert.That(entry.DisplayLabel, Is.EqualTo(Beutl.Language.Strings.History_Initial));
+            Assert.That(entry.TransactionLabel, Is.EqualTo("•"));
+        });
+    }
+
+    [Test]
+    public void HistoryEntry_FromTransaction_DisplayLabelPrefersDisplayName()
+    {
+        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        manager.Record(CreateTestOperation());
+        manager.Commit("Friendly");
+
+        HistoryEntry entry = manager.Entries[1];
+        Assert.That(entry.DisplayLabel, Is.EqualTo("Friendly"));
+    }
+
+    [Test]
+    public void HistoryEntry_FromTransaction_FallsBackToUnnamedWhenAllNull()
+    {
+        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        manager.Record(CreateTestOperation());
+        // Commit with a literal null name -> CallerArgumentExpression captures "(string?)null"
+        // which is non-null, so we directly construct the entry to test the fallback path.
+        var transaction = new HistoryTransaction(42);
+        var entry = HistoryEntry.FromTransaction(transaction);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(entry.IsInitial, Is.False);
+            Assert.That(entry.DisplayLabel, Is.EqualTo(Beutl.Language.Strings.History_Unnamed));
+            Assert.That(entry.TransactionLabel, Is.EqualTo("42"));
+        });
+    }
+
+    [Test]
+    public void HistoryEntry_Subtypes_AreSealedDiscriminatedUnion()
+    {
+        var initial = HistoryEntry.CreateInitial();
+        var transactional = HistoryEntry.FromTransaction(new HistoryTransaction(7));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(initial, Is.InstanceOf<InitialHistoryEntry>());
+            Assert.That(transactional, Is.InstanceOf<TransactionHistoryEntry>());
+            Assert.That(initial.TransactionId, Is.Null);
+            Assert.That(transactional.TransactionId, Is.EqualTo(7L));
+        });
+    }
+
+    #endregion
+
+    #region JumpTo Failure / Disposal Tests
+
+    [Test]
+    public void JumpTo_AfterDispose_ShouldThrowObjectDisposedException()
+    {
+        var manager = new HistoryManager(_root, _sequenceGenerator);
+        manager.Dispose();
+
+        Assert.Throws<ObjectDisposedException>(() => manager.JumpTo(0));
+    }
+
+    [Test]
+    public void JumpTo_WhenApplyThrowsMidForwardLoop_ShouldKeepFailingTransactionOnRedoStack()
+    {
+        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        _root.Value = 0;
+
+        CreateValueOperation(manager, 100, 0, "Step1");
+        manager.Commit("Step1");
+        CreateValueOperation(manager, 200, 100, "Step2");
+        manager.Commit("Step2");
+
+        // Faulty's first Apply (the explicit pre-record call) succeeds; any
+        // subsequent Apply (e.g. via Redo / JumpTo forward) throws.
+        bool firstApply = true;
+        var faulty = CustomOperation.Create(
+            () =>
+            {
+                if (firstApply)
+                {
+                    firstApply = false;
+                    _root.Value = 300;
+                    return;
+                }
+                throw new InvalidOperationException("Boom");
+            },
+            () => _root.Value = 200,
+            _sequenceGenerator,
+            "Faulty");
+        faulty.Apply(new OperationExecutionContext(_root));
+        manager.Record(faulty);
+        manager.Commit("Faulty");
+
+        manager.JumpTo(0);
+        // After jumping back: undo=[], redo=[Step1, Step2, Faulty(top)]
+        Assert.That(manager.RedoCount, Is.EqualTo(3));
+
+        HistoryState? observed = null;
+        using var sub = manager.StateChanged.Subscribe(s => observed = s);
+
+        Assert.Throws<InvalidOperationException>(() => manager.JumpTo(3));
+
+        Assert.Multiple(() =>
+        {
+            // peek-then-pop keeps the throwing transaction on redo while the
+            // ones that already applied move to undo.
+            Assert.That(manager.UndoCount, Is.EqualTo(2));
+            Assert.That(manager.RedoCount, Is.EqualTo(1));
+            Assert.That(manager.PeekRedo()?.DisplayName, Is.EqualTo("Faulty"));
+            // Successful steps must still emit a state-change notification.
+            Assert.That(observed, Is.Not.Null);
+        });
+    }
+
+    [Test]
+    public void JumpTo_WhenRevertThrowsMidLoop_ShouldNotifyForCompletedStepsAndRethrow()
+    {
+        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        _root.Value = 0;
+
+        // _undoStack (bottom -> top): Faulty, Step2, Step3
+        // JumpTo(0) reverts Step3 (ok) -> Step2 (ok) -> Faulty (throws).
+        var faulty = CustomOperation.Create(
+            () => _root.Value = 100,
+            () => throw new InvalidOperationException("Boom"),
+            _sequenceGenerator,
+            "Faulty");
+        faulty.Apply(new OperationExecutionContext(_root));
+        manager.Record(faulty);
+        manager.Commit("Faulty");
+
+        CreateValueOperation(manager, 200, 100, "Step2");
+        manager.Commit("Step2");
+        CreateValueOperation(manager, 300, 200, "Step3");
+        manager.Commit("Step3");
+
+        HistoryState? observed = null;
+        using var sub = manager.StateChanged.Subscribe(s => observed = s);
+
+        Assert.Throws<InvalidOperationException>(() => manager.JumpTo(0));
+
+        Assert.Multiple(() =>
+        {
+            // Successful steps must still notify.
+            Assert.That(observed, Is.Not.Null);
+            // Stack integrity preserved by peek-then-pop: Step2/Step3 moved to redo,
+            // Faulty stays on undo.
+            Assert.That(manager.UndoCount, Is.EqualTo(1));
+            Assert.That(manager.RedoCount, Is.EqualTo(2));
+        });
+    }
+
+    [Test]
+    public void JumpTo_WhenPendingRevertThrows_ShouldStillReplaceCurrentTransaction()
+    {
+        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        _root.Value = 0;
+        CreateValueOperation(manager, 100, 0, "Committed");
+        manager.Commit("Committed");
+
+        // Pending op whose revert throws — but its operation should NOT survive
+        // into the next commit because JumpTo's finally swaps _currentTransaction.
+        var pending = CustomOperation.Create(
+            () => _root.Value = 999,
+            () => throw new InvalidOperationException("PendingRevertFailed"),
+            _sequenceGenerator,
+            "Pending");
+        pending.Apply(new OperationExecutionContext(_root));
+        manager.Record(pending);
+
+        Assert.Throws<InvalidOperationException>(() => manager.JumpTo(0));
+
+        // A subsequent commit must not include the pending operation.
+        CreateValueOperation(manager, 50, 999, "After");
+        manager.Commit("After");
+
+        Assert.That(manager.PeekUndo()?.OperationCount, Is.EqualTo(1));
+    }
+
+    [Test]
+    public void JumpTo_RejumpForwardAfterCommitCollapse_ShouldFail()
+    {
+        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        _root.Value = 0;
+        CreateValueOperation(manager, 100, 0, "Step1");
+        manager.Commit("Step1");
+        CreateValueOperation(manager, 200, 100, "Step2");
+        manager.Commit("Step2");
+        CreateValueOperation(manager, 300, 200, "Step3");
+        manager.Commit("Step3");
+
+        // Jump back, then commit -> redo stack collapses, entries truncate.
+        manager.JumpTo(1);
+        CreateValueOperation(manager, 50, 100, "Replacement");
+        manager.Commit("Replacement");
+
+        int previousValue = _root.Value;
+        bool moved = manager.JumpTo(3); // No longer reachable.
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(moved, Is.False);
+            Assert.That(_root.Value, Is.EqualTo(previousValue));
+            Assert.That(manager.Entries.Count, Is.EqualTo(3));
+        });
+    }
+
+    #endregion
+
+    #region Snapshot Tests
+
+    [Test]
+    public void GetEntriesSnapshot_ReturnsLockSafeCopy()
+    {
+        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        CreateValueOperation(manager, 100, 0, "Step1");
+        manager.Commit("Step1");
+
+        HistoryEntry[] snapshot = manager.GetEntriesSnapshot();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(snapshot.Length, Is.EqualTo(2));
+            Assert.That(snapshot[0].IsInitial, Is.True);
+            Assert.That(snapshot[1].DisplayName, Is.EqualTo("Step1"));
+        });
+
+        // Mutating the manager must not affect the snapshot reference.
+        CreateValueOperation(manager, 200, 100, "Step2");
+        manager.Commit("Step2");
+        Assert.That(snapshot.Length, Is.EqualTo(2));
+        Assert.That(manager.Entries.Count, Is.EqualTo(3));
+    }
+
+    [Test]
+    public void GetEntriesSnapshot_AfterDispose_ShouldThrow()
+    {
+        var manager = new HistoryManager(_root, _sequenceGenerator);
+        manager.Dispose();
+
+        Assert.Throws<ObjectDisposedException>(() => manager.GetEntriesSnapshot());
+    }
+
+    [Test]
+    public void SubscribeEntries_ReturnsCurrentSnapshotAndForwardsLaterChanges()
+    {
+        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        CreateValueOperation(manager, 100, 0, "Step1");
+        manager.Commit("Step1");
+
+        var received = new List<NotifyCollectionChangedAction>();
+        var (sub, snapshot, currentIndex) = manager.SubscribeEntries((_, e) => received.Add(e.Action));
+        using (sub)
+        {
+            Assert.Multiple(() =>
+            {
+                Assert.That(snapshot.Length, Is.EqualTo(2));
+                Assert.That(snapshot[0].IsInitial, Is.True);
+                Assert.That(snapshot[1].DisplayName, Is.EqualTo("Step1"));
+                Assert.That(currentIndex, Is.EqualTo(1));
+            });
+
+            CreateValueOperation(manager, 200, 100, "Step2");
+            manager.Commit("Step2");
+
+            Assert.That(received, Does.Contain(NotifyCollectionChangedAction.Add));
+        }
+    }
+
+    [Test]
+    public void SubscribeEntries_DisposalUnsubscribesHandler()
+    {
+        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        int callCount = 0;
+        var (sub, _, _) = manager.SubscribeEntries((_, _) => callCount++);
+
+        sub.Dispose();
+
+        CreateValueOperation(manager, 1, 0, "AfterUnsubscribe");
+        manager.Commit("AfterUnsubscribe");
+
+        Assert.That(callCount, Is.EqualTo(0));
+    }
+
+    [Test]
+    public void SubscribeEntries_AfterDispose_ShouldThrow()
+    {
+        var manager = new HistoryManager(_root, _sequenceGenerator);
+        manager.Dispose();
+
+        Assert.Throws<ObjectDisposedException>(() =>
+            manager.SubscribeEntries((_, _) => { }));
+    }
+
+    [Test]
+    public void SubscribeEntries_NullHandler_ShouldThrow()
+    {
+        using var manager = new HistoryManager(_root, _sequenceGenerator);
+
+        Assert.Throws<ArgumentNullException>(() =>
+            manager.SubscribeEntries(null!));
+    }
+
+    [Test]
+    public void Clear_DoesNotEmitResetEvent()
+    {
+        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        CreateValueOperation(manager, 100, 0, "Step1");
+        manager.Commit("Step1");
+        CreateValueOperation(manager, 200, 100, "Step2");
+        manager.Commit("Step2");
+
+        var actions = new List<NotifyCollectionChangedAction>();
+        var (sub, _, _) = manager.SubscribeEntries((_, e) => actions.Add(e.Action));
+        using (sub)
+        {
+            manager.Clear();
+        }
+
+        // Reset would force a full resync that races with the follow-up Add of
+        // the new initial entry on a UI-thread mirror; the Clear implementation
+        // must use granular events instead.
+        Assert.That(actions, Does.Not.Contain(NotifyCollectionChangedAction.Reset));
+        Assert.That(manager.Entries.Count, Is.EqualTo(1));
+        Assert.That(manager.Entries[0].IsInitial, Is.True);
+    }
+
+    #endregion
 
     #region BeginRecordingScope Tests
 
