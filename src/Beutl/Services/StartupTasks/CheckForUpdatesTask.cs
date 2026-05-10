@@ -57,10 +57,12 @@ public sealed class CheckForUpdatesTask : StartupTask
                         {
                             // /app is read-only in Flatpak so the standalone-zip in-app updater (the else
                             // branch below) cannot overwrite AppContext.BaseDirectory. Send the user to
-                            // the release page so the update happens through Flathub / `flatpak update`.
-                            // We deliberately do NOT fall back to DownloadUrl: the standalone-zip updater
-                            // cannot install a Flatpak bundle from inside the sandbox, so following it
-                            // would either fail or pull the user off the Flathub update path.
+                            // the release page so they can pick up the new build through their Flatpak
+                            // installation channel (currently a manual download + `flatpak install` of
+                            // the new bundle from GitHub Releases; once published on Flathub, the user
+                            // can also use `flatpak update`). We deliberately do NOT fall back to
+                            // DownloadUrl: the standalone-zip updater cannot install a Flatpak bundle
+                            // from inside the sandbox, so following it would just fail.
                             string releaseUrl = GetReleaseUrl(v3, activity);
                             NotificationService.ShowInformation(
                                 MessageStrings.NewVersionAvailable,
