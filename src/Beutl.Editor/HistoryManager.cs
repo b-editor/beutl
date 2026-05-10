@@ -237,8 +237,26 @@ public sealed class HistoryManager : IDisposable
             int redoCount = _redoStack.Count;
             _undoStack.Clear();
             _redoStack.Clear();
-            _entries.Clear();
-            _entries.Add(HistoryEntry.CreateInitial());
+
+            // Avoid Clear() + Add(): a VM mirror on a different thread would
+            // queue both events; the Reset path would resync to the already
+            // re-added initial entry, and the queued Add would then duplicate
+            // it. Emitting Replace + RemoveAt lets each event apply
+            // independently without a Reset.
+            HistoryEntry newInitial = HistoryEntry.CreateInitial();
+            if (_entries.Count == 0)
+            {
+                _entries.Add(newInitial);
+            }
+            else
+            {
+                _entries[0] = newInitial;
+                for (int i = _entries.Count - 1; i > 0; i--)
+                {
+                    _entries.RemoveAt(i);
+                }
+            }
+
             _logger.LogDebug("Cleared history stacks (Undo: {UndoCount}, Redo: {RedoCount})", undoCount, redoCount);
         }
 

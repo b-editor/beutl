@@ -1072,6 +1072,30 @@ public class HistoryManagerTests
             manager.SubscribeEntries(null!));
     }
 
+    [Test]
+    public void Clear_DoesNotEmitResetEvent()
+    {
+        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        CreateValueOperation(manager, 100, 0, "Step1");
+        manager.Commit("Step1");
+        CreateValueOperation(manager, 200, 100, "Step2");
+        manager.Commit("Step2");
+
+        var actions = new List<NotifyCollectionChangedAction>();
+        var (sub, _) = manager.SubscribeEntries((_, e) => actions.Add(e.Action));
+        using (sub)
+        {
+            manager.Clear();
+        }
+
+        // Reset would force a full resync that races with the follow-up Add of
+        // the new initial entry on a UI-thread mirror; the Clear implementation
+        // must use granular events instead.
+        Assert.That(actions, Does.Not.Contain(NotifyCollectionChangedAction.Reset));
+        Assert.That(manager.Entries.Count, Is.EqualTo(1));
+        Assert.That(manager.Entries[0].IsInitial, Is.True);
+    }
+
     #endregion
 
     #region BeginRecordingScope Tests
