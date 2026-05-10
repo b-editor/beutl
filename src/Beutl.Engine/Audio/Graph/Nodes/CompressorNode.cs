@@ -1,7 +1,10 @@
-﻿using Beutl.Engine;
+﻿using Beutl.Audio.Effects;
+using Beutl.Engine;
 using Beutl.Logging;
 using Beutl.Media;
 using Microsoft.Extensions.Logging;
+
+using static Beutl.Audio.Effects.CompressorParameters;
 
 namespace Beutl.Audio.Graph.Nodes;
 
@@ -11,13 +14,6 @@ public sealed class CompressorNode : AudioNode
 
     private const float MinDb = -100f;
 
-    // Lower bounds match the [Range] attributes declared on CompressorEffect. Keeping them in sync
-    // avoids silent clamping when animation values overshoot the declared range.
-    private const float MinAttackMs = 0.1f;
-    private const float MinReleaseMs = 1f;
-    private const float MinRatio = 1f;
-    private const float MinKneeDb = 0f;
-
     private float _envelopeDb = MinDb;
     private int _lastSampleRate;
     private TimeSpan? _lastTimeRangeEnd;
@@ -26,7 +22,9 @@ public sealed class CompressorNode : AudioNode
     // when the corruption persists across thousands of samples.
     private bool _loggedNonFiniteEnvelope;
     private bool _loggedNonFiniteSample;
-    private bool _loggedNonFiniteParameter;
+    // Per-parameter so a non-finite sample on one parameter (e.g. Attack) does not silently
+    // suppress diagnostics for an unrelated parameter (e.g. Threshold) later in the stream.
+    private readonly HashSet<string> _loggedNonFiniteParameters = new();
 
     public required IProperty<float> Threshold { get; init; }
 
@@ -63,6 +61,11 @@ public sealed class CompressorNode : AudioNode
         }
         _lastTimeRangeEnd = context.TimeRange.Start + context.TimeRange.Duration;
 
+        if (input.SampleCount == 0)
+        {
+            return new AudioBuffer(input.SampleRate, input.ChannelCount, 0);
+        }
+
         bool hasAnimation = Threshold.Animation != null ||
                             Ratio.Animation != null ||
                             Attack.Animation != null ||
@@ -82,17 +85,12 @@ public sealed class CompressorNode : AudioNode
     {
         var output = new AudioBuffer(input.SampleRate, input.ChannelCount, input.SampleCount);
 
-        float threshold = SafeParameter(Threshold.CurrentValue, Threshold.DefaultValue, nameof(Threshold));
-        float ratio = MathF.Max(MinRatio, SafeParameter(Ratio.CurrentValue, Ratio.DefaultValue, nameof(Ratio)));
-        float attackMs = MathF.Max(MinAttackMs, SafeParameter(Attack.CurrentValue, Attack.DefaultValue, nameof(Attack)));
-        float releaseMs = MathF.Max(MinReleaseMs, SafeParameter(Release.CurrentValue, Release.DefaultValue, nameof(Release)));
-        float knee = MathF.Max(MinKneeDb, SafeParameter(Knee.CurrentValue, Knee.DefaultValue, nameof(Knee)));
-        float makeupGain = SafeParameter(MakeupGain.CurrentValue, MakeupGain.DefaultValue, nameof(MakeupGain));
+        EffectiveParameters p = ReadStaticParameters();
 
-        float attackCoeff = ComputeCoeff(attackMs, context.SampleRate);
-        float releaseCoeff = ComputeCoeff(releaseMs, context.SampleRate);
-        float slope = 1f - 1f / ratio;
-        float makeupLinear = AudioMath.ConvertDbToLinear(makeupGain);
+        float attackCoeff = ComputeCoeff(p.Attack, context.SampleRate);
+        float releaseCoeff = ComputeCoeff(p.Release, context.SampleRate);
+        float slope = 1f - 1f / p.Ratio;
+        float makeupLinear = AudioMath.ConvertDbToLinear(p.MakeupGain);
 
         int channels = input.ChannelCount;
         for (int i = 0; i < input.SampleCount; i++)
@@ -109,7 +107,7 @@ public sealed class CompressorNode : AudioNode
             _envelopeDb = inputDb + coeff * (_envelopeDb - inputDb);
             RecoverEnvelopeIfNonFinite();
 
-            float gainReductionDb = ComputeGainReductionDb(_envelopeDb, threshold, knee, slope);
+            float gainReductionDb = ComputeGainReductionDb(_envelopeDb, p.Threshold, p.Knee, slope);
             float gainLinear = AudioMath.ConvertDbToLinear(-gainReductionDb) * makeupLinear;
 
             for (int ch = 0; ch < channels; ch++)
@@ -138,12 +136,7 @@ public sealed class CompressorNode : AudioNode
         // Final fallbacks used when an animated parameter samples to NaN/Infinity (e.g. malformed
         // KeyFrame). Without this guard, a single non-finite animated value would propagate into
         // the gain calculation and cause the output sanitizer to silently zero out every sample.
-        float thresholdFallback = SafeParameter(Threshold.CurrentValue, Threshold.DefaultValue, nameof(Threshold));
-        float ratioFallback = MathF.Max(MinRatio, SafeParameter(Ratio.CurrentValue, Ratio.DefaultValue, nameof(Ratio)));
-        float attackFallback = MathF.Max(MinAttackMs, SafeParameter(Attack.CurrentValue, Attack.DefaultValue, nameof(Attack)));
-        float releaseFallback = MathF.Max(MinReleaseMs, SafeParameter(Release.CurrentValue, Release.DefaultValue, nameof(Release)));
-        float kneeFallback = MathF.Max(MinKneeDb, SafeParameter(Knee.CurrentValue, Knee.DefaultValue, nameof(Knee)));
-        float makeupFallback = SafeParameter(MakeupGain.CurrentValue, MakeupGain.DefaultValue, nameof(MakeupGain));
+        EffectiveParameters fallback = ReadStaticParameters();
 
         int channels = input.ChannelCount;
         int processed = 0;
@@ -183,31 +176,27 @@ public sealed class CompressorNode : AudioNode
 
                 float inputDb = peak > 0f ? 20f * MathF.Log10(peak) : MinDb;
 
-                float threshold = SafeParameter(thresholds[i], thresholdFallback, nameof(Threshold));
-                float ratio = MathF.Max(MinRatio, SafeParameter(ratios[i], ratioFallback, nameof(Ratio)));
-                float attackMs = MathF.Max(MinAttackMs, SafeParameter(attacks[i], attackFallback, nameof(Attack)));
-                float releaseMs = MathF.Max(MinReleaseMs, SafeParameter(releases[i], releaseFallback, nameof(Release)));
-                float knee = MathF.Max(MinKneeDb, SafeParameter(knees[i], kneeFallback, nameof(Knee)));
-                float makeupDb = SafeParameter(makeups[i], makeupFallback, nameof(MakeupGain));
+                EffectiveParameters p = SanitizeAnimated(
+                    thresholds[i], ratios[i], attacks[i], releases[i], knees[i], makeups[i], fallback);
 
-                if (attackMs != lastAttackMs)
+                if (p.Attack != lastAttackMs)
                 {
-                    attackCoeff = ComputeCoeff(attackMs, context.SampleRate);
-                    lastAttackMs = attackMs;
+                    attackCoeff = ComputeCoeff(p.Attack, context.SampleRate);
+                    lastAttackMs = p.Attack;
                 }
-                if (releaseMs != lastReleaseMs)
+                if (p.Release != lastReleaseMs)
                 {
-                    releaseCoeff = ComputeCoeff(releaseMs, context.SampleRate);
-                    lastReleaseMs = releaseMs;
+                    releaseCoeff = ComputeCoeff(p.Release, context.SampleRate);
+                    lastReleaseMs = p.Release;
                 }
-                float slope = 1f - 1f / ratio;
+                float slope = 1f - 1f / p.Ratio;
 
                 float coeff = inputDb > _envelopeDb ? attackCoeff : releaseCoeff;
                 _envelopeDb = inputDb + coeff * (_envelopeDb - inputDb);
                 RecoverEnvelopeIfNonFinite();
 
-                float gainReductionDb = ComputeGainReductionDb(_envelopeDb, threshold, knee, slope);
-                float gainLinear = AudioMath.ConvertDbToLinear(makeupDb - gainReductionDb);
+                float gainReductionDb = ComputeGainReductionDb(_envelopeDb, p.Threshold, p.Knee, slope);
+                float gainLinear = AudioMath.ConvertDbToLinear(p.MakeupGain - gainReductionDb);
 
                 for (int ch = 0; ch < channels; ch++)
                 {
@@ -220,6 +209,43 @@ public sealed class CompressorNode : AudioNode
         }
 
         return output;
+    }
+
+    private EffectiveParameters ReadStaticParameters()
+    {
+        return new EffectiveParameters
+        {
+            Threshold = Sanitize(Threshold.CurrentValue, Threshold.DefaultValue, MinThresholdDb, MaxThresholdDb, nameof(Threshold)),
+            Ratio = Sanitize(Ratio.CurrentValue, Ratio.DefaultValue, MinRatio, MaxRatio, nameof(Ratio)),
+            Attack = Sanitize(Attack.CurrentValue, Attack.DefaultValue, MinAttackMs, MaxAttackMs, nameof(Attack)),
+            Release = Sanitize(Release.CurrentValue, Release.DefaultValue, MinReleaseMs, MaxReleaseMs, nameof(Release)),
+            Knee = Sanitize(Knee.CurrentValue, Knee.DefaultValue, MinKneeDb, MaxKneeDb, nameof(Knee)),
+            MakeupGain = Sanitize(MakeupGain.CurrentValue, MakeupGain.DefaultValue, MinMakeupGainDb, MaxMakeupGainDb, nameof(MakeupGain)),
+        };
+    }
+
+    private EffectiveParameters SanitizeAnimated(
+        float threshold, float ratio, float attack, float release, float knee, float makeup,
+        in EffectiveParameters fallback)
+    {
+        return new EffectiveParameters
+        {
+            Threshold = Sanitize(threshold, fallback.Threshold, MinThresholdDb, MaxThresholdDb, nameof(Threshold)),
+            Ratio = Sanitize(ratio, fallback.Ratio, MinRatio, MaxRatio, nameof(Ratio)),
+            Attack = Sanitize(attack, fallback.Attack, MinAttackMs, MaxAttackMs, nameof(Attack)),
+            Release = Sanitize(release, fallback.Release, MinReleaseMs, MaxReleaseMs, nameof(Release)),
+            Knee = Sanitize(knee, fallback.Knee, MinKneeDb, MaxKneeDb, nameof(Knee)),
+            MakeupGain = Sanitize(makeup, fallback.MakeupGain, MinMakeupGainDb, MaxMakeupGainDb, nameof(MakeupGain)),
+        };
+    }
+
+    // Substitute fallback for NaN/Infinity, then clamp to the parameter's declared [Range].
+    // The clamp is what guards against an animated value silently bypassing the [Range] declaration
+    // on CompressorEffect — without it, e.g. an animated Attack of 1e9 ms would freeze the
+    // envelope without any diagnostic.
+    private float Sanitize(float value, float fallback, float min, float max, string paramName)
+    {
+        return Math.Clamp(SafeParameter(value, fallback, paramName), min, max);
     }
 
     // Without this guard, a single non-finite envelope sample would permanently poison the state
@@ -239,12 +265,11 @@ public sealed class CompressorNode : AudioNode
     private float SafeParameter(float value, float fallback, string paramName)
     {
         if (float.IsFinite(value)) return value;
-        if (!_loggedNonFiniteParameter)
+        if (_loggedNonFiniteParameters.Add(paramName))
         {
             s_logger.LogWarning(
-                "Compressor parameter '{Param}' produced a non-finite value; falling back to {Fallback}. Further occurrences will be suppressed.",
+                "Compressor parameter '{Param}' produced a non-finite value; falling back to {Fallback}. Further occurrences for this parameter will be suppressed.",
                 paramName, fallback);
-            _loggedNonFiniteParameter = true;
         }
         return fallback;
     }
@@ -287,8 +312,20 @@ public sealed class CompressorNode : AudioNode
         return envelopeDb > thresholdDb ? slope * (envelopeDb - thresholdDb) : 0f;
     }
 
-    public void Reset()
+    // Internal so tests can drive an explicit reset, but not part of the public API: external
+    // callers must not zero the envelope mid-buffer (it would produce an audible click).
+    internal void Reset()
     {
         _envelopeDb = MinDb;
+    }
+
+    private struct EffectiveParameters
+    {
+        public float Threshold;
+        public float Ratio;
+        public float Attack;
+        public float Release;
+        public float Knee;
+        public float MakeupGain;
     }
 }

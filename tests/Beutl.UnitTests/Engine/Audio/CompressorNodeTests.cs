@@ -769,4 +769,228 @@ public class CompressorNodeTests
         var ctx = CreateContext(TimeSpan.Zero, TimeSpan.FromSeconds(0.1));
         Assert.Throws<InvalidOperationException>(() => node.Process(ctx));
     }
+
+    [Test]
+    public void Process_ZeroLengthInput_Static_ReturnsEmptyBuffer()
+    {
+        // A zero-length chunk (silent gap, end-of-stream tail) must not divide by zero, allocate
+        // a stackalloc[0] for animation buffers, or otherwise misbehave. The static path is
+        // exercised because no parameters are animated.
+        using var input = new AudioBuffer(SampleRate, 2, 0);
+        var node = CreateNode();
+        node.AddInput(new StubSourceNode { Buffer = input });
+        var ctx = CreateContext(TimeSpan.Zero, TimeSpan.Zero);
+
+        using var output = node.Process(ctx);
+
+        Assert.That(output.SampleCount, Is.EqualTo(0));
+        Assert.That(output.ChannelCount, Is.EqualTo(2));
+        Assert.That(output.SampleRate, Is.EqualTo(SampleRate));
+    }
+
+    [Test]
+    public void Process_ZeroLengthInput_Animated_ReturnsEmptyBuffer()
+    {
+        // Same as above but on the animated path: a stackalloc[0] would otherwise be allocated
+        // and the chunk loop must handle SampleCount == 0 cleanly.
+        using var input = new AudioBuffer(SampleRate, 2, 0);
+
+        var thresholdAnim = new KeyFrameAnimation<float>();
+        thresholdAnim.KeyFrames.Add(new KeyFrame<float> { Easing = new LinearEasing(), Value = -20f, KeyTime = TimeSpan.Zero });
+        thresholdAnim.KeyFrames.Add(new KeyFrame<float> { Easing = new LinearEasing(), Value = -10f, KeyTime = TimeSpan.FromSeconds(1.0) });
+        var thresholdProperty = Property.CreateAnimatable(-20f);
+        thresholdProperty.Animation = thresholdAnim;
+
+        var node = new CompressorNode
+        {
+            Threshold = thresholdProperty,
+            Ratio = Property.CreateAnimatable(4f),
+            Attack = Property.CreateAnimatable(5f),
+            Release = Property.CreateAnimatable(50f),
+            Knee = Property.CreateAnimatable(0f),
+            MakeupGain = Property.CreateAnimatable(0f)
+        };
+        node.AddInput(new StubSourceNode { Buffer = input });
+
+        var ctx = CreateContext(TimeSpan.Zero, TimeSpan.Zero);
+        using var output = node.Process(ctx);
+
+        Assert.That(output.SampleCount, Is.EqualTo(0));
+        Assert.That(output.ChannelCount, Is.EqualTo(2));
+    }
+
+    [Test]
+    public void Process_AnimatedMakeupGain_AppliesPerSampleGain()
+    {
+        // Sweep MakeupGain from 0 dB (start) to +12 dB (end) over a steady loud signal. The
+        // tail of the buffer must measure ~12 dB louder than the head — proving that the
+        // animated `makeupDb - gainReductionDb` path actually mixes the per-sample makeup value
+        // into the output (and that the sign is correct).
+        const int sampleCount = SampleRate; // 1 s buffer
+        using var input = CreateSineBuffer(0.9f, 1000f, sampleCount);
+
+        var makeupAnim = new KeyFrameAnimation<float>();
+        makeupAnim.KeyFrames.Add(new KeyFrame<float> { Easing = new LinearEasing(), Value = 0f, KeyTime = TimeSpan.Zero });
+        makeupAnim.KeyFrames.Add(new KeyFrame<float> { Easing = new LinearEasing(), Value = 12f, KeyTime = TimeSpan.FromSeconds(1.0) });
+        var makeupProperty = Property.CreateAnimatable(0f);
+        makeupProperty.Animation = makeupAnim;
+
+        var node = new CompressorNode
+        {
+            Threshold = Property.CreateAnimatable(-20f),
+            Ratio = Property.CreateAnimatable(4f),
+            Attack = Property.CreateAnimatable(5f),
+            Release = Property.CreateAnimatable(50f),
+            Knee = Property.CreateAnimatable(0f),
+            MakeupGain = makeupProperty
+        };
+        node.AddInput(new StubSourceNode { Buffer = input });
+
+        var ctx = CreateContext(TimeSpan.Zero, TimeSpan.FromSeconds(1.0));
+        using var output = node.Process(ctx);
+
+        // Compare a steady-state window early in the buffer (makeup ≈ 0 dB) against one near
+        // the end (makeup ≈ +12 dB). Both are after the attack ramp so envelope state is steady.
+        int probeWidth = SampleRate / 100; // 10 ms
+        float earlyPeakDb = PeakDbInWindow(output, SampleRate / 4, probeWidth);
+        float latePeakDb = PeakDbInWindow(output, sampleCount - probeWidth, probeWidth);
+
+        float observedRise = latePeakDb - earlyPeakDb;
+        // 12 dB nominal; tolerance allows for ~3 dB of drift due to envelope ripple and the
+        // 25%→100% sweep range covering 9 dB rather than the full 12 dB.
+        Assert.That(observedRise, Is.GreaterThan(6f),
+            $"Animated MakeupGain should raise output level (early≈{earlyPeakDb:F2} dB, late≈{latePeakDb:F2} dB, rise≈{observedRise:F2} dB)");
+        Assert.That(observedRise, Is.LessThan(15f),
+            $"Animated MakeupGain rise is implausibly large (early≈{earlyPeakDb:F2} dB, late≈{latePeakDb:F2} dB)");
+    }
+
+    [Test]
+    public void Process_AnimatedRatio_BelowOne_ClampsToPassthrough()
+    {
+        // The animated path's clamp must mirror the static path: an animated ratio of 0.5
+        // would otherwise produce slope = 1 - 1/0.5 = -1 which AMPLIFIES above the threshold.
+        // After clamping to MinRatio=1, slope = 0 → passthrough.
+        const int sampleCount = SampleRate / 4;
+        using var input = CreateSineBuffer(0.9f, 1000f, sampleCount);
+
+        var ratioAnim = new KeyFrameAnimation<float>();
+        ratioAnim.KeyFrames.Add(new KeyFrame<float> { Easing = new LinearEasing(), Value = 0.5f, KeyTime = TimeSpan.Zero });
+        ratioAnim.KeyFrames.Add(new KeyFrame<float> { Easing = new LinearEasing(), Value = 0.5f, KeyTime = TimeSpan.FromSeconds(0.25) });
+        var ratioProperty = Property.CreateAnimatable(0.5f);
+        ratioProperty.Animation = ratioAnim;
+
+        var node = new CompressorNode
+        {
+            Threshold = Property.CreateAnimatable(-20f),
+            Ratio = ratioProperty,
+            Attack = Property.CreateAnimatable(5f),
+            Release = Property.CreateAnimatable(50f),
+            Knee = Property.CreateAnimatable(0f),
+            MakeupGain = Property.CreateAnimatable(0f)
+        };
+        node.AddInput(new StubSourceNode { Buffer = input });
+
+        var ctx = CreateContext(TimeSpan.Zero, TimeSpan.FromSeconds(0.25));
+        using var output = node.Process(ctx);
+
+        float outputPeakDb = PeakDb(output, sampleCount / 2);
+        float inputPeakDb = PeakDb(input, 0);
+        // After clamp, output must NOT exceed input peak (no amplification).
+        Assert.That(outputPeakDb, Is.LessThanOrEqualTo(inputPeakDb + 0.1f),
+            $"Animated ratio<1 must clamp to passthrough; output {outputPeakDb:F2} dB exceeded input {inputPeakDb:F2} dB");
+        // And it must roughly equal the input (no compression either).
+        Assert.That(outputPeakDb, Is.EqualTo(inputPeakDb).Within(0.5f));
+    }
+
+    [Test]
+    public void Process_AnimatedAttack_AboveMaxClampsAndKeepsEnvelopeMoving()
+    {
+        // An animated Attack of 1e9 ms would collapse the coefficient to exactly 1.0, freezing
+        // the envelope so it never tracks the input — and therefore never crosses the threshold
+        // and never compresses. After clamping to MaxAttackMs the coefficient is < 1.0 so the
+        // envelope advances. We use a deep threshold (-50 dB) so the slow envelope reaches it
+        // within a 1 s buffer; the visible output reduction is then proof the clamp engaged.
+        const int sampleCount = SampleRate;
+        using var input = CreateSineBuffer(0.9f, 1000f, sampleCount);
+
+        var attackAnim = new KeyFrameAnimation<float>();
+        attackAnim.KeyFrames.Add(new KeyFrame<float> { Easing = new LinearEasing(), Value = 1e9f, KeyTime = TimeSpan.Zero });
+        attackAnim.KeyFrames.Add(new KeyFrame<float> { Easing = new LinearEasing(), Value = 1e9f, KeyTime = TimeSpan.FromSeconds(1.0) });
+        var attackProperty = Property.CreateAnimatable(1e9f);
+        attackProperty.Animation = attackAnim;
+
+        var node = new CompressorNode
+        {
+            Threshold = Property.CreateAnimatable(-50f),
+            Ratio = Property.CreateAnimatable(4f),
+            Attack = attackProperty,
+            Release = Property.CreateAnimatable(50f),
+            Knee = Property.CreateAnimatable(0f),
+            MakeupGain = Property.CreateAnimatable(0f)
+        };
+        node.AddInput(new StubSourceNode { Buffer = input });
+
+        var ctx = CreateContext(TimeSpan.Zero, TimeSpan.FromSeconds(1.0));
+        using var output = node.Process(ctx);
+
+        // Probe in the last 50 ms window so the clamped 500 ms attack has had ~2 time constants
+        // to bring the envelope above -50 dB and trigger compression.
+        int probeWidth = SampleRate / 20;
+        float steadyPeakDb = PeakDbInWindow(output, sampleCount - probeWidth, probeWidth);
+        // Without clamping: envelope frozen at -100 dB → no compression → output ≈ input (-0.92 dB).
+        // With clamping: envelope advances, crosses -50 dB threshold, triggers heavy reduction.
+        Assert.That(steadyPeakDb, Is.LessThan(-10f),
+            $"Animated Attack overshoot must be clamped so the envelope can still track; got {steadyPeakDb:F2} dB");
+    }
+
+    [Test]
+    public void Process_MultipleAnimatedNonFiniteParameters_AllFallBackIndependently()
+    {
+        // Two animated parameters simultaneously produce NaN. With a single shared latch, only
+        // one parameter would log and the second's fallback could be skipped if the latch were
+        // also gating the substitution; the per-parameter HashSet ensures both still substitute
+        // their fallbacks. Observable: output is not muted (would be -100 dB if NaN propagated).
+        const int sampleCount = SampleRate / 4;
+        using var input = CreateSineBuffer(0.9f, 1000f, sampleCount);
+
+        var attackAnim = new KeyFrameAnimation<float>();
+        attackAnim.KeyFrames.Add(new KeyFrame<float> { Easing = new LinearEasing(), Value = float.NaN, KeyTime = TimeSpan.Zero });
+        attackAnim.KeyFrames.Add(new KeyFrame<float> { Easing = new LinearEasing(), Value = float.NaN, KeyTime = TimeSpan.FromSeconds(0.25) });
+        var attackProperty = Property.CreateAnimatable(5f);
+        attackProperty.Animation = attackAnim;
+
+        var thresholdAnim = new KeyFrameAnimation<float>();
+        thresholdAnim.KeyFrames.Add(new KeyFrame<float> { Easing = new LinearEasing(), Value = float.NaN, KeyTime = TimeSpan.Zero });
+        thresholdAnim.KeyFrames.Add(new KeyFrame<float> { Easing = new LinearEasing(), Value = float.NaN, KeyTime = TimeSpan.FromSeconds(0.25) });
+        var thresholdProperty = Property.CreateAnimatable(-20f);
+        thresholdProperty.Animation = thresholdAnim;
+
+        var node = new CompressorNode
+        {
+            Threshold = thresholdProperty,
+            Ratio = Property.CreateAnimatable(4f),
+            Attack = attackProperty,
+            Release = Property.CreateAnimatable(50f),
+            Knee = Property.CreateAnimatable(0f),
+            MakeupGain = Property.CreateAnimatable(0f)
+        };
+        node.AddInput(new StubSourceNode { Buffer = input });
+
+        var ctx = CreateContext(TimeSpan.Zero, TimeSpan.FromSeconds(0.25));
+        using var output = node.Process(ctx);
+
+        for (int ch = 0; ch < output.ChannelCount; ch++)
+        {
+            var data = output.GetChannelData(ch);
+            for (int i = 0; i < output.SampleCount; i++)
+            {
+                Assert.That(float.IsFinite(data[i]), Is.True,
+                    $"Output sample [{ch}][{i}] = {data[i]} is not finite");
+            }
+        }
+
+        float steadyPeakDb = PeakDb(output, sampleCount / 2);
+        Assert.That(steadyPeakDb, Is.GreaterThan(-25f),
+            $"Both NaN parameters must fall back so output remains audible; got {steadyPeakDb:F2} dB");
+    }
 }

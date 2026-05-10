@@ -4,6 +4,8 @@ using Beutl.Audio.Graph.Nodes;
 using Beutl.Engine;
 using Beutl.Language;
 
+using static Beutl.Audio.Effects.CompressorParameters;
+
 namespace Beutl.Audio.Effects;
 
 [Display(Name = nameof(AudioStrings.CompressorEffect), ResourceType = typeof(AudioStrings))]
@@ -14,35 +16,35 @@ public sealed partial class CompressorEffect : AudioEffect
         ScanProperties<CompressorEffect>();
     }
 
-    [Range(-60f, 0f)]
+    [Range(MinThresholdDb, MaxThresholdDb)]
     [Display(Name = nameof(AudioStrings.CompressorEffect_Threshold), ResourceType = typeof(AudioStrings))]
     [SuppressResourceClassGeneration]
-    public IProperty<float> Threshold { get; } = Property.CreateAnimatable(-20f);
+    public IProperty<float> Threshold { get; } = Property.CreateAnimatable(DefaultThresholdDb);
 
-    [Range(1f, 20f)]
+    [Range(MinRatio, MaxRatio)]
     [Display(Name = nameof(AudioStrings.CompressorEffect_Ratio), ResourceType = typeof(AudioStrings))]
     [SuppressResourceClassGeneration]
-    public IProperty<float> Ratio { get; } = Property.CreateAnimatable(4f);
+    public IProperty<float> Ratio { get; } = Property.CreateAnimatable(DefaultRatio);
 
-    [Range(0.1f, 500f)]
+    [Range(MinAttackMs, MaxAttackMs)]
     [Display(Name = nameof(AudioStrings.CompressorEffect_Attack), ResourceType = typeof(AudioStrings))]
     [SuppressResourceClassGeneration]
-    public IProperty<float> Attack { get; } = Property.CreateAnimatable(10f);
+    public IProperty<float> Attack { get; } = Property.CreateAnimatable(DefaultAttackMs);
 
-    [Range(1f, 5000f)]
+    [Range(MinReleaseMs, MaxReleaseMs)]
     [Display(Name = nameof(AudioStrings.CompressorEffect_Release), ResourceType = typeof(AudioStrings))]
     [SuppressResourceClassGeneration]
-    public IProperty<float> Release { get; } = Property.CreateAnimatable(100f);
+    public IProperty<float> Release { get; } = Property.CreateAnimatable(DefaultReleaseMs);
 
-    [Range(0f, 24f)]
+    [Range(MinKneeDb, MaxKneeDb)]
     [Display(Name = nameof(AudioStrings.CompressorEffect_Knee), ResourceType = typeof(AudioStrings))]
     [SuppressResourceClassGeneration]
-    public IProperty<float> Knee { get; } = Property.CreateAnimatable(6f);
+    public IProperty<float> Knee { get; } = Property.CreateAnimatable(DefaultKneeDb);
 
-    [Range(-24f, 24f)]
+    [Range(MinMakeupGainDb, MaxMakeupGainDb)]
     [Display(Name = nameof(AudioStrings.CompressorEffect_MakeupGain), ResourceType = typeof(AudioStrings))]
     [SuppressResourceClassGeneration]
-    public IProperty<float> MakeupGain { get; } = Property.CreateAnimatable(0f);
+    public IProperty<float> MakeupGain { get; } = Property.CreateAnimatable(DefaultMakeupGainDb);
 
     public override AudioNode CreateNode(AudioContext context, AudioNode inputNode)
     {
