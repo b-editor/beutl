@@ -6,8 +6,7 @@ namespace Beutl.Audio.Graph.Nodes;
 
 public sealed class LimiterNode : AudioNode
 {
-    private const float MaxLookaheadMs = 20f;
-    private const float MinReleaseMs = 1f;
+    private const int AnimationChunkSize = 1024;
 
     private CircularBuffer<float>[]? _delayLines;
     private CircularBuffer<float>? _peakBuffer;
@@ -27,9 +26,18 @@ public sealed class LimiterNode : AudioNode
     public override AudioBuffer Process(AudioProcessContext context)
     {
         if (Inputs.Count != 1)
-            throw new InvalidOperationException("Limiter node requires exactly one input.");
+            throw new InvalidOperationException(
+                $"LimiterNode requires exactly one input but has {Inputs.Count}.");
 
-        var input = Inputs[0].Process(context);
+        var input = Inputs[0].Process(context)
+            ?? throw new InvalidOperationException("LimiterNode: upstream Process returned null.");
+
+        if (input.SampleRate != context.SampleRate)
+            throw new InvalidOperationException(
+                $"LimiterNode: sample rate mismatch. context={context.SampleRate}, input={input.SampleRate}.");
+
+        if (input.SampleCount == 0)
+            return new AudioBuffer(input.SampleRate, input.ChannelCount, 0);
 
         if (_delayLines == null || _peakBuffer == null
             || _lastSampleRate != context.SampleRate
@@ -39,24 +47,29 @@ public sealed class LimiterNode : AudioNode
             _lastSampleRate = context.SampleRate;
         }
 
-        // Reset whenever the chunk does not continue directly from the previous one, because the
-        // node instance is cached across Compose() calls and stale lookahead/gain state would
-        // otherwise bleed into the first samples after a seek or stop/restart.
+        // The node instance is cached across Compose() calls, so when the next chunk does not
+        // continue directly from the previous one (seek, stop/restart) we must drop the
+        // delay-line and gain state — otherwise audio from the previous segment would leak
+        // into the first lookahead-window worth of output samples.
         if (!_lastTimeRangeEnd.HasValue || _lastTimeRangeEnd.Value != context.TimeRange.Start)
         {
             Reset();
         }
-
-        _lastTimeRangeEnd = context.TimeRange.Start + context.TimeRange.Duration;
 
         bool hasAnimation = Threshold.Animation != null
                             || Release.Animation != null
                             || Lookahead.Animation != null
                             || MakeupGain.Animation != null;
 
-        return hasAnimation
+        var output = hasAnimation
             ? ProcessAnimated(input, context)
             : ProcessStatic(input, context);
+
+        // Update only on success so that a thrown exception lets the next call detect the
+        // discontinuity and reset, instead of silently inheriting corrupt state.
+        _lastTimeRangeEnd = context.TimeRange.Start + context.TimeRange.Duration;
+
+        return output;
     }
 
     private void InitializeBuffers(int sampleRate, int channelCount)
@@ -71,7 +84,9 @@ public sealed class LimiterNode : AudioNode
 
         _peakBuffer?.Dispose();
 
-        _maxLookaheadSamples = Math.Max(1, (int)(MaxLookaheadMs / 1000f * sampleRate) + 1);
+        // +1 because Read(lookaheadSamples) needs lookaheadSamples + 1 valid slots when
+        // lookaheadSamples is at its maximum (LimiterEffect.MaxLookaheadMs · sampleRate).
+        _maxLookaheadSamples = Math.Max(1, (int)(LimiterEffect.MaxLookaheadMs / 1000f * sampleRate) + 1);
         _delayLines = new CircularBuffer<float>[channelCount];
         for (int i = 0; i < _delayLines.Length; i++)
         {
@@ -82,12 +97,17 @@ public sealed class LimiterNode : AudioNode
         _currentGain = 1f;
     }
 
+    // Math.Clamp propagates NaN — wrap to fall back to a safe value before NaN can poison
+    // _currentGain (a NaN there persists across every subsequent sample).
+    private static float ClampFinite(float value, float min, float max, float fallback)
+        => float.IsFinite(value) ? Math.Clamp(value, min, max) : fallback;
+
     private AudioBuffer ProcessStatic(AudioBuffer input, AudioProcessContext context)
     {
-        float thresholdDb = Threshold.CurrentValue;
-        float releaseMs = Math.Max(MinReleaseMs, Release.CurrentValue);
-        float lookaheadMs = Math.Clamp(Lookahead.CurrentValue, 0f, MaxLookaheadMs);
-        float makeupDb = MakeupGain.CurrentValue;
+        float thresholdDb = ClampFinite(Threshold.CurrentValue, LimiterEffect.MinThresholdDb, LimiterEffect.MaxThresholdDb, LimiterEffect.MaxThresholdDb);
+        float releaseMs = ClampFinite(Release.CurrentValue, LimiterEffect.MinReleaseMs, LimiterEffect.MaxReleaseMs, LimiterEffect.MinReleaseMs);
+        float lookaheadMs = ClampFinite(Lookahead.CurrentValue, LimiterEffect.MinLookaheadMs, LimiterEffect.MaxLookaheadMs, LimiterEffect.MinLookaheadMs);
+        float makeupDb = ClampFinite(MakeupGain.CurrentValue, LimiterEffect.MinMakeupGainDb, LimiterEffect.MaxMakeupGainDb, 0f);
 
         float thresholdLin = AudioMath.ConvertDbToLinear(thresholdDb);
         float makeupLin = AudioMath.ConvertDbToLinear(makeupDb);
@@ -108,10 +128,10 @@ public sealed class LimiterNode : AudioNode
     {
         var output = new AudioBuffer(input.SampleRate, input.ChannelCount, input.SampleCount);
 
-        Span<float> thresholds = stackalloc float[Math.Min(input.SampleCount, 1024)];
-        Span<float> releases = stackalloc float[Math.Min(input.SampleCount, 1024)];
-        Span<float> lookaheads = stackalloc float[Math.Min(input.SampleCount, 1024)];
-        Span<float> makeups = stackalloc float[Math.Min(input.SampleCount, 1024)];
+        Span<float> thresholds = stackalloc float[Math.Min(input.SampleCount, AnimationChunkSize)];
+        Span<float> releases = stackalloc float[Math.Min(input.SampleCount, AnimationChunkSize)];
+        Span<float> lookaheads = stackalloc float[Math.Min(input.SampleCount, AnimationChunkSize)];
+        Span<float> makeups = stackalloc float[Math.Min(input.SampleCount, AnimationChunkSize)];
 
         int processed = 0;
         while (processed < input.SampleCount)
@@ -129,10 +149,13 @@ public sealed class LimiterNode : AudioNode
 
             for (int i = 0; i < chunkSize; i++)
             {
-                float thresholdLin = AudioMath.ConvertDbToLinear(thresholds[i]);
-                float makeupLin = AudioMath.ConvertDbToLinear(makeups[i]);
-                float releaseMs = Math.Max(MinReleaseMs, releases[i]);
-                float lookaheadMs = Math.Clamp(lookaheads[i], 0f, MaxLookaheadMs);
+                float thresholdDb = ClampFinite(thresholds[i], LimiterEffect.MinThresholdDb, LimiterEffect.MaxThresholdDb, LimiterEffect.MaxThresholdDb);
+                float releaseMs = ClampFinite(releases[i], LimiterEffect.MinReleaseMs, LimiterEffect.MaxReleaseMs, LimiterEffect.MinReleaseMs);
+                float lookaheadMs = ClampFinite(lookaheads[i], LimiterEffect.MinLookaheadMs, LimiterEffect.MaxLookaheadMs, LimiterEffect.MinLookaheadMs);
+                float makeupDb = ClampFinite(makeups[i], LimiterEffect.MinMakeupGainDb, LimiterEffect.MaxMakeupGainDb, 0f);
+
+                float thresholdLin = AudioMath.ConvertDbToLinear(thresholdDb);
+                float makeupLin = AudioMath.ConvertDbToLinear(makeupDb);
                 int lookaheadSamples = Math.Clamp((int)(lookaheadMs / 1000f * context.SampleRate), 0, _maxLookaheadSamples - 1);
                 float releaseCoef = MathF.Exp(-1f / (releaseMs * 0.001f * context.SampleRate));
 
@@ -154,13 +177,19 @@ public sealed class LimiterNode : AudioNode
         int lookaheadSamples,
         float releaseCoef)
     {
-        int channelCount = Math.Min(input.ChannelCount, _delayLines!.Length);
+        int channelCount = _delayLines!.Length;
 
-        // Stereo-linked peak detection: max of |L|, |R|, ...
+        // Channel-linked peak detection: take max(|s_ch|) across all channels so that a
+        // single shared gain is applied to every channel — preserves inter-channel phase.
+        // NaN/Infinity samples from upstream are coerced to 0 here: writing them into the
+        // delay line would either pass NaN straight through to the output or produce
+        // Inf*0 = NaN once the gain reduction kicks in.
         float currentPeak = 0f;
         for (int ch = 0; ch < channelCount; ch++)
         {
             float s = input.GetChannelData(ch)[sampleIndex];
+            if (!float.IsFinite(s)) s = 0f;
+
             float abs = MathF.Abs(s);
             if (abs > currentPeak)
                 currentPeak = abs;
@@ -168,10 +197,10 @@ public sealed class LimiterNode : AudioNode
             _delayLines[ch].Write(s);
         }
 
-        // Push current peak into the peak ring; the windowed-max over the lookahead window
-        // tells us the worst incoming peak that has not yet exited the delay line.
         _peakBuffer!.Write(currentPeak);
 
+        // Maximum peak that has not yet exited the delay line. This is the worst-case peak
+        // the sample being read from the delay line is allowed to encounter.
         float windowPeak = 0f;
         int windowSize = lookaheadSamples + 1;
         for (int j = 0; j < windowSize; j++)
@@ -181,7 +210,6 @@ public sealed class LimiterNode : AudioNode
                 windowPeak = v;
         }
 
-        // Brick-wall target gain: ratio is effectively infinity.
         float targetGain;
         if (windowPeak > thresholdLin && windowPeak > 0f)
         {
@@ -192,7 +220,8 @@ public sealed class LimiterNode : AudioNode
             targetGain = 1f;
         }
 
-        // Instant attack, IIR release.
+        // Instant attack is safe here: the lookahead delay means we apply the reduction
+        // before the offending sample reaches the output, avoiding distortion.
         if (targetGain < _currentGain)
         {
             _currentGain = targetGain;
@@ -211,6 +240,11 @@ public sealed class LimiterNode : AudioNode
         }
     }
 
+    /// <summary>
+    /// Clears delay-line state and resets the internal gain to unity.
+    /// Process() invokes this automatically on chunk discontinuity, so external
+    /// callers do not normally need to call it.
+    /// </summary>
     public void Reset()
     {
         if (_delayLines != null)
