@@ -1,4 +1,5 @@
 ﻿using Beutl.Animation;
+using Beutl.Animation.Easings;
 using Beutl.Audio;
 using Beutl.Audio.Graph;
 using Beutl.Audio.Graph.Nodes;
@@ -23,16 +24,26 @@ public class CompressorNodeTests
         }
     }
 
-    private static AudioBuffer CreateSineBuffer(float amplitude, float frequencyHz, int sampleCount, int channels = 2)
+    private static AudioBuffer CreateSineBuffer(float amplitude, float frequencyHz, int sampleCount, int channels = 2, int sampleRate = SampleRate)
     {
-        var buffer = new AudioBuffer(SampleRate, channels, sampleCount);
+        var buffer = new AudioBuffer(sampleRate, channels, sampleCount);
         for (int ch = 0; ch < channels; ch++)
         {
             var data = buffer.GetChannelData(ch);
             for (int i = 0; i < sampleCount; i++)
             {
-                data[i] = amplitude * MathF.Sin(2f * MathF.PI * frequencyHz * i / SampleRate);
+                data[i] = amplitude * MathF.Sin(2f * MathF.PI * frequencyHz * i / sampleRate);
             }
+        }
+        return buffer;
+    }
+
+    private static AudioBuffer CreateConstantBuffer(float amplitude, int sampleCount, int channels = 2)
+    {
+        var buffer = new AudioBuffer(SampleRate, channels, sampleCount);
+        for (int ch = 0; ch < channels; ch++)
+        {
+            buffer.GetChannelData(ch).Fill(amplitude);
         }
         return buffer;
     }
@@ -52,106 +63,710 @@ public class CompressorNodeTests
         return peak > 0f ? 20f * MathF.Log10(peak) : -100f;
     }
 
+    private static float ChannelPeakDb(AudioBuffer buffer, int channel, int startSample)
+    {
+        float peak = 0f;
+        var data = buffer.GetChannelData(channel);
+        for (int i = startSample; i < buffer.SampleCount; i++)
+        {
+            float a = MathF.Abs(data[i]);
+            if (a > peak) peak = a;
+        }
+        return peak > 0f ? 20f * MathF.Log10(peak) : -100f;
+    }
+
+    private static float PeakDbInWindow(AudioBuffer buffer, int startSample, int width)
+    {
+        int end = Math.Min(buffer.SampleCount, startSample + width);
+        float peak = 0f;
+        for (int ch = 0; ch < buffer.ChannelCount; ch++)
+        {
+            var data = buffer.GetChannelData(ch);
+            for (int i = startSample; i < end; i++)
+            {
+                float a = MathF.Abs(data[i]);
+                if (a > peak) peak = a;
+            }
+        }
+        return peak > 0f ? 20f * MathF.Log10(peak) : -100f;
+    }
+
+    private static CompressorNode CreateNode(
+        float threshold = -20f,
+        float ratio = 4f,
+        float attack = 5f,
+        float release = 50f,
+        float knee = 0f,
+        float makeup = 0f)
+    {
+        return new CompressorNode
+        {
+            Threshold = Property.CreateAnimatable(threshold),
+            Ratio = Property.CreateAnimatable(ratio),
+            Attack = Property.CreateAnimatable(attack),
+            Release = Property.CreateAnimatable(release),
+            Knee = Property.CreateAnimatable(knee),
+            MakeupGain = Property.CreateAnimatable(makeup)
+        };
+    }
+
+    private static AudioProcessContext CreateContext(TimeSpan start, TimeSpan duration, int sampleRate = SampleRate)
+    {
+        return new AudioProcessContext(
+            new TimeRange(start, duration),
+            sampleRate,
+            new AnimationSampler(),
+            null);
+    }
+
     [Test]
     public void Process_BelowThreshold_LeavesSignalUnchanged()
     {
-        // Amplitude 0.05 ≈ -26 dB peak, well below the -20 dB threshold, so output should pass through.
+        // Amplitude 0.05 ≈ -26 dB peak, well below the -20 dB threshold, so output should be a
+        // bit-identical pass-through. We verify per-sample equality (not just peak) so that any
+        // unexpected residual gain reduction is caught immediately.
         const int sampleCount = SampleRate / 2;
-        var input = CreateSineBuffer(0.05f, 1000f, sampleCount);
+        using var input = CreateSineBuffer(0.05f, 1000f, sampleCount);
         var source = new StubSourceNode { Buffer = input };
 
-        var node = new CompressorNode
-        {
-            Threshold = Property.CreateAnimatable(-20f),
-            Ratio = Property.CreateAnimatable(4f),
-            Attack = Property.CreateAnimatable(10f),
-            Release = Property.CreateAnimatable(100f),
-            Knee = Property.CreateAnimatable(0f),
-            MakeupGain = Property.CreateAnimatable(0f)
-        };
+        var node = CreateNode();
         node.AddInput(source);
 
-        var ctx = new AudioProcessContext(
-            new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(0.5)),
-            SampleRate,
-            new AnimationSampler(),
-            null);
+        var ctx = CreateContext(TimeSpan.Zero, TimeSpan.FromSeconds(0.5));
 
-        var output = node.Process(ctx);
+        using var output = node.Process(ctx);
 
-        float inputPeakDb = PeakDb(input, 0);
-        float outputPeakDb = PeakDb(output, sampleCount / 2);
-
-        Assert.That(outputPeakDb, Is.EqualTo(inputPeakDb).Within(0.5f));
+        for (int ch = 0; ch < input.ChannelCount; ch++)
+        {
+            var inData = input.GetChannelData(ch);
+            var outData = output.GetChannelData(ch);
+            for (int i = 0; i < sampleCount; i++)
+            {
+                Assert.That(outData[i], Is.EqualTo(inData[i]).Within(1e-5f));
+            }
+        }
     }
 
     [Test]
     public void Process_AboveThreshold_AppliesExpectedGainReduction()
     {
-        // Steady 0.9 amplitude (~-0.92 dB) sine, threshold -20 dB, ratio 4:1, hard knee.
-        // Steady-state gain reduction ≈ (-0.92 - -20) * (1 - 1/4) ≈ 14.3 dB.
+        // Sine well above the threshold: the per-sample peak detector dips at every zero crossing
+        // so the steady-state reduction is somewhat below the textbook ratio formula. Tolerance
+        // is loose enough to absorb that envelope ripple but tight enough to catch a slope sign
+        // flip or a missing makeup application.
         const int sampleCount = SampleRate;
-        var input = CreateSineBuffer(0.9f, 1000f, sampleCount);
+        using var input = CreateSineBuffer(0.9f, 1000f, sampleCount);
         var source = new StubSourceNode { Buffer = input };
 
-        var node = new CompressorNode
-        {
-            Threshold = Property.CreateAnimatable(-20f),
-            Ratio = Property.CreateAnimatable(4f),
-            Attack = Property.CreateAnimatable(5f),
-            Release = Property.CreateAnimatable(50f),
-            Knee = Property.CreateAnimatable(0f),
-            MakeupGain = Property.CreateAnimatable(0f)
-        };
+        var node = CreateNode();
         node.AddInput(source);
 
-        var ctx = new AudioProcessContext(
-            new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1.0)),
-            SampleRate,
-            new AnimationSampler(),
-            null);
+        var ctx = CreateContext(TimeSpan.Zero, TimeSpan.FromSeconds(1.0));
 
-        var output = node.Process(ctx);
+        using var output = node.Process(ctx);
 
-        // After the attack settles, the signal should sit around -15 dB.
         float steadyStartSample = SampleRate / 2;
         float outputPeakDb = PeakDb(output, (int)steadyStartSample);
 
-        Assert.That(outputPeakDb, Is.LessThan(-12f));
-        Assert.That(outputPeakDb, Is.GreaterThan(-18f));
+        Assert.That(outputPeakDb, Is.EqualTo(-13.5f).Within(1.5f));
     }
 
     [Test]
     public void Process_MakeupGain_RaisesOutputAboveReducedLevel()
     {
         const int sampleCount = SampleRate;
-        var input = CreateSineBuffer(0.9f, 1000f, sampleCount);
+        using var input = CreateSineBuffer(0.9f, 1000f, sampleCount);
         var source = new StubSourceNode { Buffer = input };
+
+        var node = CreateNode(makeup: 6f);
+        node.AddInput(source);
+
+        var ctx = CreateContext(TimeSpan.Zero, TimeSpan.FromSeconds(1.0));
+
+        using var output = node.Process(ctx);
+
+        float steadyStartSample = SampleRate / 2;
+        float outputPeakDb = PeakDb(output, (int)steadyStartSample);
+
+        // Makeup gain should add directly on top of the compressed level.
+        Assert.That(outputPeakDb, Is.EqualTo(-7.5f).Within(1.5f));
+    }
+
+    [Test]
+    public void Process_RatioOne_PassesSignalThroughUnchanged()
+    {
+        const int sampleCount = SampleRate / 4;
+        using var input = CreateSineBuffer(0.9f, 1000f, sampleCount);
+        var source = new StubSourceNode { Buffer = input };
+
+        var node = CreateNode(ratio: 1f);
+        node.AddInput(source);
+
+        var ctx = CreateContext(TimeSpan.Zero, TimeSpan.FromSeconds(0.25));
+
+        using var output = node.Process(ctx);
+
+        for (int ch = 0; ch < input.ChannelCount; ch++)
+        {
+            var inData = input.GetChannelData(ch);
+            var outData = output.GetChannelData(ch);
+            for (int i = 0; i < sampleCount; i++)
+            {
+                Assert.That(outData[i], Is.EqualTo(inData[i]).Within(1e-6f));
+            }
+        }
+    }
+
+    [Test]
+    public void Process_RatioBelowOne_ClampsToPassthrough()
+    {
+        // Animation/programmatic assignment can push ratio below 1; the node must clamp it to 1
+        // (passthrough) rather than amplify above the threshold.
+        const int sampleCount = SampleRate / 4;
+        using var input = CreateSineBuffer(0.9f, 1000f, sampleCount);
+        var source = new StubSourceNode { Buffer = input };
+
+        var node = CreateNode(ratio: 0.5f);
+        node.AddInput(source);
+
+        var ctx = CreateContext(TimeSpan.Zero, TimeSpan.FromSeconds(0.25));
+
+        using var output = node.Process(ctx);
+
+        float outputPeakDb = PeakDb(output, sampleCount / 2);
+        float inputPeakDb = PeakDb(input, 0);
+        Assert.That(outputPeakDb, Is.EqualTo(inputPeakDb).Within(0.5f));
+    }
+
+    [Test]
+    public void Process_LinkedStereo_AppliesSameGainToBothChannels()
+    {
+        // L = 0.9 sine drives compression; R = 0.05 sine sits below the threshold and would not
+        // compress on its own. Linked-stereo behaviour applies the L-derived gain reduction to R
+        // as well, so R's output should be R_input_peak attenuated by the same amount as L.
+        const int sampleCount = SampleRate;
+        using var input = new AudioBuffer(SampleRate, 2, sampleCount);
+        float leftInputPeakDb = 20f * MathF.Log10(0.9f);
+        float rightInputPeakDb = 20f * MathF.Log10(0.05f);
+        var lData = input.GetChannelData(0);
+        var rData = input.GetChannelData(1);
+        for (int i = 0; i < sampleCount; i++)
+        {
+            float t = 2f * MathF.PI * 1000f * i / SampleRate;
+            lData[i] = 0.9f * MathF.Sin(t);
+            rData[i] = 0.05f * MathF.Sin(t);
+        }
+        var source = new StubSourceNode { Buffer = input };
+
+        var node = CreateNode();
+        node.AddInput(source);
+
+        var ctx = CreateContext(TimeSpan.Zero, TimeSpan.FromSeconds(1.0));
+
+        using var output = node.Process(ctx);
+
+        int steadyStart = SampleRate / 2;
+        float leftPeakDb = ChannelPeakDb(output, 0, steadyStart);
+        float rightPeakDb = ChannelPeakDb(output, 1, steadyStart);
+
+        // L should be compressed to ~-13.5 dB (same as the steady-state test above).
+        Assert.That(leftPeakDb, Is.EqualTo(-13.5f).Within(1.5f),
+            "Sanity check: this test relies on L being compressed; if this fails the linked-gain expectation below is moot.");
+
+        // The L-channel gain reduction (positive dB number) inferred from the measurement is
+        // applied to the R channel by linked-stereo design, so R should land at the same dB
+        // distance below its input peak.
+        float leftGainReductionDb = leftInputPeakDb - leftPeakDb;
+        float expectedRightDb = rightInputPeakDb - leftGainReductionDb;
+        Assert.That(rightPeakDb, Is.EqualTo(expectedRightDb).Within(1.5f));
+    }
+
+    [Test]
+    public void Process_EnvelopeStateContinuesAcrossChunks()
+    {
+        // A node warmed up by a previous loud chunk must NOT reset its envelope when the next
+        // chunk continues directly in time. We verify this by comparing the first sample of the
+        // second chunk against a fresh node processing the same loud input from scratch:
+        // the warmed-up node is already in compression so its first sample is quieter, while
+        // the fresh node still has to ramp through the attack phase.
+        const int chunkSamples = SampleRate / 10;
+        var chunkDuration = TimeSpan.FromSeconds(chunkSamples / (double)SampleRate);
+        var ctx1 = CreateContext(TimeSpan.Zero, chunkDuration);
+        var ctx2 = CreateContext(chunkDuration, chunkDuration);
+
+        var nodeContinuing = CreateNode(release: 1000f);
+        using var warmupInput = CreateConstantBuffer(0.9f, chunkSamples);
+        nodeContinuing.AddInput(new StubSourceNode { Buffer = warmupInput });
+        using var warmup = nodeContinuing.Process(ctx1);
+        nodeContinuing.ClearInputs();
+        using var followInput = CreateConstantBuffer(0.9f, chunkSamples);
+        nodeContinuing.AddInput(new StubSourceNode { Buffer = followInput });
+        using var followOutput = nodeContinuing.Process(ctx2);
+
+        var nodeFresh = CreateNode(release: 1000f);
+        using var freshInput = CreateConstantBuffer(0.9f, chunkSamples);
+        nodeFresh.AddInput(new StubSourceNode { Buffer = freshInput });
+        using var freshOutput = nodeFresh.Process(ctx1);
+
+        float continuingFirst = MathF.Abs(followOutput.GetChannelData(0)[0]);
+        float freshFirst = MathF.Abs(freshOutput.GetChannelData(0)[0]);
+        Assert.That(continuingFirst, Is.LessThan(freshFirst));
+    }
+
+    [Test]
+    public void Process_NonContiguousTimeRange_ResetsEnvelope()
+    {
+        // First chunk drives compression; the second chunk starts at a non-contiguous time and
+        // must therefore reset the envelope so it begins fresh from MinDb.
+        const int chunkSamples = SampleRate / 10;
+        using var loud = CreateConstantBuffer(0.9f, chunkSamples);
+
+        var node = CreateNode(release: 1000f);
+        node.AddInput(new StubSourceNode { Buffer = loud });
+        var ctx1 = CreateContext(TimeSpan.Zero, TimeSpan.FromSeconds(chunkSamples / (double)SampleRate));
+        using var firstOutput = node.Process(ctx1);
+
+        node.ClearInputs();
+        using var loud2 = CreateConstantBuffer(0.9f, chunkSamples);
+        node.AddInput(new StubSourceNode { Buffer = loud2 });
+        // Start time jumps forward (seek), breaking contiguity.
+        var ctxSeek = CreateContext(TimeSpan.FromSeconds(5.0), TimeSpan.FromSeconds(chunkSamples / (double)SampleRate));
+        using var seekedOutput = node.Process(ctxSeek);
+
+        var nodeFresh = CreateNode(release: 1000f);
+        using var loud3 = CreateConstantBuffer(0.9f, chunkSamples);
+        nodeFresh.AddInput(new StubSourceNode { Buffer = loud3 });
+        using var freshOutput = nodeFresh.Process(
+            CreateContext(TimeSpan.Zero, TimeSpan.FromSeconds(chunkSamples / (double)SampleRate)));
+
+        // After a seek-style discontinuity, the envelope was reset, so the first sample should
+        // match a fresh node's first sample (within float tolerance).
+        float seekedFirst = MathF.Abs(seekedOutput.GetChannelData(0)[0]);
+        float freshFirst = MathF.Abs(freshOutput.GetChannelData(0)[0]);
+        Assert.That(seekedFirst, Is.EqualTo(freshFirst).Within(1e-4f));
+    }
+
+    [Test]
+    public void Process_SampleRateChange_ResetsEnvelope()
+    {
+        const int chunkSamples = SampleRate / 10;
+        using var loud = CreateConstantBuffer(0.9f, chunkSamples);
+
+        var node = CreateNode(release: 1000f);
+        node.AddInput(new StubSourceNode { Buffer = loud });
+        var ctx48 = CreateContext(TimeSpan.Zero, TimeSpan.FromSeconds(chunkSamples / (double)SampleRate));
+        using var firstOutput = node.Process(ctx48);
+
+        node.ClearInputs();
+        const int altSampleRate = 44100;
+        using var loud44 = CreateSineBuffer(0.9f, 1000f, altSampleRate / 10, 2, altSampleRate);
+        node.AddInput(new StubSourceNode { Buffer = loud44 });
+        // Time continues but sample rate changed → must reset envelope (and recompute coefficients
+        // for the new rate).
+        var ctx44 = new AudioProcessContext(
+            new TimeRange(TimeSpan.FromSeconds(chunkSamples / (double)SampleRate), TimeSpan.FromSeconds(0.1)),
+            altSampleRate,
+            new AnimationSampler(),
+            null);
+        using var secondOutput = node.Process(ctx44);
+
+        // After a sample-rate switch the envelope is reset, so the first sample must match a
+        // fresh node running at the new rate.
+        var nodeFresh = CreateNode(release: 1000f);
+        using var freshInput = CreateSineBuffer(0.9f, 1000f, altSampleRate / 10, 2, altSampleRate);
+        nodeFresh.AddInput(new StubSourceNode { Buffer = freshInput });
+        var ctxFresh = new AudioProcessContext(
+            new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(0.1)),
+            altSampleRate,
+            new AnimationSampler(),
+            null);
+        using var freshOutput = nodeFresh.Process(ctxFresh);
+
+        float secondFirst = MathF.Abs(secondOutput.GetChannelData(0)[0]);
+        float freshFirst = MathF.Abs(freshOutput.GetChannelData(0)[0]);
+        Assert.That(secondFirst, Is.EqualTo(freshFirst).Within(1e-4f));
+    }
+
+    [Test]
+    public void Reset_ClearsEnvelopeState()
+    {
+        // Process one chunk to drive the envelope into compression, then Reset() and process the
+        // next chunk at a *contiguous* time. Without Reset(), the time-range check would NOT
+        // trigger an automatic reset, so any difference from a fresh node must come from the
+        // explicit Reset() call.
+        const int chunkSamples = SampleRate / 10;
+        var chunkDuration = TimeSpan.FromSeconds(chunkSamples / (double)SampleRate);
+        var ctx1 = CreateContext(TimeSpan.Zero, chunkDuration);
+        var ctx2 = CreateContext(chunkDuration, chunkDuration);
+
+        var node = CreateNode(release: 1000f);
+        using var warmupInput = CreateConstantBuffer(0.9f, chunkSamples);
+        node.AddInput(new StubSourceNode { Buffer = warmupInput });
+        using var firstOutput = node.Process(ctx1);
+
+        node.Reset();
+        node.ClearInputs();
+        using var followInput = CreateConstantBuffer(0.9f, chunkSamples);
+        node.AddInput(new StubSourceNode { Buffer = followInput });
+        using var afterResetOutput = node.Process(ctx2);
+
+        var nodeFresh = CreateNode(release: 1000f);
+        using var freshInput = CreateConstantBuffer(0.9f, chunkSamples);
+        nodeFresh.AddInput(new StubSourceNode { Buffer = freshInput });
+        using var freshOutput = nodeFresh.Process(ctx1);
+
+        Assert.That(
+            MathF.Abs(afterResetOutput.GetChannelData(0)[0]),
+            Is.EqualTo(MathF.Abs(freshOutput.GetChannelData(0)[0])).Within(1e-4f));
+    }
+
+    [Test]
+    public void Process_AnimatedThreshold_EngagesAnimatedPath()
+    {
+        // Threshold animates from -10 dB (no compression for 0.05 input) at t=0 to -40 dB
+        // (heavy compression for 0.05 input) at t=0.5s. The output should be louder near t=0
+        // and quieter near t=0.5s, proving the animated path is exercised.
+        const int sampleCount = SampleRate / 2;
+        using var input = CreateConstantBuffer(0.05f, sampleCount);
+        var source = new StubSourceNode { Buffer = input };
+
+        var thresholdAnim = new KeyFrameAnimation<float>();
+        thresholdAnim.KeyFrames.Add(new KeyFrame<float> { Easing = new LinearEasing(), Value = -10f, KeyTime = TimeSpan.Zero });
+        thresholdAnim.KeyFrames.Add(new KeyFrame<float> { Easing = new LinearEasing(), Value = -40f, KeyTime = TimeSpan.FromSeconds(0.5) });
+
+        var thresholdProperty = Property.CreateAnimatable(-10f);
+        thresholdProperty.Animation = thresholdAnim;
+
+        var node = new CompressorNode
+        {
+            Threshold = thresholdProperty,
+            Ratio = Property.CreateAnimatable(8f),
+            Attack = Property.CreateAnimatable(1f),
+            Release = Property.CreateAnimatable(50f),
+            Knee = Property.CreateAnimatable(0f),
+            MakeupGain = Property.CreateAnimatable(0f)
+        };
+        node.AddInput(source);
+
+        var ctx = CreateContext(TimeSpan.Zero, TimeSpan.FromSeconds(0.5));
+
+        using var output = node.Process(ctx);
+
+        int lastQuarterStart = sampleCount * 3 / 4;
+        float earlyPeakDb = PeakDb(output, 0);
+        float latePeakDb = PeakDb(output, lastQuarterStart);
+
+        // Early threshold sits above the input (no compression); late threshold sits below it
+        // (compression engages). The late portion must therefore be measurably quieter.
+        Assert.That(latePeakDb, Is.LessThan(earlyPeakDb - 2f),
+            $"Animated threshold should attenuate the late portion (early≈{earlyPeakDb:F2} dB, late≈{latePeakDb:F2} dB)");
+    }
+
+    [Test]
+    public void Process_InfinityInputSamples_RecoversAndDoesNotLeakNonFiniteOutput()
+    {
+        // First few samples on every channel are +Infinity, which (after MathF.Abs and Log10)
+        // produces inputDb = +Infinity, polluting the envelope state. Subsequent samples are a
+        // normal sine wave. The self-recovery clamp must reset the envelope and the output
+        // sanitizer must ensure no NaN/Infinity sample escapes downstream.
+        const int sampleCount = SampleRate / 4;
+        using var input = CreateSineBuffer(0.9f, 1000f, sampleCount);
+        for (int ch = 0; ch < input.ChannelCount; ch++)
+        {
+            var data = input.GetChannelData(ch);
+            data[0] = float.PositiveInfinity;
+            data[1] = float.PositiveInfinity;
+        }
+
+        var source = new StubSourceNode { Buffer = input };
+        var node = CreateNode();
+        node.AddInput(source);
+
+        var ctx = CreateContext(TimeSpan.Zero, TimeSpan.FromSeconds(0.25));
+        using var output = node.Process(ctx);
+
+        // No sample anywhere in the output may be NaN or Infinity.
+        for (int ch = 0; ch < output.ChannelCount; ch++)
+        {
+            var data = output.GetChannelData(ch);
+            for (int i = 0; i < output.SampleCount; i++)
+            {
+                Assert.That(float.IsFinite(data[i]), Is.True,
+                    $"Output sample [{ch}][{i}] = {data[i]} is not finite");
+            }
+        }
+
+        // The steady-state region recovered to a sensible compressed level.
+        float steadyPeakDb = PeakDb(output, sampleCount / 2);
+        Assert.That(steadyPeakDb, Is.GreaterThan(-30f));
+        Assert.That(steadyPeakDb, Is.LessThan(0f));
+    }
+
+    [Test]
+    public void Process_NaNInputSamples_ProducesFiniteOutput()
+    {
+        // A NaN input sample multiplied by any gain stays NaN. The output sanitizer must
+        // replace it with 0 so downstream consumers receive only finite samples.
+        const int sampleCount = SampleRate / 4;
+        using var input = CreateSineBuffer(0.9f, 1000f, sampleCount);
+        input.GetChannelData(0)[0] = float.NaN;
+        input.GetChannelData(1)[0] = float.NaN;
+
+        var source = new StubSourceNode { Buffer = input };
+        var node = CreateNode();
+        node.AddInput(source);
+
+        var ctx = CreateContext(TimeSpan.Zero, TimeSpan.FromSeconds(0.25));
+        using var output = node.Process(ctx);
+
+        Assert.That(output.GetChannelData(0)[0], Is.EqualTo(0f));
+        Assert.That(output.GetChannelData(1)[0], Is.EqualTo(0f));
+        // Subsequent samples remain finite.
+        for (int ch = 0; ch < output.ChannelCount; ch++)
+        {
+            var data = output.GetChannelData(ch);
+            for (int i = 1; i < output.SampleCount; i++)
+            {
+                Assert.That(float.IsFinite(data[i]), Is.True);
+            }
+        }
+    }
+
+    [Test]
+    public void Process_SoftKnee_ProducesSmoothTransitionAroundThreshold()
+    {
+        // Soft knee starts attenuating before the input crosses the threshold; hard knee does
+        // not. We feed a sine right at the threshold and verify that soft-knee output is lower
+        // than hard-knee output, confirming the quadratic in-knee region engages.
+        const int sampleCount = SampleRate / 2;
+        // 0.1 amplitude → exactly -20 dB peak, matching the threshold.
+        using var input = CreateSineBuffer(0.1f, 1000f, sampleCount);
+
+        var hardKneeNode = CreateNode(threshold: -20f, ratio: 4f, knee: 0f);
+        hardKneeNode.AddInput(new StubSourceNode { Buffer = input });
+        using var hardOutput = hardKneeNode.Process(CreateContext(TimeSpan.Zero, TimeSpan.FromSeconds(0.5)));
+
+        var softKneeNode = CreateNode(threshold: -20f, ratio: 4f, knee: 12f);
+        softKneeNode.AddInput(new StubSourceNode { Buffer = input });
+        using var softOutput = softKneeNode.Process(CreateContext(TimeSpan.Zero, TimeSpan.FromSeconds(0.5)));
+
+        int steadyStart = sampleCount / 2;
+        float hardPeakDb = PeakDb(hardOutput, steadyStart);
+        float softPeakDb = PeakDb(softOutput, steadyStart);
+
+        // Soft knee already engages before the input crosses the threshold, so its output peak
+        // should be measurably lower than the hard-knee output.
+        Assert.That(softPeakDb, Is.LessThan(hardPeakDb - 0.3f),
+            $"Soft knee should attenuate near threshold (hard≈{hardPeakDb:F2} dB, soft≈{softPeakDb:F2} dB)");
+    }
+
+    [Test]
+    public void Process_MonoBuffer_ProducesExpectedGainReduction()
+    {
+        // The implementation iterates over the channel count; a single-channel buffer must work
+        // with no off-by-one and reach the same compression level as the stereo case.
+        const int sampleCount = SampleRate;
+        using var input = CreateSineBuffer(0.9f, 1000f, sampleCount, channels: 1);
+        var source = new StubSourceNode { Buffer = input };
+
+        var node = CreateNode();
+        node.AddInput(source);
+
+        var ctx = CreateContext(TimeSpan.Zero, TimeSpan.FromSeconds(1.0));
+        using var output = node.Process(ctx);
+
+        Assert.That(output.ChannelCount, Is.EqualTo(1));
+        float steadyPeakDb = PeakDb(output, sampleCount / 2);
+        Assert.That(steadyPeakDb, Is.EqualTo(-13.5f).Within(1.5f));
+    }
+
+    [Test]
+    public void Process_NoInputs_Throws()
+    {
+        var node = CreateNode();
+        var ctx = CreateContext(TimeSpan.Zero, TimeSpan.FromSeconds(0.1));
+        Assert.Throws<InvalidOperationException>(() => node.Process(ctx));
+    }
+
+    [Test]
+    public void Process_AnimatedAttackRelease_ExercisesCoefficientCache()
+    {
+        // Animate Attack from 1 ms (fast) to 200 ms (slow) over the buffer. Every new ms value
+        // invalidates the per-sample coefficient cache (`attackMs != lastAttackMs`), so
+        // ComputeCoeff is recomputed repeatedly. To verify the recomputed coefficients actually
+        // affect behaviour, we feed a step input (silence → loud) that arrives late in the
+        // buffer when the slow attack value is in effect. Right after the step the envelope
+        // hasn't clamped yet, so the transient peak must be louder than the eventually-settled
+        // tail. With attack stuck at 1 ms throughout, the transient would clamp instantly and
+        // this difference would not appear.
+        const int sampleCount = SampleRate; // 1 s buffer
+        int stepAt = SampleRate * 4 / 10;   // 400 ms in: animated attack ≈ 80 ms
+        using var input = new AudioBuffer(SampleRate, 2, sampleCount);
+        for (int ch = 0; ch < 2; ch++)
+        {
+            var data = input.GetChannelData(ch);
+            for (int i = stepAt; i < sampleCount; i++)
+            {
+                data[i] = 0.9f * MathF.Sin(2f * MathF.PI * 1000f * i / SampleRate);
+            }
+        }
+
+        var attackAnim = new KeyFrameAnimation<float>();
+        attackAnim.KeyFrames.Add(new KeyFrame<float> { Easing = new LinearEasing(), Value = 1f, KeyTime = TimeSpan.Zero });
+        attackAnim.KeyFrames.Add(new KeyFrame<float> { Easing = new LinearEasing(), Value = 200f, KeyTime = TimeSpan.FromSeconds(1.0) });
+        var attackProperty = Property.CreateAnimatable(1f);
+        attackProperty.Animation = attackAnim;
 
         var node = new CompressorNode
         {
             Threshold = Property.CreateAnimatable(-20f),
             Ratio = Property.CreateAnimatable(4f),
+            Attack = attackProperty,
+            Release = Property.CreateAnimatable(50f),
+            Knee = Property.CreateAnimatable(0f),
+            MakeupGain = Property.CreateAnimatable(0f)
+        };
+        node.AddInput(new StubSourceNode { Buffer = input });
+
+        var ctx = CreateContext(TimeSpan.Zero, TimeSpan.FromSeconds(1.0));
+        using var output = node.Process(ctx);
+
+        for (int ch = 0; ch < output.ChannelCount; ch++)
+        {
+            var data = output.GetChannelData(ch);
+            for (int i = 0; i < output.SampleCount; i++)
+            {
+                Assert.That(float.IsFinite(data[i]), Is.True);
+            }
+        }
+
+        int probeWidth = SampleRate / 200;          // 5 ms
+        float transientPeakDb = PeakDbInWindow(output, stepAt, probeWidth);
+        float settledPeakDb = PeakDbInWindow(output, sampleCount - probeWidth, probeWidth);
+
+        Assert.That(transientPeakDb, Is.GreaterThan(settledPeakDb + 1.0f),
+            $"Slow attack should leave a louder transient than the settled tail (transient≈{transientPeakDb:F2} dB, settled≈{settledPeakDb:F2} dB)");
+    }
+
+    [Test]
+    public void Process_AnimatedPath_SmoothAcrossChunkBoundary()
+    {
+        // ProcessAnimated walks the input in fixed-size chunks. We send a buffer that straddles
+        // several chunk boundaries and verify that the envelope state survives them: a steady
+        // input must not show any visible discontinuity at sample indices that align with the
+        // chunk size, which would indicate the envelope was reset at the boundary.
+        const int chunkSize = 1024;
+        const int sampleCount = chunkSize * 3 + 137; // straddles several boundaries
+        using var input = CreateConstantBuffer(0.9f, sampleCount);
+
+        // Animate threshold trivially so ProcessAnimated is taken; the value stays the same so
+        // the gain reduction itself should be smooth.
+        var thresholdAnim = new KeyFrameAnimation<float>();
+        thresholdAnim.KeyFrames.Add(new KeyFrame<float> { Easing = new LinearEasing(), Value = -20f, KeyTime = TimeSpan.Zero });
+        thresholdAnim.KeyFrames.Add(new KeyFrame<float> { Easing = new LinearEasing(), Value = -20f, KeyTime = TimeSpan.FromSeconds(sampleCount / (double)SampleRate) });
+        var thresholdProperty = Property.CreateAnimatable(-20f);
+        thresholdProperty.Animation = thresholdAnim;
+
+        var node = new CompressorNode
+        {
+            Threshold = thresholdProperty,
+            Ratio = Property.CreateAnimatable(4f),
             Attack = Property.CreateAnimatable(5f),
             Release = Property.CreateAnimatable(50f),
             Knee = Property.CreateAnimatable(0f),
-            MakeupGain = Property.CreateAnimatable(6f)
+            MakeupGain = Property.CreateAnimatable(0f)
         };
-        node.AddInput(source);
+        node.AddInput(new StubSourceNode { Buffer = input });
 
-        var ctx = new AudioProcessContext(
-            new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1.0)),
-            SampleRate,
-            new AnimationSampler(),
-            null);
+        var ctx = CreateContext(TimeSpan.Zero, TimeSpan.FromSeconds(sampleCount / (double)SampleRate));
+        using var output = node.Process(ctx);
 
-        var output = node.Process(ctx);
+        // Across each chunk boundary, the absolute change between adjacent samples must remain
+        // bounded by the change inside the previous window — i.e. no sudden jump caused by
+        // resetting state at a boundary.
+        var data = output.GetChannelData(0);
+        for (int boundary = chunkSize; boundary < sampleCount; boundary += chunkSize)
+        {
+            float prevDelta = MathF.Abs(data[boundary - 1] - data[boundary - 2]);
+            float boundaryDelta = MathF.Abs(data[boundary] - data[boundary - 1]);
+            // Tolerance allows for a tiny natural variation in the sine-like product but rejects
+            // an envelope reset (which would create a step of order 0.1 or larger here).
+            Assert.That(boundaryDelta, Is.LessThanOrEqualTo(prevDelta + 0.01f),
+                $"Discontinuity at chunk boundary {boundary}: prevDelta={prevDelta:F6}, boundaryDelta={boundaryDelta:F6}");
+        }
+    }
 
-        float steadyStartSample = SampleRate / 2;
-        float outputPeakDb = PeakDb(output, (int)steadyStartSample);
+    public enum AnimatedParam { Threshold, Ratio, Attack, Release, Knee, MakeupGain }
 
-        // 6 dB makeup applied to ~-15 dB → ~-9 dB.
-        Assert.That(outputPeakDb, Is.LessThan(-6f));
-        Assert.That(outputPeakDb, Is.GreaterThan(-12f));
+    [TestCase(AnimatedParam.Threshold)]
+    [TestCase(AnimatedParam.Ratio)]
+    [TestCase(AnimatedParam.Attack)]
+    [TestCase(AnimatedParam.Release)]
+    [TestCase(AnimatedParam.Knee)]
+    [TestCase(AnimatedParam.MakeupGain)]
+    public void Process_AnimatedNonFiniteValue_FallsBackWithoutMutingOutput(AnimatedParam param)
+    {
+        // A KeyFrame with NaN or Infinity on any animated parameter must not propagate to the
+        // output sanitizer (which would silently mute the entire chunk). Instead each parameter
+        // must fall back to its DefaultValue. We test every animated parameter so the
+        // SafeParameter call cannot be silently dropped from any one of them.
+        const int sampleCount = SampleRate / 4;
+        using var input = CreateSineBuffer(0.9f, 1000f, sampleCount);
+
+        var threshold = Property.CreateAnimatable(-20f);
+        var ratio = Property.CreateAnimatable(4f);
+        var attack = Property.CreateAnimatable(5f);
+        var release = Property.CreateAnimatable(50f);
+        var knee = Property.CreateAnimatable(0f);
+        var makeup = Property.CreateAnimatable(0f);
+
+        IProperty<float> target = param switch
+        {
+            AnimatedParam.Threshold => threshold,
+            AnimatedParam.Ratio => ratio,
+            AnimatedParam.Attack => attack,
+            AnimatedParam.Release => release,
+            AnimatedParam.Knee => knee,
+            AnimatedParam.MakeupGain => makeup,
+            _ => throw new ArgumentOutOfRangeException(nameof(param))
+        };
+        var anim = new KeyFrameAnimation<float>();
+        anim.KeyFrames.Add(new KeyFrame<float> { Easing = new LinearEasing(), Value = float.NaN, KeyTime = TimeSpan.Zero });
+        anim.KeyFrames.Add(new KeyFrame<float> { Easing = new LinearEasing(), Value = float.NaN, KeyTime = TimeSpan.FromSeconds(0.25) });
+        ((AnimatableProperty<float>)target).Animation = anim;
+
+        var node = new CompressorNode
+        {
+            Threshold = threshold,
+            Ratio = ratio,
+            Attack = attack,
+            Release = release,
+            Knee = knee,
+            MakeupGain = makeup
+        };
+        node.AddInput(new StubSourceNode { Buffer = input });
+
+        var ctx = CreateContext(TimeSpan.Zero, TimeSpan.FromSeconds(0.25));
+        using var output = node.Process(ctx);
+
+        // If the NaN had reached the gain calc the output sanitizer would have zeroed every
+        // sample and the peak would be -100 dB. Anything well above that proves the fallback
+        // engaged for the parameter under test.
+        float steadyPeakDb = PeakDb(output, sampleCount / 2);
+        Assert.That(steadyPeakDb, Is.GreaterThan(-25f),
+            $"Fallback failed for {param}: output appears to have been zeroed by NaN propagation");
+    }
+
+    [Test]
+    public void Process_TooManyInputs_Throws()
+    {
+        const int sampleCount = SampleRate / 10;
+        using var bufA = CreateConstantBuffer(0.1f, sampleCount);
+        using var bufB = CreateConstantBuffer(0.1f, sampleCount);
+        var node = CreateNode();
+        node.AddInput(new StubSourceNode { Buffer = bufA });
+        node.AddInput(new StubSourceNode { Buffer = bufB });
+        var ctx = CreateContext(TimeSpan.Zero, TimeSpan.FromSeconds(0.1));
+        Assert.Throws<InvalidOperationException>(() => node.Process(ctx));
     }
 }
