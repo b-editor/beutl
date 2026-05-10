@@ -128,16 +128,18 @@ public sealed class CheckForUpdatesTask : StartupTask
         return "https://github.com/b-editor/beutl/releases";
     }
 
-    private void OpenUrl(string url)
+    private bool OpenUrl(string url)
     {
         try
         {
             Process.Start(new ProcessStartInfo(url) { UseShellExecute = true, Verb = "open" });
+            return true;
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger.LogError(ex, "Failed to open URL: {Url}", url);
             NotificationService.ShowError(Strings.Error, ex.Message);
+            return false;
         }
     }
 
@@ -182,9 +184,12 @@ public sealed class CheckForUpdatesTask : StartupTask
 
             await dialog.ShowAsync();
 
-            OpenUrl(response.Url);
-
-            (AppHelper.GetTopLevel() as Window)?.Close();
+            // Only close the app if we actually managed to send the user to the update page.
+            // Otherwise the user would be locked out without any way to obtain the new version.
+            if (OpenUrl(response.Url))
+            {
+                (AppHelper.GetTopLevel() as Window)?.Close();
+            }
         });
     }
 }
