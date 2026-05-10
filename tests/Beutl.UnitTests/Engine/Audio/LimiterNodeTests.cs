@@ -1058,6 +1058,62 @@ public class LimiterNodeTests
     }
 
     [Test]
+    public void Process_EmptyChunkBetweenContiguousChunks_DoesNotForceReset()
+    {
+        // A degenerate empty chunk in the middle of a stream must advance _lastTimeRangeEnd
+        // so the follow-up non-empty chunk still resumes contiguously and the delay line is
+        // not erroneously cleared. Without that bookkeeping, the next chunk's Start would
+        // mismatch the stale _lastTimeRangeEnd and Reset() would fire — silently dropping the
+        // tail of the previous segment.
+        const int chunkSamples = 1024;
+        int lookaheadSamples = LookaheadSamples();
+
+        using var hotInput = CreateBuffer(2, chunkSamples,
+            (_, i) => 2.0f * MathF.Sin(2f * MathF.PI * 440f * i / SampleRate));
+
+        using var node = CreateNode(releaseMs: 5000f);
+        node.AddInput(new StubInputNode(hotInput));
+
+        var firstCtx = CreateContext(chunkSamples, start: TimeSpan.Zero);
+        using (var _ = node.Process(firstCtx)) { }
+
+        // Empty chunk at the boundary — duration zero so Start == End, contiguity preserved.
+        var emptyStart = firstCtx.TimeRange.Start + firstCtx.TimeRange.Duration;
+        var emptyCtx = new AudioProcessContext(
+            new TimeRange(emptyStart, TimeSpan.Zero), SampleRate, new AnimationSampler(), null);
+        using var emptyInput = new AudioBuffer(SampleRate, 2, 0);
+        node.RemoveInput(node.Inputs[0]);
+        node.AddInput(new StubInputNode(emptyInput));
+        using (var _ = node.Process(emptyCtx)) { }
+
+        // Resume with silence at the same instant the empty chunk ended. If Reset() had fired
+        // erroneously the delay line would now be all zeros — the residual proves the empty
+        // chunk advanced _lastTimeRangeEnd correctly.
+        using var silence = CreateBuffer(2, chunkSamples, (_, _) => 0f);
+        node.RemoveInput(node.Inputs[0]);
+        node.AddInput(new StubInputNode(silence));
+
+        using var resumeOut = node.Process(CreateContext(chunkSamples, start: emptyStart));
+
+        bool foundResidual = false;
+        for (int ch = 0; ch < 2 && !foundResidual; ch++)
+        {
+            var data = resumeOut.GetChannelData(ch);
+            for (int i = 0; i < lookaheadSamples; i++)
+            {
+                if (MathF.Abs(data[i]) > 1e-3f)
+                {
+                    foundResidual = true;
+                    break;
+                }
+            }
+        }
+
+        Assert.That(foundResidual, Is.True,
+            "Empty chunk at the boundary should not force a reset — delay-line residual must survive.");
+    }
+
+    [Test]
     public void Dispose_IsIdempotent()
     {
         var node = CreateNode();

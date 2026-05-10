@@ -32,6 +32,7 @@ public sealed class LimiterNode : AudioNode
     private bool _warnedNonFiniteLookahead;
     private bool _warnedNonFiniteMakeup;
     private bool _warnedNonFiniteInputSample;
+    private bool _warnedEmptyChunk;
 
     public required IProperty<float> Threshold { get; init; }
 
@@ -55,7 +56,23 @@ public sealed class LimiterNode : AudioNode
                 $"LimiterNode: sample rate mismatch. context={context.SampleRate}, input={input.SampleRate}.");
 
         if (input.SampleCount == 0)
+        {
+            // Empty chunks are not produced by the normal scheduling path (GetSampleCount uses
+            // Math.Ceiling so only TimeRange.Duration == Zero gets here). Treat them as a
+            // notable event — log once-per-format-change and keep _lastTimeRangeEnd advancing
+            // so a non-empty follow-up chunk that resumes from `Start + Duration` is not
+            // misclassified as a discontinuity.
+            if (!_warnedEmptyChunk)
+            {
+                s_logger.LogDebug(
+                    "LimiterNode: received empty input chunk at {Range}; passing through.",
+                    context.TimeRange);
+                _warnedEmptyChunk = true;
+            }
+
+            _lastTimeRangeEnd = context.TimeRange.Start + context.TimeRange.Duration;
             return new AudioBuffer(input.SampleRate, input.ChannelCount, 0);
+        }
 
         if (_delayLines == null || _peakBuffer == null
             || _lastSampleRate != context.SampleRate
@@ -91,8 +108,13 @@ public sealed class LimiterNode : AudioNode
             : ProcessStatic(input, context);
 
         // Update only on success: if Process throws mid-buffer, _currentGain and the delay line
-        // may be partially mutated. Leaving _lastTimeRangeEnd untouched routes the next call
-        // through Reset() instead of inheriting that partial state.
+        // may be partially mutated. Two cases for partial-state recovery on the next call:
+        //  - Contiguous throw (no Reset() ran this call): _lastTimeRangeEnd retains the previous
+        //    end, so the next call still detects the new chunk as a discontinuity if Start
+        //    differs — and equally, a same-Start retry would fail to update and re-route.
+        //  - Throw after Reset() ran: _lastTimeRangeEnd was already cleared to null by Reset(),
+        //    so the next call hits the `!HasValue` branch and Reset()s again before processing.
+        // Either way, partial state from a failed Process is discarded before the next chunk.
         _lastTimeRangeEnd = context.TimeRange.Start + context.TimeRange.Duration;
 
         return output;
@@ -155,6 +177,7 @@ public sealed class LimiterNode : AudioNode
         _warnedNonFiniteLookahead = false;
         _warnedNonFiniteMakeup = false;
         _warnedNonFiniteInputSample = false;
+        _warnedEmptyChunk = false;
 
         s_logger.LogDebug(
             "LimiterNode: initialized buffers (sampleRate={SampleRate}, channels={Channels}, maxLookaheadSamples={MaxLookahead}).",
