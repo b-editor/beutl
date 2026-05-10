@@ -2,9 +2,11 @@
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Controls.Primitives;
+using Avalonia.Input;
 using Avalonia.LogicalTree;
 using Avalonia.Markup.Xaml.MarkupExtensions;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using Beutl.Logging;
 using Beutl.Views;
 using FluentAvalonia.UI.Controls;
@@ -48,84 +50,167 @@ public sealed class NotificationServiceHandler : INotificationServiceHandler
         }
     }
 
-    public async void Show(Notification notification)
+    public void Show(Notification notification)
     {
-        await Dispatcher.UIThread.InvokeAsync(async () =>
+        _ = ShowCoreAsync(notification);
+    }
+
+    private async Task ShowCoreAsync(Notification notification)
+    {
+        try
         {
-            try
+            await App.WaitWindowOpened();
+
+            await Dispatcher.UIThread.InvokeAsync(async () =>
             {
-                await App.WaitWindowOpened();
-
-                if (GetMainView() is MainView mainView)
+                try
                 {
-                    var infoBar = new InfoBar
-                    {
-                        [!TemplatedControl.BackgroundProperty] =
-                            new DynamicResourceExtension("SolidBackgroundFillColorTertiaryBrush"),
-                        DataContext = notification,
-                        Title = notification.Title,
-                        Message = notification.Message,
-                        IsClosable = true,
-                        IsOpen = true,
-                        Width = 350,
-                        Severity = notification.Type switch
-                        {
-                            NotificationType.Success => InfoBarSeverity.Success,
-                            NotificationType.Warning => InfoBarSeverity.Warning,
-                            NotificationType.Error => InfoBarSeverity.Error,
-                            NotificationType.Information or _ => InfoBarSeverity.Informational,
-                        }
-                    };
+                    if (GetMainView() is not MainView mainView)
+                        return;
 
-                    infoBar.CloseButtonClick += (s, _) =>
-                    {
-                        if (s is InfoBar { DataContext: Notification n } infoBar)
-                        {
-                            n.OnClose?.Invoke();
-                            Close(infoBar);
-                        }
-                    };
-
-                    if (notification.OnActionButtonClick != null)
-                    {
-                        var actionButton = new Button { Content = notification.ActionButtonText ?? "Action" };
-                        actionButton.Click += (s, _) =>
-                        {
-                            if (s is Button { DataContext: Notification n } button)
-                            {
-                                n.OnActionButtonClick?.Invoke();
-
-                                InfoBar? infoBar = button.FindLogicalAncestorOfType<InfoBar>();
-                                if (infoBar != null)
-                                    Close(infoBar);
-                            }
-                        };
-                        infoBar.ActionButton = actionButton;
-                    }
-
+                    InfoBar infoBar = BuildInfoBar(notification);
                     mainView.NotificationPanel.Children.Add(infoBar);
+
                     await Task.Delay(notification.Expiration ?? TimeSpan.FromSeconds(3));
-                    while (infoBar.IsPointerOver)
-                    {
-                        await Task.Delay(3000);
-                    }
 
-                    if (infoBar.IsOpen)
-                    {
-                        infoBar.IsOpen = false;
-                        // アニメーション待ち
-                        await Task.Delay(167);
+                    if (infoBar.IsPointerOver)
+                        await WaitPointerExitedAsync(infoBar);
 
-                        mainView.NotificationPanel.Children.Remove(infoBar);
-                        mainView.HiddenNotificationPanel.Children.Add(infoBar);
+                    if (!infoBar.IsOpen)
+                        return;
+
+                    infoBar.IsOpen = false;
+                    // FluentAvalonia の InfoBar クローズアニメーション完了待ち (≈167ms)
+                    await Task.Delay(167);
+
+                    if (GetMainView() is MainView mv)
+                    {
+                        mv.NotificationPanel.Children.Remove(infoBar);
+                        mv.HiddenNotificationPanel.Children.Add(infoBar);
                         infoBar.IsOpen = true;
                     }
                 }
-            }
-            catch (Exception e)
+                catch (Exception e)
+                {
+                    _logger.LogError(
+                        e,
+                        "Failed to show notification (Type={Type}, Title={Title})",
+                        notification.Type, notification.Title);
+                }
+            });
+        }
+        // dispatcher shutdown 等、InvokeAsync 自体の失敗をここで握る
+        catch (Exception e)
+        {
+            _logger.LogError(
+                e,
+                "Failed to dispatch notification (Type={Type}, Title={Title})",
+                notification.Type, notification.Title);
+        }
+    }
+
+    private InfoBar BuildInfoBar(Notification notification)
+    {
+        var infoBar = new InfoBar
+        {
+            [!TemplatedControl.BackgroundProperty] =
+                new DynamicResourceExtension("SolidBackgroundFillColorTertiaryBrush"),
+            DataContext = notification,
+            Title = notification.Title,
+            Message = notification.Message,
+            IsClosable = true,
+            IsOpen = true,
+            Width = 350,
+            Severity = notification.Type switch
             {
-                _logger.LogError(e, "Failed to show notification");
+                NotificationType.Success => InfoBarSeverity.Success,
+                NotificationType.Warning => InfoBarSeverity.Warning,
+                NotificationType.Error => InfoBarSeverity.Error,
+                NotificationType.Information or _ => InfoBarSeverity.Informational,
             }
-        });
+        };
+
+        infoBar.CloseButtonClick += (s, _) =>
+        {
+            if (s is InfoBar { DataContext: Notification n } closingBar)
+            {
+                InvokeCallback(n.OnClose, n, "OnClose");
+                Close(closingBar);
+            }
+        };
+
+        if (notification.OnActionButtonClick != null)
+        {
+            var actionButton = new Button { Content = notification.ActionButtonText ?? "Action" };
+            actionButton.Click += (s, _) =>
+            {
+                if (s is Button { DataContext: Notification n } button)
+                {
+                    InvokeCallback(n.OnActionButtonClick, n, "OnActionButtonClick");
+
+                    InfoBar? ancestor = button.FindLogicalAncestorOfType<InfoBar>();
+                    if (ancestor != null)
+                        Close(ancestor);
+                }
+            };
+            infoBar.ActionButton = actionButton;
+        }
+
+        return infoBar;
+    }
+
+    private void InvokeCallback(Action? callback, Notification notification, string callbackName)
+    {
+        if (callback is null) return;
+        try
+        {
+            callback();
+        }
+        // 呼び出し元が任意の delegate を渡せるため、ここで握ってログに残さないと
+        // Avalonia の global handler 経由でクラッシュしうる
+        catch (Exception e)
+        {
+            _logger.LogError(
+                e,
+                "Notification {Callback} threw (Type={Type}, Title={Title})",
+                callbackName, notification.Type, notification.Title);
+        }
+    }
+
+    private static Task WaitPointerExitedAsync(InfoBar infoBar)
+    {
+        var tcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        void Cleanup()
+        {
+            infoBar.PointerExited -= OnExited;
+            infoBar.DetachedFromVisualTree -= OnDetached;
+        }
+
+        void OnExited(object? sender, PointerEventArgs e)
+        {
+            Cleanup();
+            tcs.TrySetResult();
+        }
+
+        // Close ボタンや ActionButton で infoBar がツリーから外された場合、
+        // PointerExited が発火しないことがあるため detach でも解放する
+        void OnDetached(object? sender, VisualTreeAttachmentEventArgs e)
+        {
+            Cleanup();
+            tcs.TrySetResult();
+        }
+
+        infoBar.PointerExited += OnExited;
+        infoBar.DetachedFromVisualTree += OnDetached;
+
+        // 購読前にカーソルが既に外れていた／ツリーから外れていた取りこぼしを補償
+        if (!infoBar.IsPointerOver || !infoBar.IsAttachedToVisualTree())
+        {
+            Cleanup();
+            tcs.TrySetResult();
+        }
+
+        return tcs.Task;
     }
 }
