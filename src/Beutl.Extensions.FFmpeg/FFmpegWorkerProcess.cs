@@ -80,11 +80,13 @@ public sealed class FFmpegWorkerProcess : IDisposable
 
     private static void ThrowIfLibrariesMissing()
     {
+#if FFMPEG_OUT_OF_PROCESS
         if (FFmpegInstallNotifier.IsLibrariesMissing)
         {
             throw new FFmpegLibrariesNotFoundException(
                 "FFmpeg libraries are missing; install FFmpeg before starting the worker.");
         }
+#endif
     }
 
     private async Task StartWorkerAsync(CancellationToken ct)
