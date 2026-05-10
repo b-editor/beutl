@@ -66,12 +66,20 @@ public sealed class CommandPaletteService
                 KeyGesture? gesture = entry.KeyGestures
                     .FirstOrDefault(i => i.Platform == s_currentPlatform)?.KeyGesture;
 
-                ContextCommandEntry capturedEntry = entry;
                 // スナップショット時に解決したハンドラーを Execute / CanExecute / StateChanged 全てで共有し、
                 // 列挙時と実行時で別インスタンスへ向くケースを防ぐ。タブ切替時は RebuildSnapshot で再列挙される。
+                // ランタイムでハンドラーを解決できないコマンド（例: ContextCommandAttribute 方式のみで
+                // 実装されたもの）はパレットから実行する手段がないため列挙対象から除外する。
                 IContextCommandHandler? snapshotHandler = _handlerProvider.Resolve(entry.ExtensionType);
+                if (snapshotHandler is null)
+                {
+                    continue;
+                }
+
+                ContextCommandEntry capturedEntry = entry;
+                IContextCommandHandler handler = snapshotHandler;
                 IObservable<System.Reactive.Unit>? stateChanged =
-                    (snapshotHandler as IContextCommandStateNotifier)?.CanExecuteChanged;
+                    (handler as IContextCommandStateNotifier)?.CanExecuteChanged;
 
                 result.Add(new PaletteCommand(
                     Id: $"{entry.ExtensionType.FullName}.{entry.Definition.Name}",
@@ -79,20 +87,15 @@ public sealed class CommandPaletteService
                     Description: entry.Definition.Description,
                     CategoryName: category,
                     KeyGesture: gesture,
-                    CanExecute: () => snapshotHandler?.CanExecute(new ContextCommandExecution(capturedEntry.Definition.Name)) ?? false,
+                    CanExecute: () => handler.CanExecute(new ContextCommandExecution(capturedEntry.Definition.Name)),
                     Execute: () =>
                     {
-                        if (snapshotHandler is null)
-                        {
-                            return;
-                        }
-
                         // スロットル窓や状態変化で表示と実行可否がずれる可能性があるため、
                         // 実行直前にもう一度 CanExecute を確認してから Execute する。
                         var execution = new ContextCommandExecution(capturedEntry.Definition.Name);
-                        if (snapshotHandler.CanExecute(execution))
+                        if (handler.CanExecute(execution))
                         {
-                            snapshotHandler.Execute(execution);
+                            handler.Execute(execution);
                         }
                     })
                 {
