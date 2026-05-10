@@ -75,9 +75,10 @@ public sealed class HistoryManager : IDisposable
     /// the subscription on a separate thread.
     /// </summary>
     /// <returns>
-    /// A tuple containing the unsubscribe disposable and the initial snapshot.
+    /// A tuple containing the unsubscribe disposable, the initial snapshot,
+    /// and the current index captured atomically with the snapshot.
     /// </returns>
-    public (IDisposable Subscription, HistoryEntry[] InitialSnapshot) SubscribeEntries(
+    public (IDisposable Subscription, HistoryEntry[] InitialSnapshot, int InitialCurrentIndex) SubscribeEntries(
         NotifyCollectionChangedEventHandler handler)
     {
         ThrowIfDisposed();
@@ -85,9 +86,11 @@ public sealed class HistoryManager : IDisposable
 
         INotifyCollectionChanged source = _entries;
         HistoryEntry[] snapshot;
+        int currentIndex;
         lock (_lock)
         {
             snapshot = [.. _entries];
+            currentIndex = _undoStack.Count;
             source.CollectionChanged += handler;
         }
 
@@ -101,7 +104,7 @@ public sealed class HistoryManager : IDisposable
             }
         });
 
-        return (subscription, snapshot);
+        return (subscription, snapshot, currentIndex);
     }
 
     public void Commit(string? name = null, [CallerArgumentExpression(nameof(name))] string? expression = null)
@@ -339,6 +342,18 @@ public sealed class HistoryManager : IDisposable
                     _logger.LogError(ex, "JumpTo failed at undo={UndoCount}, redo={RedoCount}, target={Target}; history is in a partial state",
                         _undoStack.Count, _redoStack.Count, index);
                     failure = ex;
+                }
+
+                // Forward loop exits when _redoStack is empty; if that happened
+                // before reaching the requested index (e.g. residual stack drift
+                // from a previously-failed step), do not silently report success.
+                if (failure is null && _undoStack.Count != index)
+                {
+                    _logger.LogError(
+                        "JumpTo could not reach target index {Target} (undo={UndoCount}, redo={RedoCount}); stacks are out of sync with entries",
+                        index, _undoStack.Count, _redoStack.Count);
+                    failure = new InvalidOperationException(
+                        $"JumpTo could not reach target index {index} (undo={_undoStack.Count}, redo={_redoStack.Count}).");
                 }
             }
         }

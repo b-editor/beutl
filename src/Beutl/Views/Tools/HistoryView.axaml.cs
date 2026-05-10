@@ -1,5 +1,6 @@
 ﻿using System.Collections.Specialized;
 using System.Reactive.Disposables;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Beutl.Editor;
@@ -22,7 +23,6 @@ public partial class HistoryView : UserControl
     {
         InitializeComponent();
         DataContextChanged += OnDataContextChanged;
-        DetachedFromVisualTree += OnDetachedFromVisualTree;
         HistoryList.ContainerPrepared += OnContainerPrepared;
         HistoryList.ContainerClearing += OnContainerClearing;
     }
@@ -30,28 +30,42 @@ public partial class HistoryView : UserControl
     private void OnDataContextChanged(object? sender, EventArgs e)
     {
         Detach();
-
-        if (DataContext is HistoryViewModel viewModel)
-        {
-            _currentViewModel = viewModel;
-            _viewModelSubscriptions = new CompositeDisposable
-            {
-                viewModel.CurrentIndex.Subscribe(
-                    _ => SyncSelection(),
-                    ex => _logger.LogError(ex, "CurrentIndex stream errored; selection will stop syncing")),
-            };
-
-            ((INotifyCollectionChanged)viewModel.Entries).CollectionChanged += OnEntriesChanged;
-            _viewModelSubscriptions.Add(Disposable.Create(viewModel,
-                vm => ((INotifyCollectionChanged)vm.Entries).CollectionChanged -= OnEntriesChanged));
-
-            SyncSelection();
-        }
+        TryAttach();
     }
 
-    private void OnDetachedFromVisualTree(object? sender, EventArgs e)
+    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToVisualTree(e);
+        // Re-attach when the same control is reinserted into the visual tree
+        // (e.g. switching dock tabs) where DataContextChanged would not fire
+        // again because the DataContext reference did not change.
+        TryAttach();
+    }
+
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
         Detach();
+        base.OnDetachedFromVisualTree(e);
+    }
+
+    private void TryAttach()
+    {
+        if (_currentViewModel is not null) return;
+        if (DataContext is not HistoryViewModel viewModel) return;
+
+        _currentViewModel = viewModel;
+        _viewModelSubscriptions = new CompositeDisposable
+        {
+            viewModel.CurrentIndex.Subscribe(
+                _ => SyncSelection(),
+                ex => _logger.LogError(ex, "CurrentIndex stream errored; selection will stop syncing")),
+        };
+
+        ((INotifyCollectionChanged)viewModel.Entries).CollectionChanged += OnEntriesChanged;
+        _viewModelSubscriptions.Add(Disposable.Create(viewModel,
+            vm => ((INotifyCollectionChanged)vm.Entries).CollectionChanged -= OnEntriesChanged));
+
+        SyncSelection();
     }
 
     private void Detach()
@@ -137,7 +151,19 @@ public partial class HistoryView : UserControl
         if (index < 0) return;
 
         _currentViewModel.JumpTo(index);
-        UpdateItemAppearance();
+
+        // If JumpTo did not actually move (failure, no-op, or same index),
+        // StateChanged may not have fired and the selected row would otherwise
+        // remain on the clicked index, drifting from the real CurrentIndex.
+        // Re-sync so a subsequent click on the same row re-issues JumpTo.
+        if (_currentViewModel.CurrentIndex.Value != index)
+        {
+            SyncSelection();
+        }
+        else
+        {
+            UpdateItemAppearance();
+        }
     }
 
     private void OnUndoClick(object? sender, RoutedEventArgs e)

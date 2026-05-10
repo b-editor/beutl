@@ -1074,7 +1074,7 @@ public class HistoryManagerTests
         manager.Commit("Step1");
 
         var received = new List<NotifyCollectionChangedAction>();
-        var (sub, snapshot) = manager.SubscribeEntries((_, e) => received.Add(e.Action));
+        var (sub, snapshot, currentIndex) = manager.SubscribeEntries((_, e) => received.Add(e.Action));
         using (sub)
         {
             Assert.Multiple(() =>
@@ -1082,6 +1082,7 @@ public class HistoryManagerTests
                 Assert.That(snapshot.Length, Is.EqualTo(2));
                 Assert.That(snapshot[0].IsInitial, Is.True);
                 Assert.That(snapshot[1].DisplayName, Is.EqualTo("Step1"));
+                Assert.That(currentIndex, Is.EqualTo(1));
             });
 
             CreateValueOperation(manager, 200, 100, "Step2");
@@ -1096,7 +1097,7 @@ public class HistoryManagerTests
     {
         using var manager = new HistoryManager(_root, _sequenceGenerator);
         int callCount = 0;
-        var (sub, _) = manager.SubscribeEntries((_, _) => callCount++);
+        var (sub, _, _) = manager.SubscribeEntries((_, _) => callCount++);
 
         sub.Dispose();
 
@@ -1135,7 +1136,7 @@ public class HistoryManagerTests
         manager.Commit("Step2");
 
         var actions = new List<NotifyCollectionChangedAction>();
-        var (sub, _) = manager.SubscribeEntries((_, e) => actions.Add(e.Action));
+        var (sub, _, _) = manager.SubscribeEntries((_, e) => actions.Add(e.Action));
         using (sub)
         {
             manager.Clear();

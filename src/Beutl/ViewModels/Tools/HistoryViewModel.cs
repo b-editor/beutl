@@ -27,13 +27,12 @@ public sealed class HistoryViewModel : IToolContext
         _historyManager = editViewModel.HistoryManager;
 
         Entries = new ReadOnlyObservableCollection<HistoryEntry>(_entries);
-        _currentIndex = new ReactivePropertySlim<int>(_historyManager.CurrentIndex);
-        CurrentIndex = _currentIndex;
 
-        // Atomically capture the initial snapshot and subscribe under the
-        // manager's lock so commits/clears that happen during construction
-        // are not lost between the snapshot and the subscription.
-        (IDisposable subscription, HistoryEntry[] initialSnapshot) =
+        // Atomically capture entries snapshot, current index, and subscribe in
+        // one lock acquisition. Reading CurrentIndex separately would let a
+        // commit slip in between the index read and the subscription, leaving
+        // _currentIndex stale until the next history mutation.
+        (IDisposable subscription, HistoryEntry[] initialSnapshot, int initialCurrentIndex) =
             _historyManager.SubscribeEntries(OnManagerEntriesChanged);
         _disposables.Add(subscription);
 
@@ -41,6 +40,9 @@ public sealed class HistoryViewModel : IToolContext
         {
             _entries.Add(entry);
         }
+
+        _currentIndex = new ReactivePropertySlim<int>(initialCurrentIndex);
+        CurrentIndex = _currentIndex;
 
         _historyManager.StateChanged
             .Subscribe(
@@ -51,6 +53,12 @@ public sealed class HistoryViewModel : IToolContext
                     NotificationService.ShowError(Strings.History, Strings.History_OperationFailed);
                 })
             .DisposeWith(_disposables);
+
+        // A commit/clear/jump that fired between SubscribeEntries returning
+        // and the StateChanged subscription above would have updated entries
+        // (delivered to OnManagerEntriesChanged) but bypassed CurrentIndex.
+        // Re-sync once now to close that window.
+        DispatchToUI(SyncCurrentIndex);
     }
 
     public ToolTabExtension Extension => HistoryTabExtension.Instance;
@@ -73,7 +81,7 @@ public sealed class HistoryViewModel : IToolContext
         {
             _logger.LogDebug(ex, "JumpTo({Index}) skipped — manager is disposed", index);
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        catch (Exception ex)
         {
             ReportFailure(ex, $"Failed to jump to history index {index}");
         }
@@ -89,7 +97,7 @@ public sealed class HistoryViewModel : IToolContext
         {
             _logger.LogDebug(ex, "Undo skipped — manager is disposed");
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        catch (Exception ex)
         {
             ReportFailure(ex, "Failed to undo");
         }
@@ -105,7 +113,7 @@ public sealed class HistoryViewModel : IToolContext
         {
             _logger.LogDebug(ex, "Redo skipped — manager is disposed");
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        catch (Exception ex)
         {
             ReportFailure(ex, "Failed to redo");
         }
