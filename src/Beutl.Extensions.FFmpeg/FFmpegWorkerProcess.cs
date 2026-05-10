@@ -4,11 +4,14 @@ using Beutl.FFmpegIpc;
 using Beutl.FFmpegIpc.Protocol;
 using Beutl.FFmpegIpc.Protocol.Messages;
 using Beutl.FFmpegIpc.Transport;
+using Beutl.Logging;
+using Microsoft.Extensions.Logging;
 
 namespace Beutl.Extensions.FFmpeg;
 
 public sealed class FFmpegWorkerProcess : IDisposable
 {
+    private static readonly ILogger s_logger = Log.CreateLogger("FFmpegWorker");
     private static readonly Lazy<FFmpegWorkerProcess> s_decodingInstance = new(() => new FFmpegWorkerProcess(multiplexed: true));
     public static FFmpegWorkerProcess DecodingInstance => s_decodingInstance.Value;
 
@@ -121,16 +124,8 @@ public sealed class FFmpegWorkerProcess : IDisposable
                 ?? throw new InvalidOperationException("Failed to start FFmpeg worker process");
 
             // stderrを非同期に消費してバッファ溢れによるデッドロックを防止
-            _process.ErrorDataReceived += (_, e) =>
-            {
-                if (e.Data != null)
-                    Console.WriteLine($"[FFmpegWorker] {e.Data}");
-            };
-            _process.OutputDataReceived += (_, e) =>
-            {
-                if (e.Data != null)
-                    Console.WriteLine($"[FFmpegWorker] {e.Data}");
-            };
+            _process.ErrorDataReceived += (_, e) => LogWorkerOutput("stderr", e.Data);
+            _process.OutputDataReceived += (_, e) => LogWorkerOutput("stdout", e.Data);
             _process.BeginErrorReadLine();
             _process.BeginOutputReadLine();
 
@@ -211,6 +206,43 @@ public sealed class FFmpegWorkerProcess : IDisposable
             _connection.StartMultiplexedReceive(ct);
     }
 
+    private static void LogWorkerOutput(string channel, string? data)
+    {
+        if (data == null)
+            return;
+
+        var (level, message) = ParseLevel(channel, data);
+        s_logger.Log(level, "{Channel} {Message}", channel, message);
+    }
+
+    private static (LogLevel Level, string Message) ParseLevel(string channel, string data)
+    {
+        // FFmpegLoaderWorker.SetupLogging が "[ffmpeg:<Level>] ..." 形式で書き出すプレフィックスを解釈する
+        const string prefix = "[ffmpeg:";
+        if (data.StartsWith(prefix, StringComparison.Ordinal))
+        {
+            int end = data.IndexOf(']', prefix.Length);
+            if (end > prefix.Length)
+            {
+                string levelText = data.AsSpan(prefix.Length, end - prefix.Length).ToString();
+                LogLevel level = levelText switch
+                {
+                    "Verbose" or "Trace" => LogLevel.Trace,
+                    "Debug" => LogLevel.Debug,
+                    "Info" or "Information" => LogLevel.Information,
+                    "Warning" => LogLevel.Warning,
+                    "Error" => LogLevel.Error,
+                    "Fatal" or "Panic" => LogLevel.Critical,
+                    _ => channel == "stderr" ? LogLevel.Warning : LogLevel.Information,
+                };
+                string message = data.Substring(end + 1).TrimStart();
+                return (level, message);
+            }
+        }
+
+        return (channel == "stderr" ? LogLevel.Warning : LogLevel.Information, data);
+    }
+
     private static void ConfigureWorkerProcess(ProcessStartInfo startInfo)
     {
         string path = Path.Combine(AppContext.BaseDirectory, "Beutl.FFmpegWorker");
@@ -251,7 +283,7 @@ public sealed class FFmpegWorkerProcess : IDisposable
                 catch (InvalidOperationException) { /* プロセスが既に終了 */ }
                 catch (Exception ex)
                 {
-                    Console.Error.WriteLine($"Warning: Failed to kill worker process: {ex.Message}");
+                    s_logger.LogWarning(ex, "Failed to kill worker process");
                 }
             }
             _process.Dispose();
@@ -270,7 +302,7 @@ public sealed class FFmpegWorkerProcess : IDisposable
             }
             catch (Exception ex)
             {
-                Console.Error.WriteLine($"Warning: Graceful shutdown of FFmpeg worker failed: {ex.Message}");
+                s_logger.LogWarning(ex, "Graceful shutdown of FFmpeg worker failed");
             }
         }
 
