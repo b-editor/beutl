@@ -17,6 +17,7 @@ finish-args:
   # Project files and media imports/exports via XDG user dirs.
   # Prefer these over --filesystem=home so dotfiles (~/.ssh, ~/.gnupg, browser profiles, etc.) stay sandboxed.
   - --filesystem=xdg-documents
+  - --filesystem=xdg-desktop
   - --filesystem=xdg-videos
   - --filesystem=xdg-pictures
   - --filesystem=xdg-music
