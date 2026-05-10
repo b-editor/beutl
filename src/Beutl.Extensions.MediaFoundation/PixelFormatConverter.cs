@@ -21,17 +21,42 @@ namespace Beutl.Extensions.MediaFoundation;
 //     (Y: 64..940, UV: 64..960 in a 10-bit scale; stored MSB-aligned in 16-bit)
 internal static unsafe class PixelFormatConverter
 {
-    // ---------- SDR: BGRA8888 ↔ NV12 (BT.709 limited) ----------
+    // ---------- SDR: BGRA8888 ↔ NV12 (limited range, selectable matrix) ----------
 
-    // BT.709 YCbCr, studio/limited range
-    // Y  =  0.2126 R + 0.7152 G + 0.0722 B
-    // Cb = -0.1146 R − 0.3854 G + 0.5    B
-    // Cr =  0.5    R − 0.4542 G − 0.0458 B
-    // Fixed-point: scaled by 1<<8 for the 8-bit path.
+    // 8-bit fixed-point YCbCr coefficients (Q8). Each row sums to 256 for luma and
+    // to 0 for chroma, matching ITU-R definitions Y = Kr*R + Kg*G + Kb*B,
+    // Cb = (B − Y) / (2(1 − Kb)), Cr = (R − Y) / (2(1 − Kr)).
+    public readonly struct YuvMatrix8
+    {
+        public readonly short Yr, Yg, Yb;
+        public readonly short Cbr, Cbg, Cbb;
+        public readonly short Crr, Crg, Crb;
+
+        public YuvMatrix8(short yr, short yg, short yb,
+                          short cbr, short cbg, short cbb,
+                          short crr, short crg, short crb)
+        {
+            Yr = yr; Yg = yg; Yb = yb;
+            Cbr = cbr; Cbg = cbg; Cbb = cbb;
+            Crr = crr; Crg = crg; Crb = crb;
+        }
+
+        // Kr=0.2126, Kb=0.0722
+        public static readonly YuvMatrix8 Bt709 = new(54, 183, 18, -29, -99, 128, 128, -116, -12);
+
+        // Kr=0.299, Kb=0.114
+        public static readonly YuvMatrix8 Bt601 = new(77, 150, 29, -43, -85, 128, 128, -107, -21);
+
+        // Kr=0.2627, Kb=0.0593 (BT.2020 NCL — uncommon for 8-bit but the sink
+        // writer accepts the corresponding matrix tag).
+        public static readonly YuvMatrix8 Bt2020 = new(67, 174, 15, -36, -92, 128, 128, -118, -10);
+    }
+
     public static void BgraToNv12(
         byte* src, int srcStride,
         byte* dst, int dstStride,
-        int width, int height)
+        int width, int height,
+        in YuvMatrix8 matrix)
     {
         // BGRA8888 source: 4 bytes/px. NV12 dest: Y plane width bytes/row, then UV
         // plane stacked directly after, sharing dstStride. Stride < width or non-
@@ -45,7 +70,7 @@ internal static unsafe class PixelFormatConverter
         byte* yPlane = dst;
         byte* uvPlane = dst + yPlaneBytes;
 
-        // Y plane (full resolution)
+        // Y plane (full resolution): full-range Y in [0,255] then mapped to 16..235.
         for (int y = 0; y < height; y++)
         {
             byte* srcRow = src + (long)y * srcStride;
@@ -55,14 +80,12 @@ internal static unsafe class PixelFormatConverter
                 int b = srcRow[x * 4 + 0];
                 int g = srcRow[x * 4 + 1];
                 int r = srcRow[x * 4 + 2];
-                // (54*R + 183*G + 18*B + 128) >> 8 → approximates 0.2126, 0.7152, 0.0722.
-                // Then shift into 16..235 studio range.
-                int yVal = ((54 * r + 183 * g + 18 * b + 128) >> 8) * 219 / 255 + 16;
+                int yVal = ((matrix.Yr * r + matrix.Yg * g + matrix.Yb * b + 128) >> 8) * 219 / 255 + 16;
                 yRow[x] = ClampByte(yVal);
             }
         }
 
-        // Interleaved UV plane (half resolution in both dimensions, 2x2 subsampling)
+        // Interleaved UV plane (half resolution in both dimensions, 2x2 subsampling).
         int uvHeight = (height + 1) / 2;
         int uvWidth = (width + 1) / 2;
         for (int y = 0; y < uvHeight; y++)
@@ -84,10 +107,8 @@ internal static unsafe class PixelFormatConverter
                 int g = (g00 + g01 + g10 + g11 + 2) >> 2;
                 int b = (b00 + b01 + b10 + b11 + 2) >> 2;
 
-                // Cb: (-29*R − 99*G + 128*B + 128) >> 8 → −0.1146, −0.3854, 0.5
-                // Cr: (128*R − 116*G − 12*B + 128) >> 8 →  0.5,    −0.4542, −0.0458
-                int cb = (-29 * r - 99 * g + 128 * b + 128) >> 8;
-                int cr = (128 * r - 116 * g - 12 * b + 128) >> 8;
+                int cb = (matrix.Cbr * r + matrix.Cbg * g + matrix.Cbb * b + 128) >> 8;
+                int cr = (matrix.Crr * r + matrix.Crg * g + matrix.Crb * b + 128) >> 8;
                 // Into 16..240 studio range, centered on 128.
                 cb = cb * 224 / 255 + 128;
                 cr = cr * 224 / 255 + 128;

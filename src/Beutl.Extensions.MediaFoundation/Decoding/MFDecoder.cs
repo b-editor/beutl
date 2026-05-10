@@ -236,14 +236,32 @@ internal sealed class MFDecoder : IDisposable
             IMFSample yuy2Sample = sample;
             if (_useDXVA2 && _mfOutBufferSample != null)
             {
-                if (!ConvertColor(sample))
+                IMFSample input = sample;
+                // Hardware VideoProcessorMFTs sometimes hold a frame of latency
+                // (the first ProcessInput returns NEED_MORE_INPUT). Feed extra
+                // samples from the same stream until output is produced; bail
+                // out only on a hard error or when the stream is exhausted.
+                const int MaxFeedRetries = 4;
+                int retries = 0;
+                while (true)
                 {
-                    // ProcessOutput failed (or needs more input) — _mfOutBufferSample
-                    // holds stale/incomplete data. Skip this frame instead of copying
-                    // garbage to the caller's buffer.
-                    return 0;
+                    ConvertColorStatus status = ConvertColor(input);
+                    if (status == ConvertColorStatus.Success)
+                    {
+                        yuy2Sample = _mfOutBufferSample;
+                        break;
+                    }
+                    if (status == ConvertColorStatus.HardError || retries++ >= MaxFeedRetries)
+                    {
+                        return 0;
+                    }
+                    IMFSample? next = ReadSample(_mediaInfo.VideoStreamIndex);
+                    if (next is null)
+                    {
+                        return 0;
+                    }
+                    input = next;
                 }
-                yuy2Sample = _mfOutBufferSample;
             }
 
             return SampleUtilities.SampleCopyToBuffer(yuy2Sample, buf, _mediaInfo.OutImageBufferSize);
@@ -466,12 +484,19 @@ internal sealed class MFDecoder : IDisposable
     }
 
     // MF_E_TRANSFORM_NEED_MORE_INPUT — the transform hasn't accumulated enough
-    // input for an output sample yet. Treated as a transient retry signal rather
-    // than a real error; caller skips the frame and tries again on the next read.
+    // input for an output sample yet. Caller should feed another input sample
+    // and retry rather than treating this as a frame-read failure.
     private const uint MF_E_TRANSFORM_NEED_MORE_INPUT = 0xC00D6D72;
 
-    // NV12 -> YUY2. Returns true if _mfOutBufferSample now holds valid output.
-    private bool ConvertColor(IMFSample sample)
+    private enum ConvertColorStatus
+    {
+        Success,
+        NeedMoreInput,
+        HardError,
+    }
+
+    // NV12 -> YUY2. On Success, _mfOutBufferSample holds the converted frame.
+    private ConvertColorStatus ConvertColor(IMFSample sample)
     {
         _transform!.ProcessInput(0, sample, 0);
 
@@ -479,14 +504,16 @@ internal sealed class MFDecoder : IDisposable
         Result result = _transform.ProcessOutput(ProcessOutputFlags.None, 1, ref mftOutputDataBuffer, out _);
         if (result.Success)
         {
-            return true;
+            return ConvertColorStatus.Success;
         }
 
-        if ((uint)result.Code != MF_E_TRANSFORM_NEED_MORE_INPUT)
+        if ((uint)result.Code == MF_E_TRANSFORM_NEED_MORE_INPUT)
         {
-            _logger.LogError("VideoProcessorMFT.ProcessOutput failed: HRESULT 0x{HResult:X8}", (uint)result.Code);
+            return ConvertColorStatus.NeedMoreInput;
         }
-        return false;
+
+        _logger.LogError("VideoProcessorMFT.ProcessOutput failed: HRESULT 0x{HResult:X8}", (uint)result.Code);
+        return ConvertColorStatus.HardError;
     }
 
     private void ChangeColorConvertSettingAndCreateBuffer()

@@ -70,7 +70,10 @@ public class MFEncodingController : EncodingController
         // audio path only.
         int videoStreamIndex = audioOnly ? -1 : ConfigureVideoStream(sinkWriter, isHdr);
         int audioChannels = ResolveAudioChannels();
-        int audioStreamIndex = ConfigureAudioStream(sinkWriter, sampleProvider.SampleRate, audioChannels);
+        int sourceSampleRate = (int)sampleProvider.SampleRate;
+        int outputSampleRate = ResolveOutputSampleRate(sourceSampleRate);
+        MFAudioEncoderSettings.AudioCodecType audioCodec = ResolveAudioCodec();
+        int audioStreamIndex = ConfigureAudioStream(sinkWriter, audioCodec, outputSampleRate, audioChannels);
 
         // Pre-compute the HDR target color space once per encode. Reusing the object
         // saves Skia from rebuilding the SKColorSpace on every frame convert.
@@ -81,6 +84,8 @@ public class MFEncodingController : EncodingController
                 MapTransferForHelper(VideoSettings.ColorTransfer),
                 MapPrimariesForHelper(VideoSettings.ColorPrimaries));
         }
+        // SDR NV12 conversion must match the matrix we tag on the output stream.
+        PixelFormatConverter.YuvMatrix8 sdrMatrix = ResolveSdrYuvMatrix(VideoSettings.YCbCrMatrix);
 
         sinkWriter.BeginWriting();
 
@@ -93,21 +98,22 @@ public class MFEncodingController : EncodingController
 
             long frameRateNum = VideoSettings.FrameRate.Numerator;
             long frameRateDen = VideoSettings.FrameRate.Denominator;
-            long sampleRate = sampleProvider.SampleRate;
 
             while ((encodeVideo || encodeAudio) && !cancellationToken.IsCancellationRequested)
             {
                 long videoTs = (encodeVideo && frameRateNum > 0)
                     ? frameCount * frameRateDen * HnsPerSecond / frameRateNum
                     : long.MaxValue;
-                long audioTs = (encodeAudio && sampleRate > 0)
-                    ? sampleCount * HnsPerSecond / sampleRate
+                // sampleCount is in source-rate samples (matches sampleProvider.SampleCount),
+                // so audioTs is wall-clock regardless of any rate conversion done downstream.
+                long audioTs = (encodeAudio && sourceSampleRate > 0)
+                    ? sampleCount * HnsPerSecond / sourceSampleRate
                     : long.MaxValue;
 
                 if (encodeVideo && videoTs <= audioTs)
                 {
                     await WriteVideoFrame(sinkWriter, videoStreamIndex, frameProvider,
-                        frameCount, frameRateNum, frameRateDen, hdrTargetColorSpace, isHdr);
+                        frameCount, frameRateNum, frameRateDen, hdrTargetColorSpace, isHdr, sdrMatrix);
                     frameCount++;
                     if (frameCount >= frameProvider.FrameCount)
                     {
@@ -117,7 +123,7 @@ public class MFEncodingController : EncodingController
                 else if (encodeAudio)
                 {
                     await WriteAudioFrame(sinkWriter, audioStreamIndex, sampleProvider,
-                        sampleCount, AudioFrameSize, sampleRate, audioChannels);
+                        sampleCount, AudioFrameSize, sourceSampleRate, outputSampleRate, audioChannels);
                     sampleCount += AudioFrameSize;
                     if (sampleCount >= sampleProvider.SampleCount)
                     {
@@ -250,9 +256,37 @@ public class MFEncodingController : EncodingController
             || ext.Equals(".adts", StringComparison.OrdinalIgnoreCase);
     }
 
-    private int ConfigureAudioStream(IMFSinkWriter sinkWriter, long sourceSampleRate, int channels)
+    // Picks the actual output rate. AudioSettings.SampleRate is treated as a
+    // user request; the writer routes samples through Pcm.Resamples when the
+    // request differs from the source.
+    private int ResolveOutputSampleRate(int sourceSampleRate)
     {
-        int sampleRate = AudioSettings.SampleRate > 0 ? AudioSettings.SampleRate : (int)sourceSampleRate;
+        return AudioSettings.SampleRate > 0 ? AudioSettings.SampleRate : sourceSampleRate;
+    }
+
+    // Audio codec must match what the chosen container can mux. WAV requires
+    // PCM, MP3 requires MP3, and ASF/WMV requires WMA — silently overriding
+    // here is friendlier than a cryptic AddStream/BeginWriting failure.
+    private MFAudioEncoderSettings.AudioCodecType ResolveAudioCodec()
+    {
+        string ext = Path.GetExtension(OutputFile);
+        if (ext.Equals(".wav", StringComparison.OrdinalIgnoreCase))
+            return MFAudioEncoderSettings.AudioCodecType.PCM;
+        if (ext.Equals(".mp3", StringComparison.OrdinalIgnoreCase))
+            return MFAudioEncoderSettings.AudioCodecType.MP3;
+        if (ext.Equals(".wma", StringComparison.OrdinalIgnoreCase)
+            || ext.Equals(".asf", StringComparison.OrdinalIgnoreCase)
+            || ext.Equals(".wmv", StringComparison.OrdinalIgnoreCase))
+            return MFAudioEncoderSettings.AudioCodecType.WMA;
+        return AudioSettings.Codec;
+    }
+
+    private int ConfigureAudioStream(
+        IMFSinkWriter sinkWriter,
+        MFAudioEncoderSettings.AudioCodecType codec,
+        int sampleRate,
+        int channels)
+    {
         if (sampleRate <= 0)
         {
             return -1;
@@ -261,7 +295,7 @@ public class MFEncodingController : EncodingController
         using IMFMediaType outType = MediaFactory.MFCreateMediaType();
         outType.Set(MediaTypeAttributeKeys.MajorType, MediaTypeGuids.Audio);
 
-        switch (AudioSettings.Codec)
+        switch (codec)
         {
             case MFAudioEncoderSettings.AudioCodecType.MP3:
                 outType.Set(MediaTypeAttributeKeys.Subtype, AudioFormatGuids.Mp3);
@@ -309,7 +343,8 @@ public class MFEncodingController : EncodingController
         IMFSinkWriter sinkWriter, int streamIndex,
         IFrameProvider frameProvider,
         long frame, long frameRateNum, long frameRateDen,
-        BitmapColorSpace? hdrTargetColorSpace, bool isHdr)
+        BitmapColorSpace? hdrTargetColorSpace, bool isHdr,
+        PixelFormatConverter.YuvMatrix8 sdrMatrix)
     {
         using Bitmap image = await frameProvider.RenderFrame(frame);
 
@@ -326,20 +361,21 @@ public class MFEncodingController : EncodingController
             using Bitmap converted = image.Convert(
                 BitmapColorType.Rgba16161616, BitmapAlphaType.Unpremul, hdrTargetColorSpace);
             WriteVideoSample(sinkWriter, streamIndex, converted,
-                BitmapColorType.Rgba16161616, ptsHns, durationHns);
+                BitmapColorType.Rgba16161616, ptsHns, durationHns, sdrMatrix);
         }
         else
         {
             using Bitmap converted = image.Convert(
                 BitmapColorType.Bgra8888, BitmapAlphaType.Premul, BitmapColorSpace.Srgb);
             WriteVideoSample(sinkWriter, streamIndex, converted,
-                BitmapColorType.Bgra8888, ptsHns, durationHns);
+                BitmapColorType.Bgra8888, ptsHns, durationHns, sdrMatrix);
         }
     }
 
     private static unsafe void WriteVideoSample(
         IMFSinkWriter sinkWriter, int streamIndex, Bitmap converted,
-        BitmapColorType srcKind, long ptsHns, long durationHns)
+        BitmapColorType srcKind, long ptsHns, long durationHns,
+        PixelFormatConverter.YuvMatrix8 sdrMatrix)
     {
         int width = converted.Width;
         int height = converted.Height;
@@ -366,7 +402,7 @@ public class MFEncodingController : EncodingController
             }
             else
             {
-                PixelFormatConverter.BgraToNv12(src, srcStride, dst, dstStride, width, height);
+                PixelFormatConverter.BgraToNv12(src, srcStride, dst, dstStride, width, height, sdrMatrix);
             }
         }
         finally
@@ -385,54 +421,80 @@ public class MFEncodingController : EncodingController
     private static async ValueTask WriteAudioFrame(
         IMFSinkWriter sinkWriter, int streamIndex,
         ISampleProvider sampleProvider,
-        long startSample, int length, long sampleRate, int channels)
+        long sourceStartSample, int sourceLength,
+        int sourceSampleRate, int outputSampleRate, int channels)
     {
-        using Pcm<Stereo32BitFloat> floatPcm = await sampleProvider.Sample(startSample, length);
-        int numSamples = floatPcm.NumSamples;
-        int byteCount = numSamples * channels * 2; // int16
-
-        using IMFMediaBuffer buffer = MediaFactory.MFCreateMemoryBuffer(byteCount);
-        buffer.Lock(out IntPtr dstPtr, out _, out _);
-        unsafe
+        Pcm<Stereo32BitFloat> sourcePcm = await sampleProvider.Sample(sourceStartSample, sourceLength);
+        Pcm<Stereo32BitFloat>? resampled = null;
+        try
         {
-            short* dst = (short*)dstPtr;
-            try
+            // The Sink Writer was configured with outputSampleRate, so the
+            // bytes we hand it must be at that rate. Resample only when the
+            // user picked a different rate than the project.
+            Pcm<Stereo32BitFloat> floatPcm = sourcePcm;
+            if (outputSampleRate > 0 && outputSampleRate != sourceSampleRate)
             {
-                ReadOnlySpan<Stereo32BitFloat> src = floatPcm.DataSpan;
-                if (channels == 1)
+                resampled = sourcePcm.Resamples(outputSampleRate);
+                floatPcm = resampled;
+            }
+
+            int numSamples = floatPcm.NumSamples;
+            int byteCount = numSamples * channels * 2; // int16
+
+            using IMFMediaBuffer buffer = MediaFactory.MFCreateMemoryBuffer(byteCount);
+            buffer.Lock(out IntPtr dstPtr, out _, out _);
+            unsafe
+            {
+                short* dst = (short*)dstPtr;
+                try
                 {
-                    // L+R averaged into a single channel keeps both sides audible without
-                    // doubling perceived amplitude.
-                    for (int i = 0; i < src.Length; i++)
+                    ReadOnlySpan<Stereo32BitFloat> src = floatPcm.DataSpan;
+                    if (channels == 1)
                     {
-                        float mono = (src[i].Left + src[i].Right) * 0.5f;
-                        dst[i] = FloatToPcm16(mono);
+                        // L+R averaged into a single channel keeps both sides audible without
+                        // doubling perceived amplitude.
+                        for (int i = 0; i < src.Length; i++)
+                        {
+                            float mono = (src[i].Left + src[i].Right) * 0.5f;
+                            dst[i] = FloatToPcm16(mono);
+                        }
+                    }
+                    else
+                    {
+                        for (int i = 0; i < src.Length; i++)
+                        {
+                            dst[i * 2 + 0] = FloatToPcm16(src[i].Left);
+                            dst[i * 2 + 1] = FloatToPcm16(src[i].Right);
+                        }
                     }
                 }
-                else
+                finally
                 {
-                    for (int i = 0; i < src.Length; i++)
-                    {
-                        dst[i * 2 + 0] = FloatToPcm16(src[i].Left);
-                        dst[i * 2 + 1] = FloatToPcm16(src[i].Right);
-                    }
+                    buffer.Unlock();
                 }
             }
-            finally
-            {
-                buffer.Unlock();
-            }
+            buffer.CurrentLength = byteCount;
+
+            // PTS is wall-clock — derive it from the source-rate index so it
+            // stays interleaved correctly with video regardless of resampling.
+            long ptsHns = sourceSampleRate > 0
+                ? sourceStartSample * HnsPerSecond / sourceSampleRate
+                : 0;
+            long durationHns = outputSampleRate > 0
+                ? (long)numSamples * HnsPerSecond / outputSampleRate
+                : 0;
+
+            using IMFSample sample = MediaFactory.MFCreateSample();
+            sample.AddBuffer(buffer);
+            sample.SampleTime = ptsHns;
+            sample.SampleDuration = durationHns;
+            sinkWriter.WriteSample(streamIndex, sample);
         }
-        buffer.CurrentLength = byteCount;
-
-        long ptsHns = sampleRate > 0 ? startSample * HnsPerSecond / sampleRate : 0;
-        long durationHns = sampleRate > 0 ? (long)numSamples * HnsPerSecond / sampleRate : 0;
-
-        using IMFSample sample = MediaFactory.MFCreateSample();
-        sample.AddBuffer(buffer);
-        sample.SampleTime = ptsHns;
-        sample.SampleDuration = durationHns;
-        sinkWriter.WriteSample(streamIndex, sample);
+        finally
+        {
+            sourcePcm.Dispose();
+            resampled?.Dispose();
+        }
     }
 
     private static short FloatToPcm16(float sample)
@@ -484,6 +546,21 @@ public class MFEncodingController : EncodingController
             MFVideoEncoderSettings.ColorPrimariesType.Dcip3 => VideoPrimaries.DciP3,
             MFVideoEncoderSettings.ColorPrimariesType.Smpte170M => VideoPrimaries.Smpte170m,
             _ => VideoPrimaries.Unknown,
+        };
+    }
+
+    // Picks the 8-bit NV12 conversion matrix that matches the tag MapMatrixToMF
+    // will write to MF_MT_YUV_MATRIX. Default falls back to BT.709 to align with
+    // typical SDR HD content; SMPTE 240M is rare in 8-bit and uses BT.709 here
+    // (its tag is preserved separately if the user explicitly requested it).
+    private static PixelFormatConverter.YuvMatrix8 ResolveSdrYuvMatrix(
+        MFVideoEncoderSettings.YCbCrMatrixType m)
+    {
+        return m switch
+        {
+            MFVideoEncoderSettings.YCbCrMatrixType.Bt601 => PixelFormatConverter.YuvMatrix8.Bt601,
+            MFVideoEncoderSettings.YCbCrMatrixType.Rec2020 => PixelFormatConverter.YuvMatrix8.Bt2020,
+            _ => PixelFormatConverter.YuvMatrix8.Bt709,
         };
     }
 
