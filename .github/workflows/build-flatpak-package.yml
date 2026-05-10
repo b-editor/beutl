@@ -61,6 +61,15 @@ jobs:
           unzip -q "${{ github.workspace }}/artifacts/Beutl-linux-x64-standalone-${{ inputs.nugetVer }}.zip" \
             -d packages/flatpak/sources/Beutl-linux-x64-standalone
 
+      - name: Update asset metadata
+        run: |
+          cd packages/flatpak/sources/Beutl-linux-x64-standalone
+          ASSET_METADATA_ID=$(uuidgen)
+          jq --arg id "$ASSET_METADATA_ID" '.id=$id | .type="flatpak"' \
+            asset_metadata.json > asset_metadata_tmp.json
+          mv asset_metadata_tmp.json asset_metadata.json
+          cat asset_metadata.json
+
       - name: Copy logo as Flatpak icon
         run: cp assets/logos/logo.svg packages/flatpak/net.beditor.Beutl.svg
 

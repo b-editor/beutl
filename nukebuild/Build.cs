@@ -1,4 +1,5 @@
 ﻿using System.Text;
+using System.Text.Json.Nodes;
 using Nuke.Common.Tools.InnoSetup;
 using static Nuke.Common.Tools.InnoSetup.InnoSetupTasks;
 
@@ -175,6 +176,15 @@ class Build : NukeBuild
             sourcesDir.CreateOrCleanDirectory();
             AbsolutePath staging = sourcesDir / "Beutl-linux-x64-standalone";
             zipPath.UnZipTo(staging);
+
+            // Mark the staged copy as a Flatpak install so update checks query the right channel.
+            // Mirrors the equivalent jq step in build-flatpak-package.yml.
+            AbsolutePath assetMetadata = staging / "asset_metadata.json";
+            JsonNode metadataNode = JsonNode.Parse(File.ReadAllText(assetMetadata))
+                ?? throw new InvalidOperationException($"Failed to parse {assetMetadata}.");
+            metadataNode["id"] = Guid.NewGuid().ToString();
+            metadataNode["type"] = "flatpak";
+            File.WriteAllText(assetMetadata, metadataNode.ToJsonString());
 
             // Copy logo into the manifest directory so flatpak-builder can install it.
             logoSvg.Copy(iconSvg, ExistsPolicy.FileOverwrite);
