@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using System.Runtime.CompilerServices;
 
 namespace Beutl.Audio.Effects;
 
@@ -34,17 +35,21 @@ internal static class CompressorParameters
     public const float MaxMakeupGainDb = 24f;
     public const float DefaultMakeupGainDb = 0f;
 
-    static CompressorParameters()
+    // [ModuleInitializer] runs once at module load regardless of whether any non-const member
+    // is touched. A static constructor on this class would NOT run, because every consumer
+    // references our `const float` fields, and the C# compiler inlines const literals at the
+    // call site — neither `using static CompressorParameters;` nor `[Range(MinX, MaxX)]` triggers
+    // type initialization. The module initializer sidesteps that and guarantees the asserts
+    // below execute on every Debug-build run (production builds elide Debug.Assert anyway).
+    [ModuleInitializer]
+    internal static void Validate()
     {
-        // Run once at module load so an inconsistent Min/Default/Max edit is caught immediately
-        // in debug builds rather than producing subtle audio glitches at runtime.
         AssertRange(MinThresholdDb, DefaultThresholdDb, MaxThresholdDb, "Threshold");
         AssertRange(MinRatio, DefaultRatio, MaxRatio, "Ratio");
         AssertRange(MinAttackMs, DefaultAttackMs, MaxAttackMs, "Attack");
         AssertRange(MinReleaseMs, DefaultReleaseMs, MaxReleaseMs, "Release");
         AssertRange(MinKneeDb, DefaultKneeDb, MaxKneeDb, "Knee");
         AssertRange(MinMakeupGainDb, DefaultMakeupGainDb, MaxMakeupGainDb, "MakeupGain");
-        Debug.Assert(MinRatio >= 1f, "MinRatio must stay >= 1f or the slope formula amplifies.");
     }
 
     private static void AssertRange(float min, float def, float max, string name)

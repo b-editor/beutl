@@ -120,13 +120,15 @@ public class CompressorNodeTests
     }
 
     [Test]
-    public void Process_SilenceInput_ProducesExactSilenceAndKeepsEnvelopeAtFloor()
+    public void Process_SilenceInput_ProducesExactSilenceOutput()
     {
-        // peak == 0f must short-circuit to inputDb = MinDb at the `peak > 0f` guard. Without it,
-        // MathF.Log10(0) returns -Infinity, the envelope formula produces NaN, the recovery path
-        // would mask it, and any future change to that recovery path could leave the bug
-        // undetectable. We therefore feed an exactly-zero buffer and assert exact-zero output —
-        // any non-zero sample would prove the inputDb guard or makeup math is broken.
+        // End-to-end "silence in → silence out" smoke test. Note: this does NOT specifically
+        // isolate the `peak > 0f` guard, because RecoverEnvelopeIfNonFinite would mask a NaN
+        // envelope produced by Log10(0) — the gain calculation against a 0-amplitude sample
+        // still yields exactly 0. Genuinely isolating that guard would require log capture or
+        // exposing internal state. What this test does catch: any future bug that injects DC,
+        // noise, or non-zero offset into a silent stream (e.g., a stray makeup application that
+        // mishandles the additive identity, or a sanitizer that fails open).
         const int sampleCount = SampleRate / 4;
         using var input = new AudioBuffer(SampleRate, 2, sampleCount);
         // Default-constructed AudioBuffer is zeroed, so no fill needed.
@@ -154,12 +156,11 @@ public class CompressorNodeTests
         // Step input drives the envelope from MinDb toward inputDb_max. After exactly attackMs
         // milliseconds, a one-pole IIR with time constant attackMs should have reached
         // ~(1 - 1/e) ≈ 63% of the way to its target. This is the contract the ComputeCoeff
-        // formula encodes, and a future regression that, e.g., dropped the ms→s conversion
-        // (`timeMs * sampleRate` instead of `timeMs * 0.001f * sampleRate`) would leave the
-        // envelope barely moving — caught here.
+        // formula encodes; a regression like dropping the ms→s conversion (timeMs * sampleRate
+        // instead of timeMs * 0.001f * sampleRate) would leave the envelope still near -100 dB.
         const float attackMs = 50f;
         const int sampleCount = SampleRate; // 1 s
-        const int stepAt = SampleRate / 10; // step at 100 ms; envelope below MinDb until then
+        const int stepAt = SampleRate / 10; // step at 100 ms; envelope sits at MinDb until then
         using var input = new AudioBuffer(SampleRate, 1, sampleCount);
         var data = input.GetChannelData(0);
         for (int i = stepAt; i < sampleCount; i++)
@@ -167,29 +168,42 @@ public class CompressorNodeTests
             data[i] = 1f; // exactly 0 dB peak after the step
         }
 
-        // Threshold well below the input so above-threshold compression engages immediately.
-        // Release is irrelevant here (envelope is rising). Knee=0 keeps the gain reduction a
-        // simple linear function of envelopeDb above threshold so we can back-solve the envelope.
-        var node = CreateNode(threshold: -40f, ratio: 4f, attack: attackMs, release: 100f, knee: 0f);
+        // Threshold = -50 dB is the load-bearing choice. With the bug, envelope stays near
+        // -100 dB (below threshold) → gainReductionDb = 0 → output = input → reconstructed
+        // envelope clamps to thresholdDb = -50 dB. Setting threshold ABOVE the buggy envelope
+        // (at -50, far above -100) makes the buggy reconstruction 13.21 dB away from the target
+        // (-36.79 dB), well outside the ±5 dB tolerance. A threshold of -40 or lower would put
+        // the buggy reconstruction within tolerance and the test would falsely pass.
+        // Knee=0 keeps the gain formula linear so we can back-solve the envelope value.
+        const float thresholdDb = -50f;
+        const float ratio = 4f;
+        const float slope = 1f - 1f / ratio; // 0.75
+        var node = CreateNode(threshold: thresholdDb, ratio: ratio, attack: attackMs, release: 100f, knee: 0f);
         node.AddInput(new StubSourceNode { Buffer = input });
         var ctx = CreateContext(TimeSpan.Zero, TimeSpan.FromSeconds(1.0));
         using var output = node.Process(ctx);
 
         // Sample exactly attackMs after the step. At that point, in dB-domain:
         //   envelopeDb(t) = inputDb_max - (inputDb_max - inputDb_initial) * exp(-t / attackMs)
-        // With inputDb_max = 0 dB (peak 1.0) and inputDb_initial ≈ MinDb = -100 dB:
+        // With inputDb_max = 0 dB (peak 1.0) and inputDb_initial = MinDb = -100 dB:
         //   envelopeDb ≈ 0 - 100 * (1/e) ≈ -36.79 dB at t = attackMs.
         int probeIdx = stepAt + (int)(attackMs * 0.001f * SampleRate);
         // Reconstruct envelopeDb from the observed gain reduction:
         //   gainLinear = 10^(-gainReductionDb / 20), envelope = output / input.
         float gainLinear = MathF.Abs(output.GetChannelData(0)[probeIdx] / data[probeIdx]);
         float gainReductionDb = -20f * MathF.Log10(gainLinear);
-        // gainReductionDb = slope * (envelopeDb - thresholdDb), slope = 1 - 1/4 = 0.75, threshold = -40:
-        //   envelopeDb = thresholdDb + gainReductionDb / slope.
-        float reconstructedEnvelopeDb = -40f + gainReductionDb / 0.75f;
-        // 1 - 1/e ≈ 0.632; envelope should sit at ~-36.79 dB (i.e. 63.2% of the way from -100 to 0).
-        // Tolerance is generous (~±5 dB) because the dB-domain peak ripples slightly with the
-        // sine-like product, but a missing ms→s conversion would land near -100 dB — far outside.
+
+        // Direct assertion: the expected gain reduction at t = attackMs is
+        //   slope * (-36.79 - thresholdDb) = 0.75 * (-36.79 - (-50)) = 0.75 * 13.21 ≈ 9.91 dB.
+        // Under the ms→s bug, envelope stays below threshold so gainReductionDb is 0 — the
+        // tolerance below excludes that. This is the load-bearing assertion.
+        Assert.That(gainReductionDb, Is.EqualTo(9.91f).Within(2f),
+            $"At t = attackMs ({attackMs} ms), expected ≈9.91 dB reduction but got {gainReductionDb:F2} dB. " +
+            $"Near 0 dB indicates ComputeCoeff lost its ms→s conversion.");
+
+        // Secondary back-solve for human readability of the failure mode:
+        //   gainReductionDb = slope * (envelopeDb - thresholdDb) for envelopeDb > thresholdDb.
+        float reconstructedEnvelopeDb = thresholdDb + gainReductionDb / slope;
         Assert.That(reconstructedEnvelopeDb, Is.EqualTo(-36.79f).Within(5f),
             $"After attackMs={attackMs} ms, envelope should reach ~63% (≈-36.79 dB) but got {reconstructedEnvelopeDb:F2} dB");
     }

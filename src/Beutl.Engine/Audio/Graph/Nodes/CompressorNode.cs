@@ -70,10 +70,11 @@ public sealed class CompressorNode : AudioNode
         // Expression-backed properties are intentionally not checked here: AnimationSampler does
         // not currently evaluate expressions per-sample, so treating HasExpression as live would
         // route to ProcessAnimated and read the same CurrentValue every iteration — strictly
-        // worse than ProcessStatic, which reads it once. Aligned with EqualizerEffect's matching
-        // FIXME: once AnimationSampler evaluates expressions per-sample, this guard must also
-        // treat HasExpression as live or expression-backed parameters will be silently frozen
-        // at their graph-build-time value.
+        // worse than ProcessStatic, which reads it once. The same root cause is documented at
+        // EqualizerEffect.IsNeutral (build-time band elision), where the FIXME notes that once
+        // AnimationSampler evaluates expressions per-sample, both that guard and this one must
+        // be updated to treat HasExpression as live; otherwise expression-backed parameters
+        // will be silently frozen at their graph-build-time value.
         bool hasAnimation = Threshold.Animation != null ||
                             Ratio.Animation != null ||
                             Attack.Animation != null ||
@@ -109,9 +110,10 @@ public sealed class CompressorNode : AudioNode
                 if (a > peak) peak = a;
             }
 
-            // peak == 0 (digital silence) and peak == NaN both fail `peak > 0f`, so inputDb
-            // collapses to MinDb here; downstream RecoverEnvelopeIfNonFinite / SanitizeOutput
-            // handle the NaN case if it slipped through arithmetic above.
+            // peak == 0 (digital silence) collapses inputDb to MinDb here. The local `peak` is
+            // always finite because the abs/max loop above stays at 0 when MathF.Abs(NaN) > 0
+            // is false; any non-finite envelope state arriving from elsewhere is recovered by
+            // RecoverEnvelopeIfNonFinite below.
             float inputDb = peak > 0f ? 20f * MathF.Log10(peak) : MinDb;
             float coeff = inputDb > _envelopeDb ? attackCoeff : releaseCoeff;
             _envelopeDb = inputDb + coeff * (_envelopeDb - inputDb);
@@ -347,13 +349,27 @@ public sealed class CompressorNode : AudioNode
 
     // Internal so tests can drive an explicit reset, but not part of the public API: external
     // callers must not zero the envelope mid-buffer (it would produce an audible click).
-    // Reset is also the natural "new render session" boundary (sample-rate change, seek), so we
-    // clear the diagnostic latches here. Otherwise, once a non-finite event fired in an earlier
-    // session, the operator would never see another warning for the entire node lifetime — even
-    // after fixing the offending keyframe and re-rendering.
+    // Reset() corresponds to a "new render session" boundary (sample-rate change, seek), and
+    // unifies two concerns:
+    //   - DSP state (the envelope follower) — see ResetEnvelope
+    //   - Diagnostic latches (one-shot warnings) — see ResetDiagnostics
+    // They are atomic in production callers because every session boundary is also a fresh
+    // diagnostic window: we want operators to see warnings re-fire after fixing a bad keyframe
+    // and re-rendering. Splitting them into named helpers makes the dual responsibility legible
+    // at the call site instead of buried in this comment.
     internal void Reset()
     {
+        ResetEnvelope();
+        ResetDiagnostics();
+    }
+
+    private void ResetEnvelope()
+    {
         _envelopeDb = MinDb;
+    }
+
+    private void ResetDiagnostics()
+    {
         _loggedNonFiniteEnvelope = false;
         _loggedNonFiniteSample = false;
         _loggedNonFiniteParameters.Clear();
