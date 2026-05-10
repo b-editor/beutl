@@ -1,8 +1,11 @@
-using System.Reactive.Linq;
+using System.Collections.ObjectModel;
+using System.Collections.Specialized;
+using System.Reactive.Disposables;
 using System.Text.Json.Nodes;
 using Avalonia.Threading;
 using Beutl.Editor;
 using Beutl.Logging;
+using Beutl.Services;
 using Beutl.Services.PrimitiveImpls;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
@@ -15,27 +18,30 @@ public sealed class HistoryViewModel : IToolContext
     private readonly CompositeDisposable _disposables = [];
     private readonly EditViewModel _editViewModel;
     private readonly HistoryManager _historyManager;
+    private readonly ObservableCollection<HistoryEntry> _entries = [];
+    private readonly ReactivePropertySlim<int> _currentIndex;
 
     public HistoryViewModel(EditViewModel editViewModel)
     {
         _editViewModel = editViewModel;
         _historyManager = editViewModel.HistoryManager;
 
-        Entries = _historyManager.Entries;
-        CurrentIndex = new ReactivePropertySlim<int>(_historyManager.CurrentIndex);
+        Entries = new ReadOnlyObservableCollection<HistoryEntry>(_entries);
+        _currentIndex = new ReactivePropertySlim<int>(_historyManager.CurrentIndex);
+        CurrentIndex = _currentIndex;
+
+        SyncEntriesAndIndex();
+
+        if (_historyManager.Entries is INotifyCollectionChanged notifying)
+        {
+            notifying.CollectionChanged += OnManagerEntriesChanged;
+            _disposables.Add(Disposable.Create(() => notifying.CollectionChanged -= OnManagerEntriesChanged));
+        }
 
         _historyManager.StateChanged
-            .Subscribe(_ =>
-            {
-                if (Dispatcher.UIThread.CheckAccess())
-                {
-                    CurrentIndex.Value = _historyManager.CurrentIndex;
-                }
-                else
-                {
-                    Dispatcher.UIThread.Post(() => CurrentIndex.Value = _historyManager.CurrentIndex);
-                }
-            })
+            .Subscribe(
+                _ => DispatchToUI(SyncCurrentIndex),
+                ex => _logger.LogError(ex, "HistoryManager.StateChanged stream errored"))
             .DisposeWith(_disposables);
     }
 
@@ -45,23 +51,22 @@ public sealed class HistoryViewModel : IToolContext
 
     public string Header => Strings.History;
 
-    public IReadOnlyList<HistoryEntry> Entries { get; }
+    public ReadOnlyObservableCollection<HistoryEntry> Entries { get; }
 
-    public ReactivePropertySlim<int> CurrentIndex { get; }
+    public IReadOnlyReactiveProperty<int> CurrentIndex { get; }
 
-    public void JumpTo(HistoryEntry entry)
+    public void JumpTo(int index)
     {
-        if (entry is null) return;
-        var index = ((System.Collections.Generic.IList<HistoryEntry>)Entries).IndexOf(entry);
-        if (index < 0) return;
-
         try
         {
             _historyManager.JumpTo(index);
         }
-        catch (Exception ex)
+        catch (ObjectDisposedException)
         {
-            _logger.LogError(ex, "Failed to jump to history index {Index}", index);
+        }
+        catch (InvalidOperationException ex)
+        {
+            ReportFailure(ex, $"Failed to jump to history index {index}");
         }
     }
 
@@ -71,9 +76,12 @@ public sealed class HistoryViewModel : IToolContext
         {
             _historyManager.Undo();
         }
-        catch (Exception ex)
+        catch (ObjectDisposedException)
         {
-            _logger.LogError(ex, "Failed to undo");
+        }
+        catch (InvalidOperationException ex)
+        {
+            ReportFailure(ex, "Failed to undo");
         }
     }
 
@@ -83,9 +91,12 @@ public sealed class HistoryViewModel : IToolContext
         {
             _historyManager.Redo();
         }
-        catch (Exception ex)
+        catch (ObjectDisposedException)
         {
-            _logger.LogError(ex, "Failed to redo");
+        }
+        catch (InvalidOperationException ex)
+        {
+            ReportFailure(ex, "Failed to redo");
         }
     }
 
@@ -101,9 +112,55 @@ public sealed class HistoryViewModel : IToolContext
 
     public void ReadFromJson(JsonObject json)
     {
+        // History is editor-session state and is not persisted across loads.
     }
 
     public void WriteToJson(JsonObject json)
     {
+        // History is editor-session state and is not persisted across loads.
+    }
+
+    private void OnManagerEntriesChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        DispatchToUI(SyncEntriesAndIndex);
+    }
+
+    private void SyncEntriesAndIndex()
+    {
+        SyncEntries();
+        SyncCurrentIndex();
+    }
+
+    private void SyncEntries()
+    {
+        var snapshot = _historyManager.Entries.ToList();
+        _entries.Clear();
+        foreach (HistoryEntry entry in snapshot)
+        {
+            _entries.Add(entry);
+        }
+    }
+
+    private void SyncCurrentIndex()
+    {
+        _currentIndex.Value = _historyManager.CurrentIndex;
+    }
+
+    private static void DispatchToUI(Action action)
+    {
+        if (Dispatcher.UIThread.CheckAccess())
+        {
+            action();
+        }
+        else
+        {
+            Dispatcher.UIThread.Post(action);
+        }
+    }
+
+    private void ReportFailure(Exception ex, string context)
+    {
+        _logger.LogError(ex, "{Context}", context);
+        NotificationService.ShowError(Strings.History, Strings.History_OperationFailed);
     }
 }

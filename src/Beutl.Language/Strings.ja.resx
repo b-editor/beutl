@@ -228,6 +228,9 @@
   <data name="History_Unnamed" xml:space="preserve">
     <value>(無題)</value>
   </data>
+  <data name="History_OperationFailed" xml:space="preserve">
+    <value>履歴操作に失敗しました。</value>
+  </data>
   <data name="Search" xml:space="preserve">
     <value>検索</value>
   </data>

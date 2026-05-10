@@ -1,22 +1,28 @@
 using System.Collections.Specialized;
+using System.Reactive.Disposables;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Beutl.Editor;
+using Beutl.Logging;
 using Beutl.ViewModels.Tools;
+using Microsoft.Extensions.Logging;
 
 namespace Beutl.Views.Tools;
 
 public partial class HistoryView : UserControl
 {
-    private IDisposable? _currentIndexSubscription;
+    private readonly ILogger _logger = Log.CreateLogger<HistoryView>();
+    private CompositeDisposable? _viewModelSubscriptions;
     private HistoryViewModel? _currentViewModel;
+    // Guards re-entrant JumpTo calls when SelectedIndex is updated programmatically
+    // in response to ViewModel-driven state changes.
     private bool _suppressSelectionChanged;
 
     public HistoryView()
     {
         InitializeComponent();
         DataContextChanged += OnDataContextChanged;
-        DetachedFromVisualTree += (_, _) => Detach();
+        DetachedFromVisualTree += OnDetachedFromVisualTree;
     }
 
     private void OnDataContextChanged(object? sender, EventArgs e)
@@ -26,26 +32,30 @@ public partial class HistoryView : UserControl
         if (DataContext is HistoryViewModel viewModel)
         {
             _currentViewModel = viewModel;
-            _currentIndexSubscription = viewModel.CurrentIndex
-                .Subscribe(_ => SyncSelection());
-
-            if (viewModel.Entries is INotifyCollectionChanged ncc)
+            _viewModelSubscriptions = new CompositeDisposable
             {
-                ncc.CollectionChanged += OnEntriesChanged;
-            }
+                viewModel.CurrentIndex.Subscribe(
+                    _ => SyncSelection(),
+                    ex => _logger.LogError(ex, "CurrentIndex stream errored")),
+            };
+
+            ((INotifyCollectionChanged)viewModel.Entries).CollectionChanged += OnEntriesChanged;
+            _viewModelSubscriptions.Add(Disposable.Create(viewModel,
+                vm => ((INotifyCollectionChanged)vm.Entries).CollectionChanged -= OnEntriesChanged));
 
             SyncSelection();
         }
     }
 
+    private void OnDetachedFromVisualTree(object? sender, EventArgs e)
+    {
+        Detach();
+    }
+
     private void Detach()
     {
-        _currentIndexSubscription?.Dispose();
-        _currentIndexSubscription = null;
-        if (_currentViewModel is { Entries: INotifyCollectionChanged ncc })
-        {
-            ncc.CollectionChanged -= OnEntriesChanged;
-        }
+        _viewModelSubscriptions?.Dispose();
+        _viewModelSubscriptions = null;
         _currentViewModel = null;
     }
 
@@ -94,11 +104,12 @@ public partial class HistoryView : UserControl
     private void OnSelectionChanged(object? sender, SelectionChangedEventArgs e)
     {
         if (_suppressSelectionChanged) return;
-        if (_currentViewModel is null) return;
-        if (e.AddedItems is null || e.AddedItems.Count == 0) return;
-        if (e.AddedItems[0] is not HistoryEntry entry) return;
+        if (_currentViewModel is null || HistoryList is null) return;
 
-        _currentViewModel.JumpTo(entry);
+        int index = HistoryList.SelectedIndex;
+        if (index < 0) return;
+
+        _currentViewModel.JumpTo(index);
         UpdateItemAppearance();
     }
 

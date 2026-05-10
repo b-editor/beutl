@@ -110,6 +110,9 @@
   <data name="History_Unnamed" xml:space="preserve">
     <value>(Unnamed)</value>
   </data>
+  <data name="History_OperationFailed" xml:space="preserve">
+    <value>History operation failed.</value>
+  </data>
   <data name="Settings" xml:space="preserve">
     <value>Settings</value>
   </data>

@@ -197,53 +197,86 @@ public sealed class HistoryManager : IDisposable
         ThrowIfDisposed();
 
         bool moved = false;
-        lock (_lock)
+        bool stateMutated = false;
+        Exception? failure = null;
+
+        try
         {
-            if (index < 0 || index >= _entries.Count)
+            lock (_lock)
             {
-                _logger.LogDebug("JumpTo requested with out-of-range index: {Index} (Entries: {EntryCount})",
-                    index, _entries.Count);
-                return false;
-            }
-
-            if (_currentTransaction.HasOperations)
-            {
-                _logger.LogDebug("Rolling back current transaction before JumpTo");
-                using (SuppressRecording())
+                if (index < 0 || index >= _entries.Count)
                 {
-                    _currentTransaction.Revert(_context);
+                    _logger.LogDebug("JumpTo requested with out-of-range index: {Index} (Entries: {EntryCount})",
+                        index, _entries.Count);
+                    return false;
                 }
-                _currentTransaction = new HistoryTransaction(Interlocked.Increment(ref _transactionIdCounter));
-            }
 
-            while (_undoStack.Count > index)
-            {
-                HistoryTransaction transaction = _undoStack.Pop();
-                _logger.LogDebug("JumpTo undoing transaction: {TransactionName} (ID: {TransactionId})", transaction.Name, transaction.Id);
-                using (SuppressRecording())
+                if (_currentTransaction.HasOperations)
                 {
-                    transaction.Revert(_context);
+                    _logger.LogDebug("Rolling back current transaction before JumpTo");
+                    // Always replace the current transaction even if Revert throws,
+                    // otherwise the same operations would re-apply on the next commit.
+                    try
+                    {
+                        using (SuppressRecording())
+                        {
+                            _currentTransaction.Revert(_context);
+                        }
+                    }
+                    finally
+                    {
+                        _currentTransaction = new HistoryTransaction(Interlocked.Increment(ref _transactionIdCounter));
+                        stateMutated = true;
+                    }
                 }
-                _redoStack.Push(transaction);
-                moved = true;
-            }
 
-            while (_undoStack.Count < index && _redoStack.Count > 0)
-            {
-                HistoryTransaction transaction = _redoStack.Pop();
-                _logger.LogDebug("JumpTo redoing transaction: {TransactionName} (ID: {TransactionId})", transaction.Name, transaction.Id);
-                using (SuppressRecording())
+                try
                 {
-                    transaction.Apply(_context);
+                    while (_undoStack.Count > index)
+                    {
+                        HistoryTransaction transaction = _undoStack.Pop();
+                        _logger.LogDebug("JumpTo undoing transaction: {TransactionName} (ID: {TransactionId})", transaction.Name, transaction.Id);
+                        using (SuppressRecording())
+                        {
+                            transaction.Revert(_context);
+                        }
+                        _redoStack.Push(transaction);
+                        moved = true;
+                        stateMutated = true;
+                    }
+
+                    while (_undoStack.Count < index && _redoStack.Count > 0)
+                    {
+                        HistoryTransaction transaction = _redoStack.Pop();
+                        _logger.LogDebug("JumpTo redoing transaction: {TransactionName} (ID: {TransactionId})", transaction.Name, transaction.Id);
+                        using (SuppressRecording())
+                        {
+                            transaction.Apply(_context);
+                        }
+                        _undoStack.Push(transaction);
+                        moved = true;
+                        stateMutated = true;
+                    }
                 }
-                _undoStack.Push(transaction);
-                moved = true;
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "JumpTo failed at undo={UndoCount}, redo={RedoCount}, target={Target}; history is in a partial state",
+                        _undoStack.Count, _redoStack.Count, index);
+                    failure = ex;
+                }
+            }
+        }
+        finally
+        {
+            if (stateMutated)
+            {
+                NotifyStateChanged();
             }
         }
 
-        if (moved)
+        if (failure is not null)
         {
-            NotifyStateChanged();
+            throw failure;
         }
         return moved;
     }
