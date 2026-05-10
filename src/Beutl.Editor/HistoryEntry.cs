@@ -23,7 +23,7 @@ public abstract class HistoryEntry
 
     public abstract string DisplayLabel { get; }
 
-    public abstract string TransactionLabel { get; }
+    public string TransactionLabel => TransactionId?.ToString() ?? "•";
 
     internal static HistoryEntry CreateInitial()
     {
@@ -58,8 +58,6 @@ public sealed class InitialHistoryEntry : HistoryEntry
     public override int OperationCount => 0;
 
     public override string DisplayLabel => Strings.History_Initial;
-
-    public override string TransactionLabel => "•";
 }
 
 public sealed class TransactionHistoryEntry : HistoryEntry
@@ -71,7 +69,7 @@ public sealed class TransactionHistoryEntry : HistoryEntry
         int operationCount,
         DateTime timestamp) : base(timestamp)
     {
-        TransactionIdValue = transactionId;
+        TransactionId = transactionId;
         Name = name;
         DisplayName = displayName;
         OperationCount = operationCount;
@@ -79,9 +77,7 @@ public sealed class TransactionHistoryEntry : HistoryEntry
 
     public override bool IsInitial => false;
 
-    public override long? TransactionId => TransactionIdValue;
-
-    public long TransactionIdValue { get; }
+    public override long? TransactionId { get; }
 
     public override string? Name { get; }
 
@@ -90,6 +86,4 @@ public sealed class TransactionHistoryEntry : HistoryEntry
     public override int OperationCount { get; }
 
     public override string DisplayLabel => DisplayName ?? Name ?? Strings.History_Unnamed;
-
-    public override string TransactionLabel => TransactionIdValue.ToString();
 }

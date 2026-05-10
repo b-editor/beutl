@@ -855,6 +855,163 @@ public class HistoryManagerTests
         });
     }
 
+    [Test]
+    public void HistoryEntry_Subtypes_AreSealedDiscriminatedUnion()
+    {
+        var initial = HistoryEntry.CreateInitial();
+        var transactional = HistoryEntry.FromTransaction(new HistoryTransaction(7));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(initial, Is.InstanceOf<InitialHistoryEntry>());
+            Assert.That(transactional, Is.InstanceOf<TransactionHistoryEntry>());
+            Assert.That(initial.TransactionId, Is.Null);
+            Assert.That(transactional.TransactionId, Is.EqualTo(7L));
+        });
+    }
+
+    #endregion
+
+    #region JumpTo Failure / Disposal Tests
+
+    [Test]
+    public void JumpTo_AfterDispose_ShouldThrowObjectDisposedException()
+    {
+        var manager = new HistoryManager(_root, _sequenceGenerator);
+        manager.Dispose();
+
+        Assert.Throws<ObjectDisposedException>(() => manager.JumpTo(0));
+    }
+
+    [Test]
+    public void JumpTo_WhenRevertThrowsMidLoop_ShouldNotifyForCompletedStepsAndRethrow()
+    {
+        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        _root.Value = 0;
+
+        // _undoStack (bottom -> top): Faulty, Step2, Step3
+        // JumpTo(0) reverts Step3 (ok) -> Step2 (ok) -> Faulty (throws).
+        var faulty = CustomOperation.Create(
+            () => _root.Value = 100,
+            () => throw new InvalidOperationException("Boom"),
+            _sequenceGenerator,
+            "Faulty");
+        faulty.Apply(new OperationExecutionContext(_root));
+        manager.Record(faulty);
+        manager.Commit("Faulty");
+
+        CreateValueOperation(manager, 200, 100, "Step2");
+        manager.Commit("Step2");
+        CreateValueOperation(manager, 300, 200, "Step3");
+        manager.Commit("Step3");
+
+        HistoryState? observed = null;
+        using var sub = manager.StateChanged.Subscribe(s => observed = s);
+
+        Assert.Throws<InvalidOperationException>(() => manager.JumpTo(0));
+
+        Assert.Multiple(() =>
+        {
+            // Successful steps must still notify.
+            Assert.That(observed, Is.Not.Null);
+            // Stack integrity preserved by peek-then-pop: Step2/Step3 moved to redo,
+            // Faulty stays on undo.
+            Assert.That(manager.UndoCount, Is.EqualTo(1));
+            Assert.That(manager.RedoCount, Is.EqualTo(2));
+        });
+    }
+
+    [Test]
+    public void JumpTo_WhenPendingRevertThrows_ShouldStillReplaceCurrentTransaction()
+    {
+        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        _root.Value = 0;
+        CreateValueOperation(manager, 100, 0, "Committed");
+        manager.Commit("Committed");
+
+        // Pending op whose revert throws — but its operation should NOT survive
+        // into the next commit because JumpTo's finally swaps _currentTransaction.
+        var pending = CustomOperation.Create(
+            () => _root.Value = 999,
+            () => throw new InvalidOperationException("PendingRevertFailed"),
+            _sequenceGenerator,
+            "Pending");
+        pending.Apply(new OperationExecutionContext(_root));
+        manager.Record(pending);
+
+        Assert.Throws<InvalidOperationException>(() => manager.JumpTo(0));
+
+        // A subsequent commit must not include the pending operation.
+        CreateValueOperation(manager, 50, 999, "After");
+        manager.Commit("After");
+
+        Assert.That(manager.PeekUndo()?.OperationCount, Is.EqualTo(1));
+    }
+
+    [Test]
+    public void JumpTo_RejumpForwardAfterCommitCollapse_ShouldFail()
+    {
+        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        _root.Value = 0;
+        CreateValueOperation(manager, 100, 0, "Step1");
+        manager.Commit("Step1");
+        CreateValueOperation(manager, 200, 100, "Step2");
+        manager.Commit("Step2");
+        CreateValueOperation(manager, 300, 200, "Step3");
+        manager.Commit("Step3");
+
+        // Jump back, then commit -> redo stack collapses, entries truncate.
+        manager.JumpTo(1);
+        CreateValueOperation(manager, 50, 100, "Replacement");
+        manager.Commit("Replacement");
+
+        int previousValue = _root.Value;
+        bool moved = manager.JumpTo(3); // No longer reachable.
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(moved, Is.False);
+            Assert.That(_root.Value, Is.EqualTo(previousValue));
+            Assert.That(manager.Entries.Count, Is.EqualTo(3));
+        });
+    }
+
+    #endregion
+
+    #region Snapshot Tests
+
+    [Test]
+    public void GetEntriesSnapshot_ReturnsLockSafeCopy()
+    {
+        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        CreateValueOperation(manager, 100, 0, "Step1");
+        manager.Commit("Step1");
+
+        HistoryEntry[] snapshot = manager.GetEntriesSnapshot();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(snapshot.Length, Is.EqualTo(2));
+            Assert.That(snapshot[0].IsInitial, Is.True);
+            Assert.That(snapshot[1].DisplayName, Is.EqualTo("Step1"));
+        });
+
+        // Mutating the manager must not affect the snapshot reference.
+        CreateValueOperation(manager, 200, 100, "Step2");
+        manager.Commit("Step2");
+        Assert.That(snapshot.Length, Is.EqualTo(2));
+        Assert.That(manager.Entries.Count, Is.EqualTo(3));
+    }
+
+    [Test]
+    public void GetEntriesSnapshot_AfterDispose_ShouldThrow()
+    {
+        var manager = new HistoryManager(_root, _sequenceGenerator);
+        manager.Dispose();
+
+        Assert.Throws<ObjectDisposedException>(() => manager.GetEntriesSnapshot());
+    }
+
     #endregion
 
     #region BeginRecordingScope Tests

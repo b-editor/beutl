@@ -30,7 +30,7 @@ public sealed class HistoryViewModel : IToolContext
         _currentIndex = new ReactivePropertySlim<int>(_historyManager.CurrentIndex);
         CurrentIndex = _currentIndex;
 
-        SyncEntriesAndIndex();
+        ResyncEntries();
 
         if (_historyManager.Entries is INotifyCollectionChanged notifying)
         {
@@ -41,7 +41,11 @@ public sealed class HistoryViewModel : IToolContext
         _historyManager.StateChanged
             .Subscribe(
                 _ => DispatchToUI(SyncCurrentIndex),
-                ex => _logger.LogError(ex, "HistoryManager.StateChanged stream errored"))
+                ex =>
+                {
+                    _logger.LogError(ex, "HistoryManager.StateChanged stream errored; UI sync stopped");
+                    NotificationService.ShowError(Strings.History, Strings.History_OperationFailed);
+                })
             .DisposeWith(_disposables);
     }
 
@@ -61,10 +65,11 @@ public sealed class HistoryViewModel : IToolContext
         {
             _historyManager.JumpTo(index);
         }
-        catch (ObjectDisposedException)
+        catch (ObjectDisposedException ex)
         {
+            _logger.LogDebug(ex, "JumpTo({Index}) skipped — manager is disposed", index);
         }
-        catch (InvalidOperationException ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             ReportFailure(ex, $"Failed to jump to history index {index}");
         }
@@ -76,10 +81,11 @@ public sealed class HistoryViewModel : IToolContext
         {
             _historyManager.Undo();
         }
-        catch (ObjectDisposedException)
+        catch (ObjectDisposedException ex)
         {
+            _logger.LogDebug(ex, "Undo skipped — manager is disposed");
         }
-        catch (InvalidOperationException ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             ReportFailure(ex, "Failed to undo");
         }
@@ -91,10 +97,11 @@ public sealed class HistoryViewModel : IToolContext
         {
             _historyManager.Redo();
         }
-        catch (ObjectDisposedException)
+        catch (ObjectDisposedException ex)
         {
+            _logger.LogDebug(ex, "Redo skipped — manager is disposed");
         }
-        catch (InvalidOperationException ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             ReportFailure(ex, "Failed to redo");
         }
@@ -122,18 +129,97 @@ public sealed class HistoryViewModel : IToolContext
 
     private void OnManagerEntriesChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
-        DispatchToUI(SyncEntriesAndIndex);
+        DispatchToUI(() => ApplyManagerChange(e));
     }
 
-    private void SyncEntriesAndIndex()
+    // Mirrors a single CollectionChanged event from HistoryManager onto the
+    // UI-thread-bound _entries. Granular Add/Remove/Replace events let the
+    // ListBox preserve selection, scroll position, and virtualization caches
+    // instead of being torn down by a Reset on every commit.
+    private void ApplyManagerChange(NotifyCollectionChangedEventArgs e)
     {
-        SyncEntries();
+        try
+        {
+            switch (e.Action)
+            {
+                case NotifyCollectionChangedAction.Add when e.NewItems is not null:
+                {
+                    int insertIndex = e.NewStartingIndex >= 0 ? e.NewStartingIndex : _entries.Count;
+                    foreach (object? item in e.NewItems)
+                    {
+                        if (item is HistoryEntry entry)
+                        {
+                            _entries.Insert(insertIndex++, entry);
+                        }
+                    }
+                    break;
+                }
+                case NotifyCollectionChangedAction.Remove when e.OldItems is not null:
+                {
+                    int removeAt = e.OldStartingIndex;
+                    if (removeAt < 0)
+                    {
+                        ResyncEntries();
+                    }
+                    else
+                    {
+                        for (int i = 0; i < e.OldItems.Count; i++)
+                        {
+                            if (removeAt < _entries.Count)
+                            {
+                                _entries.RemoveAt(removeAt);
+                            }
+                        }
+                    }
+                    break;
+                }
+                case NotifyCollectionChangedAction.Replace when e.NewItems is not null:
+                {
+                    int start = e.NewStartingIndex;
+                    for (int i = 0; i < e.NewItems.Count; i++)
+                    {
+                        if (e.NewItems[i] is HistoryEntry entry && start + i < _entries.Count)
+                        {
+                            _entries[start + i] = entry;
+                        }
+                    }
+                    break;
+                }
+                case NotifyCollectionChangedAction.Reset:
+                default:
+                    ResyncEntries();
+                    break;
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to apply HistoryManager.Entries change ({Action}); falling back to full resync", e.Action);
+            try
+            {
+                ResyncEntries();
+            }
+            catch (Exception resyncEx)
+            {
+                _logger.LogError(resyncEx, "Full resync of history entries also failed");
+            }
+        }
+
         SyncCurrentIndex();
     }
 
-    private void SyncEntries()
+    private void ResyncEntries()
     {
-        var snapshot = _historyManager.Entries.ToList();
+        HistoryEntry[] snapshot;
+        try
+        {
+            snapshot = _historyManager.GetEntriesSnapshot();
+        }
+        catch (ObjectDisposedException)
+        {
+            _entries.Clear();
+            return;
+        }
+
         _entries.Clear();
         foreach (HistoryEntry entry in snapshot)
         {
@@ -143,18 +229,41 @@ public sealed class HistoryViewModel : IToolContext
 
     private void SyncCurrentIndex()
     {
-        _currentIndex.Value = _historyManager.CurrentIndex;
+        try
+        {
+            _currentIndex.Value = _historyManager.CurrentIndex;
+        }
+        catch (ObjectDisposedException)
+        {
+        }
     }
 
-    private static void DispatchToUI(Action action)
+    private void DispatchToUI(Action action)
     {
         if (Dispatcher.UIThread.CheckAccess())
         {
-            action();
+            try
+            {
+                action();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Unhandled exception in UI-thread history sync");
+            }
         }
         else
         {
-            Dispatcher.UIThread.Post(action);
+            Dispatcher.UIThread.Post(() =>
+            {
+                try
+                {
+                    action();
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Unhandled exception in UI-thread history sync");
+                }
+            });
         }
     }
 

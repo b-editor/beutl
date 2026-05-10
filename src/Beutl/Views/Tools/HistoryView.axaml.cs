@@ -36,7 +36,7 @@ public partial class HistoryView : UserControl
             {
                 viewModel.CurrentIndex.Subscribe(
                     _ => SyncSelection(),
-                    ex => _logger.LogError(ex, "CurrentIndex stream errored")),
+                    ex => _logger.LogError(ex, "CurrentIndex stream errored; selection will stop syncing")),
             };
 
             ((INotifyCollectionChanged)viewModel.Entries).CollectionChanged += OnEntriesChanged;

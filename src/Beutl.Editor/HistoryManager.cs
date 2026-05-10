@@ -20,6 +20,7 @@ public sealed class HistoryManager : IDisposable
     private readonly List<IDisposable> _subscriptions = new();
     private readonly object _lock = new();
     private readonly ObservableCollection<HistoryEntry> _entries = new();
+    private readonly ReadOnlyObservableCollection<HistoryEntry> _readOnlyEntries;
     private long _transactionIdCounter;
     private HistoryTransaction _currentTransaction;
     private bool _isDisposed;
@@ -31,6 +32,7 @@ public sealed class HistoryManager : IDisposable
         _context = new OperationExecutionContext(root);
         _currentTransaction = new HistoryTransaction(Interlocked.Increment(ref _transactionIdCounter));
         _entries.Add(HistoryEntry.CreateInitial());
+        _readOnlyEntries = new ReadOnlyObservableCollection<HistoryEntry>(_entries);
     }
 
     public CoreObject Root { get; }
@@ -44,12 +46,24 @@ public sealed class HistoryManager : IDisposable
 
     public IObservable<HistoryState> StateChanged => _stateChanged.AsObservable();
 
-    public ReadOnlyObservableCollection<HistoryEntry> Entries =>
-        _readOnlyEntries ??= new ReadOnlyObservableCollection<HistoryEntry>(_entries);
-
-    private ReadOnlyObservableCollection<HistoryEntry>? _readOnlyEntries;
+    public ReadOnlyObservableCollection<HistoryEntry> Entries => _readOnlyEntries;
 
     public int CurrentIndex => _undoStack.Count;
+
+    /// <summary>
+    /// Returns a thread-safe snapshot of the current entries taken under the
+    /// internal lock. Use this from threads other than the writer to avoid
+    /// racing with concurrent <see cref="Commit"/>, <see cref="Clear"/>, or
+    /// <see cref="JumpTo"/> mutations.
+    /// </summary>
+    public HistoryEntry[] GetEntriesSnapshot()
+    {
+        ThrowIfDisposed();
+        lock (_lock)
+        {
+            return [.. _entries];
+        }
+    }
 
     public void Commit(string? name = null, [CallerArgumentExpression(nameof(name))] string? expression = null)
     {
@@ -232,14 +246,18 @@ public sealed class HistoryManager : IDisposable
 
                 try
                 {
+                    // Peek-then-pop preserves stack integrity if Revert/Apply throws:
+                    // the failing transaction stays on the originating stack so it
+                    // is not lost from history altogether.
                     while (_undoStack.Count > index)
                     {
-                        HistoryTransaction transaction = _undoStack.Pop();
+                        HistoryTransaction transaction = _undoStack.Peek();
                         _logger.LogDebug("JumpTo undoing transaction: {TransactionName} (ID: {TransactionId})", transaction.Name, transaction.Id);
                         using (SuppressRecording())
                         {
                             transaction.Revert(_context);
                         }
+                        _undoStack.Pop();
                         _redoStack.Push(transaction);
                         moved = true;
                         stateMutated = true;
@@ -247,12 +265,13 @@ public sealed class HistoryManager : IDisposable
 
                     while (_undoStack.Count < index && _redoStack.Count > 0)
                     {
-                        HistoryTransaction transaction = _redoStack.Pop();
+                        HistoryTransaction transaction = _redoStack.Peek();
                         _logger.LogDebug("JumpTo redoing transaction: {TransactionName} (ID: {TransactionId})", transaction.Name, transaction.Id);
                         using (SuppressRecording())
                         {
                             transaction.Apply(_context);
                         }
+                        _redoStack.Pop();
                         _undoStack.Push(transaction);
                         moved = true;
                         stateMutated = true;
