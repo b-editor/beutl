@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics;
 using System.IO.Pipes;
+using Beutl.FFmpegIpc;
 using Beutl.FFmpegIpc.Protocol;
 using Beutl.FFmpegIpc.Protocol.Messages;
 using Beutl.FFmpegIpc.Transport;
@@ -114,11 +115,29 @@ public sealed class FFmpegWorkerProcess : IDisposable
             _process.BeginErrorReadLine();
             _process.BeginOutputReadLine();
 
-            // パイプ接続待機
+            // パイプ接続待機 + Worker早期終了検出
             using var connectCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
             connectCts.CancelAfter(TimeSpan.FromSeconds(30));
 
-            await pipeServer.WaitForConnectionAsync(connectCts.Token);
+            var connectTask = pipeServer.WaitForConnectionAsync(connectCts.Token);
+            var exitTask = _process.WaitForExitAsync(connectCts.Token);
+            var completed = await Task.WhenAny(connectTask, exitTask).ConfigureAwait(false);
+
+            if (completed == exitTask)
+            {
+                int code = _process.ExitCode;
+                pipeServer.Dispose();
+                if (code == 2)
+                {
+                    throw new FFmpegLibrariesNotFoundException(
+                        "FFmpeg worker exited because the FFmpeg libraries could not be found.");
+                }
+                throw new InvalidOperationException(
+                    $"FFmpeg worker exited unexpectedly with code {code} before establishing connection.");
+            }
+
+            // 接続が先に成立。例外があれば伝播させる
+            await connectTask;
         }
         catch (OperationCanceledException)
         {
