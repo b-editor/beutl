@@ -123,10 +123,12 @@ public class CompressorNodeTests
     public void Process_SilenceInput_ProducesExactSilenceOutput()
     {
         // End-to-end "silence in → silence out" smoke test. Note: this does NOT specifically
-        // isolate the `peak > 0f` guard, because RecoverEnvelopeIfNonFinite would mask a NaN
-        // envelope produced by Log10(0) — the gain calculation against a 0-amplitude sample
-        // still yields exactly 0. Genuinely isolating that guard would require log capture or
-        // exposing internal state. What this test does catch: any future bug that injects DC,
+        // isolate the `peak > 0f` guard, because RecoverEnvelopeIfNonFinite would mask the
+        // non-finite envelope state produced when Log10(0) = -Infinity propagates through the
+        // IIR formula `inputDb + coeff * (_envelopeDb - inputDb)` (NaN appears at the
+        // (-∞) + coeff·(+∞) step). The gain calculation against a 0-amplitude sample still
+        // yields exactly 0 either way. Genuinely isolating that guard would require log capture
+        // or exposing internal state. What this test does catch: any future bug that injects DC,
         // noise, or non-zero offset into a silent stream (e.g., a stray makeup application that
         // mishandles the additive identity, or a sanitizer that fails open).
         const int sampleCount = SampleRate / 4;

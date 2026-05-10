@@ -353,10 +353,10 @@ public sealed class CompressorNode : AudioNode
     // unifies two concerns:
     //   - DSP state (the envelope follower) — see ResetEnvelope
     //   - Diagnostic latches (one-shot warnings) — see ResetDiagnostics
-    // They are atomic in production callers because every session boundary is also a fresh
-    // diagnostic window: we want operators to see warnings re-fire after fixing a bad keyframe
-    // and re-rendering. Splitting them into named helpers makes the dual responsibility legible
-    // at the call site instead of buried in this comment.
+    // They are always invoked together in production callers because every session boundary is
+    // also a fresh diagnostic window: we want operators to see warnings re-fire after fixing a
+    // bad keyframe and re-rendering. Splitting them into named helpers makes the dual
+    // responsibility legible at the call site instead of buried in this comment.
     internal void Reset()
     {
         ResetEnvelope();

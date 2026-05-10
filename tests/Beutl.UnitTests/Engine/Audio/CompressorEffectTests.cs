@@ -1,4 +1,6 @@
-﻿using Beutl.Audio;
+﻿using System.Reflection;
+using System.Runtime.CompilerServices;
+using Beutl.Audio;
 using Beutl.Audio.Effects;
 using Beutl.Audio.Graph;
 using Beutl.Audio.Graph.Nodes;
@@ -76,5 +78,24 @@ public class CompressorEffectTests
         Assert.That(effect.Release.CurrentValue, Is.EqualTo(100f));
         Assert.That(effect.Knee.CurrentValue, Is.EqualTo(6f));
         Assert.That(effect.MakeupGain.CurrentValue, Is.EqualTo(0f));
+    }
+
+    [Test]
+    public void CompressorParameters_Validate_IsAnnotatedAsModuleInitializer()
+    {
+        // CompressorParameters.Validate is the only execution path for the Min/Default/Max
+        // consistency asserts. Because every consumer references const fields (which the C#
+        // compiler inlines), no `ldsfld` against CompressorParameters is ever emitted, so a
+        // plain static constructor would not run. The class instead relies on
+        // [ModuleInitializer] to invoke Validate at module load. If a future refactor removes
+        // the attribute or renames the method without updating the contract, the asserts
+        // become silent dead code. This reflection check fails fast if either invariant breaks.
+        var method = typeof(CompressorParameters).GetMethod(
+            "Validate",
+            BindingFlags.Static | BindingFlags.NonPublic);
+        Assert.That(method, Is.Not.Null,
+            "CompressorParameters.Validate must exist; it is the only carrier of the [ModuleInitializer] attribute.");
+        Assert.That(method!.GetCustomAttribute<ModuleInitializerAttribute>(), Is.Not.Null,
+            "CompressorParameters.Validate must be annotated [ModuleInitializer] so the Min/Default/Max asserts run at module load. Without it, the asserts become unreachable.");
     }
 }
