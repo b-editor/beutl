@@ -30,12 +30,17 @@ public sealed class HistoryViewModel : IToolContext
         _currentIndex = new ReactivePropertySlim<int>(_historyManager.CurrentIndex);
         CurrentIndex = _currentIndex;
 
-        ResyncEntries();
+        // Atomically capture the initial snapshot and subscribe under the
+        // manager's lock so commits/clears that happen during construction
+        // are not lost between the snapshot and the subscription.
+        IDisposable subscription = _historyManager.SubscribeEntries(
+            OnManagerEntriesChanged,
+            out HistoryEntry[] initialSnapshot);
+        _disposables.Add(subscription);
 
-        if (_historyManager.Entries is INotifyCollectionChanged notifying)
+        foreach (HistoryEntry entry in initialSnapshot)
         {
-            notifying.CollectionChanged += OnManagerEntriesChanged;
-            _disposables.Add(Disposable.Create(() => notifying.CollectionChanged -= OnManagerEntriesChanged));
+            _entries.Add(entry);
         }
 
         _historyManager.StateChanged

@@ -1,4 +1,6 @@
 ﻿using System.Collections.ObjectModel;
+using System.Collections.Specialized;
+using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
 using System.Runtime.CompilerServices;
@@ -63,6 +65,31 @@ public sealed class HistoryManager : IDisposable
         {
             return [.. _entries];
         }
+    }
+
+    /// <summary>
+    /// Atomically takes an initial snapshot and subscribes to subsequent
+    /// <see cref="INotifyCollectionChanged.CollectionChanged"/> events on
+    /// <see cref="Entries"/>. Use this when the consumer needs to mirror the
+    /// collection without dropping events that fire between the snapshot and
+    /// the subscription on a separate thread.
+    /// </summary>
+    /// <returns>An <see cref="IDisposable"/> that unsubscribes the handler.</returns>
+    public IDisposable SubscribeEntries(
+        NotifyCollectionChangedEventHandler handler,
+        out HistoryEntry[] initialSnapshot)
+    {
+        ThrowIfDisposed();
+        ArgumentNullException.ThrowIfNull(handler);
+
+        INotifyCollectionChanged source = _entries;
+        lock (_lock)
+        {
+            initialSnapshot = [.. _entries];
+            source.CollectionChanged += handler;
+        }
+
+        return Disposable.Create(() => source.CollectionChanged -= handler);
     }
 
     public void Commit(string? name = null, [CallerArgumentExpression(nameof(name))] string? expression = null)

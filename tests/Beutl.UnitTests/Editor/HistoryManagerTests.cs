@@ -1,4 +1,5 @@
-﻿using Beutl.Editor;
+﻿using System.Collections.Specialized;
+using Beutl.Editor;
 using Beutl.Editor.Operations;
 using Beutl.Logging;
 using Microsoft.Extensions.Logging;
@@ -1010,6 +1011,67 @@ public class HistoryManagerTests
         manager.Dispose();
 
         Assert.Throws<ObjectDisposedException>(() => manager.GetEntriesSnapshot());
+    }
+
+    [Test]
+    public void SubscribeEntries_ReturnsCurrentSnapshotAndForwardsLaterChanges()
+    {
+        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        CreateValueOperation(manager, 100, 0, "Step1");
+        manager.Commit("Step1");
+
+        var received = new List<NotifyCollectionChangedAction>();
+        using IDisposable sub = manager.SubscribeEntries(
+            (_, e) => received.Add(e.Action),
+            out HistoryEntry[] snapshot);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(snapshot.Length, Is.EqualTo(2));
+            Assert.That(snapshot[0].IsInitial, Is.True);
+            Assert.That(snapshot[1].DisplayName, Is.EqualTo("Step1"));
+        });
+
+        CreateValueOperation(manager, 200, 100, "Step2");
+        manager.Commit("Step2");
+
+        Assert.That(received, Does.Contain(NotifyCollectionChangedAction.Add));
+    }
+
+    [Test]
+    public void SubscribeEntries_DisposalUnsubscribesHandler()
+    {
+        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        int callCount = 0;
+        IDisposable sub = manager.SubscribeEntries(
+            (_, _) => callCount++,
+            out _);
+
+        sub.Dispose();
+
+        CreateValueOperation(manager, 1, 0, "AfterUnsubscribe");
+        manager.Commit("AfterUnsubscribe");
+
+        Assert.That(callCount, Is.EqualTo(0));
+    }
+
+    [Test]
+    public void SubscribeEntries_AfterDispose_ShouldThrow()
+    {
+        var manager = new HistoryManager(_root, _sequenceGenerator);
+        manager.Dispose();
+
+        Assert.Throws<ObjectDisposedException>(() =>
+            manager.SubscribeEntries((_, _) => { }, out _));
+    }
+
+    [Test]
+    public void SubscribeEntries_NullHandler_ShouldThrow()
+    {
+        using var manager = new HistoryManager(_root, _sequenceGenerator);
+
+        Assert.Throws<ArgumentNullException>(() =>
+            manager.SubscribeEntries(null!, out _));
     }
 
     #endregion
