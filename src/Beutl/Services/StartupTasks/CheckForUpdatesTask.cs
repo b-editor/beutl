@@ -59,12 +59,19 @@ public sealed class CheckForUpdatesTask : StartupTask
                         {
                             // /app is read-only in Flatpak so the in-app updater cannot overwrite
                             // AppContext.BaseDirectory. Open the release page instead and let the
-                            // user update through Flathub / `flatpak update`.
-                            string? releaseUrl = v3.Url ?? v3.DownloadUrl;
-                            if (releaseUrl is null)
+                            // user update through Flathub / `flatpak update`. We deliberately do NOT
+                            // fall back to DownloadUrl: it points at the raw .flatpak asset, which
+                            // contradicts the Flathub-update guidance and leaves the user with a
+                            // bundle they cannot install from inside the sandbox.
+                            string releaseUrl;
+                            if (v3.Url is { } url)
+                            {
+                                releaseUrl = url;
+                            }
+                            else
                             {
                                 _logger.LogWarning(
-                                    "AppUpdateResponse for {LatestVersion} had neither Url nor DownloadUrl; falling back to releases page.",
+                                    "AppUpdateResponse for {LatestVersion} had no Url; falling back to releases page.",
                                     v3.LatestVersion);
                                 activity?.SetTag("UpdateUrlMissing", true);
                                 releaseUrl = "https://github.com/b-editor/beutl/releases";

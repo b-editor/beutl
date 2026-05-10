@@ -106,7 +106,12 @@ jobs:
       - name: Build single-file bundle
         run: |
           cd packages/flatpak
+          # --runtime-repo embeds the Flathub repo URL in the bundle so the runtime
+          # (org.freedesktop.Platform//24.08) can be resolved on machines that do not
+          # already have Flathub configured. Without it, `flatpak install` of the
+          # standalone .flatpak fails on clean systems.
           flatpak build-bundle repo \
+            --runtime-repo=https://flathub.org/repo/flathub.flatpakrepo \
             "${{ github.workspace }}/artifacts/Beutl-${{ inputs.semVer }}.flatpak" \
             net.beditor.Beutl
 

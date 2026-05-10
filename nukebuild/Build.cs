@@ -217,9 +217,11 @@ class Build : NukeBuild
 
                 AbsolutePath outBundle = ArtifactsDirectory / $"Beutl-{Version}.flatpak";
                 outBundle.DeleteFile();
+                // --runtime-repo embeds the Flathub repo URL so the bundle can resolve
+                // org.freedesktop.Platform//24.08 on machines without Flathub configured.
                 StartProcess(
                     "flatpak",
-                    $"build-bundle {repoDir} {outBundle} net.beditor.Beutl",
+                    $"build-bundle --runtime-repo=https://flathub.org/repo/flathub.flatpakrepo {repoDir} {outBundle} net.beditor.Beutl",
                     workingDirectory: flatpakDir)
                     .AssertZeroExitCode();
             }
