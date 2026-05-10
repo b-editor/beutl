@@ -50,6 +50,11 @@ internal static unsafe class PixelFormatConverter
         // Kr=0.2627, Kb=0.0593 (BT.2020 NCL — uncommon for 8-bit but the sink
         // writer accepts the corresponding matrix tag).
         public static readonly YuvMatrix8 Bt2020 = new(67, 174, 15, -36, -92, 128, 128, -118, -10);
+
+        // Kr=0.212, Kb=0.087 (SMPTE 240M — used by some legacy HD content; close
+        // to but not identical with BT.709, so a separate coefficient set keeps
+        // the encoded pixels consistent with the matrix tag we advertise).
+        public static readonly YuvMatrix8 Smpte240M = new(54, 179, 22, -30, -98, 128, 128, -114, -14);
     }
 
     public static void BgraToNv12(

@@ -265,20 +265,34 @@ public class MFEncodingController : EncodingController
     }
 
     // Audio codec must match what the chosen container can mux. WAV requires
-    // PCM, MP3 requires MP3, and ASF/WMV requires WMA — silently overriding
-    // here is friendlier than a cryptic AddStream/BeginWriting failure.
+    // PCM, MP3 requires MP3, and ASF/WMV requires WMA — overriding here is
+    // friendlier than a cryptic AddStream/BeginWriting failure, but the user
+    // needs visibility into the substitution so they can adjust UI selections
+    // (e.g. bitrate) that no longer apply.
     private MFAudioEncoderSettings.AudioCodecType ResolveAudioCodec()
     {
         string ext = Path.GetExtension(OutputFile);
+        MFAudioEncoderSettings.AudioCodecType requested = AudioSettings.Codec;
+        MFAudioEncoderSettings.AudioCodecType resolved;
+
         if (ext.Equals(".wav", StringComparison.OrdinalIgnoreCase))
-            return MFAudioEncoderSettings.AudioCodecType.PCM;
-        if (ext.Equals(".mp3", StringComparison.OrdinalIgnoreCase))
-            return MFAudioEncoderSettings.AudioCodecType.MP3;
-        if (ext.Equals(".wma", StringComparison.OrdinalIgnoreCase)
+            resolved = MFAudioEncoderSettings.AudioCodecType.PCM;
+        else if (ext.Equals(".mp3", StringComparison.OrdinalIgnoreCase))
+            resolved = MFAudioEncoderSettings.AudioCodecType.MP3;
+        else if (ext.Equals(".wma", StringComparison.OrdinalIgnoreCase)
             || ext.Equals(".asf", StringComparison.OrdinalIgnoreCase)
             || ext.Equals(".wmv", StringComparison.OrdinalIgnoreCase))
-            return MFAudioEncoderSettings.AudioCodecType.WMA;
-        return AudioSettings.Codec;
+            resolved = MFAudioEncoderSettings.AudioCodecType.WMA;
+        else
+            resolved = requested;
+
+        if (resolved != requested)
+        {
+            _logger.LogInformation(
+                "Audio codec overridden from {Requested} to {Resolved} for container {Ext}",
+                requested, resolved, ext);
+        }
+        return resolved;
     }
 
     private int ConfigureAudioStream(
@@ -424,6 +438,14 @@ public class MFEncodingController : EncodingController
         long sourceStartSample, int sourceLength,
         int sourceSampleRate, int outputSampleRate, int channels)
     {
+        // Defensive: ConfigureAudioStream rejects non-positive rates upstream so
+        // we shouldn't reach here with bad values, but Pcm.Resamples crashes on
+        // zero/negative frequencies — keep the assert close to the math.
+        if (sourceSampleRate <= 0 || outputSampleRate <= 0)
+        {
+            return;
+        }
+
         Pcm<Stereo32BitFloat> sourcePcm = await sampleProvider.Sample(sourceStartSample, sourceLength);
         Pcm<Stereo32BitFloat>? resampled = null;
         try
@@ -549,10 +571,10 @@ public class MFEncodingController : EncodingController
         };
     }
 
-    // Picks the 8-bit NV12 conversion matrix that matches the tag MapMatrixToMF
-    // will write to MF_MT_YUV_MATRIX. Default falls back to BT.709 to align with
-    // typical SDR HD content; SMPTE 240M is rare in 8-bit and uses BT.709 here
-    // (its tag is preserved separately if the user explicitly requested it).
+    // Picks the 8-bit NV12 conversion matrix matching the tag MapMatrixToMF will
+    // write. Default falls back to BT.709 (typical SDR HD); the tag side writes
+    // Unknown for Default, which players resolve to BT.709 too — so the pixel
+    // math and the on-the-wire interpretation stay aligned.
     private static PixelFormatConverter.YuvMatrix8 ResolveSdrYuvMatrix(
         MFVideoEncoderSettings.YCbCrMatrixType m)
     {
@@ -560,6 +582,7 @@ public class MFEncodingController : EncodingController
         {
             MFVideoEncoderSettings.YCbCrMatrixType.Bt601 => PixelFormatConverter.YuvMatrix8.Bt601,
             MFVideoEncoderSettings.YCbCrMatrixType.Rec2020 => PixelFormatConverter.YuvMatrix8.Bt2020,
+            MFVideoEncoderSettings.YCbCrMatrixType.Smpte240M => PixelFormatConverter.YuvMatrix8.Smpte240M,
             _ => PixelFormatConverter.YuvMatrix8.Bt709,
         };
     }

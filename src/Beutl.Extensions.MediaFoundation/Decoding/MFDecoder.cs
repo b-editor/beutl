@@ -251,13 +251,24 @@ internal sealed class MFDecoder : IDisposable
                         yuy2Sample = _mfOutBufferSample;
                         break;
                     }
-                    if (status == ConvertColorStatus.HardError || retries++ >= MaxFeedRetries)
+                    if (status == ConvertColorStatus.HardError)
                     {
+                        // ConvertColor already logged the HRESULT.
+                        return 0;
+                    }
+                    if (retries++ >= MaxFeedRetries)
+                    {
+                        _logger.LogWarning(
+                            "VideoProcessorMFT still returns NEED_MORE_INPUT after {MaxRetries} feeds at frame {Frame}; dropping",
+                            MaxFeedRetries, frame);
                         return 0;
                     }
                     IMFSample? next = ReadSample(_mediaInfo.VideoStreamIndex);
                     if (next is null)
                     {
+                        _logger.LogWarning(
+                            "VideoProcessorMFT needs more input but stream ended at frame {Frame}; dropping",
+                            frame);
                         return 0;
                     }
                     input = next;
