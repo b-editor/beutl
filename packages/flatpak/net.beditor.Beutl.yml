@@ -30,6 +30,8 @@ finish-args:
   # so the host's fonts and fontconfig customizations are visible inside the sandbox.
   - --filesystem=xdg-config/fontconfig:ro
   - --filesystem=xdg-data/fonts:ro
+  # ~/.fonts is the legacy location (freedesktop.org now prefers ~/.local/share/fonts);
+  # kept for users with older font setups.
   - --filesystem=~/.fonts:ro
   # libnotify toasts emitted by NotificationService.
   - --talk-name=org.freedesktop.Notifications

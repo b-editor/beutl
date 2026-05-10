@@ -16,5 +16,5 @@ if [ ! -x "$beutl_bin" ]; then
     exit 1
 fi
 
-cd /app/lib/beutl
+cd /app/lib/beutl || { echo "beutl: cannot cd to /app/lib/beutl" >&2; exit 1; }
 exec "$beutl_bin" "$@"

@@ -38,10 +38,7 @@ public sealed class CheckForUpdatesTask : StartupTask
                         NotificationService.ShowInformation(
                             MessageStrings.NewVersionAvailable,
                             v1.Url,
-                            onActionButtonClick: () =>
-                            {
-                                Process.Start(new ProcessStartInfo(v1.Url) { UseShellExecute = true, Verb = "open" });
-                            },
+                            onActionButtonClick: () => OpenUrl(v1.Url),
                             actionButtonText: Strings.Open);
                     }
                     else if (v1.MustLatest)
@@ -55,7 +52,9 @@ public sealed class CheckForUpdatesTask : StartupTask
                     if (!v3.IsLatest)
                     {
                         _logger.LogInformation("A new version is available: {DownloadUrl}", v3.DownloadUrl);
-                        if (IsFlatpak())
+                        bool isFlatpak = IsFlatpak();
+                        _logger.LogDebug("Flatpak sandbox detected: {IsFlatpak}", isFlatpak);
+                        if (isFlatpak)
                         {
                             // /app is read-only in Flatpak so the in-app updater cannot overwrite
                             // AppContext.BaseDirectory. Open the release page instead and let the
@@ -118,9 +117,8 @@ public sealed class CheckForUpdatesTask : StartupTask
 
     private static bool IsFlatpak()
     {
-        // /.flatpak-info is bind-mounted into the sandbox by the Flatpak runtime and survives even
-        // when child processes inherit a stripped environment, so it is the most reliable signal.
-        // FLATPAK_ID is kept as a secondary check.
+        // /.flatpak-info is bind-mounted by the Flatpak runtime; FLATPAK_ID is checked as a
+        // defensive fallback in case the file probe misbehaves on unusual mount namespaces.
         return File.Exists("/.flatpak-info")
             || !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("FLATPAK_ID"));
     }
@@ -134,7 +132,8 @@ public sealed class CheckForUpdatesTask : StartupTask
         catch (Exception ex) when (ex is Win32Exception
                                       or InvalidOperationException
                                       or FileNotFoundException
-                                      or PlatformNotSupportedException)
+                                      or PlatformNotSupportedException
+                                      or IOException)
         {
             _logger.LogError(ex, "Failed to open URL: {Url}", url);
             NotificationService.ShowError(MessageStrings.OperationFailed, url);
@@ -156,7 +155,7 @@ public sealed class CheckForUpdatesTask : StartupTask
         }
     }
 
-    private static async Task ShowDialogAndClose(CheckForUpdatesResponse response)
+    private async Task ShowDialogAndClose(CheckForUpdatesResponse response)
     {
         await App.WaitWindowOpened();
         await Dispatcher.UIThread.InvokeAsync(async () =>
@@ -171,7 +170,7 @@ public sealed class CheckForUpdatesTask : StartupTask
 
             await dialog.ShowAsync();
 
-            Process.Start(new ProcessStartInfo(response.Url) { UseShellExecute = true, Verb = "open" });
+            OpenUrl(response.Url);
 
             (AppHelper.GetTopLevel() as Window)?.Close();
         });

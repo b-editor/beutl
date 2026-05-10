@@ -86,9 +86,8 @@ jobs:
       - name: Validate AppStream metainfo and desktop file
         run: |
           cd packages/flatpak
-          # validate-relax tolerates a few non-fatal warnings (e.g. missing developer URL) while
-          # still catching the regressions that block Flathub submission: malformed release tags,
-          # invalid OARS, broken screenshot URLs, and bad <component type>.
+          # validate-relax skips a few non-fatal warnings (e.g. missing developer URL) that
+          # would otherwise fail strict validation but do not block Flathub submission.
           appstream-util validate-relax net.beditor.Beutl.metainfo.xml
           desktop-file-validate net.beditor.Beutl.desktop
 
@@ -119,4 +118,5 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: beutl-flatpak-${{ inputs.semVer }}
-          path: ./artifacts/*.flatpak
+          path: ${{ github.workspace }}/artifacts/Beutl-${{ inputs.semVer }}.flatpak
+          if-no-files-found: error

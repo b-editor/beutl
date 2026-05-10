@@ -172,21 +172,20 @@ class Build : NukeBuild
                     "Run Zip target first with --runtime linux-x64 --self-contained true.");
             }
 
-            // Stage source tree expected by the manifest (sources/Beutl-linux-x64-standalone)
             sourcesDir.CreateOrCleanDirectory();
             AbsolutePath staging = sourcesDir / "Beutl-linux-x64-standalone";
             zipPath.UnZipTo(staging);
 
-            // Mark the staged copy as a Flatpak install so update checks query the right channel.
-            // Mirrors the equivalent jq step in build-flatpak-package.yml.
+            // asset_metadata.type=="flatpak" routes BeutlApiApplication.CheckForUpdatesAsync to
+            // the Flatpak update channel instead of the standalone-zip channel.
             AbsolutePath assetMetadata = staging / "asset_metadata.json";
-            JsonNode metadataNode = JsonNode.Parse(File.ReadAllText(assetMetadata))
-                ?? throw new InvalidOperationException($"Failed to parse {assetMetadata}.");
+            JsonObject metadataNode = JsonNode.Parse(File.ReadAllText(assetMetadata)) as JsonObject
+                ?? throw new InvalidOperationException(
+                    $"Expected a JSON object in {assetMetadata}, but got a different node kind.");
             metadataNode["id"] = Guid.NewGuid().ToString();
             metadataNode["type"] = "flatpak";
             File.WriteAllText(assetMetadata, metadataNode.ToJsonString());
 
-            // Copy logo into the manifest directory so flatpak-builder can install it.
             logoSvg.Copy(iconSvg, ExistsPolicy.FileOverwrite);
 
             // The manifest references net.beditor.Beutl.metainfo.xml by relative path, so we
@@ -227,7 +226,6 @@ class Build : NukeBuild
             }
             finally
             {
-                // Restore the metainfo placeholders so VCS state is unchanged.
                 File.WriteAllText(metainfo, metainfoText);
             }
         });
