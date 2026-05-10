@@ -1,3 +1,5 @@
+using System.Diagnostics;
+
 #if MF_BUILD_IN
 namespace Beutl.Embedding.MediaFoundation;
 #else
@@ -31,6 +33,14 @@ internal static unsafe class PixelFormatConverter
         byte* dst, int dstStride,
         int width, int height)
     {
+        // BGRA8888 source: 4 bytes/px. NV12 dest: Y plane width bytes/row, then UV
+        // plane stacked directly after, sharing dstStride. Stride < width or non-
+        // positive dimensions would let the loops walk into the UV plane (or past
+        // the buffer end) and silently corrupt memory.
+        Debug.Assert(width >= 0 && height >= 0, "negative dimensions");
+        Debug.Assert(srcStride >= width * 4, "BGRA srcStride too small");
+        Debug.Assert(dstStride >= width, "NV12 dstStride too small");
+
         int yPlaneBytes = dstStride * height;
         byte* yPlane = dst;
         byte* uvPlane = dst + yPlaneBytes;
@@ -92,6 +102,10 @@ internal static unsafe class PixelFormatConverter
         byte* dst, int dstStride,
         int width, int height)
     {
+        Debug.Assert(width >= 0 && height >= 0, "negative dimensions");
+        Debug.Assert(srcStride >= width, "NV12 srcStride too small");
+        Debug.Assert(dstStride >= width * 4, "BGRA dstStride too small");
+
         byte* yPlane = src;
         byte* uvPlane = src + (long)srcStride * height;
 
@@ -128,6 +142,13 @@ internal static unsafe class PixelFormatConverter
         byte* dst, int dstStride,
         int width, int height)
     {
+        // RGBA16 source: 8 bytes/px. P010 dest: 2 bytes/sample. dstStride must be
+        // even because we reinterpret it as a ushort* stride below.
+        Debug.Assert(width >= 0 && height >= 0, "negative dimensions");
+        Debug.Assert(srcStride >= width * 8, "RGBA16 srcStride too small");
+        Debug.Assert(dstStride >= width * 2, "P010 dstStride too small");
+        Debug.Assert((dstStride & 1) == 0, "P010 dstStride must be even");
+
         ushort* y16Plane = (ushort*)dst;
         ushort* uv16Plane = (ushort*)(dst + (long)dstStride * height);
         int strideShorts = dstStride / 2;
@@ -166,14 +187,16 @@ internal static unsafe class PixelFormatConverter
                 int g = (row0[sx0 * 4 + 1] + row0[sx1 * 4 + 1] + row1[sx0 * 4 + 1] + row1[sx1 * 4 + 1] + 2) >> 2;
                 int b = (row0[sx0 * 4 + 2] + row0[sx1 * 4 + 2] + row1[sx0 * 4 + 2] + row1[sx1 * 4 + 2] + 2) >> 2;
                 long luma16 = (17235L * r + 44461L * g + 3891L * b + 32768L) >> 16;
-                // Cb = (B − Y) / 1.8814 , Cr = (R − Y) / 1.4746
+                // Cb = (B − Y) / 1.8814 , Cr = (R − Y) / 1.4746 — values in 16-bit scale.
                 long cbNum = ((long)b << 16) - (luma16 << 16);
                 long crNum = ((long)r << 16) - (luma16 << 16);
-                long cb16 = cbNum / 123269; // 1.8814 * 65536
-                long cr16 = crNum / 96639;  // 1.4746 * 65536
-                // Shift signed range into 10-bit limited (512 center, 64..960)
-                int cb10 = (int)(cb16 * 896 / (65535 * 2) + 512);
-                int cr10 = (int)(cr16 * 896 / (65535 * 2) + 512);
+                long cb16 = cbNum / 123299; // round(1.8814 * 65536)
+                long cr16 = crNum / 96639;  // round(1.4746 * 65536)
+                // cb16/cr16 already represent Pb/Pr * 65535 with Pb,Pr ∈ [-0.5, 0.5],
+                // so the magnitude maxes near 32767. Map to 10-bit limited chroma
+                // (center 512, full span 896 → ±448) via cb16 * 896 / 65535 + 512.
+                int cb10 = (int)(cb16 * 896 / 65535 + 512);
+                int cr10 = (int)(cr16 * 896 / 65535 + 512);
                 uvRow[x * 2 + 0] = (ushort)(Clamp10(cb10) << 6);
                 uvRow[x * 2 + 1] = (ushort)(Clamp10(cr10) << 6);
             }
@@ -185,6 +208,11 @@ internal static unsafe class PixelFormatConverter
         byte* dst, int dstStride,
         int width, int height)
     {
+        Debug.Assert(width >= 0 && height >= 0, "negative dimensions");
+        Debug.Assert(srcStride >= width * 2, "P010 srcStride too small");
+        Debug.Assert((srcStride & 1) == 0, "P010 srcStride must be even");
+        Debug.Assert(dstStride >= width * 8, "RGBA16 dstStride too small");
+
         ushort* y16Plane = (ushort*)src;
         ushort* uv16Plane = (ushort*)(src + (long)srcStride * height);
         int strideShorts = srcStride / 2;
@@ -201,9 +229,11 @@ internal static unsafe class PixelFormatConverter
                 int cb = ((uvRow[(x & ~1) + 0]) >> 6) - 512;
                 int cr = ((uvRow[(x & ~1) + 1]) >> 6) - 512;
                 // Inverse BT.2020 NCL limited: scale 10-bit diff back into full-range R/G/B.
+                // cb/cr ∈ [-448, 448] represent Pb/Pr ∈ [-0.5, 0.5] (so per-unit factor
+                // is 1/896). (B−Y)_16 = cb * 1.8814 * 65535 / 896, etc.
                 long rY = (long)yv * 65535 / 876;
-                long rCr = (long)cr * 96639L / 448L;   // 1.4746 / 0.5
-                long rCb = (long)cb * 123269L / 448L;  // 1.8814 / 0.5
+                long rCr = (long)cr * 96639L / 896L;   // round(1.4746 * 65536) / 896
+                long rCb = (long)cb * 123299L / 896L;  // round(1.8814 * 65536) / 896
                 long r = rY + rCr;
                 // G = Y − (0.2627/0.6780) Cr − (0.0593/0.6780) Cb
                 long g = rY - rCr * 17235L / 44461L - rCb * 3891L / 44461L;

@@ -146,10 +146,13 @@ public sealed class LoadPrimitiveExtensionTask : StartupTask
                     try
                     {
                         var decoding = new Embedding.MediaFoundation.Decoding.MFDecodingExtension();
+                        var encoding = new Embedding.MediaFoundation.Encoding.MFEncodingExtension();
                         _manager.SetupExtensionSettings(decoding);
+                        _manager.SetupExtensionSettings(encoding);
                         decoding.Load();
+                        encoding.Load();
 
-                        provider.AddExtensions(pkg.LocalId, [decoding]);
+                        provider.AddExtensions(pkg.LocalId, [decoding, encoding]);
                     }
                     catch (Exception ex)
                     {

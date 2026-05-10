@@ -41,12 +41,15 @@ public class MFEncodingController : EncodingController
     {
         // Media Foundation mandates a per-thread COM apartment + MFStartup. The shared
         // dispatcher already owns that lifecycle for decoding — encoders join the same
-        // thread to avoid double-initializing MFStartup and to match MFReader's model.
+        // thread to match MFReader's COM/DXVA2 model. We pass a Func<Task> overload so
+        // awaits inside EncodeCore yield the dispatcher between RenderFrame/Sample
+        // pumps; sync-over-async (.GetAwaiter().GetResult()) on this thread would
+        // deadlock if a continuation tried to post back to it.
         await MFThread.Dispatcher.InvokeAsync(() =>
             EncodeCore(frameProvider, sampleProvider, cancellationToken));
     }
 
-    private void EncodeCore(
+    private async Task EncodeCore(
         IFrameProvider frameProvider,
         ISampleProvider sampleProvider,
         CancellationToken cancellationToken)
@@ -103,9 +106,8 @@ public class MFEncodingController : EncodingController
 
                 if (encodeVideo && videoTs <= audioTs)
                 {
-                    WriteVideoFrame(sinkWriter, videoStreamIndex, frameProvider,
-                        frameCount, frameRateNum, frameRateDen, hdrTargetColorSpace, isHdr)
-                        .GetAwaiter().GetResult();
+                    await WriteVideoFrame(sinkWriter, videoStreamIndex, frameProvider,
+                        frameCount, frameRateNum, frameRateDen, hdrTargetColorSpace, isHdr);
                     frameCount++;
                     if (frameCount >= frameProvider.FrameCount)
                     {
@@ -114,9 +116,8 @@ public class MFEncodingController : EncodingController
                 }
                 else if (encodeAudio)
                 {
-                    WriteAudioFrame(sinkWriter, audioStreamIndex, sampleProvider,
-                        sampleCount, AudioFrameSize, sampleRate, audioChannels)
-                        .GetAwaiter().GetResult();
+                    await WriteAudioFrame(sinkWriter, audioStreamIndex, sampleProvider,
+                        sampleCount, AudioFrameSize, sampleRate, audioChannels);
                     sampleCount += AudioFrameSize;
                     if (sampleCount >= sampleProvider.SampleCount)
                     {
@@ -144,8 +145,6 @@ public class MFEncodingController : EncodingController
             }
         }
     }
-
-    // -------------------- Video stream setup --------------------
 
     private int ConfigureVideoStream(IMFSinkWriter sinkWriter, bool isHdr)
     {
@@ -230,8 +229,6 @@ public class MFEncodingController : EncodingController
             mediaType.Set(MediaTypeAttributeKeys.YuvMatrix, (uint)matrix);
     }
 
-    // -------------------- Audio stream setup --------------------
-
     // The renderer always hands us Pcm<Stereo32BitFloat>. We can faithfully emit mono
     // (downmix L+R) or stereo (passthrough); anything wider than 2 has no source data
     // to fill it, so clamping is safer than declaring a layout we cannot populate.
@@ -307,8 +304,6 @@ public class MFEncodingController : EncodingController
         sinkWriter.SetInputMediaType(streamIndex, inType, null);
         return streamIndex;
     }
-
-    // -------------------- Frame writing --------------------
 
     private static async ValueTask WriteVideoFrame(
         IMFSinkWriter sinkWriter, int streamIndex,
@@ -452,12 +447,10 @@ public class MFEncodingController : EncodingController
 
     private static ulong PackUint64(uint hi, uint lo) => ((ulong)hi << 32) | lo;
 
-    // -------------------- Enum mapping helpers --------------------
-    // The helpers below drop into MFColorSpaceHelper's domain (for Skia color-space
-    // construction) and into Media Foundation's tag domain (for the encoder stream
-    // attributes). Keeping both mappings in this file means the encoder never has
-    // to cross-cast through a third enum representation.
-
+    // MapXxxToMF: encoder output tag domain (Vortice VideoXxx enum, used as
+    // MF_MT_* attribute values). MapXxxForHelper: input to MFColorSpaceHelper
+    // (same enum, but Default already resolved into a concrete HDR transfer/
+    // primaries so Skia gets a fully-specified color space).
     private static VideoTransferFunction MapTransferToMF(
         MFVideoEncoderSettings.ColorTransferCharacteristic t, bool isHdr)
     {

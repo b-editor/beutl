@@ -66,8 +66,6 @@ internal sealed class MFDecoder : IDisposable
         _sampleCache =
             new MFSampleCache(new(extension.Settings.MaxVideoBufferSize, extension.Settings.MaxAudioBufferSize));
 
-        // Honor the setting. The old code hard-coded false which silently
-        // defeated the DXVA2 code path even when the user opted in.
         _useDXVA2 = InitializeDXVA2(extension.Settings.UseDXVA2);
 
         try
@@ -161,9 +159,6 @@ internal sealed class MFDecoder : IDisposable
         {
             _logger.LogError(ex, "An exception occurred during initialization of the video stream.");
             throw;
-        }
-        finally
-        {
         }
     }
 
@@ -291,8 +286,10 @@ internal sealed class MFDecoder : IDisposable
 
                 sample = ReadSample(_mediaInfo.VideoStreamIndex);
             }
-            catch
+            catch (Exception ex)
             {
+                _logger.LogError(ex, "ReadFrame: aborting read loop at frame {Frame} (currentFrame={CurrentFrame})",
+                    frame, currentFrame);
                 break;
             }
         }
@@ -345,8 +342,10 @@ internal sealed class MFDecoder : IDisposable
 
                 sample = ReadSample(_mediaInfo.AudioStreamIndex);
             }
-            catch
+            catch (Exception ex)
             {
+                _logger.LogError(ex, "ReadAudio: aborting read loop at sample {Start} (length={Length})",
+                    start, length);
                 break;
             }
         }
@@ -466,7 +465,15 @@ internal sealed class MFDecoder : IDisposable
         _transform!.ProcessInput(0, sample, 0);
 
         OutputDataBuffer mftOutputDataBuffer = new() { Sample = _mfOutBufferSample };
-        _transform.ProcessOutput(ProcessOutputFlags.None, 1, ref mftOutputDataBuffer, out _);//.CheckError();
+        // MF_E_TRANSFORM_NEED_MORE_INPUT (0xC00D6D72) is benign — the transform
+        // hasn't accumulated enough input for an output sample yet. Anything else
+        // is a real failure that would otherwise leave the output buffer with
+        // stale/garbage data and propagate as wrong colors downstream.
+        Result result = _transform.ProcessOutput(ProcessOutputFlags.None, 1, ref mftOutputDataBuffer, out _);
+        if (result.Failure && (uint)result.Code != 0xC00D6D72)
+        {
+            _logger.LogError("VideoProcessorMFT.ProcessOutput failed: HRESULT 0x{HResult:X8}", (uint)result.Code);
+        }
     }
 
     private void ChangeColorConvertSettingAndCreateBuffer()
@@ -566,6 +573,11 @@ internal sealed class MFDecoder : IDisposable
         _mfOutBufferSample.AddBuffer(buffer);
     }
 
+    // MF_E_INVALIDSTREAMNUMBER (0xC00D36B3) is how Source Reader signals "no more
+    // streams" — that's our intended loop terminator. Any other failure should
+    // surface so we don't silently mis-select streams.
+    private const uint MF_E_INVALIDSTREAMNUMBER = 0xC00D36B3;
+
     private static void SelectStream(IMFSourceReader sourceReader, Guid selectMajorType)
     {
         for (int streamIndex = 0; true; streamIndex++)
@@ -590,7 +602,7 @@ internal sealed class MFDecoder : IDisposable
                     sourceReader.SetStreamSelection(streamIndex, false);
                 }
             }
-            catch
+            catch (SharpGenException ex) when ((uint)ex.HResult == MF_E_INVALIDSTREAMNUMBER)
             {
                 break;
             }
@@ -667,7 +679,7 @@ internal sealed class MFDecoder : IDisposable
                     Debug.Fail("");
                 }
             }
-            catch
+            catch (SharpGenException ex) when ((uint)ex.HResult == MF_E_INVALIDSTREAMNUMBER)
             {
                 break;
             }
@@ -705,25 +717,30 @@ internal sealed class MFDecoder : IDisposable
                 _mediaInfo.IsHdr = MFColorSpaceHelper.IsHdrTransfer(_mediaInfo.TransferFunction);
             }
 
-            IMFMediaType mediaType = sourceReader.GetCurrentMediaType(_mediaInfo.VideoStreamIndex);
+            using IMFMediaType mediaType = sourceReader.GetCurrentMediaType(_mediaInfo.VideoStreamIndex);
 
             MediaFactory.MFCreateMFVideoFormatFromMFMediaType(mediaType, out IntPtr pMFVF, out var pcbSize);
-            var ppMFVF = (MFVIDEOFORMAT*)pMFVF;
+            try
+            {
+                var ppMFVF = (MFVIDEOFORMAT*)pMFVF;
 
-            bih.Width = (int)ppMFVF->videoInfo.dwWidth;
-            bih.Height = (int)ppMFVF->videoInfo.dwHeight;
+                bih.Width = (int)ppMFVF->videoInfo.dwWidth;
+                bih.Height = (int)ppMFVF->videoInfo.dwHeight;
 
-            RECT rcSrc = RECT.FromXYWH(0, 0, bih.Width, bih.Height);
-            RECT destRect = AspectRatioUtilities.CorrectAspectRatio(
-                rcSrc,
-                ppMFVF->videoInfo.PixelAspectRatio,
-                new MFRatio { Denominator = 1, Numerator = 1 });
-            bih.Width = destRect.right;
-            bih.Height = destRect.bottom;
+                RECT rcSrc = RECT.FromXYWH(0, 0, bih.Width, bih.Height);
+                RECT destRect = AspectRatioUtilities.CorrectAspectRatio(
+                    rcSrc,
+                    ppMFVF->videoInfo.PixelAspectRatio,
+                    new MFRatio { Denominator = 1, Numerator = 1 });
+                bih.Width = destRect.right;
+                bih.Height = destRect.bottom;
 
-            _mediaInfo.Fps = ppMFVF->videoInfo.FramesPerSecond;
-
-            Marshal.FreeCoTaskMem((nint)ppMFVF);
+                _mediaInfo.Fps = ppMFVF->videoInfo.FramesPerSecond;
+            }
+            finally
+            {
+                Marshal.FreeCoTaskMem(pMFVF);
+            }
 
             Guid subType = mediaType.GetGUID(MediaTypeAttributeKeys.Subtype);
             // YUY2 — still the Source Reader output, even for HDR input. We do carry
@@ -751,13 +768,18 @@ internal sealed class MFDecoder : IDisposable
                 out IntPtr pWF,
                 out uint pcbSize,
                 0);
-            var ppWF = (WAVEFORMATEX*)pWF;
+            try
+            {
+                var ppWF = (WAVEFORMATEX*)pWF;
 
-            ppWF->wFormatTag = (ushort)PInvoke.WAVE_FORMAT_PCM;
+                ppWF->wFormatTag = (ushort)PInvoke.WAVE_FORMAT_PCM;
 
-            _mediaInfo.AudioFormat = WaveFormat.MarshalFrom((nint)ppWF);
-
-            Marshal.FreeCoTaskMem((nint)ppWF);
+                _mediaInfo.AudioFormat = WaveFormat.MarshalFrom((nint)ppWF);
+            }
+            finally
+            {
+                Marshal.FreeCoTaskMem(pWF);
+            }
 
             _mediaInfo.TotalAudioSampleCount =
                 TimestampUtilities.ConvertSampleFromTimeStamp(_mediaInfo.HnsDuration,
@@ -810,9 +832,12 @@ internal sealed class MFDecoder : IDisposable
         _logger.LogInformation("TestFirstReadSample - firstGapTimeStamp: {firstGapTimeStamp}", _firstGapTimeStamp);
     }
 
-    // IMFMediaType.Get* throws when the attribute isn't set. For optional color
-    // metadata (a lot of legacy files lack these tags) we want a soft default
-    // rather than an exception bubbling up through the constructor.
+    // MF_E_ATTRIBUTENOTFOUND (0xC00D36E6) is the only exception we want to
+    // swallow here — IMFMediaType.Get* raises it when the optional color tag
+    // is missing, which is normal for legacy containers. Any other HRESULT
+    // (or non-MF exception) indicates a real failure that must surface.
+    private const uint MF_E_ATTRIBUTENOTFOUND = 0xC00D36E6;
+
     private static TEnum TryGetEnum<TEnum>(IMFMediaType mediaType, Guid key, TEnum fallback)
         where TEnum : struct, Enum
     {
@@ -821,7 +846,7 @@ internal sealed class MFDecoder : IDisposable
             uint value = mediaType.GetUInt32(key);
             return (TEnum)Enum.ToObject(typeof(TEnum), (int)value);
         }
-        catch
+        catch (SharpGenException ex) when ((uint)ex.HResult == MF_E_ATTRIBUTENOTFOUND)
         {
             return fallback;
         }

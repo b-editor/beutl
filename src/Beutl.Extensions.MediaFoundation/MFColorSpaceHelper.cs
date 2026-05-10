@@ -125,6 +125,10 @@ internal static class MFColorSpaceHelper
             VideoPrimaries.Ebu3213 => BitmapColorSpaceXyz.Ebu3213,
             VideoPrimaries.Bt2020 => BitmapColorSpaceXyz.Rec2020,
             VideoPrimaries.Xyz => BitmapColorSpaceXyz.Xyz,
+            // Naming is deliberately mismatched: the MF VideoPrimaries names
+            // describe the source primaries set, while BitmapColorSpaceXyz names
+            // describe the underlying SkColorSpace (DCI-P3 white = SMPTE-431,
+            // D65 white = Skia's "DisplayP3" which it calls Dcip3).
             VideoPrimaries.DciP3 => BitmapColorSpaceXyz.Smpte431,
             VideoPrimaries.DisplayP3 => BitmapColorSpaceXyz.Dcip3,
             _ => BitmapColorSpaceXyz.Srgb,
