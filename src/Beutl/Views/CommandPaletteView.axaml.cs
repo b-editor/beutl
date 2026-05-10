@@ -112,15 +112,16 @@ public partial class CommandPaletteView : UserControl
         _visualTreeDisposables.Clear();
 
         // narrow window で PaletteContainer 自体が右マージンを侵食して clipping するのを防ぐため、
-        // TopLevel サイズに応じて Width を動的に縮める。MaxWidth + HorizontalAlignment="Center"
-        // にしてしまうとリストの中身に応じて幅が変動 (スクロールバー表示時等) するので、
-        // Width 固定値で中身依存を切る方針。
+        // TopLevel サイズに応じて Width を動的に縮める (常に MaxPaletteWidth、ではなく上限)。
+        // MaxWidth + HorizontalAlignment="Center" にしてしまうとリストの中身に応じて幅が変動
+        // (スクロールバー表示時等) するので、明示的な Width 設定で中身依存を切る方針。
+        // Width が明示されていれば中身に依らないため、XAML 側の HorizontalAlignment="Center" は維持して問題ない。
         if (TopLevel.GetTopLevel(this) is { } topLevel)
         {
+            // GetObservable は購読時に現在値を即座に発火するため、初期 Width 設定もこの購読に任せる。
             topLevel.GetObservable(BoundsProperty)
                 .Subscribe(bounds => UpdatePaletteWidth(bounds.Width))
                 .AddTo(_visualTreeDisposables);
-            UpdatePaletteWidth(topLevel.Bounds.Width);
         }
     }
 
