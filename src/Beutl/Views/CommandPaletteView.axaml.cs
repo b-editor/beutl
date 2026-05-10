@@ -15,7 +15,6 @@ public partial class CommandPaletteView : UserControl
 {
     private const int PageStep = 8;
     private const double MaxPaletteWidth = 640;
-    private const double HorizontalMargin = 16;
 
     private readonly ILogger<CommandPaletteView> _logger = Log.CreateLogger<CommandPaletteView>();
     private readonly CompositeDisposable _disposables = [];
@@ -136,7 +135,8 @@ public partial class CommandPaletteView : UserControl
 
     private void UpdatePaletteWidth(double availableWidth)
     {
-        double usable = availableWidth - HorizontalMargin * 2;
+        Thickness margin = PaletteContainer.Margin;
+        double usable = availableWidth - margin.Left - margin.Right;
         PaletteContainer.Width = Math.Min(MaxPaletteWidth, Math.Max(0, usable));
     }
 
