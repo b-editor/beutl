@@ -1,4 +1,4 @@
-using Beutl.Language;
+﻿using Beutl.Language;
 
 namespace Beutl.Editor;
 

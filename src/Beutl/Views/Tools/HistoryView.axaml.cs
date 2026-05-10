@@ -1,4 +1,4 @@
-using System.Collections.Specialized;
+﻿using System.Collections.Specialized;
 using System.Reactive.Disposables;
 using Avalonia.Controls;
 using Avalonia.Interactivity;

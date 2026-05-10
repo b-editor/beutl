@@ -1,4 +1,4 @@
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.Reactive.Disposables;
 using System.Text.Json.Nodes;
@@ -147,67 +147,67 @@ public sealed class HistoryViewModel : IToolContext
             switch (e.Action)
             {
                 case NotifyCollectionChangedAction.Add when e.NewItems is not null:
-                {
-                    int insertIndex = e.NewStartingIndex >= 0 ? e.NewStartingIndex : _entries.Count;
-                    foreach (object? item in e.NewItems)
                     {
-                        if (item is HistoryEntry entry)
+                        int insertIndex = e.NewStartingIndex >= 0 ? e.NewStartingIndex : _entries.Count;
+                        foreach (object? item in e.NewItems)
                         {
-                            _entries.Insert(insertIndex++, entry);
-                        }
-                    }
-                    break;
-                }
-                case NotifyCollectionChangedAction.Remove when e.OldItems is not null:
-                {
-                    int removeAt = e.OldStartingIndex;
-                    if (removeAt < 0)
-                    {
-                        ResyncEntries();
-                    }
-                    else
-                    {
-                        for (int i = 0; i < e.OldItems.Count; i++)
-                        {
-                            if (removeAt < _entries.Count)
+                            if (item is HistoryEntry entry)
                             {
-                                _entries.RemoveAt(removeAt);
+                                _entries.Insert(insertIndex++, entry);
                             }
                         }
-                    }
-                    break;
-                }
-                case NotifyCollectionChangedAction.Replace when e.NewItems is not null:
-                {
-                    int start = e.NewStartingIndex;
-                    if (start < 0)
-                    {
-                        ResyncEntries();
                         break;
                     }
-                    for (int i = 0; i < e.NewItems.Count; i++)
+                case NotifyCollectionChangedAction.Remove when e.OldItems is not null:
                     {
-                        if (e.NewItems[i] is HistoryEntry entry && start + i < _entries.Count)
+                        int removeAt = e.OldStartingIndex;
+                        if (removeAt < 0)
                         {
-                            _entries[start + i] = entry;
+                            ResyncEntries();
                         }
+                        else
+                        {
+                            for (int i = 0; i < e.OldItems.Count; i++)
+                            {
+                                if (removeAt < _entries.Count)
+                                {
+                                    _entries.RemoveAt(removeAt);
+                                }
+                            }
+                        }
+                        break;
                     }
-                    break;
-                }
+                case NotifyCollectionChangedAction.Replace when e.NewItems is not null:
+                    {
+                        int start = e.NewStartingIndex;
+                        if (start < 0)
+                        {
+                            ResyncEntries();
+                            break;
+                        }
+                        for (int i = 0; i < e.NewItems.Count; i++)
+                        {
+                            if (e.NewItems[i] is HistoryEntry entry && start + i < _entries.Count)
+                            {
+                                _entries[start + i] = entry;
+                            }
+                        }
+                        break;
+                    }
                 case NotifyCollectionChangedAction.Move:
-                {
-                    if (e.OldStartingIndex < 0 || e.NewStartingIndex < 0
-                        || e.OldStartingIndex >= _entries.Count
-                        || e.NewStartingIndex >= _entries.Count)
                     {
-                        ResyncEntries();
+                        if (e.OldStartingIndex < 0 || e.NewStartingIndex < 0
+                            || e.OldStartingIndex >= _entries.Count
+                            || e.NewStartingIndex >= _entries.Count)
+                        {
+                            ResyncEntries();
+                        }
+                        else
+                        {
+                            _entries.Move(e.OldStartingIndex, e.NewStartingIndex);
+                        }
+                        break;
                     }
-                    else
-                    {
-                        _entries.Move(e.OldStartingIndex, e.NewStartingIndex);
-                    }
-                    break;
-                }
                 case NotifyCollectionChangedAction.Reset:
                 default:
                     ResyncEntries();
