@@ -42,8 +42,6 @@ finish-args:
   # ~/.fonts is the legacy location (freedesktop.org now prefers ~/.local/share/fonts);
   # kept for users with older font setups.
   - --filesystem=~/.fonts:ro
-  # libnotify toasts emitted by NotificationService.
-  - --talk-name=org.freedesktop.Notifications
 
 # No top-level cleanup: this manifest does not build native dependencies, it only
 # copies the prebuilt self-contained .NET output. Glob patterns like '*.a' would risk
