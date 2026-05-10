@@ -6,9 +6,6 @@ on:
       semVer:
         required: true
         type: string
-      simpleVer:
-        required: true
-        type: string
       nugetVer:
         required: true
         type: string
@@ -38,12 +35,19 @@ jobs:
       - name: Install flatpak toolchain
         run: |
           sudo apt-get update
-          sudo apt-get install -y flatpak flatpak-builder
+          sudo apt-get install -y flatpak flatpak-builder appstream-util desktop-file-utils
           flatpak remote-add --if-not-exists --user flathub \
             https://flathub.org/repo/flathub.flatpakrepo
-          flatpak install -y --user flathub \
-            org.freedesktop.Platform//24.08 \
-            org.freedesktop.Sdk//24.08
+
+      - name: Cache Flatpak runtimes and builder cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.local/share/flatpak
+            packages/flatpak/.flatpak-builder
+          key: flatpak-${{ runner.os }}-${{ hashFiles('packages/flatpak/net.beditor.Beutl.yml') }}
+          restore-keys: |
+            flatpak-${{ runner.os }}-
 
       - name: Download Linux executable artifact
         uses: actions/download-artifact@v8
@@ -70,9 +74,20 @@ jobs:
           sed -i "s/VERSION_PLACEHOLDER/${{ inputs.semVer }}/g" "$metainfo"
           sed -i "s/DATE_PLACEHOLDER/${TODAY}/g" "$metainfo"
 
+      - name: Validate AppStream metainfo and desktop file
+        run: |
+          cd packages/flatpak
+          # validate-relax tolerates a few non-fatal warnings (e.g. missing developer URL) while
+          # still catching the regressions that block Flathub submission: malformed release tags,
+          # invalid OARS, broken screenshot URLs, and bad <component type>.
+          appstream-util validate-relax net.beditor.Beutl.metainfo.xml
+          desktop-file-validate net.beditor.Beutl.desktop
+
       - name: Run flatpak-builder
         run: |
           cd packages/flatpak
+          # --install-deps-from=flathub auto-installs the runtime/SDK, so no separate
+          # `flatpak install` step is needed; the cache step above keeps it warm across runs.
           flatpak-builder --user --force-clean \
             --disable-rofiles-fuse \
             --install-deps-from=flathub \

@@ -5,19 +5,32 @@ sdk: org.freedesktop.Sdk
 command: beutl
 
 finish-args:
+  # Display + GPU + IPC for Avalonia/Skia rendering.
   - --socket=wayland
   - --socket=fallback-x11
   - --share=ipc
   - --device=dri
+  # Audio playback during preview/export (PulseAudio/PipeWire via the pulse socket).
   - --socket=pulseaudio
+  # Network for the Beutl API client (extension/package manager, update check, telemetry exporter).
   - --share=network
-  - --filesystem=home
+  # Project files and media imports/exports via XDG user dirs.
+  # Prefer these over --filesystem=home so dotfiles (~/.ssh, ~/.gnupg, browser profiles, etc.) stay sandboxed.
+  - --filesystem=xdg-documents
+  - --filesystem=xdg-videos
+  - --filesystem=xdg-pictures
+  - --filesystem=xdg-music
+  - --filesystem=xdg-download
+  # External drives and user-mounted volumes (USB, NAS, etc.) used for source media.
   - --filesystem=/run/media
   - --filesystem=/media
   - --filesystem=/mnt
+  # Read-only access to user fontconfig config and user-installed font directories,
+  # so the host's fonts and fontconfig customizations are visible inside the sandbox.
   - --filesystem=xdg-config/fontconfig:ro
   - --filesystem=xdg-data/fonts:ro
   - --filesystem=~/.fonts:ro
+  # libnotify toasts emitted by NotificationService.
   - --talk-name=org.freedesktop.Notifications
 
 cleanup:

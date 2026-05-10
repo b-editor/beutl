@@ -1,4 +1,5 @@
-﻿using Avalonia.Controls;
+﻿using System.ComponentModel;
+using Avalonia.Controls;
 using Avalonia.Threading;
 using Beutl.Api;
 using Beutl.Api.Clients;
@@ -56,9 +57,18 @@ public sealed class CheckForUpdatesTask : StartupTask
                         _logger.LogInformation("A new version is available: {DownloadUrl}", v3.DownloadUrl);
                         if (IsFlatpak())
                         {
-                            // /app is read-only in Flatpak; the in-app updater would overwrite
-                            // AppContext.BaseDirectory and always fail. Defer to `flatpak update`.
-                            string releaseUrl = v3.Url ?? v3.DownloadUrl ?? "https://github.com/b-editor/beutl/releases";
+                            // /app is read-only in Flatpak so the in-app updater cannot overwrite
+                            // AppContext.BaseDirectory. Open the release page instead and let the
+                            // user update through Flathub / `flatpak update`.
+                            string? releaseUrl = v3.Url ?? v3.DownloadUrl;
+                            if (releaseUrl is null)
+                            {
+                                _logger.LogWarning(
+                                    "AppUpdateResponse for {LatestVersion} had neither Url nor DownloadUrl; falling back to releases page.",
+                                    v3.LatestVersion);
+                                activity?.SetTag("UpdateUrlMissing", true);
+                                releaseUrl = "https://github.com/b-editor/beutl/releases";
+                            }
                             NotificationService.ShowInformation(
                                 MessageStrings.NewVersionAvailable,
                                 releaseUrl,
@@ -101,8 +111,9 @@ public sealed class CheckForUpdatesTask : StartupTask
 
     private static bool IsFlatpak()
     {
-        // /.flatpak-info is bind-mounted by the Flatpak runtime even when FLATPAK_ID is stripped
-        // (e.g. `flatpak run --command=bash` followed by re-exec).
+        // /.flatpak-info is bind-mounted into the sandbox by the Flatpak runtime and survives even
+        // when child processes inherit a stripped environment, so it is the most reliable signal.
+        // FLATPAK_ID is kept as a secondary check.
         return File.Exists("/.flatpak-info")
             || !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("FLATPAK_ID"));
     }
@@ -113,7 +124,10 @@ public sealed class CheckForUpdatesTask : StartupTask
         {
             Process.Start(new ProcessStartInfo(url) { UseShellExecute = true, Verb = "open" });
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is Win32Exception
+                                      or InvalidOperationException
+                                      or FileNotFoundException
+                                      or PlatformNotSupportedException)
         {
             _logger.LogError(ex, "Failed to open URL: {Url}", url);
             NotificationService.ShowError(MessageStrings.OperationFailed, url);

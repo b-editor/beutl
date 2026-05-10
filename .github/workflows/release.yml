@@ -49,7 +49,6 @@ jobs:
     uses: ./.github/workflows/build-flatpak-package.yml
     with:
       semVer: ${{ needs.determine-version.outputs.semVer }}
-      simpleVer: ${{ needs.determine-version.outputs.simpleVer }}
       nugetVer: ${{ needs.determine-version.outputs.nugetVer }}
 
   build-app-bundle:

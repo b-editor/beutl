@@ -174,14 +174,14 @@ class Build : NukeBuild
             // Stage source tree expected by the manifest (sources/Beutl-linux-x64-standalone)
             sourcesDir.CreateOrCleanDirectory();
             AbsolutePath staging = sourcesDir / "Beutl-linux-x64-standalone";
-            staging.CreateOrCleanDirectory();
             zipPath.UnZipTo(staging);
 
             // Copy logo into the manifest directory so flatpak-builder can install it.
             logoSvg.Copy(iconSvg, ExistsPolicy.FileOverwrite);
 
-            // The metainfo is templated in place because flatpak-builder reads it from disk;
-            // the original is restored in the finally block below.
+            // The manifest references net.beditor.Beutl.metainfo.xml by relative path, so we
+            // must template in place. The finally block restores the file so this target leaves
+            // no working-tree changes.
             string metainfoText = File.ReadAllText(metainfo);
             if (!metainfoText.Contains("VERSION_PLACEHOLDER") || !metainfoText.Contains("DATE_PLACEHOLDER"))
             {
