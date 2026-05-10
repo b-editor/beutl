@@ -236,7 +236,13 @@ internal sealed class MFDecoder : IDisposable
             IMFSample yuy2Sample = sample;
             if (_useDXVA2 && _mfOutBufferSample != null)
             {
-                ConvertColor(sample);
+                if (!ConvertColor(sample))
+                {
+                    // ProcessOutput failed (or needs more input) — _mfOutBufferSample
+                    // holds stale/incomplete data. Skip this frame instead of copying
+                    // garbage to the caller's buffer.
+                    return 0;
+                }
                 yuy2Sample = _mfOutBufferSample;
             }
 
@@ -459,21 +465,28 @@ internal sealed class MFDecoder : IDisposable
         _audioSourceReader!.SetCurrentPosition(destTimePosition);
     }
 
-    // NV12 -> YUY2
-    private void ConvertColor(IMFSample sample)
+    // MF_E_TRANSFORM_NEED_MORE_INPUT — the transform hasn't accumulated enough
+    // input for an output sample yet. Treated as a transient retry signal rather
+    // than a real error; caller skips the frame and tries again on the next read.
+    private const uint MF_E_TRANSFORM_NEED_MORE_INPUT = 0xC00D6D72;
+
+    // NV12 -> YUY2. Returns true if _mfOutBufferSample now holds valid output.
+    private bool ConvertColor(IMFSample sample)
     {
         _transform!.ProcessInput(0, sample, 0);
 
         OutputDataBuffer mftOutputDataBuffer = new() { Sample = _mfOutBufferSample };
-        // MF_E_TRANSFORM_NEED_MORE_INPUT (0xC00D6D72) is benign — the transform
-        // hasn't accumulated enough input for an output sample yet. Anything else
-        // is a real failure that would otherwise leave the output buffer with
-        // stale/garbage data and propagate as wrong colors downstream.
         Result result = _transform.ProcessOutput(ProcessOutputFlags.None, 1, ref mftOutputDataBuffer, out _);
-        if (result.Failure && (uint)result.Code != 0xC00D6D72)
+        if (result.Success)
+        {
+            return true;
+        }
+
+        if ((uint)result.Code != MF_E_TRANSFORM_NEED_MORE_INPUT)
         {
             _logger.LogError("VideoProcessorMFT.ProcessOutput failed: HRESULT 0x{HResult:X8}", (uint)result.Code);
         }
+        return false;
     }
 
     private void ChangeColorConvertSettingAndCreateBuffer()
@@ -602,7 +615,7 @@ internal sealed class MFDecoder : IDisposable
                     sourceReader.SetStreamSelection(streamIndex, false);
                 }
             }
-            catch (SharpGenException ex) when ((uint)ex.HResult == MF_E_INVALIDSTREAMNUMBER)
+            catch (Exception ex) when ((uint)ex.HResult == MF_E_INVALIDSTREAMNUMBER)
             {
                 break;
             }
@@ -679,7 +692,7 @@ internal sealed class MFDecoder : IDisposable
                     Debug.Fail("");
                 }
             }
-            catch (SharpGenException ex) when ((uint)ex.HResult == MF_E_INVALIDSTREAMNUMBER)
+            catch (Exception ex) when ((uint)ex.HResult == MF_E_INVALIDSTREAMNUMBER)
             {
                 break;
             }
@@ -846,7 +859,7 @@ internal sealed class MFDecoder : IDisposable
             uint value = mediaType.GetUInt32(key);
             return (TEnum)Enum.ToObject(typeof(TEnum), (int)value);
         }
-        catch (SharpGenException ex) when ((uint)ex.HResult == MF_E_ATTRIBUTENOTFOUND)
+        catch (Exception ex) when ((uint)ex.HResult == MF_E_ATTRIBUTENOTFOUND)
         {
             return fallback;
         }

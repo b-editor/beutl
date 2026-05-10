@@ -190,7 +190,7 @@ internal static unsafe class PixelFormatConverter
                 // Cb = (B − Y) / 1.8814 , Cr = (R − Y) / 1.4746 — values in 16-bit scale.
                 long cbNum = ((long)b << 16) - (luma16 << 16);
                 long crNum = ((long)r << 16) - (luma16 << 16);
-                long cb16 = cbNum / 123299; // round(1.8814 * 65536)
+                long cb16 = cbNum / 123297; // round(1.8814 * 65536)
                 long cr16 = crNum / 96639;  // round(1.4746 * 65536)
                 // cb16/cr16 already represent Pb/Pr * 65535 with Pb,Pr ∈ [-0.5, 0.5],
                 // so the magnitude maxes near 32767. Map to 10-bit limited chroma
@@ -233,7 +233,7 @@ internal static unsafe class PixelFormatConverter
                 // is 1/896). (B−Y)_16 = cb * 1.8814 * 65535 / 896, etc.
                 long rY = (long)yv * 65535 / 876;
                 long rCr = (long)cr * 96639L / 896L;   // round(1.4746 * 65536) / 896
-                long rCb = (long)cb * 123299L / 896L;  // round(1.8814 * 65536) / 896
+                long rCb = (long)cb * 123297L / 896L;  // round(1.8814 * 65536) / 896
                 long r = rY + rCr;
                 // G = Y − (0.2627/0.6780) Cr − (0.0593/0.6780) Cb
                 long g = rY - rCr * 17235L / 44461L - rCb * 3891L / 44461L;
