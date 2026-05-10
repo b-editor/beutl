@@ -125,6 +125,9 @@ public sealed class FFmpegWorkerProcess : IDisposable
 
             if (completed == exitTask)
             {
+                // キャンセル経由でexitTaskが完了した場合は OperationCanceledException を再スロー
+                await exitTask;
+
                 int code = _process.ExitCode;
                 pipeServer.Dispose();
                 if (code == 2)
@@ -138,6 +141,12 @@ public sealed class FFmpegWorkerProcess : IDisposable
 
             // 接続が先に成立。例外があれば伝播させる
             await connectTask;
+            // 敗者となった exitTask の例外を観測しておく（UnobservedTaskException 防止）
+            _ = exitTask.ContinueWith(
+                static t => { _ = t.Exception; },
+                CancellationToken.None,
+                TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
+                TaskScheduler.Default);
         }
         catch (OperationCanceledException)
         {
