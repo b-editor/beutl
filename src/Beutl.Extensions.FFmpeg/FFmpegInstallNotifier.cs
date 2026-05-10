@@ -7,24 +7,25 @@ namespace Beutl.Extensions.FFmpeg;
 
 internal static class FFmpegInstallNotifier
 {
-    private static int s_notified;
+    private const long ThrottleMs = 10_000;
+    private static long s_lastNotifiedTicks;
 
     public static void NotifyMissing()
     {
-        if (Interlocked.Exchange(ref s_notified, 1) == 1)
+        long now = Environment.TickCount64;
+        long last = Interlocked.Read(ref s_lastNotifiedTicks);
+        if (last != 0 && now - last < ThrottleMs)
             return;
+        Interlocked.Exchange(ref s_lastNotifiedTicks, now);
 
         NotificationService.ShowError(
             Strings.FFmpegError,
             Strings.Make_sure_you_have_FFmpeg_installed,
-            onClose: Reset,
             onActionButtonClick: ShowInstallDialog,
             actionButtonText: Strings.Install);
     }
 
-    public static void Reset() => Interlocked.Exchange(ref s_notified, 0);
-
-    public static void ShowInstallDialog()
+    private static void ShowInstallDialog()
     {
         Dispatcher.UIThread.Post(() =>
         {
