@@ -20,9 +20,8 @@
                 IsHitTestVisible="True"
                 PointerPressed="OnBackdropPointerPressed" />
 
-        <!-- Palette container -->
+        <!-- Palette container (Width はコードビハインドで TopLevel サイズに応じて動的設定) -->
         <Border x:Name="PaletteContainer"
-                Width="640"
                 MaxHeight="480"
                 Margin="16,80,16,16"
                 Padding="0"

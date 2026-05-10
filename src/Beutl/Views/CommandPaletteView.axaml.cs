@@ -14,9 +14,12 @@ namespace Beutl.Views;
 public partial class CommandPaletteView : UserControl
 {
     private const int PageStep = 8;
+    private const double MaxPaletteWidth = 640;
+    private const double HorizontalMargin = 16;
 
     private readonly ILogger<CommandPaletteView> _logger = Log.CreateLogger<CommandPaletteView>();
     private readonly CompositeDisposable _disposables = [];
+    private readonly CompositeDisposable _visualTreeDisposables = [];
     private WeakReference<IInputElement>? _previouslyFocused;
 
     public CommandPaletteView()
@@ -103,12 +106,37 @@ public partial class CommandPaletteView : UserControl
         }
     }
 
+    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToVisualTree(e);
+        _visualTreeDisposables.Clear();
+
+        // narrow window で PaletteContainer 自体が右マージンを侵食して clipping するのを防ぐため、
+        // TopLevel サイズに応じて Width を動的に縮める。MaxWidth + HorizontalAlignment="Center"
+        // にしてしまうとリストの中身に応じて幅が変動 (スクロールバー表示時等) するので、
+        // Width 固定値で中身依存を切る方針。
+        if (TopLevel.GetTopLevel(this) is { } topLevel)
+        {
+            topLevel.GetObservable(BoundsProperty)
+                .Subscribe(bounds => UpdatePaletteWidth(bounds.Width))
+                .AddTo(_visualTreeDisposables);
+            UpdatePaletteWidth(topLevel.Bounds.Width);
+        }
+    }
+
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
         // Dispose ではなく Clear を呼ぶことで、Avalonia により Detach→再 Attach された際の
         // OnDataContextChanged 内 _disposables.Clear() が破棄済みインスタンスに対して呼ばれる事態を避ける。
+        _visualTreeDisposables.Clear();
         _disposables.Clear();
         base.OnDetachedFromVisualTree(e);
+    }
+
+    private void UpdatePaletteWidth(double availableWidth)
+    {
+        double usable = availableWidth - HorizontalMargin * 2;
+        PaletteContainer.Width = Math.Min(MaxPaletteWidth, Math.Max(0, usable));
     }
 
     private void OnBackdropPointerPressed(object? sender, PointerPressedEventArgs e)
