@@ -1021,21 +1021,21 @@ public class HistoryManagerTests
         manager.Commit("Step1");
 
         var received = new List<NotifyCollectionChangedAction>();
-        using IDisposable sub = manager.SubscribeEntries(
-            (_, e) => received.Add(e.Action),
-            out HistoryEntry[] snapshot);
-
-        Assert.Multiple(() =>
+        var (sub, snapshot) = manager.SubscribeEntries((_, e) => received.Add(e.Action));
+        using (sub)
         {
-            Assert.That(snapshot.Length, Is.EqualTo(2));
-            Assert.That(snapshot[0].IsInitial, Is.True);
-            Assert.That(snapshot[1].DisplayName, Is.EqualTo("Step1"));
-        });
+            Assert.Multiple(() =>
+            {
+                Assert.That(snapshot.Length, Is.EqualTo(2));
+                Assert.That(snapshot[0].IsInitial, Is.True);
+                Assert.That(snapshot[1].DisplayName, Is.EqualTo("Step1"));
+            });
 
-        CreateValueOperation(manager, 200, 100, "Step2");
-        manager.Commit("Step2");
+            CreateValueOperation(manager, 200, 100, "Step2");
+            manager.Commit("Step2");
 
-        Assert.That(received, Does.Contain(NotifyCollectionChangedAction.Add));
+            Assert.That(received, Does.Contain(NotifyCollectionChangedAction.Add));
+        }
     }
 
     [Test]
@@ -1043,9 +1043,7 @@ public class HistoryManagerTests
     {
         using var manager = new HistoryManager(_root, _sequenceGenerator);
         int callCount = 0;
-        IDisposable sub = manager.SubscribeEntries(
-            (_, _) => callCount++,
-            out _);
+        var (sub, _) = manager.SubscribeEntries((_, _) => callCount++);
 
         sub.Dispose();
 
@@ -1062,7 +1060,7 @@ public class HistoryManagerTests
         manager.Dispose();
 
         Assert.Throws<ObjectDisposedException>(() =>
-            manager.SubscribeEntries((_, _) => { }, out _));
+            manager.SubscribeEntries((_, _) => { }));
     }
 
     [Test]
@@ -1071,7 +1069,7 @@ public class HistoryManagerTests
         using var manager = new HistoryManager(_root, _sequenceGenerator);
 
         Assert.Throws<ArgumentNullException>(() =>
-            manager.SubscribeEntries(null!, out _));
+            manager.SubscribeEntries(null!));
     }
 
     #endregion

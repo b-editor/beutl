@@ -74,22 +74,34 @@ public sealed class HistoryManager : IDisposable
     /// collection without dropping events that fire between the snapshot and
     /// the subscription on a separate thread.
     /// </summary>
-    /// <returns>An <see cref="IDisposable"/> that unsubscribes the handler.</returns>
-    public IDisposable SubscribeEntries(
-        NotifyCollectionChangedEventHandler handler,
-        out HistoryEntry[] initialSnapshot)
+    /// <returns>
+    /// A tuple containing the unsubscribe disposable and the initial snapshot.
+    /// </returns>
+    public (IDisposable Subscription, HistoryEntry[] InitialSnapshot) SubscribeEntries(
+        NotifyCollectionChangedEventHandler handler)
     {
         ThrowIfDisposed();
         ArgumentNullException.ThrowIfNull(handler);
 
         INotifyCollectionChanged source = _entries;
+        HistoryEntry[] snapshot;
         lock (_lock)
         {
-            initialSnapshot = [.. _entries];
+            snapshot = [.. _entries];
             source.CollectionChanged += handler;
         }
 
-        return Disposable.Create(() => source.CollectionChanged -= handler);
+        // Unsubscribe under the same lock that mutators hold so a concurrent
+        // Commit/Clear/JumpTo cannot fire one last event after Dispose returns.
+        var subscription = Disposable.Create(() =>
+        {
+            lock (_lock)
+            {
+                source.CollectionChanged -= handler;
+            }
+        });
+
+        return (subscription, snapshot);
     }
 
     public void Commit(string? name = null, [CallerArgumentExpression(nameof(name))] string? expression = null)

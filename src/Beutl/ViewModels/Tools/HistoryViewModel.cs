@@ -33,9 +33,8 @@ public sealed class HistoryViewModel : IToolContext
         // Atomically capture the initial snapshot and subscribe under the
         // manager's lock so commits/clears that happen during construction
         // are not lost between the snapshot and the subscription.
-        IDisposable subscription = _historyManager.SubscribeEntries(
-            OnManagerEntriesChanged,
-            out HistoryEntry[] initialSnapshot);
+        (IDisposable subscription, HistoryEntry[] initialSnapshot) =
+            _historyManager.SubscribeEntries(OnManagerEntriesChanged);
         _disposables.Add(subscription);
 
         foreach (HistoryEntry entry in initialSnapshot)
