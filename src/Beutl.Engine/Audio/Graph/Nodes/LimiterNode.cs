@@ -58,10 +58,12 @@ public sealed class LimiterNode : AudioNode
         if (input.SampleCount == 0)
         {
             // Empty chunks are not produced by the normal scheduling path (GetSampleCount uses
-            // Math.Ceiling so only TimeRange.Duration == Zero gets here). Treat them as a
-            // notable event — log once-per-format-change and keep _lastTimeRangeEnd advancing
-            // so a non-empty follow-up chunk that resumes from `Start + Duration` is not
-            // misclassified as a discontinuity.
+            // Math.Ceiling so only TimeRange.Duration == Zero reaches here). Treat them as a
+            // notable upstream event and log once-per-format-change. Crucially, do NOT touch
+            // _lastTimeRangeEnd: an empty chunk processes no audio, so the next non-empty chunk
+            // must be evaluated against the previous *non-empty* chunk's end. Updating it here
+            // would silently mask a discontinuity when the empty chunk happens to land at a
+            // different position than the previous chunk's end.
             if (!_warnedEmptyChunk)
             {
                 s_logger.LogDebug(
@@ -70,7 +72,6 @@ public sealed class LimiterNode : AudioNode
                 _warnedEmptyChunk = true;
             }
 
-            _lastTimeRangeEnd = context.TimeRange.Start + context.TimeRange.Duration;
             return new AudioBuffer(input.SampleRate, input.ChannelCount, 0);
         }
 
@@ -108,13 +109,16 @@ public sealed class LimiterNode : AudioNode
             : ProcessStatic(input, context);
 
         // Update only on success: if Process throws mid-buffer, _currentGain and the delay line
-        // may be partially mutated. Two cases for partial-state recovery on the next call:
+        // may be partially mutated. Two cases for the next call:
         //  - Contiguous throw (no Reset() ran this call): _lastTimeRangeEnd retains the previous
-        //    end, so the next call still detects the new chunk as a discontinuity if Start
-        //    differs — and equally, a same-Start retry would fail to update and re-route.
+        //    end. If the next call's Start differs, the discontinuity branch fires Reset() and
+        //    discards partial state. If the next call's Start matches (same-chunk retry), the
+        //    contiguous path inherits partial state — accepted as a deliberate trade-off
+        //    because the alternative (always Reset() after a throw) would discard correct
+        //    delay-line state in the common transient-failure case.
         //  - Throw after Reset() ran: _lastTimeRangeEnd was already cleared to null by Reset(),
-        //    so the next call hits the `!HasValue` branch and Reset()s again before processing.
-        // Either way, partial state from a failed Process is discarded before the next chunk.
+        //    so the next call hits the `!HasValue` branch and Reset()s again before processing,
+        //    discarding any partial state.
         _lastTimeRangeEnd = context.TimeRange.Start + context.TimeRange.Duration;
 
         return output;

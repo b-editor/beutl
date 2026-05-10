@@ -1058,13 +1058,13 @@ public class LimiterNodeTests
     }
 
     [Test]
-    public void Process_EmptyChunkBetweenContiguousChunks_DoesNotForceReset()
+    public void Process_EmptyChunkBetweenContiguousChunks_PreservesDelayState()
     {
-        // A degenerate empty chunk in the middle of a stream must advance _lastTimeRangeEnd
-        // so the follow-up non-empty chunk still resumes contiguously and the delay line is
-        // not erroneously cleared. Without that bookkeeping, the next chunk's Start would
-        // mismatch the stale _lastTimeRangeEnd and Reset() would fire — silently dropping the
-        // tail of the previous segment.
+        // An empty chunk wedged between contiguous non-empty chunks must be a pure pass-through:
+        // it must not call Reset() and must not advance _lastTimeRangeEnd, so the next non-empty
+        // chunk is evaluated against the previous *non-empty* chunk's end and resumes
+        // contiguously. A regression that called Reset() inside the empty-chunk branch would
+        // wipe the delay line and zero out the lookahead window of the resume chunk.
         const int chunkSamples = 1024;
         int lookaheadSamples = LookaheadSamples();
 
@@ -1077,18 +1077,12 @@ public class LimiterNodeTests
         var firstCtx = CreateContext(chunkSamples, start: TimeSpan.Zero);
         using (var _ = node.Process(firstCtx)) { }
 
-        // Empty chunk at the boundary — duration zero so Start == End, contiguity preserved.
         var emptyStart = firstCtx.TimeRange.Start + firstCtx.TimeRange.Duration;
-        var emptyCtx = new AudioProcessContext(
-            new TimeRange(emptyStart, TimeSpan.Zero), SampleRate, new AnimationSampler(), null);
         using var emptyInput = new AudioBuffer(SampleRate, 2, 0);
         node.RemoveInput(node.Inputs[0]);
         node.AddInput(new StubInputNode(emptyInput));
-        using (var _ = node.Process(emptyCtx)) { }
+        using (var _ = node.Process(CreateContext(0, start: emptyStart))) { }
 
-        // Resume with silence at the same instant the empty chunk ended. If Reset() had fired
-        // erroneously the delay line would now be all zeros — the residual proves the empty
-        // chunk advanced _lastTimeRangeEnd correctly.
         using var silence = CreateBuffer(2, chunkSamples, (_, _) => 0f);
         node.RemoveInput(node.Inputs[0]);
         node.AddInput(new StubInputNode(silence));
@@ -1111,6 +1105,51 @@ public class LimiterNodeTests
 
         Assert.That(foundResidual, Is.True,
             "Empty chunk at the boundary should not force a reset — delay-line residual must survive.");
+    }
+
+    [Test]
+    public void Process_EmptyChunkAtDiscontinuity_DoesNotMaskFollowupReset()
+    {
+        // The complement of the test above: if an empty chunk is silently used to advance the
+        // limiter's notion of time (e.g., a regression that did `_lastTimeRangeEnd = Start +
+        // Duration` inside the empty-chunk branch), then a non-empty chunk arriving at the
+        // empty chunk's position would be misclassified as contiguous and would replay stale
+        // delay-line audio from before the seek — a silent failure. Verify that the next
+        // non-empty chunk still triggers Reset() against the previous non-empty chunk's end.
+        const int chunkSamples = 1024;
+
+        using var hotInput = CreateBuffer(2, chunkSamples,
+            (_, i) => 2.0f * MathF.Sin(2f * MathF.PI * 440f * i / SampleRate));
+
+        using var node = CreateNode();
+        node.AddInput(new StubInputNode(hotInput));
+        using (var _ = node.Process(CreateContext(chunkSamples, start: TimeSpan.Zero))) { }
+
+        // Empty chunk at a position that is NOT contiguous with the first chunk.
+        using var emptyInput = new AudioBuffer(SampleRate, 2, 0);
+        node.RemoveInput(node.Inputs[0]);
+        node.AddInput(new StubInputNode(emptyInput));
+        using (var _ = node.Process(CreateContext(0, start: TimeSpan.FromSeconds(10)))) { }
+
+        // Resume with silence at the empty chunk's position. The empty chunk must not have
+        // updated _lastTimeRangeEnd, so this chunk's Start (10s) differs from the previous
+        // non-empty chunk's end (1024/SR ≈ 0.021s) and Reset() must fire — wiping the delay
+        // line so the silent input produces silent output.
+        using var silence = CreateBuffer(2, chunkSamples, (_, _) => 0f);
+        node.RemoveInput(node.Inputs[0]);
+        node.AddInput(new StubInputNode(silence));
+
+        using var resumeOut = node.Process(CreateContext(chunkSamples, start: TimeSpan.FromSeconds(10)));
+
+        for (int ch = 0; ch < 2; ch++)
+        {
+            var data = resumeOut.GetChannelData(ch);
+            for (int i = 0; i < chunkSamples; i++)
+            {
+                Assert.That(MathF.Abs(data[i]), Is.LessThanOrEqualTo(1e-6f),
+                    $"Empty chunk must not silently advance _lastTimeRangeEnd — channel {ch} sample {i} = {data[i]}.");
+            }
+        }
     }
 
     [Test]
