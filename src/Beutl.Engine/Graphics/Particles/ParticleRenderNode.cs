@@ -112,10 +112,11 @@ internal sealed class ParticleRenderNode(ParticleEmitter.Resource particle) : Re
                 Color color = p.CurrentColor;
                 if (color != Colors.White)
                 {
-                    using var paint = new SKPaint();
-                    paint.ColorFilter = SKColorFilter.CreateBlendMode(
+                    using var colorFilter = SKColorFilter.CreateBlendMode(
                         new SKColor(color.R, color.G, color.B, color.A),
                         SKBlendMode.Modulate);
+                    using var paint = new SKPaint();
+                    paint.ColorFilter = colorFilter;
 
                     using (canvas.PushPaint(paint))
                     {
