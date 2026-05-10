@@ -1,4 +1,4 @@
-using Avalonia.Threading;
+﻿using Avalonia.Threading;
 
 using Beutl.Extensions.FFmpeg.Properties;
 using Beutl.Services;
