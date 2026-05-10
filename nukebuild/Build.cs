@@ -195,7 +195,7 @@ class Build : NukeBuild
 
                 StartProcess(
                     "flatpak-builder",
-                    $"--user --force-clean --install-deps-from=flathub --repo={repoDir} {buildDir} {manifest}",
+                    $"--user --force-clean --disable-rofiles-fuse --install-deps-from=flathub --repo={repoDir} {buildDir} {manifest}",
                     workingDirectory: flatpakDir)
                     .AssertZeroExitCode();
 

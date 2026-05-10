@@ -67,6 +67,7 @@ jobs:
         run: |
           cd packages/flatpak
           flatpak-builder --user --force-clean \
+            --disable-rofiles-fuse \
             --install-deps-from=flathub \
             --repo=repo build-dir \
             net.beditor.Beutl.yml
