@@ -52,9 +52,10 @@ public sealed class CompressorNode : AudioNode
             _lastSampleRate = context.SampleRate;
         }
 
-        // Reset whenever the chunk does not continue directly from the previous one, because the
-        // node instance is cached across Compose() calls and stale envelope state would otherwise
-        // bleed into the first samples after a seek or stop/restart.
+        // Reset on the very first call (no prior end recorded) and whenever the new chunk does
+        // not start exactly where the previous one ended. The node instance is cached across
+        // Compose() calls, so without this guard stale envelope state would bleed into the first
+        // samples after a seek or stop/restart.
         if (!_lastTimeRangeEnd.HasValue || _lastTimeRangeEnd.Value != context.TimeRange.Start)
         {
             Reset();
@@ -66,6 +67,13 @@ public sealed class CompressorNode : AudioNode
             return new AudioBuffer(input.SampleRate, input.ChannelCount, 0);
         }
 
+        // Expression-backed properties are intentionally not checked here: AnimationSampler does
+        // not currently evaluate expressions per-sample, so treating HasExpression as live would
+        // route to ProcessAnimated and read the same CurrentValue every iteration — strictly
+        // worse than ProcessStatic, which reads it once. Aligned with EqualizerEffect's matching
+        // FIXME: once AnimationSampler evaluates expressions per-sample, this guard must also
+        // treat HasExpression as live or expression-backed parameters will be silently frozen
+        // at their graph-build-time value.
         bool hasAnimation = Threshold.Animation != null ||
                             Ratio.Animation != null ||
                             Attack.Animation != null ||
@@ -90,7 +98,6 @@ public sealed class CompressorNode : AudioNode
         float attackCoeff = ComputeCoeff(p.Attack, context.SampleRate);
         float releaseCoeff = ComputeCoeff(p.Release, context.SampleRate);
         float slope = 1f - 1f / p.Ratio;
-        float makeupLinear = AudioMath.ConvertDbToLinear(p.MakeupGain);
 
         int channels = input.ChannelCount;
         for (int i = 0; i < input.SampleCount; i++)
@@ -102,13 +109,16 @@ public sealed class CompressorNode : AudioNode
                 if (a > peak) peak = a;
             }
 
+            // peak == 0 (digital silence) and peak == NaN both fail `peak > 0f`, so inputDb
+            // collapses to MinDb here; downstream RecoverEnvelopeIfNonFinite / SanitizeOutput
+            // handle the NaN case if it slipped through arithmetic above.
             float inputDb = peak > 0f ? 20f * MathF.Log10(peak) : MinDb;
             float coeff = inputDb > _envelopeDb ? attackCoeff : releaseCoeff;
             _envelopeDb = inputDb + coeff * (_envelopeDb - inputDb);
             RecoverEnvelopeIfNonFinite();
 
             float gainReductionDb = ComputeGainReductionDb(_envelopeDb, p.Threshold, p.Knee, slope);
-            float gainLinear = AudioMath.ConvertDbToLinear(-gainReductionDb) * makeupLinear;
+            float gainLinear = ComputeGainLinear(gainReductionDb, p.MakeupGain);
 
             for (int ch = 0; ch < channels; ch++)
             {
@@ -196,7 +206,7 @@ public sealed class CompressorNode : AudioNode
                 RecoverEnvelopeIfNonFinite();
 
                 float gainReductionDb = ComputeGainReductionDb(_envelopeDb, p.Threshold, p.Knee, slope);
-                float gainLinear = AudioMath.ConvertDbToLinear(p.MakeupGain - gainReductionDb);
+                float gainLinear = ComputeGainLinear(gainReductionDb, p.MakeupGain);
 
                 for (int ch = 0; ch < channels; ch++)
                 {
@@ -286,11 +296,31 @@ public sealed class CompressorNode : AudioNode
         return 0f;
     }
 
+    // Combined linear gain factor: the dB-domain reduction is subtracted and the makeup gain is
+    // added before a single dB→linear conversion. Both ProcessStatic and ProcessAnimated share
+    // this helper so the static and animated paths cannot drift out of agreement (they used to
+    // apply makeup as a pre-computed `makeupLinear` multiplier vs. an in-formula addition, which
+    // is mathematically equivalent but a future refactor of one branch could silently break the
+    // other).
+    private static float ComputeGainLinear(float gainReductionDb, float makeupDb)
+    {
+        return AudioMath.ConvertDbToLinear(makeupDb - gainReductionDb);
+    }
+
+    // Standard one-pole IIR smoothing coefficient for a 1/e settling time of `timeMs` at the
+    // given sample rate: y[n] = x[n] + coeff * (y[n-1] - x[n]) reaches (1 - 1/e) ≈ 63% of a step
+    // change after exactly `timeMs` milliseconds. Operates in dB-domain on `_envelopeDb` because
+    // dB-domain peak smoothing better matches how the human ear perceives compression action.
     private static float ComputeCoeff(float timeMs, int sampleRate)
     {
         return MathF.Exp(-1f / (timeMs * 0.001f * sampleRate));
     }
 
+    // Soft-knee gain computer (Reece/Giannoulis formulation): when `kneeDb > 0`, the gain
+    // reduction curve transitions smoothly from "no compression" to the full `slope * diff`
+    // line over a `kneeDb`-wide region centred on the threshold, via a quadratic that is
+    // C¹-continuous at both knee boundaries. With `kneeDb == 0` this collapses to the standard
+    // hard-knee formula.
     private static float ComputeGainReductionDb(float envelopeDb, float thresholdDb, float kneeDb, float slope)
     {
         if (kneeDb > 0f)
@@ -303,6 +333,9 @@ public sealed class CompressorNode : AudioNode
             }
             if (diff < halfKnee)
             {
+                // Quadratic interpolation across the knee: at diff = -halfKnee returns 0, at
+                // diff = +halfKnee returns slope * halfKnee, with matching derivatives at both
+                // ends (= 0 below, = slope above) so the overall curve is smooth.
                 float x = diff + halfKnee;
                 return slope * x * x / (2f * kneeDb);
             }
@@ -314,9 +347,16 @@ public sealed class CompressorNode : AudioNode
 
     // Internal so tests can drive an explicit reset, but not part of the public API: external
     // callers must not zero the envelope mid-buffer (it would produce an audible click).
+    // Reset is also the natural "new render session" boundary (sample-rate change, seek), so we
+    // clear the diagnostic latches here. Otherwise, once a non-finite event fired in an earlier
+    // session, the operator would never see another warning for the entire node lifetime — even
+    // after fixing the offending keyframe and re-rendering.
     internal void Reset()
     {
         _envelopeDb = MinDb;
+        _loggedNonFiniteEnvelope = false;
+        _loggedNonFiniteSample = false;
+        _loggedNonFiniteParameters.Clear();
     }
 
     private struct EffectiveParameters
