@@ -107,7 +107,7 @@ public class TileBrushCalculatorTests
     [Test]
     public void CalculateIntermediateTransform_TileMode_DrawRectIsSizeOnly()
     {
-        Matrix _ = TileBrushCalculator.CalculateIntermediateTransform(
+        _ = TileBrushCalculator.CalculateIntermediateTransform(
             TileMode.Tile,
             sourceRect: new Rect(0, 0, 50, 50),
             destinationRect: new Rect(20, 20, 100, 100),
@@ -125,7 +125,7 @@ public class TileBrushCalculatorTests
     [Test]
     public void CalculateIntermediateTransform_TileNone_DrawRectIsDestination()
     {
-        Matrix _ = TileBrushCalculator.CalculateIntermediateTransform(
+        _ = TileBrushCalculator.CalculateIntermediateTransform(
             TileMode.None,
             sourceRect: new Rect(0, 0, 50, 50),
             destinationRect: new Rect(20, 30, 100, 100),

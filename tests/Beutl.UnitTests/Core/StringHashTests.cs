@@ -54,6 +54,15 @@ public class StringHashTests
         });
     }
 
+    [Test]
+    public void GetMD5Hash_KnownInput_MatchesPrecomputedUtf16LeHash()
+    {
+        // 入力エンコーディング(UTF-16LE)固定を保証する回帰テスト。
+        // ハッシュは "Beutl" の UTF-16LE バイト列に対する MD5。
+        string hash = "Beutl".GetMD5Hash();
+        Assert.That(hash, Is.EqualTo("875A71A7580D0D6D38B13CCFF70B9AC7"));
+    }
+
     private static string ComputeExpected(string s)
     {
         byte[] bytes = MD5.HashData(MemoryMarshal.Cast<char, byte>(s.AsSpan()));

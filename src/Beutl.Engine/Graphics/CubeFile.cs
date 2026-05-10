@@ -220,7 +220,7 @@ public partial class CubeFile : IEquatable<CubeFile>
                 else if (s_titleReg.IsMatch(line))
                 {
                     titleFound = true;
-                    Match match = s_lutSizeReg.Match(line);
+                    Match match = s_titleReg.Match(line);
                     title = match.Groups["text"].Value;
                 }
                 else if (s_domainMaxReg.IsMatch(line))

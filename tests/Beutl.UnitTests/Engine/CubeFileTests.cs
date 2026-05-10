@@ -65,6 +65,7 @@ public class CubeFileTests
     [Test]
     public void Equals_DifferentInstance_False()
     {
+        // CubeFile.Equals は ReferenceEquals 比較なので、内容が同じでも別インスタンスは不一致
         CubeFile a = MakeIdentity1D();
         CubeFile b = MakeIdentity1D();
         Assert.That(a.Equals(b), Is.False);
@@ -132,7 +133,8 @@ public class CubeFileTests
     [Test]
     public void ToLUT_StrengthZero_ReturnsLinearRamp()
     {
-        // strength=0なら入力 i がそのまま返る（add = i*1 = i）
+        // strength=0 のとき LUT 値の寄与 (v*255 * strength) はゼロになり、
+        // パススルー項 add = i*(1-0) = i だけが残るため、出力はリニアランプ
         CubeFile cube = MakeIdentity1D(size: 256);
         var r = new byte[256];
         var g = new byte[256];
@@ -206,6 +208,7 @@ public class CubeFileTests
 
         Assert.Multiple(() =>
         {
+            Assert.That(cube.Title, Is.EqualTo("Test1D"));
             Assert.That(cube.Dimention, Is.EqualTo(CubeFileDimension.OneDimension));
             Assert.That(cube.Size, Is.EqualTo(4));
             Assert.That(cube.Data, Has.Length.EqualTo(4));
