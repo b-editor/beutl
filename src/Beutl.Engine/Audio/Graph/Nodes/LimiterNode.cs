@@ -8,9 +8,9 @@ namespace Beutl.Audio.Graph.Nodes;
 
 public sealed class LimiterNode : AudioNode
 {
-    // 4 × 1024 × sizeof(float) = 16 KiB per ProcessAnimated call — well within
-    // a thread's default stack budget while still amortizing the per-chunk
-    // animation sampling overhead.
+    // AnimationChunkSize × number-of-animated-parameters × sizeof(float). With four
+    // parameters today this is 16 KiB per ProcessAnimated call — well within a thread's
+    // default stack budget while still amortizing the per-chunk animation sampling overhead.
     private const int AnimationChunkSize = 1024;
 
     private static readonly ILogger s_logger = Log.CreateLogger<LimiterNode>();
@@ -22,9 +22,15 @@ public sealed class LimiterNode : AudioNode
     private TimeSpan? _lastTimeRangeEnd;
     private float _currentGain = 1f;
 
-    // Latched warning flags — keep audio-rate logging from spamming the sink.
-    // Cleared whenever Reset() runs so a new discontinuity can re-surface the warning.
-    private bool _warnedNonFiniteParameter;
+    // Latched warning flags — keep audio-rate logging from spamming the sink. Per-parameter
+    // latches so that, for example, a non-finite Threshold does not silence a subsequent
+    // non-finite Release. Cleared only on full re-initialization (sample-rate/channel-count
+    // change) — chunk discontinuities (seek/loop/edit) intentionally do NOT re-arm them, or
+    // a persistent upstream defect would log every chunk.
+    private bool _warnedNonFiniteThreshold;
+    private bool _warnedNonFiniteRelease;
+    private bool _warnedNonFiniteLookahead;
+    private bool _warnedNonFiniteMakeup;
     private bool _warnedNonFiniteInputSample;
 
     public required IProperty<float> Threshold { get; init; }
@@ -67,7 +73,7 @@ public sealed class LimiterNode : AudioNode
         {
             if (_lastTimeRangeEnd.HasValue)
             {
-                s_logger.LogTrace(
+                s_logger.LogDebug(
                     "LimiterNode: chunk discontinuity (last end={Last}, new start={Start}); resetting state.",
                     _lastTimeRangeEnd, context.TimeRange.Start);
             }
@@ -140,23 +146,37 @@ public sealed class LimiterNode : AudioNode
 
         _maxLookaheadSamples = max;
         _delayLines = lines;
+        // Format change is the one moment where the previous warning history is unrelated to
+        // the new state, so re-arm so that a persistent upstream defect surfaces once per
+        // format change rather than literally never logging again after the first hit.
         _currentGain = 1f;
+        _warnedNonFiniteThreshold = false;
+        _warnedNonFiniteRelease = false;
+        _warnedNonFiniteLookahead = false;
+        _warnedNonFiniteMakeup = false;
+        _warnedNonFiniteInputSample = false;
+
+        s_logger.LogDebug(
+            "LimiterNode: initialized buffers (sampleRate={SampleRate}, channels={Channels}, maxLookaheadSamples={MaxLookahead}).",
+            sampleRate, channelCount, max);
     }
 
     // Math.Clamp does not coerce NaN nor ±Infinity to the bounds — both would poison
     // _currentGain permanently if they slipped through. Substituting a safe fallback here keeps
-    // the DSP stable; the caller logs once when the substitution actually fires.
-    private float ClampFinite(float value, float min, float max, float fallback, string parameterName)
+    // the DSP stable; the caller logs once per parameter at error severity so an upstream
+    // animation/binding bug is visible in production logs (Sentry-grade) without spamming.
+    private float ClampFinite(float value, float min, float max, float fallback, string parameterName, ref bool warned)
     {
         if (float.IsFinite(value))
             return Math.Clamp(value, min, max);
 
-        if (!_warnedNonFiniteParameter)
+        if (!warned)
         {
-            s_logger.LogWarning(
-                "LimiterNode: non-finite {Parameter}={Value}; substituting {Fallback}. Likely an animation/binding bug upstream.",
+            s_logger.LogError(
+                "LimiterNode: non-finite {Parameter}={Value}; substituting {Fallback}. " +
+                "Likely an animation/binding bug upstream — limiter behavior will not match user settings.",
                 parameterName, value, fallback);
-            _warnedNonFiniteParameter = true;
+            warned = true;
         }
 
         return fallback;
@@ -170,10 +190,14 @@ public sealed class LimiterNode : AudioNode
 
     private DerivedCoefficients Derive(float thresholdDbRaw, float releaseMsRaw, float lookaheadMsRaw, float makeupDbRaw, int sampleRate)
     {
-        float thresholdDb = ClampFinite(thresholdDbRaw, LimiterEffect.MinThresholdDb, LimiterEffect.MaxThresholdDb, LimiterEffect.MaxThresholdDb, nameof(Threshold));
-        float releaseMs = ClampFinite(releaseMsRaw, LimiterEffect.MinReleaseMs, LimiterEffect.MaxReleaseMs, LimiterEffect.MinReleaseMs, nameof(Release));
-        float lookaheadMs = ClampFinite(lookaheadMsRaw, LimiterEffect.MinLookaheadMs, LimiterEffect.MaxLookaheadMs, LimiterEffect.MinLookaheadMs, nameof(Lookahead));
-        float makeupDb = ClampFinite(makeupDbRaw, LimiterEffect.MinMakeupGainDb, LimiterEffect.MaxMakeupGainDb, 0f, nameof(MakeupGain));
+        // Threshold falls back to the *default* (-1 dB) rather than MaxThresholdDb (0 dB). Using
+        // 0 dB here would silently disable limiting for the rest of the session — exactly the
+        // silent-failure mode this guard is meant to prevent. -1 dB still limits while keeping
+        // the substitution audible (peaks just under unity) so the issue surfaces.
+        float thresholdDb = ClampFinite(thresholdDbRaw, LimiterEffect.MinThresholdDb, LimiterEffect.MaxThresholdDb, LimiterEffect.DefaultThresholdDb, nameof(Threshold), ref _warnedNonFiniteThreshold);
+        float releaseMs = ClampFinite(releaseMsRaw, LimiterEffect.MinReleaseMs, LimiterEffect.MaxReleaseMs, LimiterEffect.MinReleaseMs, nameof(Release), ref _warnedNonFiniteRelease);
+        float lookaheadMs = ClampFinite(lookaheadMsRaw, LimiterEffect.MinLookaheadMs, LimiterEffect.MaxLookaheadMs, LimiterEffect.MinLookaheadMs, nameof(Lookahead), ref _warnedNonFiniteLookahead);
+        float makeupDb = ClampFinite(makeupDbRaw, LimiterEffect.MinMakeupGainDb, LimiterEffect.MaxMakeupGainDb, 0f, nameof(MakeupGain), ref _warnedNonFiniteMakeup);
 
         return new DerivedCoefficients(
             ThresholdLin: AudioMath.ConvertDbToLinear(thresholdDb),
@@ -200,15 +224,19 @@ public sealed class LimiterNode : AudioNode
     {
         var output = new AudioBuffer(input.SampleRate, input.ChannelCount, input.SampleCount);
 
-        Span<float> thresholds = stackalloc float[Math.Min(input.SampleCount, AnimationChunkSize)];
-        Span<float> releases = stackalloc float[Math.Min(input.SampleCount, AnimationChunkSize)];
-        Span<float> lookaheads = stackalloc float[Math.Min(input.SampleCount, AnimationChunkSize)];
-        Span<float> makeups = stackalloc float[Math.Min(input.SampleCount, AnimationChunkSize)];
+        // Fixed-size stack allocation: the Math.Min against SampleCount would only shrink the
+        // allocation, never grow it past AnimationChunkSize, so it adds no safety. Pinning to the
+        // constant makes the 16 KiB stack budget provable and resilient to refactors that pass
+        // ambiguous SampleCount values.
+        Span<float> thresholds = stackalloc float[AnimationChunkSize];
+        Span<float> releases = stackalloc float[AnimationChunkSize];
+        Span<float> lookaheads = stackalloc float[AnimationChunkSize];
+        Span<float> makeups = stackalloc float[AnimationChunkSize];
 
         int processed = 0;
         while (processed < input.SampleCount)
         {
-            int chunkSize = Math.Min(thresholds.Length, input.SampleCount - processed);
+            int chunkSize = Math.Min(AnimationChunkSize, input.SampleCount - processed);
 
             var chunkStart = context.GetTimeForSample(processed);
             var chunkEnd = context.GetTimeForSample(processed + chunkSize);
@@ -249,7 +277,8 @@ public sealed class LimiterNode : AudioNode
         //   - NaN written into the delay line passes straight through to the output.
         //   - Inf forces currentPeak → Inf, then targetGain = thresholdLin / Inf = 0,
         //     and finally `delayed * 0` = `Inf * 0` = NaN once the gain reduction kicks in.
-        // We log at most once per Reset() so an upstream bug surfaces without flooding the sink.
+        // We log at most once per format change so an upstream bug surfaces without flooding
+        // the sink across every chunk discontinuity.
         float currentPeak = 0f;
         for (int ch = 0; ch < channelCount; ch++)
         {
@@ -319,8 +348,12 @@ public sealed class LimiterNode : AudioNode
     }
 
     /// <summary>
-    /// Clears delay-line state and resets the internal gain to unity. Process() invokes this
-    /// automatically on chunk discontinuity, so external callers do not normally need to call it.
+    /// Clears the per-channel delay lines and the peak-detection buffer, resets the internal
+    /// gain to unity, and clears the cached chunk timestamp so the next Process() call does
+    /// not consider itself contiguous. Process() invokes this automatically on chunk
+    /// discontinuity, so external callers do not normally need to call it. Per-parameter
+    /// non-finite warning latches are intentionally NOT cleared here — see InitializeBuffers
+    /// for the spam-protection rationale.
     /// </summary>
     public void Reset()
     {
@@ -334,8 +367,7 @@ public sealed class LimiterNode : AudioNode
 
         _peakBuffer?.Clear();
         _currentGain = 1f;
-        _warnedNonFiniteParameter = false;
-        _warnedNonFiniteInputSample = false;
+        _lastTimeRangeEnd = null;
     }
 
     protected override void Dispose(bool disposing)

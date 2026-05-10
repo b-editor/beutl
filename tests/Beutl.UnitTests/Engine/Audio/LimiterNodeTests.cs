@@ -1080,6 +1080,121 @@ public class LimiterNodeTests
     }
 
     [Test]
+    public void Process_AnimatedRamp_AcrossContiguousChunks_TracksCurve()
+    {
+        // The single-chunk ramp test (Process_AnimatedRampedThreshold_TracksCurve) only exercises
+        // the inner AnimationChunkSize loop. Splitting the same ramp into multiple contiguous
+        // outer Process() calls verifies that the curve is sampled at the correct absolute time
+        // in each chunk — a regression where chunkRange computation reset to t=0 per outer call
+        // would make every chunk see the start-of-ramp threshold and not be detected by the
+        // single-chunk test.
+        const int chunkCount = 4;
+        const int chunkSamples = SampleRate / chunkCount; // 0.25s each, 1s total ramp
+        var totalDuration = TimeSpan.FromSeconds(1);
+
+        var thresholdProp = CreateAnimatedRamp(0f, -20f, totalDuration);
+        var releaseProp = Property.CreateAnimatable(1f);
+        var lookaheadProp = Property.CreateAnimatable(LookaheadMs);
+        var makeupProp = Property.CreateAnimatable(0f);
+
+        using var node = new LimiterNode
+        {
+            Threshold = thresholdProp,
+            Release = releaseProp,
+            Lookahead = lookaheadProp,
+            MakeupGain = makeupProp,
+        };
+
+        var firstPeaks = new float[chunkCount];
+        var lastPeaks = new float[chunkCount];
+        int lookaheadSamples = LookaheadSamples();
+
+        for (int c = 0; c < chunkCount; c++)
+        {
+            using var input = CreateBuffer(1, chunkSamples,
+                (_, i) => 2.0f * MathF.Sin(2f * MathF.PI * 440f * (c * chunkSamples + i) / SampleRate));
+
+            if (node.Inputs.Count > 0)
+                node.RemoveInput(node.Inputs[0]);
+            node.AddInput(new StubInputNode(input));
+
+            var chunkStart = TimeSpan.FromTicks(totalDuration.Ticks * c / chunkCount);
+            using var output = node.Process(CreateContext(chunkSamples, start: chunkStart));
+            var data = output.GetChannelData(0);
+
+            // Sample peaks in the early and late portions of each chunk (after the lookahead
+            // delay so we read post-limit output, not the silence prefix on chunk 0).
+            int startIdx = c == 0 ? lookaheadSamples : 0;
+            int mid = chunkSamples / 2;
+            float peak1 = 0f;
+            for (int i = startIdx; i < mid; i++) peak1 = MathF.Max(peak1, MathF.Abs(data[i]));
+            float peak2 = 0f;
+            for (int i = mid; i < chunkSamples; i++) peak2 = MathF.Max(peak2, MathF.Abs(data[i]));
+            firstPeaks[c] = peak1;
+            lastPeaks[c] = peak2;
+        }
+
+        // Each successive chunk's late peak should be <= a chunk earlier (monotonic ramp down).
+        // Allow a small slack for envelope overshoot at chunk boundaries.
+        for (int c = 1; c < chunkCount; c++)
+        {
+            Assert.That(lastPeaks[c], Is.LessThanOrEqualTo(lastPeaks[c - 1] + 0.05f),
+                $"Chunk {c} late peak ({lastPeaks[c]}) should not exceed chunk {c - 1} late peak ({lastPeaks[c - 1]}).");
+        }
+
+        // Chunk 0 (≈0 dB threshold) should pass much hotter audio than chunk 3 (≈-20 dB).
+        Assert.That(firstPeaks[0], Is.GreaterThan(0.5f),
+            $"First chunk should follow the ~0 dB threshold (got peak {firstPeaks[0]}).");
+        Assert.That(lastPeaks[chunkCount - 1], Is.LessThan(0.2f),
+            $"Last chunk should follow the ~-20 dB threshold (got peak {lastPeaks[chunkCount - 1]}).");
+    }
+
+    [Test]
+    public void Process_AnimatedNonContiguousChunks_ResetsState()
+    {
+        // The static-path counterpart (Process_NonContiguousChunks_ResetsState) covers the
+        // _lastTimeRangeEnd discontinuity branch. Repeating it under an animated path guarantees
+        // that the discontinuity check is not gated on `hasAnimation == false` — a refactor
+        // that moved the Reset() call into ProcessStatic would silently bypass it for animated
+        // properties and let the previous segment's audio leak across seeks.
+        const int firstSampleCount = 1024;
+        var duration = TimeSpan.FromSeconds((double)firstSampleCount / SampleRate);
+
+        using var hotInput = CreateBuffer(2, firstSampleCount,
+            (_, i) => 2.0f * MathF.Sin(2f * MathF.PI * 440f * i / SampleRate));
+
+        using var node = new LimiterNode
+        {
+            Threshold = CreateAnimatedRamp(-1f, -1f, duration),
+            Release = Property.CreateAnimatable(50f),
+            Lookahead = Property.CreateAnimatable(LookaheadMs),
+            MakeupGain = Property.CreateAnimatable(0f),
+        };
+        node.AddInput(new StubInputNode(hotInput));
+
+        var firstCtx = CreateContext(firstSampleCount, start: TimeSpan.Zero);
+        using (var _ = node.Process(firstCtx)) { }
+
+        using var silence = CreateBuffer(2, firstSampleCount, (_, _) => 0f);
+        node.RemoveInput(node.Inputs[0]);
+        node.AddInput(new StubInputNode(silence));
+
+        // Jump ten seconds — must be detected as a discontinuity even on the animated path.
+        var secondCtx = CreateContext(firstSampleCount, start: TimeSpan.FromSeconds(10));
+        using var secondOut = node.Process(secondCtx);
+
+        for (int ch = 0; ch < 2; ch++)
+        {
+            var data = secondOut.GetChannelData(ch);
+            for (int i = 0; i < firstSampleCount; i++)
+            {
+                Assert.That(MathF.Abs(data[i]), Is.LessThanOrEqualTo(1e-6f),
+                    $"Reset should clear delay-line state on the animated path — channel {ch} sample {i} = {data[i]}.");
+            }
+        }
+    }
+
+    [Test]
     public void LimiterEffect_CreateNode_WiresPropertiesFromEffect()
     {
         var effect = new LimiterEffect();

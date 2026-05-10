@@ -20,9 +20,13 @@ namespace Beutl.Audio.Effects;
 /// </para>
 /// <para>
 /// Setting <see cref="Lookahead"/> above 0 ms shifts the entire signal later by
-/// that amount and drops the same number of samples at the end of each clip,
-/// because Beutl's audio graph processes effects inline (output length equals
-/// input length) and has no latency-reporting/compensation hook. Use 0 ms when
+/// that amount. Within a single contiguous run of audio it is a pure phase shift —
+/// no samples are lost, the trailing samples emerge in the next contiguous chunk.
+/// At a contiguous-run boundary (clip end, seek, loop, or edit) the limiter resets
+/// its internal state, so the still-buffered tail of the previous run is discarded
+/// and the same number of samples are effectively dropped at the boundary. This is
+/// because Beutl's audio graph processes effects inline (output length equals input
+/// length) and has no latency-reporting/compensation hook. Use 0 ms when
 /// sample-accurate timing matters; non-zero values trade transient transparency
 /// for a fixed delay matching standard external lookahead limiters.
 /// </para>
