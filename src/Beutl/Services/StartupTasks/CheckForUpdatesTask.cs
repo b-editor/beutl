@@ -135,7 +135,7 @@ public sealed class CheckForUpdatesTask : StartupTask
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger.LogError(ex, "Failed to open URL: {Url}", url);
-            NotificationService.ShowError(Strings.Open, MessageStrings.OperationFailed);
+            NotificationService.ShowError(Strings.Error, ex.Message);
         }
     }
 
@@ -145,7 +145,9 @@ public sealed class CheckForUpdatesTask : StartupTask
         {
             return await _beutlApiApplication.CheckForUpdatesAsync(BeutlApplication.Version);
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        // TaskCanceledException is raised by HttpClient on timeout; we want to log/handle that
+        // like any other failure. Pure OperationCanceledException (e.g. app shutdown) bubbles up.
+        catch (Exception ex) when (ex is TaskCanceledException || ex is not OperationCanceledException)
         {
             activity?.SetStatus(ActivityStatusCode.Error);
             _logger.LogError(ex, "An error occurred while checking for updates");

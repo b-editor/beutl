@@ -41,9 +41,9 @@ finish-args:
 
 # No top-level cleanup: this manifest does not build native dependencies, it only
 # copies the prebuilt self-contained .NET output. Glob patterns like '*.a' would risk
-# matching .NET runtime artifacts (e.g. libSystem.Globalization.Native.a in some AOT
-# scenarios), and the directory rules (/include, /lib/pkgconfig, /man, ...) would all
-# be no-ops because nothing is generated there.
+# matching prebuilt static libraries shipped under runtimes/*/native/, and the directory
+# rules (/include, /lib/pkgconfig, /man, ...) would all be no-ops because nothing is
+# generated there.
 
 modules:
   - name: beutl
