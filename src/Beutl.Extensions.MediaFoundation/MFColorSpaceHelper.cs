@@ -1,4 +1,4 @@
-using Beutl.Media;
+﻿using Beutl.Media;
 using Vortice.MediaFoundation;
 
 #if MF_BUILD_IN

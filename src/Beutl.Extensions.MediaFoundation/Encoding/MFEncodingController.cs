@@ -1,4 +1,4 @@
-using System.Runtime.Versioning;
+﻿using System.Runtime.Versioning;
 using Beutl.Extensibility;
 using Beutl.Logging;
 using Beutl.Media;
@@ -9,6 +9,7 @@ using Vortice.MediaFoundation;
 
 #if MF_BUILD_IN
 namespace Beutl.Embedding.MediaFoundation.Encoding;
+
 using Beutl.Embedding.MediaFoundation;
 using Beutl.Embedding.MediaFoundation.Decoding;
 #else

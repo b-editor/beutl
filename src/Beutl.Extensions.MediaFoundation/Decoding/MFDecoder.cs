@@ -20,6 +20,7 @@ using WAVEFORMATEX = Windows.Win32.Media.Audio.WAVEFORMATEX;
 
 #if MF_BUILD_IN
 namespace Beutl.Embedding.MediaFoundation.Decoding;
+
 using Beutl.Embedding.MediaFoundation;
 #else
 namespace Beutl.Extensions.MediaFoundation.Decoding;

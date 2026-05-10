@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 
 #if MF_BUILD_IN
 namespace Beutl.Embedding.MediaFoundation;

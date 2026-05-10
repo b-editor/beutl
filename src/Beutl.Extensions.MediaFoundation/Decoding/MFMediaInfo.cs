@@ -1,4 +1,4 @@
-using System.Text;
+﻿using System.Text;
 using Vortice.MediaFoundation;
 using Vortice.Multimedia;
 using Vortice.Win32;
