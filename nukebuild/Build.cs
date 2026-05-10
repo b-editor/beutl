@@ -180,9 +180,15 @@ class Build : NukeBuild
             // Copy logo into the manifest directory so flatpak-builder can install it.
             logoSvg.Copy(iconSvg, ExistsPolicy.FileOverwrite);
 
-            // Substitute version/date placeholders in the metainfo (write to a temp copy
-            // first so the working tree stays clean if the build aborts).
+            // The metainfo is templated in place because flatpak-builder reads it from disk;
+            // the original is restored in the finally block below.
             string metainfoText = File.ReadAllText(metainfo);
+            if (!metainfoText.Contains("VERSION_PLACEHOLDER") || !metainfoText.Contains("DATE_PLACEHOLDER"))
+            {
+                throw new InvalidOperationException(
+                    $"Expected placeholders not found in {metainfo}. " +
+                    "VERSION_PLACEHOLDER and DATE_PLACEHOLDER must be present for substitution.");
+            }
             string substituted = metainfoText
                 .Replace("VERSION_PLACEHOLDER", Version)
                 .Replace("DATE_PLACEHOLDER", DateTime.UtcNow.ToString("yyyy-MM-dd"));

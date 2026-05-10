@@ -56,25 +56,14 @@ public sealed class CheckForUpdatesTask : StartupTask
                         _logger.LogInformation("A new version is available: {DownloadUrl}", v3.DownloadUrl);
                         if (IsFlatpak())
                         {
-                            // /app is read-only in Flatpak; UpdateDialog would invoke update.sh
-                            // and overwrite AppContext.BaseDirectory which always fails.
-                            // Direct users to the release page instead — flatpak update is the supported path.
-                            string? releaseUrl = v3.Url ?? v3.DownloadUrl;
-                            if (!string.IsNullOrEmpty(releaseUrl))
-                            {
-                                NotificationService.ShowInformation(
-                                    MessageStrings.NewVersionAvailable,
-                                    releaseUrl,
-                                    onActionButtonClick: () =>
-                                    {
-                                        Process.Start(new ProcessStartInfo(releaseUrl) { UseShellExecute = true, Verb = "open" });
-                                    },
-                                    actionButtonText: Strings.Open);
-                            }
-                            else
-                            {
-                                _logger.LogWarning("New version is available but no release URL was provided.");
-                            }
+                            // /app is read-only in Flatpak; the in-app updater would overwrite
+                            // AppContext.BaseDirectory and always fail. Defer to `flatpak update`.
+                            string releaseUrl = v3.Url ?? v3.DownloadUrl ?? "https://github.com/b-editor/beutl/releases";
+                            NotificationService.ShowInformation(
+                                MessageStrings.NewVersionAvailable,
+                                releaseUrl,
+                                onActionButtonClick: () => OpenUrl(releaseUrl),
+                                actionButtonText: Strings.Open);
                         }
                         else
                         {
@@ -112,7 +101,23 @@ public sealed class CheckForUpdatesTask : StartupTask
 
     private static bool IsFlatpak()
     {
-        return !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("FLATPAK_ID"));
+        // /.flatpak-info is bind-mounted by the Flatpak runtime even when FLATPAK_ID is stripped
+        // (e.g. `flatpak run --command=bash` followed by re-exec).
+        return File.Exists("/.flatpak-info")
+            || !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("FLATPAK_ID"));
+    }
+
+    private void OpenUrl(string url)
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo(url) { UseShellExecute = true, Verb = "open" });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to open URL: {Url}", url);
+            NotificationService.ShowError(MessageStrings.OperationFailed, url);
+        }
     }
 
     private async ValueTask<(CheckForUpdatesResponse? V1, AppUpdateResponse? V3)> CheckForUpdates(Activity? activity)

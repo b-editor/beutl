@@ -11,7 +11,10 @@ finish-args:
   - --device=dri
   - --socket=pulseaudio
   - --share=network
-  - --filesystem=host
+  - --filesystem=home
+  - --filesystem=/run/media
+  - --filesystem=/media
+  - --filesystem=/mnt
   - --filesystem=xdg-config/fontconfig:ro
   - --filesystem=xdg-data/fonts:ro
   - --filesystem=~/.fonts:ro

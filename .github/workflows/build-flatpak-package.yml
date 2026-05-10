@@ -17,6 +17,10 @@ on:
         description: Run ID that published the artifacts
         value: ${{ jobs.build-flatpak-package.outputs.artifact-run-id }}
 
+defaults:
+  run:
+    shell: bash -euo pipefail {0}
+
 jobs:
   build-flatpak-package:
     runs-on: ubuntu-latest
@@ -59,9 +63,12 @@ jobs:
       - name: Inject version and date into metainfo
         run: |
           cd packages/flatpak
+          metainfo=net.beditor.Beutl.metainfo.xml
+          grep -q VERSION_PLACEHOLDER "$metainfo" || { echo "VERSION_PLACEHOLDER not found in $metainfo" >&2; exit 1; }
+          grep -q DATE_PLACEHOLDER "$metainfo"    || { echo "DATE_PLACEHOLDER not found in $metainfo"    >&2; exit 1; }
           TODAY=$(date -u +%Y-%m-%d)
-          sed -i "s/VERSION_PLACEHOLDER/${{ inputs.semVer }}/g" net.beditor.Beutl.metainfo.xml
-          sed -i "s/DATE_PLACEHOLDER/${TODAY}/g" net.beditor.Beutl.metainfo.xml
+          sed -i "s/VERSION_PLACEHOLDER/${{ inputs.semVer }}/g" "$metainfo"
+          sed -i "s/DATE_PLACEHOLDER/${TODAY}/g" "$metainfo"
 
       - name: Run flatpak-builder
         run: |
