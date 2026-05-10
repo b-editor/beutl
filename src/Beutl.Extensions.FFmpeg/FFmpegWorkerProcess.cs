@@ -129,6 +129,15 @@ public sealed class FFmpegWorkerProcess : IDisposable
                 await exitTask;
 
                 int code = _process.ExitCode;
+
+                // 敗者となった connectTask の例外を観測しておく（UnobservedTaskException 防止）
+                connectCts.Cancel();
+                _ = connectTask.ContinueWith(
+                    static t => { _ = t.Exception; },
+                    CancellationToken.None,
+                    TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
+                    TaskScheduler.Default);
+
                 pipeServer.Dispose();
                 if (code == 2)
                 {

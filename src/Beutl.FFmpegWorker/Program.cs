@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics;
 using System.IO.Pipes;
+using Beutl.FFmpegIpc;
 using Beutl.FFmpegIpc.Transport;
 using Beutl.Logging;
 using Microsoft.Extensions.Logging;
@@ -58,10 +59,15 @@ internal static class Program
         {
             FFmpegLoaderWorker.Initialize();
         }
+        catch (FFmpegLibrariesNotFoundException ex)
+        {
+            Console.Error.WriteLine($"FFmpeg libraries not found: {ex.Message}");
+            return 2;
+        }
         catch (Exception ex)
         {
-            Console.Error.WriteLine($"Failed to initialize FFmpeg: {ex.Message}");
-            return 2;
+            Console.Error.WriteLine($"Failed to initialize FFmpeg: {ex}");
+            return 4;
         }
 
         // 親プロセス監視（終了時はCancellationTokenでグレースフルシャットダウン）
