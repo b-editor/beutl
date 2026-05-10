@@ -133,9 +133,9 @@ public sealed class HistoryViewModel : IToolContext
     }
 
     // Mirrors a single CollectionChanged event from HistoryManager onto the
-    // UI-thread-bound _entries. Granular Add/Remove/Replace events let the
-    // ListBox preserve selection, scroll position, and virtualization caches
-    // instead of being torn down by a Reset on every commit.
+    // UI-thread-bound _entries. Granular Add/Remove/Replace/Move events let
+    // the ListBox preserve selection, scroll position, and virtualization
+    // caches instead of being torn down by a Reset on every commit.
     private void ApplyManagerChange(NotifyCollectionChangedEventArgs e)
     {
         try
@@ -176,12 +176,31 @@ public sealed class HistoryViewModel : IToolContext
                 case NotifyCollectionChangedAction.Replace when e.NewItems is not null:
                 {
                     int start = e.NewStartingIndex;
+                    if (start < 0)
+                    {
+                        ResyncEntries();
+                        break;
+                    }
                     for (int i = 0; i < e.NewItems.Count; i++)
                     {
                         if (e.NewItems[i] is HistoryEntry entry && start + i < _entries.Count)
                         {
                             _entries[start + i] = entry;
                         }
+                    }
+                    break;
+                }
+                case NotifyCollectionChangedAction.Move:
+                {
+                    if (e.OldStartingIndex < 0 || e.NewStartingIndex < 0
+                        || e.OldStartingIndex >= _entries.Count
+                        || e.NewStartingIndex >= _entries.Count)
+                    {
+                        ResyncEntries();
+                    }
+                    else
+                    {
+                        _entries.Move(e.OldStartingIndex, e.NewStartingIndex);
                     }
                     break;
                 }
@@ -194,14 +213,7 @@ public sealed class HistoryViewModel : IToolContext
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to apply HistoryManager.Entries change ({Action}); falling back to full resync", e.Action);
-            try
-            {
-                ResyncEntries();
-            }
-            catch (Exception resyncEx)
-            {
-                _logger.LogError(resyncEx, "Full resync of history entries also failed");
-            }
+            ResyncEntries();
         }
 
         SyncCurrentIndex();
@@ -214,8 +226,9 @@ public sealed class HistoryViewModel : IToolContext
         {
             snapshot = _historyManager.GetEntriesSnapshot();
         }
-        catch (ObjectDisposedException)
+        catch (ObjectDisposedException ex)
         {
+            _logger.LogDebug(ex, "ResyncEntries skipped — manager is disposed; clearing UI-side mirror");
             _entries.Clear();
             return;
         }
@@ -233,14 +246,15 @@ public sealed class HistoryViewModel : IToolContext
         {
             _currentIndex.Value = _historyManager.CurrentIndex;
         }
-        catch (ObjectDisposedException)
+        catch (ObjectDisposedException ex)
         {
+            _logger.LogDebug(ex, "SyncCurrentIndex skipped — manager is disposed");
         }
     }
 
     private void DispatchToUI(Action action)
     {
-        if (Dispatcher.UIThread.CheckAccess())
+        void RunGuarded()
         {
             try
             {
@@ -251,19 +265,14 @@ public sealed class HistoryViewModel : IToolContext
                 _logger.LogError(ex, "Unhandled exception in UI-thread history sync");
             }
         }
+
+        if (Dispatcher.UIThread.CheckAccess())
+        {
+            RunGuarded();
+        }
         else
         {
-            Dispatcher.UIThread.Post(() =>
-            {
-                try
-                {
-                    action();
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Unhandled exception in UI-thread history sync");
-                }
-            });
+            Dispatcher.UIThread.Post(RunGuarded);
         }
     }
 
