@@ -885,6 +885,59 @@ public class HistoryManagerTests
     }
 
     [Test]
+    public void JumpTo_WhenApplyThrowsMidForwardLoop_ShouldKeepFailingTransactionOnRedoStack()
+    {
+        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        _root.Value = 0;
+
+        CreateValueOperation(manager, 100, 0, "Step1");
+        manager.Commit("Step1");
+        CreateValueOperation(manager, 200, 100, "Step2");
+        manager.Commit("Step2");
+
+        // Faulty's first Apply (the explicit pre-record call) succeeds; any
+        // subsequent Apply (e.g. via Redo / JumpTo forward) throws.
+        bool firstApply = true;
+        var faulty = CustomOperation.Create(
+            () =>
+            {
+                if (firstApply)
+                {
+                    firstApply = false;
+                    _root.Value = 300;
+                    return;
+                }
+                throw new InvalidOperationException("Boom");
+            },
+            () => _root.Value = 200,
+            _sequenceGenerator,
+            "Faulty");
+        faulty.Apply(new OperationExecutionContext(_root));
+        manager.Record(faulty);
+        manager.Commit("Faulty");
+
+        manager.JumpTo(0);
+        // After jumping back: undo=[], redo=[Step1, Step2, Faulty(top)]
+        Assert.That(manager.RedoCount, Is.EqualTo(3));
+
+        HistoryState? observed = null;
+        using var sub = manager.StateChanged.Subscribe(s => observed = s);
+
+        Assert.Throws<InvalidOperationException>(() => manager.JumpTo(3));
+
+        Assert.Multiple(() =>
+        {
+            // peek-then-pop keeps the throwing transaction on redo while the
+            // ones that already applied move to undo.
+            Assert.That(manager.UndoCount, Is.EqualTo(2));
+            Assert.That(manager.RedoCount, Is.EqualTo(1));
+            Assert.That(manager.PeekRedo()?.DisplayName, Is.EqualTo("Faulty"));
+            // Successful steps must still emit a state-change notification.
+            Assert.That(observed, Is.Not.Null);
+        });
+    }
+
+    [Test]
     public void JumpTo_WhenRevertThrowsMidLoop_ShouldNotifyForCompletedStepsAndRethrow()
     {
         using var manager = new HistoryManager(_root, _sequenceGenerator);
