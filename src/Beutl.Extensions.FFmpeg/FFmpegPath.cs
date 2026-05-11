@@ -2,11 +2,7 @@
 using System.Runtime.InteropServices;
 using System.Text;
 
-using Avalonia.Threading;
-
-using Beutl.Extensions.FFmpeg.Properties;
 using Beutl.Logging;
-using Beutl.Services;
 
 using FFmpeg.AutoGen.Abstractions;
 using FFmpeg.AutoGen.Bindings.DynamicallyLoaded;
@@ -63,11 +59,7 @@ public static class FFmpegLoader
         catch
         {
             s_isInitializationFailed = true;
-            NotificationService.ShowError(
-                Strings.FFmpegError,
-                Strings.Make_sure_you_have_FFmpeg_installed,
-                onActionButtonClick: ShowInstallDialog,
-                actionButtonText: Strings.Install);
+            FFmpegInstallNotifier.NotifyMissing();
         }
 
         static string GetVersionString(uint version)
@@ -96,21 +88,6 @@ public static class FFmpegLoader
                 };
                 s_ffmpegLogger.Log(convertedLevel, "{OriginalLevel} {FFmpegLog}", level, s.TrimEnd('\n').TrimEnd('\r'));
             });
-    }
-
-    private static void ShowInstallDialog()
-    {
-        Dispatcher.UIThread.Post(() =>
-        {
-            FFmpegInstallDialogViewModel viewModel = new();
-            FFmpegInstallDialog dialog = new()
-            {
-                DataContext = viewModel
-            };
-
-            dialog.ShowAsync();
-            viewModel.Start();
-        });
     }
 
     private static void FixDependencyIssue()

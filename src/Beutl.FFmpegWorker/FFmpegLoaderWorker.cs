@@ -1,6 +1,7 @@
 ﻿using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text;
+using Beutl.FFmpegIpc;
 using FFmpeg.AutoGen.Abstractions;
 using FFmpeg.AutoGen.Bindings.DynamicallyLoaded;
 
@@ -97,7 +98,7 @@ internal static class FFmpegLoaderWorker
                 return path;
         }
 
-        throw new InvalidOperationException("FFmpeg libraries not found");
+        throw new FFmpegLibrariesNotFoundException("FFmpeg libraries not found");
     }
 
     private static bool LibrariesExists(string basePath)

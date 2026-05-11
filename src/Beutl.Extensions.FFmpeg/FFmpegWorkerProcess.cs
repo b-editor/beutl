@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics;
 using System.IO.Pipes;
+using Beutl.FFmpegIpc;
 using Beutl.FFmpegIpc.Protocol;
 using Beutl.FFmpegIpc.Protocol.Messages;
 using Beutl.FFmpegIpc.Transport;
@@ -33,11 +34,15 @@ public sealed class FFmpegWorkerProcess : IDisposable
         if (_connection != null && _process is { HasExited: false })
             return _connection;
 
+        ThrowIfLibrariesMissing();
+
         _startLock.Wait();
         try
         {
             if (_connection != null && _process is { HasExited: false })
                 return _connection;
+
+            ThrowIfLibrariesMissing();
 
             // 同期コンテキストから非同期メソッドを呼び出す（タイムアウト付き）
             StartWorkerAsync(CancellationToken.None).GetAwaiter().GetResult();
@@ -54,11 +59,15 @@ public sealed class FFmpegWorkerProcess : IDisposable
         if (_connection != null && _process is { HasExited: false })
             return _connection;
 
+        ThrowIfLibrariesMissing();
+
         await _startLock.WaitAsync(ct);
         try
         {
             if (_connection != null && _process is { HasExited: false })
                 return _connection;
+
+            ThrowIfLibrariesMissing();
 
             await StartWorkerAsync(ct);
             return _connection!;
@@ -67,6 +76,17 @@ public sealed class FFmpegWorkerProcess : IDisposable
         {
             _startLock.Release();
         }
+    }
+
+    private static void ThrowIfLibrariesMissing()
+    {
+#if FFMPEG_OUT_OF_PROCESS
+        if (FFmpegInstallNotifier.IsLibrariesMissing)
+        {
+            throw new FFmpegLibrariesNotFoundException(
+                "FFmpeg libraries are missing; install FFmpeg before starting the worker.");
+        }
+#endif
     }
 
     private async Task StartWorkerAsync(CancellationToken ct)
@@ -114,11 +134,47 @@ public sealed class FFmpegWorkerProcess : IDisposable
             _process.BeginErrorReadLine();
             _process.BeginOutputReadLine();
 
-            // パイプ接続待機
+            // パイプ接続待機 + Worker早期終了検出
             using var connectCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
             connectCts.CancelAfter(TimeSpan.FromSeconds(30));
 
-            await pipeServer.WaitForConnectionAsync(connectCts.Token);
+            var connectTask = pipeServer.WaitForConnectionAsync(connectCts.Token);
+            var exitTask = _process.WaitForExitAsync(connectCts.Token);
+            var completed = await Task.WhenAny(connectTask, exitTask).ConfigureAwait(false);
+
+            if (completed == exitTask)
+            {
+                // キャンセル経由でexitTaskが完了した場合は OperationCanceledException を再スロー
+                await exitTask;
+
+                int code = _process.ExitCode;
+
+                // 敗者となった connectTask の例外を観測しておく（UnobservedTaskException 防止）
+                connectCts.Cancel();
+                _ = connectTask.ContinueWith(
+                    static t => { _ = t.Exception; },
+                    CancellationToken.None,
+                    TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
+                    TaskScheduler.Default);
+
+                pipeServer.Dispose();
+                if (code == 2)
+                {
+                    throw new FFmpegLibrariesNotFoundException(
+                        "FFmpeg worker exited because the FFmpeg libraries could not be found.");
+                }
+                throw new InvalidOperationException(
+                    $"FFmpeg worker exited unexpectedly with code {code} before establishing connection.");
+            }
+
+            // 接続が先に成立。例外があれば伝播させる
+            await connectTask;
+            // 敗者となった exitTask の例外を観測しておく（UnobservedTaskException 防止）
+            _ = exitTask.ContinueWith(
+                static t => { _ = t.Exception; },
+                CancellationToken.None,
+                TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
+                TaskScheduler.Default);
         }
         catch (OperationCanceledException)
         {

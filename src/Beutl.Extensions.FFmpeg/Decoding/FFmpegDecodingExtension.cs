@@ -2,6 +2,7 @@
 using System.ComponentModel.DataAnnotations;
 using Beutl.Extensibility;
 using Beutl.Extensions.FFmpeg.Properties;
+using Beutl.FFmpegIpc;
 using Beutl.FFmpegIpc.Protocol;
 using Beutl.FFmpegIpc.Protocol.Messages;
 using Beutl.Logging;
@@ -28,7 +29,15 @@ public class FFmpegDecodingExtension : DecodingExtension
 #if !FFMPEG_OUT_OF_PROCESS
         FFmpegLoader.Initialize();
 #else
-        FFmpegWorkerProcess.DecodingInstance.EnsureStarted();
+        try
+        {
+            FFmpegWorkerProcess.DecodingInstance.EnsureStarted();
+        }
+        catch (FFmpegLibrariesNotFoundException ex)
+        {
+            _logger.LogWarning(ex, "FFmpeg libraries not found; prompting install.");
+            FFmpegInstallNotifier.NotifyMissing();
+        }
         Settings.PropertyChanged += OnSettingsPropertyChanged;
 #endif
         base.Load();

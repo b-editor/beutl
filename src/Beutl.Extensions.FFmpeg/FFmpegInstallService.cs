@@ -678,6 +678,9 @@ public class FFmpegInstallService
         ProgressTextChanged?.Invoke(Strings.Verifying_FFmpeg_installation);
         IndeterminateChanged?.Invoke(true);
 
+        // 検証のため missing フラグを一旦クリアし、ワーカー起動を許可する
+        FFmpegInstallNotifier.MarkInstalled();
+
         bool verified = false;
 #if FFMPEG_OUT_OF_PROCESS
         // Workerプロセスを起動してFFmpegの初期化が成功するか確認
@@ -725,6 +728,8 @@ public class FFmpegInstallService
         }
         else
         {
+            // 検証に失敗したので missing フラグを立て直し、無駄な再起動を防ぐ
+            FFmpegInstallNotifier.MarkMissing();
             ProgressTextChanged?.Invoke(Strings.FFmpeg_verification_failed);
             Completed?.Invoke(false);
         }

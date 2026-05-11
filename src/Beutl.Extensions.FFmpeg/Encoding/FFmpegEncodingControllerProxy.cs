@@ -3,6 +3,7 @@ using Beutl.FFmpegIpc;
 using Beutl.FFmpegIpc.Protocol;
 using Beutl.FFmpegIpc.Protocol.Messages;
 using Beutl.FFmpegIpc.SharedMemory;
+using Beutl.FFmpegIpc.Transport;
 using Beutl.Logging;
 using Beutl.Media;
 using Microsoft.Extensions.Logging;
@@ -22,7 +23,16 @@ public class FFmpegEncodingControllerProxy(string outputFile, FFmpegEncodingSett
         IFrameProvider frameProvider, ISampleProvider sampleProvider, CancellationToken cancellationToken)
     {
         using var worker = FFmpegWorkerProcess.CreateForEncoding();
-        var connection = await worker.EnsureStartedAsync(cancellationToken);
+        IpcConnection connection;
+        try
+        {
+            connection = await worker.EnsureStartedAsync(cancellationToken);
+        }
+        catch (FFmpegLibrariesNotFoundException)
+        {
+            FFmpegInstallNotifier.NotifyMissing();
+            throw;
+        }
 
         // エンコード設定をシリアライズ
         var startRequest = new EncodeStartRequest
