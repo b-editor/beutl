@@ -11,8 +11,7 @@ internal sealed class FFmpegWorkerLogPump : IDisposable
 {
     private const int DefaultCapacity = 1024;
 
-    private static readonly ILogger s_logger = Log.CreateLogger("FFmpegWorker");
-
+    private readonly ILogger _logger = Log.CreateLogger("FFmpegWorker");
     private readonly Channel<(string Channel, string Data)> _channel;
     private readonly CancellationTokenSource _cts = new();
     private readonly Task _consumer;
@@ -70,12 +69,12 @@ internal sealed class FFmpegWorkerLogPump : IDisposable
         }
     }
 
-    private static void Dispatch(string channel, string data)
+    private void Dispatch(string channel, string data)
     {
         try
         {
             var (level, message) = ParseLevel(channel, data);
-            s_logger.Log(level, "{Channel} {Message}", channel, message);
+            _logger.Log(level, "{Channel} {Message}", channel, message);
         }
         catch (Exception ex)
         {
