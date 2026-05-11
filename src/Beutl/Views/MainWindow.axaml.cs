@@ -62,8 +62,17 @@ public sealed partial class MainWindow : AppWindow
         mainView.Focus();
     }
 
+    private bool _captureStopped;
+
     protected override void OnClosing(WindowClosingEventArgs e)
     {
+        if (!_captureStopped && mainView is { HasActiveCapture: true } mv)
+        {
+            e.Cancel = true;
+            _ = StopCaptureAndCloseAsync(mv);
+            return;
+        }
+
         base.OnClosing(e);
         ViewConfig viewConfig = GlobalConfiguration.Instance.ViewConfig;
         viewConfig.WindowSize = ((int)ClientSize.Width, (int)ClientSize.Height);
@@ -74,5 +83,12 @@ public sealed partial class MainWindow : AppWindow
         {
             viewModel.Dispose();
         }
+    }
+
+    private async Task StopCaptureAndCloseAsync(MainView mv)
+    {
+        await mv.EnsureCaptureStoppedAsync();
+        _captureStopped = true;
+        Close();
     }
 }

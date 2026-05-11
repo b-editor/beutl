@@ -7,10 +7,12 @@ using Beutl.Language;
 using Beutl.Logging;
 using Beutl.Pages;
 using Beutl.Services;
+using Beutl.Services.WindowCapture;
 using Beutl.Services.PrimitiveImpls;
 using Beutl.Services.Tutorials;
 using Beutl.Utilities;
 using Beutl.ViewModels;
+using Beutl.ViewModels.Dialogs;
 using Beutl.Views.Dialogs;
 using Beutl.Views.Tutorial;
 using DynamicData;
@@ -28,6 +30,7 @@ public sealed partial class MainView : UserControl
     private readonly ILogger<MainView> _logger = Log.CreateLogger<MainView>();
     private readonly CompositeDisposable _disposables = [];
     private readonly Dictionary<ToolWindowExtension, List<Window>> _openToolWindows = new();
+    private WindowCaptureSession? _captureSession;
 
     public MainView()
     {
@@ -460,6 +463,93 @@ public sealed partial class MainView : UserControl
     private void ThrowUnhandledException_Click(object? sender, RoutedEventArgs e)
     {
         throw new Exception("An unhandled exception occurred.");
+    }
+
+    [Conditional("DEBUG")]
+    private async void StartWindowCapture_Click(object? sender, RoutedEventArgs e)
+    {
+        if (_captureSession is not null)
+        {
+            NotificationService.ShowWarning(
+                "Window Capture",
+                "A capture session is already running. Stop it before starting a new one.");
+            return;
+        }
+
+        if (TopLevel.GetTopLevel(this) is not Window window)
+            return;
+
+        string? ffmpegPath = FFmpegBinaryLocator.Find();
+        if (ffmpegPath is null)
+        {
+            NotificationService.ShowError(
+                "Window Capture",
+                "ffmpeg executable was not found. Install ffmpeg and ensure it is on PATH.");
+            return;
+        }
+
+        var dialogVm = new WindowCaptureDialogViewModel();
+        var dialog = new WindowCaptureDialog { DataContext = dialogVm };
+        ContentDialogResult result = await dialog.ShowAsync();
+        if (result != ContentDialogResult.Primary || !dialogVm.CanStart.Value)
+            return;
+
+        try
+        {
+            var session = new WindowCaptureSession(
+                window,
+                dialogVm.Scale.Value,
+                dialogVm.FrameRate.Value,
+                dialogVm.OutputPath.Value!,
+                ffmpegPath);
+            session.Start();
+            _captureSession = session;
+
+            NotificationService.ShowInformation(
+                "Window Capture",
+                $"Recording started: {session.Width}x{session.Height} @ {session.FrameRate}fps");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to start window capture.");
+            NotificationService.ShowError("Window Capture", ex.Message);
+        }
+    }
+
+    [Conditional("DEBUG")]
+    private async void StopWindowCapture_Click(object? sender, RoutedEventArgs e)
+    {
+        WindowCaptureSession? session = _captureSession;
+        if (session is null)
+        {
+            NotificationService.ShowWarning("Window Capture", "No active capture session.");
+            return;
+        }
+
+        _captureSession = null;
+        try
+        {
+            await session.StopAsync();
+            NotificationService.ShowSuccess(
+                "Window Capture",
+                $"Saved: {session.OutputPath}\nCaptured {session.CapturedFrameCount} frames (dropped {session.DroppedFrameCount}).");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to stop window capture.");
+            NotificationService.ShowError("Window Capture", ex.Message);
+        }
+    }
+
+    internal bool HasActiveCapture => _captureSession is not null;
+
+    internal async Task EnsureCaptureStoppedAsync()
+    {
+        WindowCaptureSession? session = _captureSession;
+        if (session is null) return;
+        _captureSession = null;
+        try { await session.StopAsync(); }
+        catch (Exception ex) { _logger.LogWarning(ex, "Failed to stop capture during shutdown."); }
     }
 
     private async void GoToInformationPage(object? sender, RoutedEventArgs e)
