@@ -134,9 +134,57 @@ internal sealed class WindowCaptureSession : IAsyncDisposable
 
         _channel.Writer.TryComplete();
 
-        // Close stdin BEFORE awaiting the writer task. If ffmpeg has stalled and the
-        // pipe is full, the writer may be blocked inside WriteAsync; closing stdin
-        // unblocks it (and signals ffmpeg to finalize the file).
+        // First give the writer a chance to drain queued frames into ffmpeg. Closing
+        // stdin up front would make any in-flight WriteAsync fail with IOException
+        // and discard the tail of the recording (up to BufferPoolSize frames).
+        if (_writerTask is { } wt)
+        {
+            bool drained = false;
+            try
+            {
+                using var drainCts = new CancellationTokenSource(StopTimeout);
+                await wt.WaitAsync(drainCts.Token).ConfigureAwait(false);
+                drained = true;
+            }
+            catch (OperationCanceledException)
+            {
+                // Writer is stuck — most likely blocked inside stdin.WriteAsync because
+                // ffmpeg has stalled and the pipe is full. Close stdin to unblock it,
+                // then wait again with a fresh timeout.
+                _logger.LogWarning(
+                    "Writer task did not drain within {Timeout}; closing ffmpeg stdin to unblock.",
+                    StopTimeout);
+            }
+            catch (Exception ex) { _logger.LogWarning(ex, "Window capture writer task ended with error."); }
+
+            if (!drained)
+            {
+                if (_process is { } stuckProc)
+                {
+                    try
+                    {
+                        if (!stuckProc.HasExited)
+                            stuckProc.StandardInput.Close();
+                    }
+                    catch (Exception ex) { _logger.LogWarning(ex, "Failed to close ffmpeg stdin."); }
+                }
+
+                try
+                {
+                    using var unblockCts = new CancellationTokenSource(StopTimeout);
+                    await wt.WaitAsync(unblockCts.Token).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException)
+                {
+                    _encoderFailed = true;
+                    _logger.LogWarning("Window capture writer task did not complete within {Timeout}.", StopTimeout);
+                }
+                catch (Exception ex) { _logger.LogWarning(ex, "Window capture writer task ended with error."); }
+            }
+        }
+
+        // After the writer has finished (or been forced to give up), make sure stdin
+        // is closed so ffmpeg can finalize the output file.
         if (_process is { } procForStdin)
         {
             try
@@ -145,21 +193,6 @@ internal sealed class WindowCaptureSession : IAsyncDisposable
                     procForStdin.StandardInput.Close();
             }
             catch (Exception ex) { _logger.LogWarning(ex, "Failed to close ffmpeg stdin."); }
-        }
-
-        if (_writerTask is { } wt)
-        {
-            try
-            {
-                using var writerCts = new CancellationTokenSource(StopTimeout);
-                await wt.WaitAsync(writerCts.Token).ConfigureAwait(false);
-            }
-            catch (OperationCanceledException)
-            {
-                _encoderFailed = true;
-                _logger.LogWarning("Window capture writer task did not complete within {Timeout}.", StopTimeout);
-            }
-            catch (Exception ex) { _logger.LogWarning(ex, "Window capture writer task ended with error."); }
         }
 
         int exitCode = -1;
