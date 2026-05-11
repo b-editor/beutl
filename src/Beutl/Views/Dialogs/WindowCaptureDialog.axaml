@@ -27,6 +27,8 @@
                 <sys:Double>1.0</sys:Double>
                 <sys:Double>1.5</sys:Double>
                 <sys:Double>2.0</sys:Double>
+                <sys:Double>4.0</sys:Double>
+                <sys:Double>6.0</sys:Double>
             </ComboBox>
         </StackPanel>
 
