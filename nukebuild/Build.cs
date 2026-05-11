@@ -1,5 +1,4 @@
 ﻿using System.Text;
-using System.Text.Json.Nodes;
 using Nuke.Common.Tools.InnoSetup;
 using static Nuke.Common.Tools.InnoSetup.InnoSetupTasks;
 
@@ -142,95 +141,6 @@ class Build : NukeBuild
             fileName.Append(".zip");
 
             mainOutput.CompressTo(ArtifactsDirectory / fileName.ToString());
-        });
-
-    Target PackageFlatpak => _ => _
-        .Description("Build a Flatpak bundle from the existing linux-x64 standalone zip. Linux-only; requires flatpak and flatpak-builder.")
-        .Executes(() =>
-        {
-            if (!OperatingSystem.IsLinux())
-            {
-                throw new InvalidOperationException(
-                    "PackageFlatpak target requires a Linux host with flatpak-builder installed.");
-            }
-
-            AbsolutePath flatpakDir = RootDirectory / "packages" / "flatpak";
-            AbsolutePath sourcesDir = flatpakDir / "sources";
-            AbsolutePath manifest = flatpakDir / "net.beditor.Beutl.yml";
-            AbsolutePath buildDir = flatpakDir / "build-dir";
-            AbsolutePath repoDir = flatpakDir / "repo";
-            AbsolutePath logoSvg = RootDirectory / "assets" / "logos" / "logo.svg";
-            AbsolutePath iconSvg = flatpakDir / "net.beditor.Beutl.svg";
-            AbsolutePath metainfo = flatpakDir / "net.beditor.Beutl.metainfo.xml";
-
-            string zipName = $"Beutl-linux-x64-standalone-{Version}.zip";
-            AbsolutePath zipPath = ArtifactsDirectory / zipName;
-            if (!zipPath.FileExists())
-            {
-                throw new FileNotFoundException(
-                    $"Required artifact not found: {zipPath}. " +
-                    "Run Zip target first with --runtime linux-x64 --self-contained true.");
-            }
-
-            sourcesDir.CreateOrCleanDirectory();
-            AbsolutePath staging = sourcesDir / "Beutl-linux-x64-standalone";
-            zipPath.UnZipTo(staging);
-
-            // Tag the metadata as type=flatpak so the update API can return Flatpak-channel
-            // release info (instead of the standalone-zip channel). The client just forwards
-            // metadata.Type to IAppClient.GetUpdate as a query parameter; the actual channel
-            // selection happens server-side.
-            AbsolutePath assetMetadata = staging / "asset_metadata.json";
-            JsonObject metadataNode = JsonNode.Parse(File.ReadAllText(assetMetadata)) as JsonObject
-                ?? throw new InvalidOperationException(
-                    $"Expected a JSON object in {assetMetadata}, but got a different node kind.");
-            metadataNode["id"] = Guid.NewGuid().ToString();
-            metadataNode["type"] = "flatpak";
-            File.WriteAllText(assetMetadata, metadataNode.ToJsonString());
-
-            logoSvg.Copy(iconSvg, ExistsPolicy.FileOverwrite);
-
-            // flatpak-builder copies net.beditor.Beutl.metainfo.xml from the working tree as a
-            // manifest source (sources: type: file), so version/date placeholders must be
-            // substituted in place. The finally block restores the original file so this target
-            // leaves no working-tree changes (the generated svg is .gitignored).
-            string metainfoText = File.ReadAllText(metainfo);
-            if (!metainfoText.Contains("VERSION_PLACEHOLDER") || !metainfoText.Contains("DATE_PLACEHOLDER"))
-            {
-                throw new InvalidOperationException(
-                    $"Expected placeholders not found in {metainfo}. " +
-                    "VERSION_PLACEHOLDER and DATE_PLACEHOLDER must be present for substitution.");
-            }
-            string substituted = metainfoText
-                .Replace("VERSION_PLACEHOLDER", Version)
-                .Replace("DATE_PLACEHOLDER", DateTime.UtcNow.ToString("yyyy-MM-dd"));
-            File.WriteAllText(metainfo, substituted);
-
-            try
-            {
-                buildDir.CreateOrCleanDirectory();
-                repoDir.CreateOrCleanDirectory();
-
-                StartProcess(
-                    "flatpak-builder",
-                    $"--user --force-clean --disable-rofiles-fuse --install-deps-from=flathub --repo=\"{repoDir}\" \"{buildDir}\" \"{manifest}\"",
-                    workingDirectory: flatpakDir)
-                    .AssertZeroExitCode();
-
-                AbsolutePath outBundle = ArtifactsDirectory / $"Beutl-{Version}.flatpak";
-                outBundle.DeleteFile();
-                // --runtime-repo embeds the Flathub repo URL so the bundle can resolve
-                // org.freedesktop.Platform//24.08 on machines without Flathub configured.
-                StartProcess(
-                    "flatpak",
-                    $"build-bundle --runtime-repo=https://flathub.org/repo/flathub.flatpakrepo \"{repoDir}\" \"{outBundle}\" net.beditor.Beutl",
-                    workingDirectory: flatpakDir)
-                    .AssertZeroExitCode();
-            }
-            finally
-            {
-                File.WriteAllText(metainfo, metainfoText);
-            }
         });
 
     Target BuildInstaller => _ => _

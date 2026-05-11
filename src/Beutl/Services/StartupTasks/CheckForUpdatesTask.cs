@@ -149,17 +149,18 @@ public sealed class CheckForUpdatesTask : StartupTask
         {
             return await _beutlApiApplication.CheckForUpdatesAsync(BeutlApplication.Version);
         }
-        // TaskCanceledException is raised by HttpClient on timeout; we want to log/notify that
-        // like any other failure. Pure OperationCanceledException (e.g. app shutdown) bubbles up.
-        catch (Exception ex) when (ex is TaskCanceledException || ex is not OperationCanceledException)
+        catch (Exception ex)
         {
             activity?.SetStatus(ActivityStatusCode.Error);
             _logger.LogError(ex, "An error occurred while checking for updates");
-            if (ex is TaskCanceledException)
+            if (ex is OperationCanceledException)
             {
-                // DefaultExceptionHandler.Handle silently swallows OperationCanceledException
-                // and all its subclasses, so notify the user directly for HTTP timeouts.
-                NotificationService.ShowError(Strings.Error, ex.Message);
+                // HttpClient timeouts surface as TaskCanceledException or, on modern .NET,
+                // sometimes as plain OperationCanceledException. No external CancellationToken
+                // is passed here, so any OCE is effectively a network timeout — show a
+                // localized message instead of the generic "A task was canceled." text, and
+                // skip DefaultExceptionHandler.Handle, which silently swallows OCE subclasses.
+                NotificationService.ShowError(Strings.Error, MessageStrings.UpdateCheckTimedOut);
             }
             else
             {

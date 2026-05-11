@@ -29,7 +29,6 @@
         "Clean",
         "Compile",
         "NuGetPack",
-        "PackageFlatpak",
         "Publish",
         "Restore",
         "Zip"
