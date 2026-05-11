@@ -43,7 +43,7 @@ internal static class FFmpegLoaderWorker
     private static void SetupLogging()
     {
         FFmpegSharp.FFmpegLog.SetupLogging(
-#if RELEASE
+#if !DEBUG
             logLevel: FFmpegSharp.LogLevel.Warning,
 #endif
             logFlags: FFmpegSharp.LogFlags.SkipRepeated | FFmpegSharp.LogFlags.PrintLevel,
