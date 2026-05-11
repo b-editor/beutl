@@ -136,6 +136,9 @@ because the new name conflicts with an existing folder.</value>
   <data name="NewVersionAvailable" xml:space="preserve">
     <value>A new version is available.</value>
   </data>
+  <data name="UpdateCheckTimedOut" xml:space="preserve">
+    <value>Update check timed out. Please check your network connection.</value>
+  </data>
   <data name="RestoreFailedTypeNotFound" xml:space="preserve">
     <value>Could not restore because the type could not be found.</value>
   </data>

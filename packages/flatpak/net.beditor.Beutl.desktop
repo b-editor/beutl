@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Beutl
+GenericName=Video Editor
+Comment=Cross-platform compositing video editor
+Exec=beutl %U
+Icon=net.beditor.Beutl
+Terminal=false
+Categories=AudioVideo;Video;AudioVideoEditing;
+StartupNotify=true
+StartupWMClass=Beutl

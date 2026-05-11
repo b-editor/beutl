@@ -1,0 +1,122 @@
+name: Build Flatpak Package
+
+on:
+  workflow_call:
+    inputs:
+      semVer:
+        required: true
+        type: string
+      nugetVer:
+        required: true
+        type: string
+    outputs:
+      artifact-run-id:
+        description: Run ID that published the artifacts
+        value: ${{ jobs.build-flatpak-package.outputs.artifact-run-id }}
+
+defaults:
+  run:
+    shell: bash -euo pipefail {0}
+
+jobs:
+  build-flatpak-package:
+    runs-on: ubuntu-latest
+    outputs:
+      artifact-run-id: ${{ steps.run-id.outputs.run-id }}
+
+    steps:
+      - name: Set artifact run id
+        id: run-id
+        run: echo "run-id=${{ github.run_id }}" >> $GITHUB_OUTPUT
+
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install flatpak toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y flatpak flatpak-builder appstream-util desktop-file-utils
+          flatpak remote-add --if-not-exists --user flathub \
+            https://flathub.org/repo/flathub.flatpakrepo
+
+      - name: Cache Flatpak runtimes and builder cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.local/share/flatpak
+            packages/flatpak/.flatpak-builder
+          key: flatpak-${{ runner.os }}-${{ hashFiles('packages/flatpak/net.beditor.Beutl.yml') }}
+          restore-keys: |
+            flatpak-${{ runner.os }}-
+
+      - name: Download Linux executable artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: beutl-linux_x64-standalone-${{ inputs.semVer }}
+          path: artifacts
+
+      - name: Stage source for flatpak-builder
+        run: |
+          mkdir -p packages/flatpak/sources/Beutl-linux-x64-standalone
+          unzip -q "${{ github.workspace }}/artifacts/Beutl-linux-x64-standalone-${{ inputs.nugetVer }}.zip" \
+            -d packages/flatpak/sources/Beutl-linux-x64-standalone
+
+      - name: Update asset metadata
+        run: |
+          cd packages/flatpak/sources/Beutl-linux-x64-standalone
+          ASSET_METADATA_ID=$(uuidgen)
+          jq --arg id "$ASSET_METADATA_ID" '.id=$id | .type="flatpak"' \
+            asset_metadata.json > asset_metadata_tmp.json
+          mv asset_metadata_tmp.json asset_metadata.json
+          cat asset_metadata.json
+
+      - name: Copy logo as Flatpak icon
+        run: cp assets/logos/logo.svg packages/flatpak/net.beditor.Beutl.svg
+
+      - name: Inject version and date into metainfo
+        run: |
+          cd packages/flatpak
+          metainfo=net.beditor.Beutl.metainfo.xml
+          grep -q VERSION_PLACEHOLDER "$metainfo" || { echo "VERSION_PLACEHOLDER not found in $metainfo" >&2; exit 1; }
+          grep -q DATE_PLACEHOLDER "$metainfo"    || { echo "DATE_PLACEHOLDER not found in $metainfo"    >&2; exit 1; }
+          TODAY=$(date -u +%Y-%m-%d)
+          sed -i "s/VERSION_PLACEHOLDER/${{ inputs.semVer }}/g" "$metainfo"
+          sed -i "s/DATE_PLACEHOLDER/${TODAY}/g" "$metainfo"
+
+      - name: Validate AppStream metainfo and desktop file
+        run: |
+          cd packages/flatpak
+          # validate-relax skips a few non-fatal warnings (e.g. missing developer URL) that
+          # would otherwise fail strict validation but do not block Flathub submission.
+          appstream-util validate-relax net.beditor.Beutl.metainfo.xml
+          desktop-file-validate net.beditor.Beutl.desktop
+
+      - name: Run flatpak-builder
+        run: |
+          cd packages/flatpak
+          # --install-deps-from=flathub auto-installs the runtime/SDK, so no separate
+          # `flatpak install` step is needed; the cache step above keeps it warm across runs.
+          flatpak-builder --user --force-clean \
+            --disable-rofiles-fuse \
+            --install-deps-from=flathub \
+            --repo=repo build-dir \
+            net.beditor.Beutl.yml
+
+      - name: Build single-file bundle
+        run: |
+          cd packages/flatpak
+          # --runtime-repo embeds the Flathub repo URL in the bundle so the runtime
+          # (org.freedesktop.Platform//24.08) can be resolved on machines that do not
+          # already have Flathub configured. Without it, `flatpak install` of the
+          # standalone .flatpak fails on clean systems.
+          flatpak build-bundle repo \
+            --runtime-repo=https://flathub.org/repo/flathub.flatpakrepo \
+            "${{ github.workspace }}/artifacts/Beutl-${{ inputs.semVer }}.flatpak" \
+            net.beditor.Beutl
+
+      - name: Upload Flatpak artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: beutl-flatpak-${{ inputs.semVer }}
+          path: ${{ github.workspace }}/artifacts/Beutl-${{ inputs.semVer }}.flatpak
+          if-no-files-found: error

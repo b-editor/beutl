@@ -1,0 +1,62 @@
+app-id: net.beditor.Beutl
+runtime: org.freedesktop.Platform
+runtime-version: '24.08'
+sdk: org.freedesktop.Sdk
+command: beutl
+
+finish-args:
+  # --socket=x11 / --device=dri: display + GPU access for Avalonia/Skia rendering.
+  # Avalonia ships only an X11 backend on Linux, so we need an X11 socket on every
+  # session. --socket=fallback-x11 is *not* enough: on a Wayland host it is suppressed
+  # (because a Wayland socket is provided), and Avalonia would then fail with
+  # `XOpenDisplay failed`. --socket=x11 forces the X11 socket to always be mounted,
+  # which on Wayland sessions transparently routes through XWayland.
+  # --socket=wayland is kept so future Avalonia Wayland support (or embedded helper
+  # processes that prefer Wayland) can opt in without another permission change.
+  # --share=ipc: required by the X11 MIT-SHM extension for efficient frame transfer;
+  # also recommended by Flatpak docs for GUI apps.
+  - --socket=x11
+  - --socket=wayland
+  - --share=ipc
+  - --device=dri
+  # Audio playback during preview/export (PulseAudio/PipeWire via the pulse socket).
+  - --socket=pulseaudio
+  # Network for the Beutl API client (extension/package manager, update check, telemetry exporter).
+  - --share=network
+  # Full host filesystem access: covers project files anywhere on disk, external
+  # drives (/run/media, /media, /mnt), and host fonts/fontconfig.
+  - --filesystem=host
+
+# No top-level cleanup: this manifest does not build native dependencies, it only
+# copies the prebuilt self-contained .NET output. Glob patterns like '*.a' would risk
+# matching prebuilt static libraries shipped under runtimes/*/native/, and the directory
+# rules (/include, /lib/pkgconfig, /man, ...) would all be no-ops because nothing is
+# generated there.
+
+modules:
+  - name: beutl
+    buildsystem: simple
+    build-commands:
+      - mkdir -p /app/lib/beutl
+      - cp -r beutl-bin/. /app/lib/beutl/
+      - chmod +x /app/lib/beutl/Beutl
+      - chmod +x /app/lib/beutl/Beutl.ExceptionHandler
+      - chmod +x /app/lib/beutl/Beutl.PackageTools.UI
+      - chmod +x /app/lib/beutl/Beutl.WaitingDialog
+      - chmod +x /app/lib/beutl/Beutl.FFmpegWorker
+      - install -Dm755 beutl-launcher.sh /app/bin/beutl
+      - install -Dm644 net.beditor.Beutl.desktop /app/share/applications/net.beditor.Beutl.desktop
+      - install -Dm644 net.beditor.Beutl.metainfo.xml /app/share/metainfo/net.beditor.Beutl.metainfo.xml
+      - install -Dm644 net.beditor.Beutl.svg /app/share/icons/hicolor/scalable/apps/net.beditor.Beutl.svg
+    sources:
+      - type: dir
+        path: sources/Beutl-linux-x64-standalone
+        dest: beutl-bin
+      - type: file
+        path: beutl-launcher.sh
+      - type: file
+        path: net.beditor.Beutl.desktop
+      - type: file
+        path: net.beditor.Beutl.metainfo.xml
+      - type: file
+        path: net.beditor.Beutl.svg
