@@ -5,9 +5,13 @@
     <RuntimeIdentifiers>win-x64;linux-x64;osx-x64;osx-arm64</RuntimeIdentifiers>
     <FFmpegBuildIn Condition="'$(FFmpegBuildIn)' == ''">True</FFmpegBuildIn>
     <MFBuildIn Condition="'$(MFBuildIn)' == '' And $(TargetFramework.Contains('windows'))">True</MFBuildIn>
+    <!-- AVFoundationはmacOS専用。osx-* RID向けpublish時、または非Windows TFMの開発ビルド
+         (RID未指定) のときに含める。Linux/Windows向けpublishでは除外する。 -->
+    <AVFBuildIn Condition="'$(AVFBuildIn)' == '' And !$(TargetFramework.Contains('windows')) And ('$(RuntimeIdentifier)' == '' Or $(RuntimeIdentifier.StartsWith('osx')))">True</AVFBuildIn>
     <FFmpegOutOfProcess Condition="'$(FFmpegOutOfProcess)' == ''">True</FFmpegOutOfProcess>
     <DefineConstants Condition="'$(FFmpegBuildIn)'=='True'">$(DefineConstants);FFMPEG_BUILD_IN</DefineConstants>
     <DefineConstants Condition="'$(MFBuildIn)'=='True'">$(DefineConstants);MF_BUILD_IN</DefineConstants>
+    <DefineConstants Condition="'$(AVFBuildIn)'=='True'">$(DefineConstants);AVF_BUILD_IN</DefineConstants>
     <DefineConstants Condition="'$(FFmpegOutOfProcess)'=='True'">$(DefineConstants);FFMPEG_OUT_OF_PROCESS</DefineConstants>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>..\Beutl.Controls\Assets\logo.ico</ApplicationIcon>
@@ -109,17 +113,18 @@
       Include="..\Beutl.Extensions.MediaFoundation\Beutl.Extensions.MediaFoundation.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
+  <ItemGroup Condition="'$(AVFBuildIn)'=='True'">
     <ProjectReference
       Include="..\Beutl.Extensions.AVFoundation\Beutl.Extensions.AVFoundation.csproj" />
   </ItemGroup>
 
   <!-- ProjectReferences don't transitively copy native runtime assets (runtimes/<rid>/native),
        so mirror the Swift dylib from the referenced project's runtimes/ folder into this
-       project's output. The dylibs are committed under runtimes/, so non-macOS publish jobs
-       (for example the Ubuntu runner that assembles release zips) can reuse them too. -->
+       project's output. Gated on AVFBuildIn so Linux/Windows publishes don't pick up the
+       macOS-only dylibs. -->
   <Target Name="CopyBeutlAVFDylibsForApp"
-          AfterTargets="Build">
+          AfterTargets="Build"
+          Condition="'$(AVFBuildIn)'=='True'">
     <PropertyGroup>
       <_BeutlAVFSourceRuntimes>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)../Beutl.Extensions.AVFoundation/runtimes'))</_BeutlAVFSourceRuntimes>
     </PropertyGroup>
@@ -133,7 +138,7 @@
 
   <Target Name="CopyBeutlAVFDylibForPublish"
           AfterTargets="Publish"
-          Condition="'$(RuntimeIdentifier)' != '' And $(RuntimeIdentifier.StartsWith('osx'))">
+          Condition="'$(AVFBuildIn)'=='True' And '$(RuntimeIdentifier)' != '' And $(RuntimeIdentifier.StartsWith('osx'))">
     <PropertyGroup>
       <_BeutlAVFPublishSource>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)../Beutl.Extensions.AVFoundation/runtimes/$(RuntimeIdentifier)/native/libBeutlAVF.dylib'))</_BeutlAVFPublishSource>
     </PropertyGroup>

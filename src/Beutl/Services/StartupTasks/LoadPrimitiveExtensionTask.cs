@@ -167,6 +167,7 @@ public sealed class LoadPrimitiveExtensionTask : StartupTask
 #pragma warning restore CS0436
 #endif
 
+#if AVF_BUILD_IN
 #pragma warning disable CS0436
                 if (OperatingSystem.IsMacOS())
                 {
@@ -214,6 +215,7 @@ public sealed class LoadPrimitiveExtensionTask : StartupTask
                     activity?.AddEvent(new("Loaded_AVFoundation"));
                 }
 #pragma warning restore CS0436
+#endif
             }
         });
     }
