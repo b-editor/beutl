@@ -13,12 +13,15 @@ using Beutl.Editor.Components.NodeGraphTab;
 using Beutl.Editor.Components.ObjectPropertyTab;
 using Beutl.Editor.Components.PathEditorTab;
 using Beutl.Editor.Components.SceneSettingsTab;
+using Beutl.Logging;
 using Beutl.Services.PrimitiveImpls;
+using Microsoft.Extensions.Logging;
 
 namespace Beutl.Services.StartupTasks;
 
 public sealed class LoadPrimitiveExtensionTask : StartupTask
 {
+    private readonly ILogger<LoadPrimitiveExtensionTask> _logger = Log.CreateLogger<LoadPrimitiveExtensionTask>();
     private readonly PackageManager _manager;
 
     public static readonly Extension[] PrimitiveExtensions =
@@ -117,6 +120,7 @@ public sealed class LoadPrimitiveExtensionTask : StartupTask
                     catch (Exception ex)
                     {
                         Failures.Add((pkg, ex));
+                        _logger.LogError(ex, "Failed to load FFmpeg extensions for package {Package}", pkg.Name);
                     }
 
                     activity?.AddEvent(new("Loaded_FFmpeg"));
@@ -154,6 +158,7 @@ public sealed class LoadPrimitiveExtensionTask : StartupTask
                     catch (Exception ex)
                     {
                         Failures.Add((pkg, ex));
+                        _logger.LogError(ex, "Failed to load MediaFoundation extensions for package {Package}", pkg.Name);
                     }
 
                     activity?.AddEvent(new("Loaded_MediaFoundation"));
@@ -202,6 +207,7 @@ public sealed class LoadPrimitiveExtensionTask : StartupTask
                     catch (Exception ex)
                     {
                         Failures.Add((pkg, ex));
+                        _logger.LogError(ex, "Failed to load AVFoundation extensions for package {Package}", pkg.Name);
                     }
 
                     activity?.AddEvent(new("Loaded_AVFoundation"));
