@@ -26,6 +26,7 @@ internal sealed class WindowCaptureSession : IAsyncDisposable
     private readonly string _outputPath;
     private readonly string _ffmpegPath;
     private readonly RenderTargetBitmap _rtb;
+    private readonly string _ffmpegPixelFormat;
     private readonly ConcurrentQueue<byte[]> _freeBuffers = new();
     private readonly Channel<byte[]> _channel = Channel.CreateUnbounded<byte[]>(
         new UnboundedChannelOptions { SingleReader = true, SingleWriter = true });
@@ -59,11 +60,20 @@ internal sealed class WindowCaptureSession : IAsyncDisposable
         var pixelSize = new PixelSize(_width, _height);
         var dpi = new Vector(96.0 * scale, 96.0 * scale);
         _rtb = new RenderTargetBitmap(pixelSize, dpi);
-        if (_rtb.Format is { } fmt && fmt != PixelFormats.Bgra8888)
+        PixelFormat fmt = _rtb.Format ?? PixelFormats.Bgra8888;
+        if (fmt == PixelFormats.Bgra8888)
+        {
+            _ffmpegPixelFormat = "bgra";
+        }
+        else if (fmt == PixelFormats.Rgba8888)
+        {
+            _ffmpegPixelFormat = "rgba";
+        }
+        else
         {
             _rtb.Dispose();
             throw new NotSupportedException(
-                $"Unsupported RenderTargetBitmap pixel format: {fmt}. Expected Bgra8888.");
+                $"Unsupported RenderTargetBitmap pixel format: {fmt}. Expected Bgra8888 or Rgba8888.");
         }
 
         int byteCount = _stride * _height;
@@ -251,7 +261,7 @@ internal sealed class WindowCaptureSession : IAsyncDisposable
         startInfo.ArgumentList.Add("-f");
         startInfo.ArgumentList.Add("rawvideo");
         startInfo.ArgumentList.Add("-pix_fmt");
-        startInfo.ArgumentList.Add("bgra");
+        startInfo.ArgumentList.Add(_ffmpegPixelFormat);
         startInfo.ArgumentList.Add("-video_size");
         startInfo.ArgumentList.Add($"{_width}x{_height}");
         startInfo.ArgumentList.Add("-framerate");
