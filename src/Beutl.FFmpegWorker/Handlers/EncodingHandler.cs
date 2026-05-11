@@ -105,7 +105,7 @@ internal sealed class EncodingHandler : IDisposable
         }
         catch (Exception ex)
         {
-            Console.Error.WriteLine($"Encoding failed: {ex}");
+            WorkerLog.Error("Encoding failed", ex);
             return IpcMessage.Create(msg.Id, MessageType.EncodeComplete,
                 new EncodeCompleteMessage { Success = false, Error = ex.Message });
         }

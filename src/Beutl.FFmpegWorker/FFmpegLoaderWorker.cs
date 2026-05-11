@@ -31,7 +31,7 @@ internal static class FFmpegLoaderWorker
         sb.AppendLine($"  avutil: {GetVersionString(ffmpeg.avutil_version())}");
         sb.AppendLine($"  swresample: {GetVersionString(ffmpeg.swresample_version())}");
         sb.AppendLine($"  swscale: {GetVersionString(ffmpeg.swscale_version())}");
-        Console.Error.Write(sb.ToString());
+        WorkerLog.Information(sb.ToString());
     }
 
     private static void FixDependencyIssue()
@@ -43,13 +43,14 @@ internal static class FFmpegLoaderWorker
     private static void SetupLogging()
     {
         FFmpegSharp.FFmpegLog.SetupLogging(
+#if RELEASE
+            logLevel: FFmpegSharp.LogLevel.Warning,
+#endif
+            logFlags: FFmpegSharp.LogFlags.SkipRepeated | FFmpegSharp.LogFlags.PrintLevel,
             logWrite: (s, i) =>
             {
                 var level = (FFmpegSharp.LogLevel)i;
-                if (level >= FFmpegSharp.LogLevel.Warning)
-                {
-                    Console.Error.Write($"[ffmpeg:{level}] {s}");
-                }
+                WorkerLog.Write(level.ToString(), s, null);
             });
     }
 

@@ -46,7 +46,7 @@ internal sealed class CodecQueryHandler
         }
         catch (Exception ex)
         {
-            Console.Error.WriteLine($"QueryPixelFormats: codec-specific query failed, falling back to all formats: {ex.Message}");
+            WorkerLog.Warning($"QueryPixelFormats: codec-specific query failed, falling back to all formats: {ex.Message}", ex);
             // フォールバック: 全対応フォーマット
             var allFmts = Enum.GetValues<AVPixelFormat>()
                 .Where(f => f != AVPixelFormat.AV_PIX_FMT_NONE && (int)f >= 0 && ffmpeg.sws_isSupportedOutput(f) != 0)
@@ -76,7 +76,7 @@ internal sealed class CodecQueryHandler
         }
         catch (Exception ex)
         {
-            Console.Error.WriteLine($"QuerySampleRates: codec-specific query failed: {ex.Message}");
+            WorkerLog.Warning($"QuerySampleRates: codec-specific query failed: {ex.Message}", ex);
             return IpcMessage.Create(msg.Id, MessageType.QuerySampleRatesResult,
                 new QuerySampleRatesResponse { SampleRates = [] });
         }
@@ -96,7 +96,7 @@ internal sealed class CodecQueryHandler
         }
         catch (Exception ex)
         {
-            Console.Error.WriteLine($"QueryAudioFormats: codec-specific query failed: {ex.Message}");
+            WorkerLog.Warning($"QueryAudioFormats: codec-specific query failed: {ex.Message}", ex);
             return IpcMessage.Create(msg.Id, MessageType.QueryAudioFormatsResult,
                 new QueryAudioFormatsResponse { Formats = [] });
         }
@@ -122,7 +122,7 @@ internal sealed class CodecQueryHandler
         }
         catch (Exception ex)
         {
-            Console.Error.WriteLine($"QueryDefaultCodec: query failed: {ex.Message}");
+            WorkerLog.Warning($"QueryDefaultCodec: query failed: {ex.Message}", ex);
             return IpcMessage.Create(msg.Id, MessageType.QueryDefaultCodecResult,
                 new QueryDefaultCodecResponse());
         }

@@ -378,7 +378,7 @@ internal sealed class VideoRingBuffer : IDisposable
             catch (OperationCanceledException) { }
             catch (Exception ex)
             {
-                Console.Error.WriteLine($"Prefetch error: {ex}");
+                WorkerLog.Error("Prefetch error", ex);
             }
         }, ct);
     }
