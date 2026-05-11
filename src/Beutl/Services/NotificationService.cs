@@ -43,6 +43,9 @@ public sealed class NotificationServiceHandler : INotificationServiceHandler
 
     private static void Close(InfoBar infoBar)
     {
+        // ShowCoreAsync 側の Expiration 待機が後から `if (!infoBar.IsOpen) return;` を
+        // 通過して HiddenNotificationPanel に積み直さないように、ここで明示的に閉じる
+        infoBar.IsOpen = false;
         if (GetMainView() is MainView mainView)
         {
             mainView.NotificationPanel.Children.Remove(infoBar);
