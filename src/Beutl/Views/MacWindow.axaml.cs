@@ -391,8 +391,17 @@ public sealed partial class MacWindow : Window
         }
     }
 
+    private bool _captureStopped;
+
     protected override void OnClosing(WindowClosingEventArgs e)
     {
+        if (!_captureStopped && mainView is { HasActiveCapture: true } mv)
+        {
+            e.Cancel = true;
+            _ = StopCaptureAndCloseAsync(mv);
+            return;
+        }
+
         base.OnClosing(e);
         ViewConfig viewConfig = GlobalConfiguration.Instance.ViewConfig;
         viewConfig.WindowSize = ((int)ClientSize.Width, (int)ClientSize.Height);
@@ -404,4 +413,25 @@ public sealed partial class MacWindow : Window
             viewModel.Dispose();
         }
     }
+
+    private async Task StopCaptureAndCloseAsync(MainView mv)
+    {
+        await mv.EnsureCaptureStoppedAsync();
+        _captureStopped = true;
+        Close();
+    }
+
+    private async void OpenTutorialsDialog(object? sender, EventArgs e) => await mainView.ShowTutorialsDialogAsync();
+
+    private async void GoToInformationPage(object? sender, EventArgs e) => await mainView.GoToInformationPageAsync();
+
+    private void GC_Collect_Click(object? sender, EventArgs e) => mainView.RunGcCollect();
+
+    private void MonitorKeyModifier_Click(object? sender, EventArgs e) => mainView.OpenKeyModifierMonitor();
+
+    private void ThrowUnhandledException_Click(object? sender, EventArgs e) => mainView.ThrowDebugException();
+
+    private async void StartWindowCapture_Click(object? sender, EventArgs e) => await mainView.StartWindowCaptureAsync();
+
+    private async void StopWindowCapture_Click(object? sender, EventArgs e) => await mainView.StopWindowCaptureAsync();
 }

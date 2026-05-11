@@ -148,6 +148,29 @@
                     </NativeMenuItem>
                 </NativeMenu>
             </NativeMenuItem>
+            <!--  ヘルプ  -->
+            <NativeMenuItem Header="{x:Static lang:Strings.Help}">
+                <NativeMenu>
+                    <NativeMenuItem Click="OpenTutorialsDialog" Header="{x:Static lang:Strings.Tutorials}" />
+                    <NativeMenuItemSeparator />
+                    <NativeMenuItem Click="GC_Collect_Click"
+                                    Header="GC.Collect"
+                                    IsVisible="{CompiledBinding IsDebuggerAttached}" />
+                    <NativeMenuItem Click="MonitorKeyModifier_Click"
+                                    Header="Monitor KeyModifier"
+                                    IsVisible="{CompiledBinding IsDebuggerAttached}" />
+                    <NativeMenuItem Click="ThrowUnhandledException_Click"
+                                    Header="Throw Unhandled Exception"
+                                    IsVisible="{CompiledBinding IsDebuggerAttached}" />
+                    <NativeMenuItem Click="StartWindowCapture_Click"
+                                    Header="Start Window Capture"
+                                    IsVisible="{CompiledBinding IsDebuggerAttached}" />
+                    <NativeMenuItem Click="StopWindowCapture_Click"
+                                    Header="Stop Window Capture"
+                                    IsVisible="{CompiledBinding IsDebuggerAttached}" />
+                    <NativeMenuItem Click="GoToInformationPage" Header="{x:Static lang:Strings.Info}" />
+                </NativeMenu>
+            </NativeMenuItem>
         </NativeMenu>
     </NativeMenu.Menu>
     <local:MainView x:Name="mainView" />

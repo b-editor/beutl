@@ -431,7 +431,9 @@ public sealed partial class MainView : UserControl
     }
 
     [Conditional("DEBUG")]
-    private void GC_Collect_Click(object? sender, RoutedEventArgs e)
+    private void GC_Collect_Click(object? sender, RoutedEventArgs e) => RunGcCollect();
+
+    internal void RunGcCollect()
     {
         DateTime dateTime = DateTime.UtcNow;
         long totalBytes = GC.GetTotalMemory(false);
@@ -451,7 +453,9 @@ public sealed partial class MainView : UserControl
     }
 
     [Conditional("DEBUG")]
-    private void MonitorKeyModifier_Click(object? sender, RoutedEventArgs e)
+    private void MonitorKeyModifier_Click(object? sender, RoutedEventArgs e) => OpenKeyModifierMonitor();
+
+    internal void OpenKeyModifierMonitor()
     {
         if (TopLevel.GetTopLevel(this) is Window owner)
         {
@@ -460,13 +464,17 @@ public sealed partial class MainView : UserControl
     }
 
     [Conditional("DEBUG")]
-    private void ThrowUnhandledException_Click(object? sender, RoutedEventArgs e)
+    private void ThrowUnhandledException_Click(object? sender, RoutedEventArgs e) => ThrowDebugException();
+
+    internal void ThrowDebugException()
     {
         throw new Exception("An unhandled exception occurred.");
     }
 
     [Conditional("DEBUG")]
-    private async void StartWindowCapture_Click(object? sender, RoutedEventArgs e)
+    private async void StartWindowCapture_Click(object? sender, RoutedEventArgs e) => await StartWindowCaptureAsync();
+
+    internal async Task StartWindowCaptureAsync()
     {
         if (_captureSession is not null)
         {
@@ -517,7 +525,9 @@ public sealed partial class MainView : UserControl
     }
 
     [Conditional("DEBUG")]
-    private async void StopWindowCapture_Click(object? sender, RoutedEventArgs e)
+    private async void StopWindowCapture_Click(object? sender, RoutedEventArgs e) => await StopWindowCaptureAsync();
+
+    internal async Task StopWindowCaptureAsync()
     {
         WindowCaptureSession? session = _captureSession;
         if (session is null)
@@ -552,7 +562,9 @@ public sealed partial class MainView : UserControl
         catch (Exception ex) { _logger.LogWarning(ex, "Failed to stop capture during shutdown."); }
     }
 
-    private async void GoToInformationPage(object? sender, RoutedEventArgs e)
+    private async void GoToInformationPage(object? sender, RoutedEventArgs e) => await GoToInformationPageAsync();
+
+    internal async Task GoToInformationPageAsync()
     {
         if (DataContext is MainViewModel viewModel && TopLevel.GetTopLevel(this) is Window window)
         {
@@ -592,7 +604,9 @@ public sealed partial class MainView : UserControl
         await dialog.ShowDialog(window);
     }
 
-    private async void OpenTutorialsDialog(object? sender, RoutedEventArgs e)
+    private async void OpenTutorialsDialog(object? sender, RoutedEventArgs e) => await ShowTutorialsDialogAsync();
+
+    internal async Task ShowTutorialsDialogAsync()
     {
         var dialog = new TutorialListDialog();
         await dialog.ShowAsync();
