@@ -502,9 +502,10 @@ public sealed partial class MainView : UserControl
         if (result != ContentDialogResult.Primary || !dialogVm.CanStart.Value)
             return;
 
+        WindowCaptureSession? session = null;
         try
         {
-            var session = new WindowCaptureSession(
+            session = new WindowCaptureSession(
                 window,
                 dialogVm.Scale.Value,
                 dialogVm.FrameRate.Value,
@@ -520,6 +521,11 @@ public sealed partial class MainView : UserControl
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to start window capture.");
+            if (session is not null)
+            {
+                try { await session.DisposeAsync(); }
+                catch (Exception disposeEx) { _logger.LogWarning(disposeEx, "Failed to dispose capture session after start failure."); }
+            }
             NotificationService.ShowError("Window Capture", ex.Message);
         }
     }
@@ -536,16 +542,17 @@ public sealed partial class MainView : UserControl
             return;
         }
 
-        _captureSession = null;
         try
         {
             await session.StopAsync();
+            _captureSession = null;
             NotificationService.ShowSuccess(
                 "Window Capture",
                 $"Saved: {session.OutputPath}\nCaptured {session.CapturedFrameCount} frames (dropped {session.DroppedFrameCount}).");
         }
         catch (Exception ex)
         {
+            _captureSession = null;
             _logger.LogError(ex, "Failed to stop window capture.");
             NotificationService.ShowError("Window Capture", ex.Message);
         }
@@ -557,9 +564,9 @@ public sealed partial class MainView : UserControl
     {
         WindowCaptureSession? session = _captureSession;
         if (session is null) return;
-        _captureSession = null;
         try { await session.StopAsync(); }
         catch (Exception ex) { _logger.LogWarning(ex, "Failed to stop capture during shutdown."); }
+        finally { _captureSession = null; }
     }
 
     private async void GoToInformationPage(object? sender, RoutedEventArgs e) => await GoToInformationPageAsync();

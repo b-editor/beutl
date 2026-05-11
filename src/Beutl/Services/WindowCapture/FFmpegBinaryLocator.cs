@@ -11,11 +11,13 @@ internal static class FFmpegBinaryLocator
     {
         foreach (string candidate in EnumerateCandidatePaths())
         {
-            if (File.Exists(candidate))
+            // Existence alone is not enough — a stale or non-executable file at a probed
+            // location would otherwise shadow a working ffmpeg on PATH.
+            if (File.Exists(candidate) && CanLaunch(candidate))
                 return candidate;
         }
 
-        return CanLaunchOnPath() ? "ffmpeg" : null;
+        return CanLaunch("ffmpeg") ? "ffmpeg" : null;
     }
 
     private static IEnumerable<string> EnumerateCandidatePaths()
@@ -42,13 +44,14 @@ internal static class FFmpegBinaryLocator
         }
     }
 
-    private static bool CanLaunchOnPath()
+    private static bool CanLaunch(string path)
     {
+        Process? process = null;
         try
         {
-            using var process = Process.Start(new ProcessStartInfo
+            process = Process.Start(new ProcessStartInfo
             {
-                FileName = "ffmpeg",
+                FileName = path,
                 Arguments = "-version",
                 UseShellExecute = false,
                 CreateNoWindow = true,
@@ -57,12 +60,24 @@ internal static class FFmpegBinaryLocator
             });
             if (process is null) return false;
 
-            process.WaitForExit(2000);
-            return process.HasExited && process.ExitCode == 0;
+            if (!process.WaitForExit(2000))
+            {
+                // Disposing the Process object does not terminate the underlying process,
+                // so explicitly kill it to avoid leaving a stray ffmpeg around.
+                try { process.Kill(entireProcessTree: true); }
+                catch { /* best effort */ }
+                return false;
+            }
+
+            return process.ExitCode == 0;
         }
         catch
         {
             return false;
+        }
+        finally
+        {
+            process?.Dispose();
         }
     }
 }

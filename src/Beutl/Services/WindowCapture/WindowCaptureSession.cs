@@ -38,6 +38,7 @@ internal sealed class WindowCaptureSession : IAsyncDisposable
     private long _capturedFrames;
     private bool _started;
     private bool _stopped;
+    private volatile bool _encoderFailed;
 
     public WindowCaptureSession(Window window, double scale, int frameRate, string outputPath, string ffmpegPath)
     {
@@ -93,9 +94,17 @@ internal sealed class WindowCaptureSession : IAsyncDisposable
     public void Start()
     {
         if (_started) throw new InvalidOperationException("Session already started.");
-        _started = true;
 
-        _process = StartFFmpegProcess();
+        try
+        {
+            _process = StartFFmpegProcess();
+        }
+        catch
+        {
+            _rtb.Dispose();
+            throw;
+        }
+
         _writerTask = Task.Run(WriterLoopAsync);
 
         _timer = new DispatcherTimer(DispatcherPriority.Render)
@@ -104,6 +113,8 @@ internal sealed class WindowCaptureSession : IAsyncDisposable
         };
         _timer.Tick += OnTimerTick;
         _timer.Start();
+
+        _started = true;
 
         _logger.LogInformation(
             "Window capture started: {Width}x{Height} @ {Fps}fps -> {Output} (ffmpeg pid={Pid})",
@@ -123,21 +134,37 @@ internal sealed class WindowCaptureSession : IAsyncDisposable
 
         _channel.Writer.TryComplete();
 
-        if (_writerTask is { } wt)
-        {
-            try { await wt.ConfigureAwait(false); }
-            catch (Exception ex) { _logger.LogWarning(ex, "Window capture writer task ended with error."); }
-        }
-
-        if (_process is { } proc)
+        // Close stdin BEFORE awaiting the writer task. If ffmpeg has stalled and the
+        // pipe is full, the writer may be blocked inside WriteAsync; closing stdin
+        // unblocks it (and signals ffmpeg to finalize the file).
+        if (_process is { } procForStdin)
         {
             try
             {
-                if (!proc.HasExited)
-                    proc.StandardInput.Close();
+                if (!procForStdin.HasExited)
+                    procForStdin.StandardInput.Close();
             }
             catch (Exception ex) { _logger.LogWarning(ex, "Failed to close ffmpeg stdin."); }
+        }
 
+        if (_writerTask is { } wt)
+        {
+            try
+            {
+                using var writerCts = new CancellationTokenSource(StopTimeout);
+                await wt.WaitAsync(writerCts.Token).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                _encoderFailed = true;
+                _logger.LogWarning("Window capture writer task did not complete within {Timeout}.", StopTimeout);
+            }
+            catch (Exception ex) { _logger.LogWarning(ex, "Window capture writer task ended with error."); }
+        }
+
+        int exitCode = -1;
+        if (_process is { } proc)
+        {
             try
             {
                 using var cts = new CancellationTokenSource(StopTimeout);
@@ -145,12 +172,13 @@ internal sealed class WindowCaptureSession : IAsyncDisposable
             }
             catch (OperationCanceledException)
             {
+                _encoderFailed = true;
                 _logger.LogWarning("ffmpeg did not exit within {Timeout}; killing.", StopTimeout);
                 try { proc.Kill(entireProcessTree: true); }
                 catch (Exception ex) { _logger.LogError(ex, "Failed to kill ffmpeg."); }
             }
 
-            int exitCode = proc.HasExited ? proc.ExitCode : -1;
+            exitCode = proc.HasExited ? proc.ExitCode : -1;
             _logger.LogInformation(
                 "Window capture stopped: captured={Captured}, dropped={Dropped}, ffmpeg exit={ExitCode}",
                 CapturedFrameCount, DroppedFrameCount, exitCode);
@@ -160,6 +188,12 @@ internal sealed class WindowCaptureSession : IAsyncDisposable
         }
 
         _rtb.Dispose();
+
+        if (_encoderFailed || exitCode != 0)
+        {
+            throw new InvalidOperationException(
+                $"ffmpeg encoder failed (exit code: {exitCode}). See log for details.");
+        }
     }
 
     public async ValueTask DisposeAsync()
@@ -169,7 +203,7 @@ internal sealed class WindowCaptureSession : IAsyncDisposable
 
     private void OnTimerTick(object? sender, EventArgs e)
     {
-        if (_stopped) return;
+        if (_stopped || _encoderFailed) return;
 
         if (!_freeBuffers.TryDequeue(out byte[]? buffer))
         {
@@ -213,19 +247,25 @@ internal sealed class WindowCaptureSession : IAsyncDisposable
         if (proc is null) return;
 
         Stream stdin = proc.StandardInput.BaseStream;
+        bool earlyExit = false;
         try
         {
             await foreach (byte[] frame in _channel.Reader.ReadAllAsync().ConfigureAwait(false))
             {
                 try
                 {
-                    if (proc.HasExited) break;
+                    if (proc.HasExited)
+                    {
+                        earlyExit = true;
+                        break;
+                    }
                     await stdin.WriteAsync(frame.AsMemory(0, _stride * _height)).ConfigureAwait(false);
                     Interlocked.Increment(ref _capturedFrames);
                 }
                 catch (IOException ex)
                 {
                     _logger.LogWarning(ex, "ffmpeg stdin write failed; ending capture.");
+                    earlyExit = true;
                     break;
                 }
                 finally
@@ -240,6 +280,26 @@ internal sealed class WindowCaptureSession : IAsyncDisposable
         catch (Exception ex)
         {
             _logger.LogError(ex, "Writer loop terminated unexpectedly.");
+            earlyExit = true;
+        }
+
+        // If ffmpeg died (or write failed) while capture is still running, surface this
+        // so the timer stops rendering and StopAsync reports failure to the caller.
+        if (earlyExit && !_stopped)
+        {
+            _encoderFailed = true;
+            _channel.Writer.TryComplete();
+            try
+            {
+                await Dispatcher.UIThread.InvokeAsync(() =>
+                {
+                    if (_timer is { } t)
+                    {
+                        t.Stop();
+                    }
+                });
+            }
+            catch (Exception ex) { _logger.LogWarning(ex, "Failed to stop capture timer after encoder failure."); }
         }
     }
 
