@@ -4,11 +4,14 @@ using Beutl.FFmpegIpc;
 using Beutl.FFmpegIpc.Protocol;
 using Beutl.FFmpegIpc.Protocol.Messages;
 using Beutl.FFmpegIpc.Transport;
+using Beutl.Logging;
+using Microsoft.Extensions.Logging;
 
 namespace Beutl.Extensions.FFmpeg;
 
 public sealed class FFmpegWorkerProcess : IDisposable
 {
+    private static readonly ILogger s_logger = Log.CreateLogger("FFmpegWorker");
     private static readonly Lazy<FFmpegWorkerProcess> s_decodingInstance = new(() => new FFmpegWorkerProcess(multiplexed: true));
     public static FFmpegWorkerProcess DecodingInstance => s_decodingInstance.Value;
 
@@ -18,6 +21,7 @@ public sealed class FFmpegWorkerProcess : IDisposable
     private readonly bool _multiplexed;
     private Process? _process;
     private IpcConnection? _connection;
+    private FFmpegWorkerLogPump? _logPump;
     private string? _pipeName;
 
     public FFmpegWorkerProcess(bool multiplexed = false)
@@ -120,17 +124,10 @@ public sealed class FFmpegWorkerProcess : IDisposable
             _process = Process.Start(startInfo)
                 ?? throw new InvalidOperationException("Failed to start FFmpeg worker process");
 
-            // stderrを非同期に消費してバッファ溢れによるデッドロックを防止
-            _process.ErrorDataReceived += (_, e) =>
-            {
-                if (e.Data != null)
-                    Console.WriteLine($"[FFmpegWorker] {e.Data}");
-            };
-            _process.OutputDataReceived += (_, e) =>
-            {
-                if (e.Data != null)
-                    Console.WriteLine($"[FFmpegWorker] {e.Data}");
-            };
+            // stdout/stderr のドレインはストリームリーダースレッドから即時 enqueue するだけにし、
+            // ロガーシンクへの実書き込みはバックグラウンドで行う (FFmpegWorkerLogPump 参照)。
+            _logPump = new FFmpegWorkerLogPump();
+            _logPump.Attach(_process);
             _process.BeginErrorReadLine();
             _process.BeginOutputReadLine();
 
@@ -251,12 +248,17 @@ public sealed class FFmpegWorkerProcess : IDisposable
                 catch (InvalidOperationException) { /* プロセスが既に終了 */ }
                 catch (Exception ex)
                 {
-                    Console.Error.WriteLine($"Warning: Failed to kill worker process: {ex.Message}");
+                    s_logger.LogWarning(ex, "Failed to kill worker process");
                 }
             }
             _process.Dispose();
             _process = null;
         }
+
+        // プロセス Dispose 後にポンプを破棄することで、終了直前に届いた行も
+        // バックグラウンド consumer が処理してから停止する。
+        _logPump?.Dispose();
+        _logPump = null;
     }
 
     public void Dispose()
@@ -270,7 +272,7 @@ public sealed class FFmpegWorkerProcess : IDisposable
             }
             catch (Exception ex)
             {
-                Console.Error.WriteLine($"Warning: Graceful shutdown of FFmpeg worker failed: {ex.Message}");
+                s_logger.LogWarning(ex, "Graceful shutdown of FFmpeg worker failed");
             }
         }
 

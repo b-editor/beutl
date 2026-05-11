@@ -26,7 +26,7 @@ internal static class Program
                 case "--parent":
                     if (!int.TryParse(args[++i], out parentPid))
                     {
-                        Console.Error.WriteLine($"Invalid parent PID: {args[i]}");
+                        WorkerLog.Error($"Invalid parent PID: {args[i]}");
                         return 1;
                     }
                     break;
@@ -35,18 +35,14 @@ internal static class Program
 
         if (pipeName == null)
         {
-            Console.Error.WriteLine("Usage: Beutl.FFmpegWorker --pipe <name> --parent <pid>");
+            WorkerLog.Error("Usage: Beutl.FFmpegWorker --pipe <name> --parent <pid>");
             return 1;
         }
 
-        // ロギング初期化
+        // ロギング初期化: すべてのログを stdout に [ffmpeg:<Level>] プレフィックス付きで出力する
         Log.LoggerFactory = LoggerFactory.Create(builder =>
         {
-            builder.AddSimpleConsole(options =>
-            {
-                options.SingleLine = true;
-                options.TimestampFormat = "HH:mm:ss ";
-            });
+            builder.AddProvider(new StdoutLoggerProvider());
 #if DEBUG
             builder.SetMinimumLevel(LogLevel.Debug);
 #else
@@ -61,12 +57,12 @@ internal static class Program
         }
         catch (FFmpegLibrariesNotFoundException ex)
         {
-            Console.Error.WriteLine($"FFmpeg libraries not found: {ex.Message}");
+            WorkerLog.Error($"FFmpeg libraries not found: {ex.Message}", ex);
             return 2;
         }
         catch (Exception ex)
         {
-            Console.Error.WriteLine($"Failed to initialize FFmpeg: {ex}");
+            WorkerLog.Error($"Failed to initialize FFmpeg: {ex.Message}", ex);
             return 4;
         }
 
@@ -84,7 +80,7 @@ internal static class Program
         }
         catch (TimeoutException)
         {
-            Console.Error.WriteLine("Failed to connect to parent process pipe within 30 seconds.");
+            WorkerLog.Error("Failed to connect to parent process pipe within 30 seconds.");
             return 3;
         }
 
@@ -115,7 +111,7 @@ internal static class Program
         }
         catch (Exception ex)
         {
-            Console.Error.WriteLine($"Unexpected error monitoring parent process {parentPid}: {ex.Message}");
+            WorkerLog.Error($"Unexpected error monitoring parent process {parentPid}: {ex.Message}", ex);
         }
 
         // CancellationTokenでグレースフルにシャットダウン
