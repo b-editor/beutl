@@ -21,6 +21,7 @@ public sealed class FFmpegWorkerProcess : IDisposable
     private readonly bool _multiplexed;
     private Process? _process;
     private IpcConnection? _connection;
+    private FFmpegWorkerLogPump? _logPump;
     private string? _pipeName;
 
     public FFmpegWorkerProcess(bool multiplexed = false)
@@ -123,10 +124,10 @@ public sealed class FFmpegWorkerProcess : IDisposable
             _process = Process.Start(startInfo)
                 ?? throw new InvalidOperationException("Failed to start FFmpeg worker process");
 
-            // stdout/stderrを非同期に消費してバッファ溢れによるデッドロックを防止しつつ、
-            // 受信した出力をホスト側ロガーへ転送する
-            _process.ErrorDataReceived += (_, e) => LogWorkerOutput("stderr", e.Data);
-            _process.OutputDataReceived += (_, e) => LogWorkerOutput("stdout", e.Data);
+            // stdout/stderr のドレインはストリームリーダースレッドから即時 enqueue するだけにし、
+            // ロガーシンクへの実書き込みはバックグラウンドで行う (FFmpegWorkerLogPump 参照)。
+            _logPump = new FFmpegWorkerLogPump();
+            _logPump.Attach(_process);
             _process.BeginErrorReadLine();
             _process.BeginOutputReadLine();
 
@@ -207,85 +208,6 @@ public sealed class FFmpegWorkerProcess : IDisposable
             _connection.StartMultiplexedReceive(ct);
     }
 
-    private static void LogWorkerOutput(string channel, string? data)
-    {
-        if (data == null)
-            return;
-
-        // Process.*DataReceived ハンドラから例外を漏らすとホストプロセスが UnhandledException で落ちるため、
-        // ロガー基盤（Serilog/OTLP）の障害は最終フォールバックの Console.Error で握りつぶす
-        try
-        {
-            var (level, message) = ParseLevel(channel, data);
-            s_logger.Log(level, "{Channel} {Message}", channel, message);
-        }
-        catch (Exception ex)
-        {
-            try { Console.Error.WriteLine($"[FFmpegWorker:{channel}] log dispatch failed: {ex}"); }
-            catch { /* stderrまで死んでいたら諦める */ }
-        }
-    }
-
-    private static (LogLevel Level, string Message) ParseLevel(string channel, string data)
-    {
-        // ワーカーは ILogger / FFmpeg ネイティブログ / 自身のエラーメッセージのすべてを
-        // stdout に "[ffmpeg:<Level>] ..." 形式 (1行=1ログイベント, 改行は \n エスケープ) で書き出す。
-        // プレフィックス付き行はそのレベルを採用しメッセージを復号する。
-        // プレフィックスのない出力や想定外に stderr に流れてきたネイティブ出力は
-        // チャネルベースのフォールバック（stderr=Warning / stdout=Information）で扱う。
-        const string prefix = "[ffmpeg:";
-        if (data.StartsWith(prefix, StringComparison.Ordinal))
-        {
-            int end = data.IndexOf(']', prefix.Length);
-            if (end > prefix.Length)
-            {
-                string levelText = data.AsSpan(prefix.Length, end - prefix.Length).ToString();
-                LogLevel level = levelText switch
-                {
-                    "Verbose" or "Trace" => LogLevel.Trace,
-                    "Debug" => LogLevel.Debug,
-                    "Info" or "Information" => LogLevel.Information,
-                    "Warning" => LogLevel.Warning,
-                    "Error" => LogLevel.Error,
-                    "Fatal" or "Panic" or "Critical" => LogLevel.Critical,
-                    _ => channel == "stderr" ? LogLevel.Warning : LogLevel.Information,
-                };
-                string message = DecodeMessage(data.Substring(end + 1).TrimStart());
-                return (level, message);
-            }
-        }
-
-        return (channel == "stderr" ? LogLevel.Warning : LogLevel.Information, data);
-    }
-
-    private static string DecodeMessage(string encoded)
-    {
-        if (encoded.IndexOf('\\') < 0)
-            return encoded;
-
-        var sb = new System.Text.StringBuilder(encoded.Length);
-        for (int i = 0; i < encoded.Length; i++)
-        {
-            char c = encoded[i];
-            if (c == '\\' && i + 1 < encoded.Length)
-            {
-                char next = encoded[++i];
-                switch (next)
-                {
-                    case 'n': sb.Append('\n'); break;
-                    case 'r': sb.Append('\r'); break;
-                    case '\\': sb.Append('\\'); break;
-                    default: sb.Append('\\').Append(next); break;
-                }
-            }
-            else
-            {
-                sb.Append(c);
-            }
-        }
-        return sb.ToString();
-    }
-
     private static void ConfigureWorkerProcess(ProcessStartInfo startInfo)
     {
         string path = Path.Combine(AppContext.BaseDirectory, "Beutl.FFmpegWorker");
@@ -332,6 +254,11 @@ public sealed class FFmpegWorkerProcess : IDisposable
             _process.Dispose();
             _process = null;
         }
+
+        // プロセス Dispose 後にポンプを破棄することで、終了直前に届いた行も
+        // バックグラウンド consumer が処理してから停止する。
+        _logPump?.Dispose();
+        _logPump = null;
     }
 
     public void Dispose()

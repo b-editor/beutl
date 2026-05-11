@@ -35,6 +35,7 @@
   <ItemGroup>
     <Compile Include="..\..\src\Beutl.Extensions.FFmpeg\Decoding\FFmpegReaderProxy.cs" Link="Linked\FFmpegReaderProxy.cs" />
     <Compile Include="..\..\src\Beutl.Extensions.FFmpeg\FFmpegWorkerProcess.cs" Link="Linked\FFmpegWorkerProcess.cs" />
+    <Compile Include="..\..\src\Beutl.Extensions.FFmpeg\FFmpegWorkerLogPump.cs" Link="Linked\FFmpegWorkerLogPump.cs" />
   </ItemGroup>
 
   <!-- Worker側のFFmpegローダーをリンク -->

@@ -33,6 +33,7 @@
     <Compile Remove="Decoding\FFmpegReaderProxy.cs" />
     <Compile Remove="Encoding\FFmpegEncodingControllerProxy.cs" />
     <Compile Remove="FFmpegWorkerProcess.cs" />
+    <Compile Remove="FFmpegWorkerLogPump.cs" />
     <Compile Remove="FFmpegWorkerCodecCache.cs" />
   </ItemGroup>
 
