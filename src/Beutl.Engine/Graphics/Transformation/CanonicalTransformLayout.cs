@@ -1,0 +1,137 @@
+﻿using Beutl.Composition;
+
+namespace Beutl.Graphics.Transformation;
+
+/// <summary>
+/// Helper for completing the canonical [T, R, S] layout.
+///
+/// <para>
+/// <see cref="TransformGroup"/> composes its children via <c>Aggregate(I, (acc, x) => x.M * acc)</c>, so
+/// under the row-vector right-multiplication convention (<c>v' = v · M</c>), the tail of the list ends up
+/// on the left of the product (= first in application order, innermost).
+/// Therefore <c>[T, R, S]</c> means <c>M = S · R · T</c> with application order S → R → T, making
+/// Translate the outermost (scene-space) operation while Rotation/Scale act around the pivot.
+/// </para>
+///
+/// <para>
+/// If the existing list contains multiple R/S/T or non-canonical ordering, the list is not reorganized
+/// (backward compatibility with old <c>[R, S, T]</c> projects). The "first occurrence" of each type is
+/// adopted as the operative transform.
+/// </para>
+/// </summary>
+internal static class CanonicalTransformLayout
+{
+    public static CanonicalTransformLayoutResult Ensure(Drawable drawable, CompositionContext context)
+    {
+        ArgumentNullException.ThrowIfNull(drawable);
+        ArgumentNullException.ThrowIfNull(context);
+
+        bool groupChanged = false;
+        if (drawable.Transform.CurrentValue is not TransformGroup tg)
+        {
+            var newGroup = new TransformGroup();
+            if (drawable.Transform.CurrentValue is Transform existing)
+            {
+                newGroup.Children.Add(existing);
+            }
+            drawable.Transform.CurrentValue = newGroup;
+            tg = newGroup;
+            groupChanged = true;
+        }
+
+        int rIdx = -1, sIdx = -1, tIdx = -1;
+        for (int i = 0; i < tg.Children.Count; i++)
+        {
+            Transform c = tg.Children[i];
+            if (rIdx < 0 && c is RotationTransform) rIdx = i;
+            if (sIdx < 0 && c is ScaleTransform) sIdx = i;
+            if (tIdx < 0 && c is TranslateTransform) tIdx = i;
+        }
+
+        bool added = false;
+
+        if (tIdx < 0)
+        {
+            tg.Children.Insert(0, new TranslateTransform());
+            tIdx = 0;
+            if (rIdx >= 0) rIdx++;
+            if (sIdx >= 0) sIdx++;
+            added = true;
+        }
+
+        if (rIdx < 0)
+        {
+            int insertAt = tIdx + 1;
+            tg.Children.Insert(insertAt, new RotationTransform());
+            rIdx = insertAt;
+            if (sIdx >= insertAt) sIdx++;
+            added = true;
+        }
+
+        if (sIdx < 0)
+        {
+            tg.Children.Add(new ScaleTransform());
+            sIdx = tg.Children.Count - 1;
+            added = true;
+        }
+
+        var rotation = (RotationTransform)tg.Children[rIdx];
+        var scale = (ScaleTransform)tg.Children[sIdx];
+        var translate = (TranslateTransform)tg.Children[tIdx];
+
+        // PostMatrixOfT = matrix applied after T in application order (= composition of children near the head of the list).
+        // Identity under the new [T, R, S]; S · R under the old [R, S, T].
+        Matrix postMatrixOfT = Matrix.Identity;
+        for (int i = 0; i < tIdx; i++)
+        {
+            postMatrixOfT = tg.Children[i].CreateMatrix(context) * postMatrixOfT;
+        }
+
+        bool structureChanged = groupChanged || added;
+        return new CanonicalTransformLayoutResult(translate, scale, rotation, tg, structureChanged)
+        {
+            PostMatrixOfT = postMatrixOfT,
+        };
+    }
+
+    /// <summary>
+    /// Reads the first occurrence of R/S/T each (without mutating the group). Does not return null even if the order is invalid.
+    /// </summary>
+    public static (RotationTransform? Rotation, ScaleTransform? Scale, TranslateTransform? Translate)
+        FindCanonicalTransforms(Transform? t)
+    {
+        if (t is TransformGroup tg)
+        {
+            int rIdx = -1, sIdx = -1, tIdx = -1;
+            for (int i = 0; i < tg.Children.Count; i++)
+            {
+                Transform c = tg.Children[i];
+                if (rIdx < 0 && c is RotationTransform) rIdx = i;
+                if (sIdx < 0 && c is ScaleTransform) sIdx = i;
+                if (tIdx < 0 && c is TranslateTransform) tIdx = i;
+            }
+            return (
+                rIdx >= 0 ? (RotationTransform)tg.Children[rIdx] : null,
+                sIdx >= 0 ? (ScaleTransform)tg.Children[sIdx] : null,
+                tIdx >= 0 ? (TranslateTransform)tg.Children[tIdx] : null);
+        }
+        return t switch
+        {
+            RotationTransform r => (r, null, null),
+            ScaleTransform s => (null, s, null),
+            TranslateTransform tr => (null, null, tr),
+            _ => (null, null, null)
+        };
+    }
+}
+
+internal sealed record CanonicalTransformLayoutResult(
+    TranslateTransform Translate,
+    ScaleTransform Scale,
+    RotationTransform Rotation,
+    TransformGroup Group,
+    bool StructureChanged)
+{
+    /// <summary>Matrix applied after the operative T in application order (Identity under the new [T, R, S]).</summary>
+    internal Matrix PostMatrixOfT { get; init; } = Matrix.Identity;
+}

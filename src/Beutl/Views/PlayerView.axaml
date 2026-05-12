@@ -133,6 +133,9 @@
 
                 <pathEditor:PathEditorView Name="pathEditorView"
                                            DataContext="{Binding PathEditor}" />
+
+                <local:TransformHandlesOverlay Name="transformHandlesOverlay"
+                                               IsVisible="False" />
             </Panel>
         </Player.Content>
     </Player>

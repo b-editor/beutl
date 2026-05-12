@@ -21,6 +21,7 @@ using Beutl.Logging;
 using Beutl.Media;
 using Beutl.ProjectSystem;
 using Beutl.Services;
+using Beutl.Utilities;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Editors;
 using FluentAvalonia.UI.Controls;
@@ -29,21 +30,44 @@ using Microsoft.Extensions.Logging;
 using AvaImage = Avalonia.Controls.Image;
 using AvaPoint = Avalonia.Point;
 using AvaRect = Avalonia.Rect;
+using BtlMatrix = Beutl.Graphics.Matrix;
+using BtlPoint = Beutl.Graphics.Point;
+using BtlRect = Beutl.Graphics.Rect;
+using BtlSize = Beutl.Graphics.Size;
 
 namespace Beutl.Views;
 
 public partial class PlayerView
 {
-    private static double Length(AvaPoint point)
-    {
-        return Math.Sqrt((point.X * point.X) + (point.Y * point.Y));
-    }
-
     private sealed class KeyFrameState<T>(KeyFrame<T>? previous, KeyFrame<T>? next)
     {
         public KeyFrame<T>? Previous { get; } = previous;
 
         public KeyFrame<T>? Next { get; } = next;
+    }
+
+    // If localStart is non-null, convert to local time (e.g. Element/Scene3D); if null, use globalKeyTime as-is.
+    private static KeyFrameState<T>? FindKeyFramePair<T>(
+        IProperty<T> property, IEditorClock clock, Scene scene, TimeSpan? localStart)
+    {
+        int rate = scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;
+        TimeSpan globalKeyTime = clock.CurrentTime.Value;
+        TimeSpan localKeyTime = localStart.HasValue ? globalKeyTime - localStart.Value : globalKeyTime;
+
+        if (property.Animation is KeyFrameAnimation<T> animation)
+        {
+            TimeSpan keyTime = animation.UseGlobalClock ? globalKeyTime : localKeyTime;
+            keyTime = keyTime.RoundToRate(rate);
+
+            (IKeyFrame? prev, IKeyFrame? next) = animation.KeyFrames.GetPreviousAndNextKeyFrame(keyTime);
+
+            if (next?.KeyTime == keyTime)
+                return new(next as KeyFrame<T>, null);
+
+            return new(prev as KeyFrame<T>, next as KeyFrame<T>);
+        }
+
+        return null;
     }
 
     private interface IMouseControlHandler
@@ -134,14 +158,65 @@ public partial class PlayerView
         }
     }
 
-    private sealed class MouseControlMove : IMouseControlHandler
+    private sealed class MouseControlTransformHandles : IMouseControlHandler
     {
-        private bool _imagePressed;
-        private AvaPoint _scaledStartPosition;
-        private TranslateTransform? _translateTransform;
-        private Matrix _preMatrix = Matrix.Identity;
-        private KeyFrameState<float>? _xKeyFrame;
-        private KeyFrameState<float>? _yKeyFrame;
+        // Drag lifecycle: Press → (first OnMoved → Ensure) → Move* → Release.
+        //   _press == null  : pre-press state
+        //   _ensured == null: pre-drag (Press received but no mouse movement yet)
+
+        // When Kind == None, LocalSize/StartUserMatrix/InvStartUserMatrix/PivotLocal/PivotImage are
+        // filled with default/Identity (harmless because only HandleTranslate is invoked, which does not reference them).
+        // PressTransform: anchor for detecting whether undo/redo replaced the Transform right before the first OnMoved.
+        private sealed record PressState(
+            Drawable Drawable,
+            Element? Element,
+            double FrameScale,
+            BtlSize LocalSize,
+            BtlMatrix StartUserMatrix,
+            BtlMatrix InvStartUserMatrix,
+            BtlPoint PivotLocal,
+            AvaPoint PivotImage,
+            AvaPoint StartImagePos,
+            Transform? PressTransform);
+
+        private sealed class EnsuredState
+        {
+            public required TranslateTransform Translate { get; init; }
+            public required ScaleTransform Scale { get; init; }
+            public required RotationTransform Rotation { get; init; }
+            // Identifier used to detect undo/redo replacement via reference equality with drawable.Transform.CurrentValue.
+            public required TransformGroup Group { get; init; }
+            // null = non-invertible (HandleTranslate will abort).
+            public BtlMatrix? InvPostMatrixOfT { get; init; }
+            public required BtlMatrix RotationMatrix { get; init; }
+            public required float StartTransX { get; init; }
+            public required float StartTransY { get; init; }
+            public required float StartScaleX { get; init; }
+            public required float StartScaleY { get; init; }
+            public required float StartRotation { get; init; }
+            public KeyFrameState<float>? KfTransX { get; init; }
+            public KeyFrameState<float>? KfTransY { get; init; }
+            public KeyFrameState<float>? KfScaleX { get; init; }
+            public KeyFrameState<float>? KfScaleY { get; init; }
+            public KeyFrameState<float>? KfRotation { get; init; }
+            public required (float prev, float next) KfStartTransX { get; init; }
+            public required (float prev, float next) KfStartTransY { get; init; }
+            public required (float prev, float next) KfStartScaleX { get; init; }
+            public required (float prev, float next) KfStartScaleY { get; init; }
+            public required (float prev, float next) KfStartRotation { get; init; }
+        }
+
+        private readonly ILogger _logger = Log.CreateLogger<MouseControlTransformHandles>();
+
+        private PressState? _press;
+        private EnsuredState? _ensured;
+
+        // _changed is drag-scoped (cleared by ResetSession); _shift stays live outside of a drag too
+        // (synced from KeyDown/Up and pointer-event KeyModifiers, reset to false only in OnReleased).
+        private bool _changed;
+        private bool _shift;
+
+        public Drawable? Drawable => _press?.Drawable;
 
         public required PlayerView View { get; init; }
 
@@ -151,232 +226,648 @@ public partial class PlayerView
 
         public required IEditorSelection EditorSelection { get; init; }
 
+        public required TransformHandlesOverlay.HandleKind Kind { get; init; }
+
         public EditViewModel EditViewModel => ViewModel.EditViewModel;
-
-        public Drawable? Drawable { get; private set; }
-
-        public Element? Element { get; private set; }
 
         private Control Image => View.image;
 
-        private (TranslateTransform?, Matrix) FindOrCreateTranslation(Drawable drawable)
+        private KeyFrameState<float>? FindKf(IProperty<float> property)
+            => FindKeyFramePair(property, Clock, EditViewModel.Scene, _press?.Element?.Start);
+
+        // On invariant violation, leave a more actionable log than an NRE and short-circuit subsequent OnMoved calls via ResetSession.
+        private bool TryGetSession(
+            [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out PressState? press,
+            [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out EnsuredState? ensured)
         {
-            switch (drawable.Transform.CurrentValue)
-            {
-                case TranslateTransform translateTransform:
-                    return (translateTransform, Matrix.Identity);
-
-                case TransformGroup transformGroup:
-                    var list = transformGroup.Children;
-                    TranslateTransform? obj = null;
-                    int i;
-                    for (i = 0; i < list.Count; i++)
-                    {
-                        Transform item = list[i];
-                        if (item is TranslateTransform translate)
-                        {
-                            obj = translate;
-                            break;
-                        }
-                    }
-
-                    if (obj == null)
-                    {
-                        obj = new TranslateTransform();
-                        transformGroup.Children.Insert(0, obj);
-                        EditViewModel.HistoryManager.Commit(CommandNames.TransformElement);
-
-                        return (obj, Matrix.Identity);
-                    }
-                    else
-                    {
-                        var res = transformGroup.ToResource(new CompositionContext(Clock.CurrentTime.Value));
-
-                        return (obj, res.Matrix);
-                    }
-            }
-
-            return (null, Matrix.Identity);
+            press = _press;
+            ensured = _ensured;
+            if (press != null && ensured != null) return true;
+            _logger.LogError(
+                "MouseControlTransformHandles handler invoked without session (press={HasPress}, ensured={HasEnsured}, kind={Kind}). Aborting drag.",
+                press != null, ensured != null, Kind);
+            ResetSession();
+            press = null;
+            ensured = null;
+            return false;
         }
 
-        private KeyFrameState<float>? FindKeyFramePairOrNull(IProperty<float> property)
-        {
-            int rate = EditViewModel.Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;
-            TimeSpan globalkeyTime = Clock.CurrentTime.Value;
-            TimeSpan localKeyTime = Element != null ? globalkeyTime - Element.Start : globalkeyTime;
+        private static bool ApplyDelta(KeyFrameState<float>? kf, (float prev, float next) start, float delta)
+            => KeyFrameDeltaHelper.ApplyDelta(kf?.Previous, kf?.Next, start.prev, start.next, delta);
 
-            if (property.Animation is KeyFrameAnimation<float> animation)
-            {
-                TimeSpan keyTime = animation.UseGlobalClock ? globalkeyTime : localKeyTime;
-                keyTime = keyTime.RoundToRate(rate);
-
-                (IKeyFrame? prev, IKeyFrame? next) = animation.KeyFrames.GetPreviousAndNextKeyFrame(keyTime);
-
-                if (next?.KeyTime == keyTime)
-                    return new(next as KeyFrame<float>, null);
-
-                return new(prev as KeyFrame<float>, next as KeyFrame<float>);
-            }
-
-            return default;
-        }
-
-        public void OnMoved(PointerEventArgs e)
-        {
-            if (_imagePressed && Drawable != null)
-            {
-                if (!ViewModel.IsMoveMode.Value)
-                    return;
-
-                PointerPoint pointerPoint = e.GetCurrentPoint(Image);
-                AvaPoint imagePosition = pointerPoint.Position;
-                double scaleX = Image.Bounds.Size.Width / EditViewModel.Scene.FrameSize.Width;
-                AvaPoint scaledPosition = imagePosition / scaleX;
-                AvaPoint delta = scaledPosition - _scaledStartPosition;
-                if (_translateTransform == null && Length(delta) >= 1)
-                {
-                    (_translateTransform, _preMatrix) = FindOrCreateTranslation(Drawable);
-
-                    // 最初の一回だけ、キーフレームを探す
-                    if (_translateTransform != null)
-                    {
-                        // アニメーションが設定されていない場合の編集コマンドの復元に使うのでCurrentValueで良い
-                        _xKeyFrame = FindKeyFramePairOrNull(_translateTransform.X);
-                        _yKeyFrame = FindKeyFramePairOrNull(_translateTransform.Y);
-                    }
-                }
-
-                if (_preMatrix.TryInvert(out Matrix inverted))
-                {
-                    Avalonia.Matrix avaInverted = inverted.ToAvaMatrix();
-                    AvaPoint scaledPosition1 = scaledPosition * avaInverted;
-                    AvaPoint scaledStartPosition1 = _scaledStartPosition * avaInverted;
-                    delta = scaledPosition1 - scaledStartPosition1;
-                }
-
-                if (_translateTransform != null)
-                {
-                    if (!SetKeyFrameValue(_xKeyFrame, (float)delta.X))
-                    {
-                        _translateTransform.X.CurrentValue += (float)delta.X;
-                    }
-
-                    if (!SetKeyFrameValue(_yKeyFrame, (float)delta.Y))
-                    {
-                        _translateTransform.Y.CurrentValue += (float)delta.Y;
-                    }
-                }
-
-                _scaledStartPosition = scaledPosition;
-                if (Element != null)
-                {
-                    int rate = EditViewModel.Player.GetFrameRate();
-                    int st = (int)Element.Start.ToFrameNumber(rate);
-                    int ed = (int)Math.Ceiling(Element.Range.End.ToFrameNumber(rate));
-
-                    EditViewModel.FrameCacheManager.Value.DeleteAndUpdateBlocks([(st, ed)]);
-                }
-
-                e.Handled = true;
-            }
-        }
-
-        // keyframesが両方nullの場合、falseを返す
-        private static bool SetKeyFrameValue(KeyFrameState<float>? keyframes, float delta)
-        {
-            switch ((keyframes?.Previous, keyframes?.Next))
-            {
-                case (null, null):
-                    return false;
-
-                case ({ } prev, { } next):
-                    prev.Value += delta;
-                    next.Value += delta;
-                    break;
-
-                case ({ } prev, null):
-                    prev.Value += delta;
-                    break;
-
-                case (null, { } next):
-                    next.Value += delta;
-                    break;
-            }
-
-            return true;
-        }
-
-        public void OnReleased(PointerReleasedEventArgs e)
-        {
-            if (_imagePressed)
-            {
-                _imagePressed = false;
-
-                EditViewModel.HistoryManager.Commit(CommandNames.TransformElement);
-
-                Element = null;
-                _translateTransform = null;
-                Drawable = null;
-                _xKeyFrame = default;
-                _yKeyFrame = default;
-                e.Handled = true;
-            }
-        }
+        private static (float prev, float next) CaptureStartValues(KeyFrameState<float>? kf, float fallback)
+            => KeyFrameDeltaHelper.CaptureStartValues(kf?.Previous, kf?.Next, fallback);
 
         public void OnPressed(PointerPressedEventArgs e)
         {
-            Scene scene = EditViewModel.Scene;
-            PointerPoint pointerPoint = e.GetCurrentPoint(Image);
-            _imagePressed = pointerPoint.Properties.IsLeftButtonPressed;
-            AvaPoint imagePosition = pointerPoint.Position;
-            double scaleX = Image.Bounds.Size.Width / scene.FrameSize.Width;
-            _scaledStartPosition = imagePosition / scaleX;
+            PointerPoint pp = e.GetCurrentPoint(Image);
+            if (!pp.Properties.IsLeftButtonPressed) return;
 
-            Drawable = RenderThread.Dispatcher.Invoke(() =>
+            // If Shift+click happens before framePanel has focus, no KeyDown fires, so initialize
+            // _shift from the modifier state on the pointer event.
+            _shift = e.KeyModifiers.HasFlag(KeyModifiers.Shift);
+
+            if (Kind == TransformHandlesOverlay.HandleKind.None)
             {
-                var compositor = EditViewModel.Renderer.Value.Compositor;
-                var compositionFrame = compositor.EvaluateGraphics(Clock.CurrentTime.Value);
-                return EditViewModel.Renderer.Value.HitTest(compositionFrame, new((float)_scaledStartPosition.X, (float)_scaledStartPosition.Y));
-            });
-
-            if (Drawable != null)
-            {
-                // TODO: DrawableGroup以下のDrawableを拾った場合の対応
-                int zindex = Drawable.ZIndex;
-                TimeSpan time = Clock.CurrentTime.Value;
-
-                Element = scene.Children.FirstOrDefault(v =>
-                    v.IsEnabled
-                    && v.ZIndex == zindex
-                    && v.Start <= time
-                    && time < v.Range.End);
-
-                if (Element != null)
-                {
-                    EditorSelection.SelectedObject.Value = Element;
-                }
+                OnPressedHitTest(e, pp);
+                return;
             }
 
-            e.Handled = _imagePressed;
+            TransformHandlesOverlay overlay = View.transformHandlesOverlay;
+            Drawable? drawable = overlay.Drawable;
+            Element? element = overlay.Element;
+            double frameScale = overlay.FrameScale;
+            BtlSize localSize = overlay.LocalSize;
+            BtlMatrix startUserMatrix = overlay.UserMatrix;
+            BtlPoint pivotLocal = overlay.PivotLocal;
 
-            if (e.ClickCount == 2 && Drawable is Graphics.Shapes.Shape shape)
+            if (drawable == null || element == null || frameScale <= 0
+                || localSize.Width <= 0 || localSize.Height <= 0
+                || !startUserMatrix.TryInvert(out BtlMatrix invStartUserMatrix))
+            {
+                _logger.LogWarning(
+                    "Transform handle press cancelled: kind={Kind}, drawable={DrawableType}, element='{Element}', frameScale={FrameScale}",
+                    Kind, drawable?.GetType().Name ?? "null", element?.Name ?? "null", frameScale);
+                _press = null;
+                e.Handled = true;
+                return;
+            }
+
+            AvaPoint startImagePos = pp.Position;
+            AvaPoint pivotImage = overlay.PivotImage;
+
+            _press = new PressState(
+                Drawable: drawable,
+                Element: element,
+                FrameScale: frameScale,
+                LocalSize: localSize,
+                StartUserMatrix: startUserMatrix,
+                InvStartUserMatrix: invStartUserMatrix,
+                PivotLocal: pivotLocal,
+                PivotImage: pivotImage,
+                StartImagePos: startImagePos,
+                PressTransform: drawable.Transform.CurrentValue);
+
+            // Ensure (= inserting R/S/T) is a document mutation, so defer it until the first OnMoved
+            // (if the user only clicks and releases, the structure is left untouched).
+            _ensured = null;
+
+            EditorSelection.SelectedObject.Value = element;
+            View.framePanel.Cursor = TransformHandlesOverlay.GetCursorForHandle(Kind);
+
+            e.Handled = true;
+        }
+
+        // Click outside the overlay region (Kind == None). Resolve the drawable via renderer hit-test;
+        // toggle selection, launch path editor on double-click of a shape, and start a translate drag on the first OnMoved.
+        private void OnPressedHitTest(PointerPressedEventArgs e, PointerPoint pp)
+        {
+            Scene scene = EditViewModel.Scene;
+            AvaPoint imagePos = pp.Position;
+            double frameScale = Image.Bounds.Size.Width / scene.FrameSize.Width;
+            if (frameScale <= 0)
+            {
+                // Layout race: e.g. the click arrived before framePanel had laid out the image.
+                _logger.LogDebug(
+                    "OnPressedHitTest: frameScale={FrameScale} <= 0 (imageBounds={ImageBounds}, frameSize={FrameSize}), swallowing click.",
+                    frameScale, Image.Bounds.Size, scene.FrameSize);
+                _press = null;
+                e.Handled = true;
+                return;
+            }
+
+            AvaPoint scaledStartPosition = new(imagePos.X / frameScale, imagePos.Y / frameScale);
+
+            Drawable? drawable;
+            try
+            {
+                drawable = RenderThread.Dispatcher.Invoke(() =>
+                {
+                    var compositor = EditViewModel.Renderer.Value.Compositor;
+                    var compositionFrame = compositor.EvaluateGraphics(Clock.CurrentTime.Value);
+                    return EditViewModel.Renderer.Value.HitTest(compositionFrame,
+                        new((float)scaledStartPosition.X, (float)scaledStartPosition.Y));
+                });
+            }
+            catch (OperationCanceledException ocex)
+            {
+                // Pointer event delivered during shutdown. Propagating it can kill the UI thread,
+                // so log and discard the click instead.
+                _logger.LogDebug(
+                    ocex,
+                    "OnPressedHitTest: hit-test cancelled (likely shutdown). Swallowing click.");
+                _press = null;
+                e.Handled = true;
+                return;
+            }
+            catch (Exception ex) when (
+                ex is not OutOfMemoryException
+                and not StackOverflowException
+                and not System.Runtime.InteropServices.SEHException  // propagate things like GPU driver crashes
+                and not AccessViolationException)                    // CSE (defense-in-depth)
+            {
+                // Swallow the exception; propagating it would crash the editor via the pointer-event pipeline.
+                _logger.LogError(
+                    ex,
+                    "OnPressedHitTest: renderer hit-test threw at scaledPos={ScaledPos}.",
+                    scaledStartPosition);
+                _press = null;
+                e.Handled = true;
+                return;
+            }
+
+            // Fall through on an empty click so other handlers / the normal selection logic can run
+            // (setting _press=non-null + Handled=true would make the click look unresponsive).
+            if (drawable == null)
+            {
+                _press = null;
+                return;
+            }
+
+            int zindex = drawable.ZIndex;
+            TimeSpan time = Clock.CurrentTime.Value;
+            Element? element = scene.Children.FirstOrDefault(v =>
+                v.IsEnabled
+                && v.ZIndex == zindex
+                && v.Start <= time
+                && time < v.Range.End);
+
+            if (element != null)
+            {
+                EditorSelection.SelectedObject.Value = element;
+            }
+
+            _press = new PressState(
+                Drawable: drawable,
+                Element: element,
+                FrameScale: frameScale,
+                LocalSize: default,
+                StartUserMatrix: BtlMatrix.Identity,
+                InvStartUserMatrix: BtlMatrix.Identity,
+                PivotLocal: default,
+                PivotImage: default,
+                StartImagePos: imagePos,
+                PressTransform: drawable.Transform.CurrentValue);
+            _ensured = null;
+            e.Handled = true;
+
+            // Double-click on shape → path editor
+            if (e.ClickCount == 2 && drawable is Graphics.Shapes.Shape shape)
             {
                 ElementPropertyTabViewModel? tab = EditViewModel.FindToolTab<ElementPropertyTabViewModel>();
                 if (tab != null)
                 {
                     foreach (EngineObjectPropertyViewModel item in tab.Items)
                     {
-                        IPropertyEditorContext?
-                            prop = item.Properties.FirstOrDefault(v => v is GeometryEditorViewModel);
+                        IPropertyEditorContext? prop = item.Properties.FirstOrDefault(v => v is GeometryEditorViewModel);
                         if (prop is GeometryEditorViewModel geometryEditorViewModel)
                         {
-                            EditViewModel.Player.PathEditor.StartEdit(shape, geometryEditorViewModel,
-                                _scaledStartPosition);
+                            EditViewModel.Player.PathEditor.StartEdit(shape, geometryEditorViewModel, scaledStartPosition);
                             break;
                         }
                     }
                 }
             }
+        }
+
+        private void EnsureOnFirstMove()
+        {
+            if (_ensured != null || _press == null) return;
+
+            var ctx = new CompositionContext(Clock.CurrentTime.Value);
+
+            // Ensure performs a document mutation, so first take a mutation-free snapshot and verify finiteness.
+            // If any value is invalid, abort without invoking Ensure to avoid leaving a non-undoable mutation behind.
+            // The defaults used to fill missing axes must match the property defaults of the R/S/T that Ensure inserts
+            // (TranslateTransform.X/Y=0, ScaleTransform.ScaleX/Y=100, RotationTransform.Rotation=0).
+            var (probeR, probeS, probeT) = CanonicalTransformLayout.FindCanonicalTransforms(_press.Drawable.Transform.GetValue(ctx));
+            float startTransX = probeT?.X.GetValue(ctx) ?? 0f;
+            float startTransY = probeT?.Y.GetValue(ctx) ?? 0f;
+            float startScaleX = probeS?.ScaleX.GetValue(ctx) ?? 100f;
+            float startScaleY = probeS?.ScaleY.GetValue(ctx) ?? 100f;
+            float startRotation = probeR?.Rotation.GetValue(ctx) ?? 0f;
+
+            if (!float.IsFinite(startTransX) || !float.IsFinite(startTransY)
+                || !float.IsFinite(startScaleX) || !float.IsFinite(startScaleY)
+                || !float.IsFinite(startRotation))
+            {
+                AbortDrag(
+                    "EnsureOnFirstMove: non-finite snapshot (T=({Tx},{Ty}), S=({Sx},{Sy}), R={Rot}); aborting drag before structural mutation.",
+                    startTransX, startTransY, startScaleX, startScaleY, startRotation);
+                return;
+            }
+
+            CanonicalTransformLayoutResult ensured =
+                CanonicalTransformLayout.Ensure(_press.Drawable, ctx);
+
+            KeyFrameState<float>? kfTransX = FindKf(ensured.Translate.X);
+            KeyFrameState<float>? kfTransY = FindKf(ensured.Translate.Y);
+            KeyFrameState<float>? kfScaleX = FindKf(ensured.Scale.ScaleX);
+            KeyFrameState<float>? kfScaleY = FindKf(ensured.Scale.ScaleY);
+            KeyFrameState<float>? kfRotation = FindKf(ensured.Rotation.Rotation);
+
+            BtlMatrix? invPostMatrixOfT = ensured.PostMatrixOfT.TryInvert(out BtlMatrix invPostT) ? invPostT : null;
+            BtlMatrix rotationMatrix = ensured.Rotation.CreateMatrix(ctx);
+
+            _ensured = new EnsuredState
+            {
+                Translate = ensured.Translate,
+                Scale = ensured.Scale,
+                Rotation = ensured.Rotation,
+                Group = ensured.Group,
+                InvPostMatrixOfT = invPostMatrixOfT,
+                RotationMatrix = rotationMatrix,
+                StartTransX = startTransX,
+                StartTransY = startTransY,
+                StartScaleX = startScaleX,
+                StartScaleY = startScaleY,
+                StartRotation = startRotation,
+                KfTransX = kfTransX,
+                KfTransY = kfTransY,
+                KfScaleX = kfScaleX,
+                KfScaleY = kfScaleY,
+                KfRotation = kfRotation,
+                KfStartTransX = CaptureStartValues(kfTransX, startTransX),
+                KfStartTransY = CaptureStartValues(kfTransY, startTransY),
+                KfStartScaleX = CaptureStartValues(kfScaleX, startScaleX),
+                KfStartScaleY = CaptureStartValues(kfScaleY, startScaleY),
+                KfStartRotation = CaptureStartValues(kfRotation, startRotation),
+            };
+
+            // If a structural change (group wrap or R/S/T insertion) happened, commit even if delta is tiny.
+            if (ensured.StructureChanged)
+            {
+                _changed = true;
+            }
+        }
+
+        public void OnMoved(PointerEventArgs e)
+        {
+            if (_press == null) return;
+
+            // Pre-Ensure guard: detect the case where undo/redo replaces the entire Transform between
+            // OnPressed and the first OnMoved. If this is not checked before Ensure runs, structural
+            // mutations would be applied to the post-undo Transform. After Ensure, PressTransform is
+            // expected to differ, so gate on _ensured==null (the post-Ensure guard below watches _ensured.Group).
+            if (_ensured == null
+                && !ReferenceEquals(_press.Drawable.Transform.CurrentValue, _press.PressTransform))
+            {
+                AbortDrag(
+                    "OnMoved: drawable Transform replaced before first move (Drawable={DrawableType}, Kind={Kind}, oldGroup={OldGroupType}, newGroup={NewGroupType}); aborting drag.",
+                    _press.Drawable.GetType().Name,
+                    Kind,
+                    _press.PressTransform?.GetType().Name ?? "null",
+                    _press.Drawable.Transform.CurrentValue?.GetType().Name ?? "null");
+                return;
+            }
+
+            EnsureOnFirstMove();
+            if (_ensured == null) return;
+
+            // Post-Ensure guard: if undo/redo replaces the entire TransformGroup mid-drag, _ensured.Group
+            // would still point at the detached group, causing silent write loss — abort instead.
+            // Undoing a child keyframe value does not change this reference, so it still passes through the gate.
+            if (!ReferenceEquals(_press.Drawable.Transform.CurrentValue, _ensured.Group))
+            {
+                AbortDrag(
+                    "OnMoved: drawable Transform replaced mid-drag (Drawable={DrawableType}, Kind={Kind}, ensuredGroup={EnsuredGroupType}, current={CurrentType}); aborting drag.",
+                    _press.Drawable.GetType().Name,
+                    Kind,
+                    _ensured.Group.GetType().Name,
+                    _press.Drawable.Transform.CurrentValue?.GetType().Name ?? "null");
+                return;
+            }
+
+            PointerPoint pp = e.GetCurrentPoint(Image);
+            AvaPoint currentImg = pp.Position;
+
+            // KeyDown/KeyUp only fire while framePanel has focus, so losing focus causes OnKeyUp to be
+            // missed and _shift to get stuck. During a drag, treat the pointer-event KeyModifiers as
+            // authoritative.
+            _shift = e.KeyModifiers.HasFlag(KeyModifiers.Shift);
+
+            switch (Kind)
+            {
+                case TransformHandlesOverlay.HandleKind.None:
+                case TransformHandlesOverlay.HandleKind.Center:
+                    HandleTranslate(currentImg);
+                    break;
+                case TransformHandlesOverlay.HandleKind.TopLeft:
+                case TransformHandlesOverlay.HandleKind.TopRight:
+                case TransformHandlesOverlay.HandleKind.BottomRight:
+                case TransformHandlesOverlay.HandleKind.BottomLeft:
+                    HandleCorner(currentImg);
+                    break;
+                case TransformHandlesOverlay.HandleKind.Top:
+                case TransformHandlesOverlay.HandleKind.Bottom:
+                case TransformHandlesOverlay.HandleKind.Left:
+                case TransformHandlesOverlay.HandleKind.Right:
+                    HandleEdge(currentImg);
+                    break;
+                case TransformHandlesOverlay.HandleKind.Rotate:
+                    HandleRotate(currentImg);
+                    break;
+                default:
+                    // Fail-fast detection for forgotten branches when the enum is extended.
+                    throw new System.ArgumentOutOfRangeException(nameof(Kind), Kind, "Unhandled HandleKind in OnMoved switch.");
+            }
+
+            // On the frame where AbortDrag tore the session down, skip the postlude and let the
+            // pointer event flow through to the parent routing.
+            if (_press == null) return;
+
+            _changed = true;
+            InvalidateFrameCache();
+            e.Handled = true;
+        }
+
+        private void HandleTranslate(AvaPoint currentImg)
+        {
+            if (!TryGetSession(out PressState? press, out EnsuredState? ensured)) return;
+
+            // Convert the image-pixel delta back to scene space and map it into T's value space via InvPostMatrixOfT.
+            double scale = press.FrameScale;
+            AvaPoint scaledCurrent = new(currentImg.X / scale, currentImg.Y / scale);
+            AvaPoint scaledStart = new(press.StartImagePos.X / scale, press.StartImagePos.Y / scale);
+
+            if (ensured.InvPostMatrixOfT is not BtlMatrix inv)
+            {
+                AbortDrag(
+                    "HandleTranslate: PostMatrixOfT non-invertible (Drawable={DrawableType}); aborting drag.",
+                    press.Drawable.GetType().Name);
+                return;
+            }
+
+            BtlPoint pCurrent = inv.Transform(new BtlPoint((float)scaledCurrent.X, (float)scaledCurrent.Y));
+            BtlPoint pStart = inv.Transform(new BtlPoint((float)scaledStart.X, (float)scaledStart.Y));
+            float dx = pCurrent.X - pStart.X;
+            float dy = pCurrent.Y - pStart.Y;
+
+            float newX = ensured.StartTransX + dx;
+            float newY = ensured.StartTransY + dy;
+            // Prevent NaN/Inf from being written to Translate through an ill-conditioned PostMatrixOfT.
+            if (!float.IsFinite(newX) || !float.IsFinite(newY))
+            {
+                AbortDrag(
+                    "HandleTranslate: non-finite translate (newX={NewX}, newY={NewY}); aborting drag.",
+                    newX, newY);
+                return;
+            }
+            if (!ApplyDelta(ensured.KfTransX, ensured.KfStartTransX, dx))
+                ensured.Translate.X.CurrentValue = newX;
+            if (!ApplyDelta(ensured.KfTransY, ensured.KfStartTransY, dy))
+                ensured.Translate.Y.CurrentValue = newY;
+        }
+
+        private void HandleCorner(AvaPoint currentImg)
+        {
+            if (!TryGetSession(out PressState? press, out EnsuredState? ensured)) return;
+
+            // Inverse-transform with the userMatrix captured at press time (do not recompute M every frame during the drag).
+            BtlPoint currentLocal = ImagePointToStartLocal(press, currentImg);
+            (double anchorX, double anchorY) = CornerAnchorLocal(press, Kind);
+
+            // Grow the signed distance from the anchor in the "positive" direction. Crossing the
+            // diagonal makes ratio negative and flips the object, which is accepted by design.
+            bool grabLeft = Kind is TransformHandlesOverlay.HandleKind.TopLeft or TransformHandlesOverlay.HandleKind.BottomLeft;
+            bool grabTop = Kind is TransformHandlesOverlay.HandleKind.TopLeft or TransformHandlesOverlay.HandleKind.TopRight;
+
+            double newWidth = grabLeft ? (anchorX - currentLocal.X) : (currentLocal.X - anchorX);
+            double newHeight = grabTop ? (anchorY - currentLocal.Y) : (currentLocal.Y - anchorY);
+
+            double ratioX = newWidth / press.LocalSize.Width;
+            double ratioY = newHeight / press.LocalSize.Height;
+
+            if (_shift)
+            {
+                (ratioX, ratioY) = TransformHandleMath.LockAspect(ratioX, ratioY);
+            }
+
+            float newScaleX = (float)(ensured.StartScaleX * ratioX);
+            float newScaleY = (float)(ensured.StartScaleY * ratioY);
+            ApplyScaleWithPivotCorrection(press, ensured, newScaleX, newScaleY, anchorX, anchorY);
+        }
+
+        private void HandleEdge(AvaPoint currentImg)
+        {
+            if (!TryGetSession(out PressState? press, out EnsuredState? ensured)) return;
+
+            BtlPoint currentLocal = ImagePointToStartLocal(press, currentImg);
+            (double anchorX, double anchorY) = EdgeAnchorLocal(press, Kind);
+
+            bool horizontal = Kind is TransformHandlesOverlay.HandleKind.Left or TransformHandlesOverlay.HandleKind.Right;
+            bool grabLeft = Kind is TransformHandlesOverlay.HandleKind.Left;
+            bool grabTop = Kind is TransformHandlesOverlay.HandleKind.Top;
+
+            float newScaleX = ensured.StartScaleX;
+            float newScaleY = ensured.StartScaleY;
+
+            if (horizontal)
+            {
+                double newWidth = grabLeft ? (anchorX - currentLocal.X) : (currentLocal.X - anchorX);
+                double ratioX = newWidth / press.LocalSize.Width;
+                newScaleX = (float)(ensured.StartScaleX * ratioX);
+                if (_shift)
+                {
+                    newScaleY = (float)(ensured.StartScaleY * ratioX);
+                }
+            }
+            else
+            {
+                double newHeight = grabTop ? (anchorY - currentLocal.Y) : (currentLocal.Y - anchorY);
+                double ratioY = newHeight / press.LocalSize.Height;
+                newScaleY = (float)(ensured.StartScaleY * ratioY);
+                if (_shift)
+                {
+                    newScaleX = (float)(ensured.StartScaleX * ratioY);
+                }
+            }
+
+            ApplyScaleWithPivotCorrection(press, ensured, newScaleX, newScaleY, anchorX, anchorY);
+        }
+
+        // Centralizes LogWarning → ResetSession → cursor release. The OnMoved postlude (`_press == null`) catches the abort frame.
+        private void AbortDrag(string reasonTemplate, params object?[] args)
+        {
+            _logger.LogWarning(reasonTemplate, args);
+            ResetSession();
+            View.framePanel.Cursor = null;
+        }
+
+        private void HandleRotate(AvaPoint currentImg)
+        {
+            if (!TryGetSession(out PressState? press, out EnsuredState? ensured)) return;
+            double sx = press.StartImagePos.X - press.PivotImage.X;
+            double sy = press.StartImagePos.Y - press.PivotImage.Y;
+            double cx = currentImg.X - press.PivotImage.X;
+            double cy = currentImg.Y - press.PivotImage.Y;
+
+            double angleStart = Math.Atan2(sy, sx);
+            double angleCurrent = Math.Atan2(cy, cx);
+            double deltaRad = TransformHandleMath.NormalizeAngleDelta(angleCurrent - angleStart);
+            // If PivotImage is degenerate the whole drag would freeze, so abort the session and surface feedback.
+            if (!double.IsFinite(deltaRad))
+            {
+                AbortDrag(
+                    "HandleRotate: non-finite delta (pivot={Pivot}, start={Start}, current={Current}); aborting drag.",
+                    press.PivotImage, press.StartImagePos, currentImg);
+                return;
+            }
+            float deltaDeg = MathUtilities.Rad2Deg((float)deltaRad);
+
+            float newRot = ensured.StartRotation + deltaDeg;
+            if (_shift)
+            {
+                newRot = (float)(Math.Round(newRot / 15.0) * 15.0);
+            }
+
+            // newRot is invariantly finite (guaranteed by the upstream gates on StartRotation/deltaRad and by Math.Round).
+            // Derive delta from the post-Shift-snap value (deltaDeg is the pre-snap value).
+            float effectiveDelta = newRot - ensured.StartRotation;
+            if (!ApplyDelta(ensured.KfRotation, ensured.KfStartRotation, effectiveDelta))
+                ensured.Rotation.Rotation.CurrentValue = newRot;
+        }
+
+        private void ApplyScale(EnsuredState ensured, float newScaleX, float newScaleY)
+        {
+            if (!float.IsFinite(newScaleX) || !float.IsFinite(newScaleY))
+            {
+                AbortDrag(
+                    "ApplyScale: non-finite scale (sx={ScaleX}, sy={ScaleY}); aborting drag.",
+                    newScaleX, newScaleY);
+                return;
+            }
+            float deltaScaleX = newScaleX - ensured.StartScaleX;
+            float deltaScaleY = newScaleY - ensured.StartScaleY;
+            if (!ApplyDelta(ensured.KfScaleX, ensured.KfStartScaleX, deltaScaleX))
+                ensured.Scale.ScaleX.CurrentValue = newScaleX;
+            if (!ApplyDelta(ensured.KfScaleY, ensured.KfStartScaleY, deltaScaleY))
+                ensured.Scale.ScaleY.CurrentValue = newScaleY;
+        }
+
+        // Compensate the anchor shift caused by a scale change via the operative Translate.
+        // See <see cref="TransformHandleMath.ComputePivotTranslationDelta"/> for the math. Specific to the new [T, R, S] layout.
+        private void ApplyScaleWithPivotCorrection(
+            PressState press, EnsuredState ensured,
+            float newScaleX, float newScaleY, double anchorX, double anchorY)
+        {
+            ApplyScale(ensured, newScaleX, newScaleY);
+            if (_press == null) return;
+
+            (float deltaTx, float deltaTy) = TransformHandleMath.ComputePivotTranslationDelta(
+                ensured.StartScaleX, ensured.StartScaleY,
+                newScaleX, newScaleY,
+                anchorX, anchorY,
+                press.PivotLocal.X, press.PivotLocal.Y,
+                ensured.RotationMatrix);
+            float newTx = ensured.StartTransX + deltaTx;
+            float newTy = ensured.StartTransY + deltaTy;
+
+            // Block the path where an ill-conditioned anchor/origin rounds to Inf via the (float) cast.
+            if (!float.IsFinite(newTx) || !float.IsFinite(newTy))
+            {
+                AbortDrag(
+                    "ApplyScaleWithPivotCorrection: non-finite ΔT (deltaTx={Dx}, deltaTy={Dy}); aborting drag.",
+                    deltaTx, deltaTy);
+                return;
+            }
+
+            if (!ApplyDelta(ensured.KfTransX, ensured.KfStartTransX, deltaTx))
+                ensured.Translate.X.CurrentValue = newTx;
+            if (!ApplyDelta(ensured.KfTransY, ensured.KfStartTransY, deltaTy))
+                ensured.Translate.Y.CurrentValue = newTy;
+        }
+
+        private static BtlPoint ImagePointToStartLocal(PressState press, AvaPoint img)
+        {
+            double sceneX = img.X / press.FrameScale;
+            double sceneY = img.Y / press.FrameScale;
+            return press.InvStartUserMatrix.Transform(new BtlPoint((float)sceneX, (float)sceneY));
+        }
+
+        // Anchor coordinates are local-rect-relative (0,0)-(w,h). Drawable.GetTransformMatrix shares
+        // this assumption, treating the size as starting from (0,0). When a Shape has
+        // Geometry.Bounds.Position != (0,0) the overlay can misalign, but that is a limitation of the
+        // existing rendering model and out of scope for this file.
+        private static (double X, double Y) CornerAnchorLocal(PressState press, TransformHandlesOverlay.HandleKind kind)
+        {
+            BtlSize size = press.LocalSize;
+            double w = size.Width, h = size.Height;
+            return kind switch
+            {
+                TransformHandlesOverlay.HandleKind.TopLeft => (w, h),       // opposite = BottomRight
+                TransformHandlesOverlay.HandleKind.TopRight => (0, h),       // opposite = BottomLeft
+                TransformHandlesOverlay.HandleKind.BottomRight => (0, 0),    // opposite = TopLeft
+                TransformHandlesOverlay.HandleKind.BottomLeft => (w, 0),     // opposite = TopRight
+                _ => throw new System.ArgumentOutOfRangeException(nameof(kind), kind, "Corner anchor requested for non-corner HandleKind."),
+            };
+        }
+
+        private static (double X, double Y) EdgeAnchorLocal(PressState press, TransformHandlesOverlay.HandleKind kind)
+        {
+            BtlSize size = press.LocalSize;
+            double w = size.Width, h = size.Height;
+            return kind switch
+            {
+                TransformHandlesOverlay.HandleKind.Top => (0, h),     // opposite = Bottom edge
+                TransformHandlesOverlay.HandleKind.Bottom => (0, 0),  // opposite = Top edge
+                TransformHandlesOverlay.HandleKind.Left => (w, 0),    // opposite = Right edge
+                TransformHandlesOverlay.HandleKind.Right => (0, 0),   // opposite = Left edge
+                _ => throw new System.ArgumentOutOfRangeException(nameof(kind), kind, "Edge anchor requested for non-edge HandleKind."),
+            };
+        }
+
+        public void OnReleased(PointerReleasedEventArgs e)
+        {
+            if (_press == null) return;
+
+            // If the Transform was replaced between OnMoved and OnReleased, _ensured.Group now points
+            // at a detached group, so discard the pending commit. Skip this check for click-only sessions (Ensure never ran).
+            if (_ensured != null
+                && !ReferenceEquals(_press.Drawable.Transform.CurrentValue, _ensured.Group))
+            {
+                _logger.LogWarning(
+                    "OnReleased: drawable Transform replaced before release (Drawable={DrawableType}, Kind={Kind}); discarding pending commit.",
+                    _press.Drawable.GetType().Name, Kind);
+                View.framePanel.Cursor = null;
+                ResetSession();
+                _shift = false;
+                e.Handled = true;
+                return;
+            }
+
+            if (_changed)
+            {
+                EditViewModel.HistoryManager.Commit(CommandNames.TransformElement);
+            }
+
+            View.framePanel.Cursor = null;
+            ResetSession();
+            _shift = false;
+            e.Handled = true;
+        }
+
+        private void ResetSession()
+        {
+            _press = null;
+            _ensured = null;
+            _changed = false;
+        }
+
+        public void OnKeyDown(KeyEventArgs e) => SyncShift(e.KeyModifiers);
+
+        public void OnKeyUp(KeyEventArgs e) => SyncShift(e.KeyModifiers);
+
+        private void SyncShift(KeyModifiers modifiers) => _shift = modifiers.HasFlag(KeyModifiers.Shift);
+
+        private void InvalidateFrameCache()
+        {
+            Element? element = _press?.Element;
+            if (element == null) return;
+            int rate = EditViewModel.Player.GetFrameRate();
+            int st = (int)element.Start.ToFrameNumber(rate);
+            int ed = (int)Math.Ceiling(element.Range.End.ToFrameNumber(rate));
+            EditViewModel.FrameCacheManager.Value.DeleteAndUpdateBlocks([(st, ed)]);
         }
     }
 
@@ -1321,12 +1812,15 @@ public partial class PlayerView
     {
         if (viewModel.IsMoveMode.Value)
         {
-            return new MouseControlMove
+            // Mouse interactions in Move mode are routed directly to MouseControlTransformHandles in OnFramePointerPressed.
+            // Only wheel events reach this method through CreateMouseHandler, where a no-op is acceptable.
+            return new MouseControlTransformHandles
             {
+                View = this,
                 ViewModel = viewModel,
                 Clock = viewModel.EditViewModel.GetRequiredService<IEditorClock>(),
                 EditorSelection = viewModel.EditViewModel.GetRequiredService<IEditorSelection>(),
-                View = this
+                Kind = TransformHandlesOverlay.HandleKind.None,
             };
         }
         else if (viewModel.IsHandMode.Value)
@@ -1374,14 +1868,29 @@ public partial class PlayerView
                     viewModel.IsHandMode.Value = true;
                 }
 
-                _mouseState = CreateMouseHandler(viewModel);
-
-                _mouseState.OnPressed(e);
-                // Todo: 抽象化する
-                if (_mouseState is MouseControlMove move)
+                // In Move mode the left button funnels through MouseControlTransformHandles regardless of whether the click hit a handle.
+                // When Kind == None it takes the renderer hit-test + double-click + translate-drag path.
+                if (viewModel.IsMoveMode.Value && point.Properties.IsLeftButtonPressed)
                 {
-                    _lastSelected.SetTarget(move.Drawable);
+                    AvaPoint imagePoint = e.GetCurrentPoint(image).Position;
+                    TransformHandlesOverlay.HandleKind kind = transformHandlesOverlay.HitTest(imagePoint);
+                    var handler = new MouseControlTransformHandles
+                    {
+                        View = this,
+                        ViewModel = viewModel,
+                        Clock = viewModel.EditViewModel.GetRequiredService<IEditorClock>(),
+                        EditorSelection = viewModel.EditViewModel.GetRequiredService<IEditorSelection>(),
+                        Kind = kind,
+                    };
+                    _mouseState = handler;
+                    handler.OnPressed(e);
+                    _lastSelected.SetTarget(handler.Drawable);
+                    framePanel.Focus();
+                    return;
                 }
+
+                _mouseState = CreateMouseHandler(viewModel);
+                _mouseState.OnPressed(e);
             }
         }
     }

@@ -1,12 +1,16 @@
 ﻿using System.Runtime.CompilerServices;
 using Beutl.Composition;
 using Beutl.Graphics.Rendering.Cache;
+using Beutl.Logging;
 using Beutl.Media;
+using Microsoft.Extensions.Logging;
 
 namespace Beutl.Graphics.Rendering;
 
 public class Renderer : IRenderer
 {
+    private static readonly ILogger s_logger = Log.CreateLogger<Renderer>();
+
     private readonly ImmediateCanvas _immediateCanvas;
     private readonly RenderTarget _surface;
     private readonly FpsText _fpsText = new();
@@ -299,6 +303,35 @@ public class Renderer : IRenderer
     public Rect[] GetBoundaries(int zIndex)
     {
         return [.. _allCurrentEntries.Where(e => e.Node.Drawable?.Resource.GetOriginal().ZIndex == zIndex).Select(e => e.Bounds)];
+    }
+
+    public Rect? GetBoundary(Drawable drawable)
+    {
+        RenderThread.Dispatcher.VerifyAccess();
+        if (_nodeCache.TryGetValue(drawable, out Entry? entry))
+        {
+            if (_allCurrentEntries.Contains(entry))
+            {
+                return entry.Bounds;
+            }
+            // An entry exists but is not included in the current frame (stale). Suggests a draw-lifecycle mismatch.
+            if (s_logger.IsEnabled(LogLevel.Debug))
+            {
+                s_logger.LogDebug(
+                    "GetBoundary: stale entry for {DrawableType}#{DrawableHash:X} (cached but not in current frame).",
+                    drawable.GetType().Name, RuntimeHelpers.GetHashCode(drawable));
+            }
+            return null;
+        }
+
+        // Cache miss that also occurs in normal operation (not yet drawn or already evicted).
+        if (s_logger.IsEnabled(LogLevel.Trace))
+        {
+            s_logger.LogTrace(
+                "GetBoundary: drawable {DrawableType}#{DrawableHash:X} not in render-node cache.",
+                drawable.GetType().Name, RuntimeHelpers.GetHashCode(drawable));
+        }
+        return null;
     }
 
     public Rect[] RecalculateBoundaries(int zIndex)
