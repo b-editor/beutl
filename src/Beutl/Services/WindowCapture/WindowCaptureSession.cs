@@ -28,8 +28,10 @@ internal sealed class WindowCaptureSession : IAsyncDisposable
     private readonly RenderTargetBitmap _rtb;
     private readonly string _ffmpegPixelFormat;
     private readonly ConcurrentQueue<byte[]> _freeBuffers = new();
+    // SingleWriter must be false: OnTimerTick writes frames on the UI thread while
+    // WriterLoopAsync (background) calls TryComplete on the same writer.
     private readonly Channel<byte[]> _channel = Channel.CreateUnbounded<byte[]>(
-        new UnboundedChannelOptions { SingleReader = true, SingleWriter = true });
+        new UnboundedChannelOptions { SingleReader = true, SingleWriter = false });
 
     private DispatcherTimer? _timer;
     private Process? _process;
@@ -101,12 +103,17 @@ internal sealed class WindowCaptureSession : IAsyncDisposable
         }
         catch
         {
+            // ffmpeg never started, so there is nothing for StopAsync to tear down.
+            // Mark stopped so a follow-up DisposeAsync is a no-op.
+            _stopped = true;
             _rtb.Dispose();
             throw;
         }
 
         _writerTask = Task.Run(WriterLoopAsync);
 
+        // If timer setup fails after ffmpeg/writer are running, leave _stopped=false
+        // so the caller's DisposeAsync routes through StopAsync and reclaims them.
         _timer = new DispatcherTimer(DispatcherPriority.Render)
         {
             Interval = TimeSpan.FromSeconds(1.0 / _frameRate),
@@ -123,7 +130,10 @@ internal sealed class WindowCaptureSession : IAsyncDisposable
 
     public async Task StopAsync()
     {
-        if (!_started || _stopped) return;
+        // Note: we intentionally do not gate on _started so that a partially
+        // initialized session (e.g., ffmpeg started but timer creation failed
+        // in Start()) is still torn down cleanly via DisposeAsync.
+        if (_stopped) return;
         _stopped = true;
 
         if (_timer is { } timer)

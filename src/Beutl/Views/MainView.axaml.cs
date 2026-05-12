@@ -31,6 +31,7 @@ public sealed partial class MainView : UserControl
     private readonly CompositeDisposable _disposables = [];
     private readonly Dictionary<ToolWindowExtension, List<Window>> _openToolWindows = new();
     private WindowCaptureSession? _captureSession;
+    private bool _captureStopInProgress;
 
     public MainView()
     {
@@ -535,6 +536,11 @@ public sealed partial class MainView : UserControl
 
     internal async Task StopWindowCaptureAsync()
     {
+        // Re-entrancy guard: a second Stop click while the first is in flight would
+        // otherwise re-enter with the same session, call StopAsync() (which returns
+        // immediately because _stopped=true), and emit a duplicate "Saved" toast
+        // while the first stop is still finalizing.
+        if (_captureStopInProgress) return;
         WindowCaptureSession? session = _captureSession;
         if (session is null)
         {
@@ -542,6 +548,7 @@ public sealed partial class MainView : UserControl
             return;
         }
 
+        _captureStopInProgress = true;
         try
         {
             await session.StopAsync();
@@ -556,12 +563,25 @@ public sealed partial class MainView : UserControl
             _logger.LogError(ex, "Failed to stop window capture.");
             NotificationService.ShowError("Window Capture", ex.Message);
         }
+        finally
+        {
+            _captureStopInProgress = false;
+        }
     }
 
     internal bool HasActiveCapture => _captureSession is not null;
 
     internal async Task EnsureCaptureStoppedAsync()
     {
+        if (_captureStopInProgress)
+        {
+            // A user-initiated stop is already running; spin briefly until it finishes
+            // so window close waits for the same teardown rather than racing with it.
+            while (_captureStopInProgress)
+                await Task.Yield();
+            return;
+        }
+
         WindowCaptureSession? session = _captureSession;
         if (session is null) return;
         try { await session.StopAsync(); }
