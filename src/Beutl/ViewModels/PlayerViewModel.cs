@@ -1239,7 +1239,13 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
 
                     UpdateImage(bitmapRef);
 
-                    AfterRendered.OnNext(Unit.Default);
+                    // Dispose と並走した場合に AfterRendered が破棄されている可能性があるためトークンを確認する
+                    if (!token.IsCancellationRequested)
+                        AfterRendered.OnNext(Unit.Default);
+                }
+                catch (ObjectDisposedException)
+                {
+                    // Dispose 中のレースで AfterRendered などが破棄された場合は無視する
                 }
                 catch (Exception ex)
                 {
@@ -1287,6 +1293,9 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
     {
         _logger.LogInformation("Disposing PlayerViewModel. ({SceneId})", _editViewModel.SceneId);
         await Pause();
+        // 進行中の QueueRender をキャンセルしてから Subject を破棄し、レンダースレッドが
+        // 破棄済みの AfterRendered/_audioFramePushed に OnNext しないようにする
+        _cts?.Cancel();
         Scene!.Edited -= OnSceneEdited;
         _disposables.Dispose();
         _currentFrameSubscription?.Dispose();
