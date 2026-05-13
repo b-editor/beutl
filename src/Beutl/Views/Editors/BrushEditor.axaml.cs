@@ -312,6 +312,10 @@ public sealed partial class BrushEditor : UserControl
         if (viewModel.Value.Value is not GradientBrush { GradientStops: { } list }) return;
         if (viewModel.IsDisposed) return;
 
+        if (e.OldIndex < 0 || e.OldIndex >= list.Count
+            || e.NewIndex < 0 || e.NewIndex >= list.Count)
+            return;
+
         if (e.NewIndex != e.OldIndex)
             list.Move(e.NewIndex, e.OldIndex);
         GradientStop obj = list[e.OldIndex];
@@ -324,6 +328,10 @@ public sealed partial class BrushEditor : UserControl
         if (DataContext is not BrushEditorViewModel viewModel) return;
         if (viewModel.Value.Value is not GradientBrush { GradientStops: { } list }) return;
         if (viewModel.IsDisposed) return;
+
+        if (e.OldIndex < 0 || e.OldIndex >= list.Count
+            || e.NewIndex < 0 || e.NewIndex >= list.Count)
+            return;
 
         GradientStop obj = list[e.OldIndex];
         obj.Offset.CurrentValue = (float)e.Object.Offset;

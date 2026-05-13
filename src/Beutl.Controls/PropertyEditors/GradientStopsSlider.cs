@@ -331,6 +331,8 @@ public class GradientStopsSlider : TemplatedControl
         stop.Offset = x / DragWidth;
 
         int oldIndex = _backgroundStops.IndexOf(stop);
+        if (oldIndex < 0) return;
+
         int newIndex = oldIndex;
         if (oldIndex > 0)
         {
@@ -340,7 +342,8 @@ public class GradientStopsSlider : TemplatedControl
                 newIndex--;
             }
         }
-        else if (oldIndex + 1 < _backgroundStops.Count)
+
+        if (newIndex == oldIndex && oldIndex + 1 < _backgroundStops.Count)
         {
             GradientStop next = _backgroundStops[oldIndex + 1];
             if (next.Offset < stop.Offset)
@@ -359,6 +362,7 @@ public class GradientStopsSlider : TemplatedControl
             && _itemsControl != null)
         {
             int index = Stops.IndexOf(stop);
+            if (index < 0 || _oldIndex < 0 || _oldIndex >= Stops.Count) return;
 
             Confirmed?.Invoke(this, (_oldIndex, index, stop, new(_oldOffset, stop.Color)));
         }
