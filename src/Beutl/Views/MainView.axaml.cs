@@ -488,7 +488,9 @@ public sealed partial class MainView : UserControl
         if (TopLevel.GetTopLevel(this) is not Window window)
             return;
 
-        string? ffmpegPath = FFmpegBinaryLocator.Find();
+        // ffmpeg -version probes run synchronously inside Find(); push the work off
+        // the UI thread so a slow probe doesn't make the menu click appear to hang.
+        string? ffmpegPath = await Task.Run(FFmpegBinaryLocator.Find);
         if (ffmpegPath is null)
         {
             NotificationService.ShowError(
