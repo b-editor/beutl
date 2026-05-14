@@ -2,12 +2,15 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;
 
+using Beutl.Logging;
 using Beutl.Media;
 using Beutl.Media.Decoding;
 using Beutl.Media.Music;
 using Beutl.Media.Music.Samples;
 using Beutl.Media.Pixel;
 using Beutl.Media.Source;
+
+using Microsoft.Extensions.Logging;
 
 using NAudio.Wave;
 
@@ -24,6 +27,7 @@ using Beutl.Extensions.MediaFoundation;
 
 public class MFReader : MediaReader
 {
+    private readonly ILogger _logger = Log.CreateLogger<MFReader>();
     private readonly string _file;
     private readonly MediaOptions _options;
 
@@ -52,11 +56,17 @@ public class MFReader : MediaReader
                     info.TotalFrameCount,
                     new PixelSize(info.ImageFormat.Width, info.ImageFormat.Height),
                     new Rational(info.Fps.Numerator, info.Fps.Denominator));
-                // Resolve the target color space exactly once. HDR inputs get the luminance-
-                // scaled gamut so the editor preview matches the FFmpeg/AVF paths. ForceSrgbGamma
-                // is the SDR escape hatch — the YUY2 8-bit decode path strips HDR information
-                // anyway, so labelling the bitmap as plain sRGB matches what the pixels actually
-                // carry and prevents downstream color-managed code from re-applying a PQ/HLG curve.
+                // Resolve the target color space exactly once. HDR inputs are mapped
+                // by ForceSrgbGamma, which has two modes:
+                //   • false (default): build the HDR-tagged color space (PQ/HLG +
+                //     luminance-scaled Rec.2020 gamut). Skia applies the proper EOTF
+                //     in preview, producing the intended HDR look on the editor —
+                //     but the YUY2 8-bit decode path already quantized the samples,
+                //     so the result will show some banding compared to a true HDR
+                //     viewing pipeline.
+                //   • true: clip to plain sRGB instead. Recommended when the editor
+                //     monitor is SDR; avoids the HDR EOTF being applied to 8-bit
+                //     samples in a viewer that cannot reproduce the result anyway.
                 if (info.IsHdr)
                 {
                     _videoColorSpace = extension.Settings.ForceSrgbGamma
@@ -66,6 +76,16 @@ public class MFReader : MediaReader
                 else
                 {
                     _videoColorSpace = MFColorSpaceHelper.BuildTargetColorSpace(info.TransferFunction, info.ColorPrimaries);
+                    // Surface the case where the transfer tag was present but didn't
+                    // map onto any known TRC — the helper silently falls back to
+                    // sRGB and that may look wrong for forward-looking transfers.
+                    if (info.TransferFunction != Vortice.MediaFoundation.VideoTransferFunction.FuncUnknown
+                        && !MFColorSpaceHelper.TryGetTransferFunction(info.TransferFunction, out _))
+                    {
+                        _logger.LogWarning(
+                            "Stream transfer function {Trc} is not mapped; defaulting to sRGB. Colors may look off.",
+                            info.TransferFunction);
+                    }
                 }
                 HasVideo = true;
             }
