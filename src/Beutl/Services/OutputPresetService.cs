@@ -1,5 +1,4 @@
-﻿using System.Text.Json;
-using System.Text.Json.Nodes;
+﻿using System.Text.Json.Nodes;
 using Beutl.Extensions.FFmpeg.Encoding;
 using Beutl.FFmpegIpc;
 using Beutl.Helpers;
@@ -151,9 +150,7 @@ public sealed class OutputPresetService
             array.Add(json);
         }
 
-        using FileStream stream = File.Create(_filePath);
-        using var writer = new Utf8JsonWriter(stream);
-        array.WriteTo(writer);
+        array.JsonSave(_filePath);
         _logger.LogInformation("Saved {Count} OutputPresetItem to file: {FilePath}", _items.Count, _filePath);
     }
 

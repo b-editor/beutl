@@ -1,5 +1,4 @@
-﻿using System.Text.Json;
-using System.Text.Json.Nodes;
+﻿using System.Text.Json.Nodes;
 using Beutl.Api.Services;
 using Beutl.Logging;
 using Beutl.Models;
@@ -167,51 +166,60 @@ public sealed class OutputService(EditViewModel editViewModel) : IDisposable
             array.Add(json);
         }
 
-        using FileStream stream = File.Create(_filePath);
-        using var writer = new Utf8JsonWriter(stream);
-        array.WriteTo(writer);
+        array.JsonSave(_filePath);
         _logger.LogInformation("Saved {Count} OutputProfileItems to file: {FilePath}", _items.Count, _filePath);
     }
 
     public void RestoreItems()
     {
-        _isRestored = true;
-        if (!File.Exists(_filePath))
+        try
         {
-            _logger.LogWarning("Output profile file not found: {FilePath}", _filePath);
-            return;
-        }
-
-        using FileStream stream = File.Open(_filePath, FileMode.Open);
-        var jsonNode = JsonNode.Parse(stream);
-        if (jsonNode is not JsonArray jsonArray)
-        {
-            _logger.LogWarning("Invalid JSON format in output profile file: {FilePath}", _filePath);
-            return;
-        }
-
-        var items = _items.ToArray();
-        _items.Clear();
-        _selectedItem.Value = null;
-        foreach (OutputProfileItem item in items)
-        {
-            item.Dispose();
-        }
-
-        _items.EnsureCapacity(jsonArray.Count);
-
-        foreach (JsonNode? jsonItem in jsonArray)
-        {
-            if (jsonItem == null) continue;
-
-            var item = OutputProfileItem.FromJson(editViewModel, jsonItem, _logger);
-            if (item != null)
+            if (!File.Exists(_filePath))
             {
-                _items.Add(item);
+                _logger.LogWarning("Output profile file not found: {FilePath}", _filePath);
+                _isRestored = true;
+                return;
             }
-        }
 
-        _logger.LogInformation("Restored {Count} OutputProfileItems from file: {FilePath}", _items.Count, _filePath);
+            using FileStream stream = File.Open(_filePath, FileMode.Open);
+            var jsonNode = JsonNode.Parse(stream);
+            if (jsonNode is not JsonArray jsonArray)
+            {
+                _logger.LogWarning("Invalid JSON format in output profile file: {FilePath}", _filePath);
+                return;
+            }
+
+            var items = _items.ToArray();
+            _items.Clear();
+            _selectedItem.Value = null;
+            foreach (OutputProfileItem item in items)
+            {
+                item.Dispose();
+            }
+
+            _items.EnsureCapacity(jsonArray.Count);
+
+            foreach (JsonNode? jsonItem in jsonArray)
+            {
+                if (jsonItem == null) continue;
+
+                var item = OutputProfileItem.FromJson(editViewModel, jsonItem, _logger);
+                if (item != null)
+                {
+                    _items.Add(item);
+                }
+            }
+
+            // 既存ファイルの読み込みに成功した場合のみ書き込みを許可する。
+            // try 冒頭で true にすると、IO 失敗や JSON 破損時に後続の SaveItems が
+            // 空の _items を書き込み、ユーザーの保存済みプロファイルが消える。
+            _isRestored = true;
+            _logger.LogInformation("Restored {Count} OutputProfileItems from file: {FilePath}", _items.Count, _filePath);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "An exception has occurred while restoring output profile file.");
+        }
     }
 
     public void Dispose()
