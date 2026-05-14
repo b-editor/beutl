@@ -31,6 +31,10 @@
     <EmbeddedResource Update="Properties\Strings.resx" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="Beutl.Extensions.MediaFoundation.Tests" />
+  </ItemGroup>
+
   <Choose>
     <When Condition="'$(MFBuildIn)'=='True'">
       <PropertyGroup>
