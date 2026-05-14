@@ -58,95 +58,209 @@ public class MFEncodingController : EncodingController
         bool isHdr = VideoSettings.IsHdr;
         bool audioOnly = IsAudioOnlyContainer(OutputFile);
 
-        using IMFAttributes sinkAttrs = MediaFactory.MFCreateAttributes(2);
-        // Lets Sink Writer pick hardware encoder MFTs (QSV / NVENC / AMD VCE).
-        // Without this the writer silently falls back to the software encoder.
-        sinkAttrs.Set(SinkWriterAttributeKeys.ReadwriteEnableHardwareTransforms, 1);
-        sinkAttrs.Set(SinkWriterAttributeKeys.DisableThrottling, 0);
+        // Write to a sibling temp file then rename on success. If the encode aborts
+        // (cancellation, codec error, exception in RenderFrame), the partially
+        // written file is deleted instead of overwriting the user's previous output.
+        string tempFile = OutputFile + ".partial";
+        try { if (File.Exists(tempFile)) File.Delete(tempFile); }
+        catch (Exception ex) { _logger.LogWarning(ex, "Could not remove stale temp file {Temp}", tempFile); }
 
-        using IMFSinkWriter sinkWriter = MediaFactory.MFCreateSinkWriterFromURL(OutputFile, null, sinkAttrs);
-
-        // Audio-only containers (.wav/.mp3/.aac/.adts/.m4a) cannot mux a video stream;
-        // adding one here makes BeginWriting fail. Pure-audio outputs run through the
-        // audio path only.
-        int videoStreamIndex = audioOnly ? -1 : ConfigureVideoStream(sinkWriter, isHdr);
-        int audioChannels = ResolveAudioChannels();
-        int sampleRate = ResolveOutputSampleRate((int)sampleProvider.SampleRate);
-        MFAudioEncoderSettings.AudioCodecType audioCodec = ResolveAudioCodec();
-        int audioStreamIndex = ConfigureAudioStream(sinkWriter, audioCodec, sampleRate, audioChannels);
-
-        // Pre-compute the HDR target color space once per encode. Reusing the object
-        // saves Skia from rebuilding the SKColorSpace on every frame convert.
-        BitmapColorSpace? hdrTargetColorSpace = null;
-        if (!audioOnly && isHdr)
-        {
-            hdrTargetColorSpace = MFColorSpaceHelper.BuildHdrColorSpace(
-                MapTransferForHelper(VideoSettings.ColorTransfer),
-                MapPrimariesForHelper(VideoSettings.ColorPrimaries));
-        }
-        // SDR NV12 conversion must match the matrix we tag on the output stream.
-        PixelFormatConverter.YuvMatrix8 sdrMatrix = ResolveSdrYuvMatrix(VideoSettings.YCbCrMatrix);
-
-        sinkWriter.BeginWriting();
-
+        bool encodeCompleted = false;
         try
         {
-            long frameCount = 0;
-            long sampleCount = 0;
-            bool encodeVideo = videoStreamIndex >= 0;
-            bool encodeAudio = audioStreamIndex >= 0;
+            using IMFAttributes sinkAttrs = MediaFactory.MFCreateAttributes(1);
+            // Asks Sink Writer to prefer hardware encoder MFTs (QSV / NVENC / AMD VCE)
+            // when available. If no compatible hardware MFT is installed, MF
+            // transparently falls back to the software encoder — we log the
+            // resolved MFT identity after BeginWriting so the user can see which
+            // path was chosen.
+            sinkAttrs.Set(SinkWriterAttributeKeys.ReadwriteEnableHardwareTransforms, 1);
 
-            long frameRateNum = VideoSettings.FrameRate.Numerator;
-            long frameRateDen = VideoSettings.FrameRate.Denominator;
+            using IMFSinkWriter sinkWriter = MediaFactory.MFCreateSinkWriterFromURL(tempFile, null, sinkAttrs);
 
-            while ((encodeVideo || encodeAudio) && !cancellationToken.IsCancellationRequested)
+            // Audio-only containers (.wav/.mp3/.aac/.adts/.m4a) cannot mux a video stream;
+            // adding one here makes BeginWriting fail. Pure-audio outputs run through the
+            // audio path only.
+            int videoStreamIndex = audioOnly ? -1 : ConfigureVideoStream(sinkWriter, isHdr);
+            int audioChannels = ResolveAudioChannels();
+            int sampleRate = ResolveOutputSampleRate((int)sampleProvider.SampleRate);
+            MFAudioEncoderSettings.AudioCodecType audioCodec = ResolveAudioCodec();
+            int audioStreamIndex = ConfigureAudioStream(sinkWriter, audioCodec, sampleRate, audioChannels);
+
+            // SDR path needs the per-stream color space resolved from user selection,
+            // not a hard-coded sRGB conversion — otherwise the pixels we hand the
+            // encoder don't match the BT.709/BT.601/Rec.2020 tag we write into the
+            // output stream and players show a slightly off-grade SDR image.
+            BitmapColorSpace? hdrTargetColorSpace = null;
+            BitmapColorSpace sdrSourceColorSpace = BitmapColorSpace.Srgb;
+            if (!audioOnly)
             {
-                long videoTs = (encodeVideo && frameRateNum > 0)
-                    ? frameCount * frameRateDen * HnsPerSecond / frameRateNum
-                    : long.MaxValue;
-                long audioTs = (encodeAudio && sampleRate > 0)
-                    ? sampleCount * HnsPerSecond / sampleRate
-                    : long.MaxValue;
-
-                if (encodeVideo && videoTs <= audioTs)
+                if (isHdr)
                 {
-                    await WriteVideoFrame(sinkWriter, videoStreamIndex, frameProvider,
-                        frameCount, frameRateNum, frameRateDen, hdrTargetColorSpace, isHdr, sdrMatrix);
-                    frameCount++;
-                    if (frameCount >= frameProvider.FrameCount)
-                    {
-                        encodeVideo = false;
-                    }
-                }
-                else if (encodeAudio)
-                {
-                    await WriteAudioFrame(sinkWriter, audioStreamIndex, sampleProvider,
-                        sampleCount, AudioFrameSize, sampleRate, audioChannels);
-                    sampleCount += AudioFrameSize;
-                    if (sampleCount >= sampleProvider.SampleCount)
-                    {
-                        encodeAudio = false;
-                    }
+                    hdrTargetColorSpace = MFColorSpaceHelper.BuildHdrColorSpace(
+                        MapTransferForHelper(VideoSettings.ColorTransfer),
+                        MapPrimariesForHelper(VideoSettings.ColorPrimaries));
                 }
                 else
                 {
-                    break;
+                    sdrSourceColorSpace = MFColorSpaceHelper.BuildTargetColorSpace(
+                        MapTransferForHelper(VideoSettings.ColorTransfer),
+                        MapPrimariesForHelper(VideoSettings.ColorPrimaries));
                 }
+            }
+            // SDR NV12 conversion must match the matrix we tag on the output stream.
+            PixelFormatConverter.YuvMatrix8 sdrMatrix = ResolveSdrYuvMatrix(VideoSettings.YCbCrMatrix);
+
+            sinkWriter.BeginWriting();
+            LogEncoderActivation(sinkWriter, videoStreamIndex);
+
+            Exception? loopFailure = null;
+            try
+            {
+                long frameCount = 0;
+                long sampleCount = 0;
+                bool encodeVideo = videoStreamIndex >= 0;
+                bool encodeAudio = audioStreamIndex >= 0;
+
+                long frameRateNum = VideoSettings.FrameRate.Numerator;
+                long frameRateDen = VideoSettings.FrameRate.Denominator;
+
+                while ((encodeVideo || encodeAudio) && !cancellationToken.IsCancellationRequested)
+                {
+                    long videoTs = (encodeVideo && frameRateNum > 0)
+                        ? frameCount * frameRateDen * HnsPerSecond / frameRateNum
+                        : long.MaxValue;
+                    long audioTs = (encodeAudio && sampleRate > 0)
+                        ? sampleCount * HnsPerSecond / sampleRate
+                        : long.MaxValue;
+
+                    if (encodeVideo && videoTs <= audioTs)
+                    {
+                        await WriteVideoFrame(sinkWriter, videoStreamIndex, frameProvider,
+                            frameCount, frameRateNum, frameRateDen,
+                            hdrTargetColorSpace, sdrSourceColorSpace, isHdr, sdrMatrix);
+                        frameCount++;
+                        if (frameCount >= frameProvider.FrameCount)
+                        {
+                            encodeVideo = false;
+                        }
+                    }
+                    else if (encodeAudio)
+                    {
+                        await WriteAudioFrame(sinkWriter, audioStreamIndex, sampleProvider,
+                            sampleCount, AudioFrameSize, sampleRate, audioChannels);
+                        sampleCount += AudioFrameSize;
+                        if (sampleCount >= sampleProvider.SampleCount)
+                        {
+                            encodeAudio = false;
+                        }
+                    }
+                    else
+                    {
+                        break;
+                    }
+                }
+
+                encodeCompleted = !cancellationToken.IsCancellationRequested;
+            }
+            catch (Exception ex)
+            {
+                loopFailure = ex;
+                throw;
+            }
+            finally
+            {
+                // Finalize flushes encoder queues and writes the container footer. Skipping
+                // this produces a partial file that most demuxers refuse to open.
+                // If the encode loop already threw, prefer surfacing that exception —
+                // re-throwing a Finalize failure here would hide the real cause.
+                try
+                {
+                    sinkWriter.Finalize();
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "IMFSinkWriter.Finalize failed");
+                    if (loopFailure == null)
+                    {
+                        throw;
+                    }
+                }
+            }
+
+            if (encodeCompleted)
+            {
+                // Atomic publish: replace any prior file in one step so partial writes
+                // never appear under OutputFile.
+                if (File.Exists(OutputFile))
+                {
+                    File.Delete(OutputFile);
+                }
+                File.Move(tempFile, OutputFile);
             }
         }
         finally
         {
-            // Finalize flushes encoder queues and writes the container footer. Skipping
-            // this produces a partial file that most demuxers refuse to open.
+            if (!encodeCompleted)
+            {
+                // Encode failed or was cancelled — drop the partial container so it
+                // doesn't accumulate next to the real output.
+                try
+                {
+                    if (File.Exists(tempFile)) File.Delete(tempFile);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex,
+                        "Could not delete partial output {Temp}; user may need to remove it manually",
+                        tempFile);
+                }
+            }
+        }
+    }
+
+    // GUIDs from mfapi.h — Vortice does not expose these as named constants, but
+    // they're stable Win32 attribute keys on the encoder MFT's IMFAttributes.
+    private static readonly Guid MFT_FRIENDLY_NAME_Attribute = new("314FFBAE-5B41-4C95-9C19-4E7D586FACE3");
+    private static readonly Guid MFT_ENUM_HARDWARE_URL_Attribute = new("2FB866AC-B078-4942-AB6C-003D05CDA674");
+
+    // Surfaces whether the Sink Writer activated a hardware or software encoder MFT
+    // for the video stream. Even with MF_READWRITE_ENABLE_HARDWARE_TRANSFORMS=1 set,
+    // MF silently picks the software encoder when no compatible hardware MFT is
+    // installed; this introspection makes the chosen path visible in the logs so
+    // users investigating slow encodes can confirm the cause.
+    private void LogEncoderActivation(IMFSinkWriter sinkWriter, int videoStreamIndex)
+    {
+        if (videoStreamIndex < 0) return;
+        try
+        {
+            nint transformPtr = sinkWriter.GetServiceForStream(
+                videoStreamIndex, Guid.Empty, typeof(IMFTransform).GUID);
+            using var transform = new IMFTransform(transformPtr);
+            using IMFAttributes attrs = transform.Attributes;
+
+            string? friendlyName = null;
+            try { friendlyName = attrs.GetString(MFT_FRIENDLY_NAME_Attribute); }
+            catch { /* attribute optional */ }
+
+            bool isHardware = false;
             try
             {
-                sinkWriter.Finalize();
+                _ = attrs.GetString(MFT_ENUM_HARDWARE_URL_Attribute);
+                isHardware = true;
             }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "IMFSinkWriter.Finalize failed");
-                throw;
-            }
+            catch { /* hardware attribute absent on software MFTs */ }
+
+            _logger.LogInformation(
+                "Video encoder MFT for stream {Stream}: {Name} ({Kind})",
+                videoStreamIndex,
+                friendlyName ?? "(unnamed)",
+                isHardware ? "hardware" : "software (fallback)");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex,
+                "Could not introspect encoder MFT for stream {Stream}", videoStreamIndex);
         }
     }
 
@@ -162,6 +276,15 @@ public class MFEncodingController : EncodingController
         // AV1 / H.264 have no defined HDR10 path in Media Foundation.
         Guid outSubType;
         bool useHevcMain10 = isHdr || VideoSettings.Codec == MFVideoEncoderSettings.VideoCodec.HEVC;
+        if (isHdr && VideoSettings.Codec != MFVideoEncoderSettings.VideoCodec.HEVC)
+        {
+            // Surface the implicit promotion so users notice their Codec selection
+            // was overridden by the HDR transfer characteristic.
+            _logger.LogWarning(
+                "HDR transfer ({Transfer}) selected — promoting codec from {Codec} to HEVC Main10. " +
+                "H.264 has no Media Foundation HDR10 path.",
+                VideoSettings.ColorTransfer, VideoSettings.Codec);
+        }
         if (useHevcMain10)
         {
             outSubType = VideoFormatGuids.Hevc;
@@ -246,9 +369,21 @@ public class MFEncodingController : EncodingController
     private int ResolveAudioChannels()
     {
         int requested = AudioSettings.Channels;
-        if (requested <= 0) return 2;
-        if (requested >= 2) return 2;
-        return 1;
+        int resolved;
+        if (requested <= 0) resolved = 2;
+        else if (requested >= 2) resolved = 2;
+        else resolved = 1;
+
+        if (resolved != requested)
+        {
+            // Visible warning instead of a silent clamp — a user asking for 5.1
+            // should at least see why they got stereo so they can adjust the UI
+            // (or change the upstream sample provider).
+            _logger.LogWarning(
+                "AudioSettings.Channels {Requested} not supported by the Stereo32BitFloat source; clamping to {Resolved}",
+                requested, resolved);
+        }
+        return resolved;
     }
 
     private static bool IsAudioOnlyContainer(string outputFile)
@@ -317,7 +452,12 @@ public class MFEncodingController : EncodingController
     {
         if (sampleRate <= 0)
         {
-            return -1;
+            // The source must report a positive sample rate; silently returning -1
+            // would drop the audio track from the output file without telling the
+            // user, so we fail loudly instead.
+            throw new InvalidOperationException(
+                $"Cannot configure audio stream: resolved sample rate is {sampleRate}. " +
+                "The sample provider must report a positive SampleRate.");
         }
 
         using IMFMediaType outType = MediaFactory.MFCreateMediaType();
@@ -371,7 +511,9 @@ public class MFEncodingController : EncodingController
         IMFSinkWriter sinkWriter, int streamIndex,
         IFrameProvider frameProvider,
         long frame, long frameRateNum, long frameRateDen,
-        BitmapColorSpace? hdrTargetColorSpace, bool isHdr,
+        BitmapColorSpace? hdrTargetColorSpace,
+        BitmapColorSpace sdrSourceColorSpace,
+        bool isHdr,
         PixelFormatConverter.YuvMatrix8 sdrMatrix)
     {
         using Bitmap image = await frameProvider.RenderFrame(frame);
@@ -386,6 +528,9 @@ public class MFEncodingController : EncodingController
         if (isHdr && hdrTargetColorSpace is not null)
         {
             // 16-bit RGBA in HDR target color space → P010 (10-bit YUV 4:2:0 MSB-aligned).
+            // The HDR path always converts via BT.2020 NCL limited-range coefficients in
+            // Rgba16ToP010, so the matrix tag (Bt202010) is set by ApplyColorTags
+            // independently of VideoSettings.YCbCrMatrix — sdrMatrix is unused here.
             using Bitmap converted = image.Convert(
                 BitmapColorType.Rgba16161616, BitmapAlphaType.Unpremul, hdrTargetColorSpace);
             WriteVideoSample(sinkWriter, streamIndex, converted,
@@ -393,8 +538,13 @@ public class MFEncodingController : EncodingController
         }
         else
         {
+            // Convert to the SDR target color space matching the transfer/primaries
+            // tag we wrote into the output stream. Forcing sRGB here regardless of
+            // user selection put BT.709 pixels into an sRGB transfer (slight low-
+            // luma drift) before — sdrSourceColorSpace aligns the conversion with
+            // the on-the-wire tag.
             using Bitmap converted = image.Convert(
-                BitmapColorType.Bgra8888, BitmapAlphaType.Premul, BitmapColorSpace.Srgb);
+                BitmapColorType.Bgra8888, BitmapAlphaType.Premul, sdrSourceColorSpace);
             WriteVideoSample(sinkWriter, streamIndex, converted,
                 BitmapColorType.Bgra8888, ptsHns, durationHns, sdrMatrix);
         }
@@ -425,6 +575,13 @@ public class MFEncodingController : EncodingController
         byte* dst = (byte*)dstPtr;
         try
         {
+            // MFCreateMemoryBuffer does not document zero-initialization, and at
+            // odd widths (e.g. 853) the Y-plane converter writes `width` bytes per
+            // row while the shared stride is `chromaWidth` (854). The trailing
+            // padding bytes would otherwise carry whatever garbage the allocator
+            // returned, which encoder MFTs may read when they walk full rows.
+            System.Runtime.InteropServices.NativeMemory.Clear(dst, (nuint)totalSize);
+
             byte* src = (byte*)converted.Data;
             int srcStride = converted.RowBytes;
             if (isP010)
@@ -456,7 +613,11 @@ public class MFEncodingController : EncodingController
     {
         if (sampleRate <= 0)
         {
-            return;
+            // Unreachable in normal flow: ConfigureAudioStream throws on <= 0, so by
+            // the time encodeAudio is true the rate is positive. If a future caller
+            // bypasses that guarantee, fail rather than silently drop frames.
+            throw new InvalidOperationException(
+                $"WriteAudioFrame invoked with non-positive sample rate {sampleRate}.");
         }
 
         using Pcm<Stereo32BitFloat> floatPcm = await sampleProvider.Sample(startSample, length);
@@ -561,8 +722,11 @@ public class MFEncodingController : EncodingController
 
     // Picks the 8-bit NV12 conversion matrix matching the tag MapMatrixToMF will
     // write. Default falls back to BT.709 (typical SDR HD); the tag side writes
-    // Unknown for Default, which players resolve to BT.709 too — so the pixel
-    // math and the on-the-wire interpretation stay aligned.
+    // Unknown for Default. Most modern players resolve missing matrix tags to
+    // BT.709, but at SD resolutions (480p / 576p) decoders frequently apply
+    // BT.601 instead — so a Default + SD-sized output may decode with a slight
+    // hue shift. Users encoding SD content should select Bt601 explicitly to
+    // pin the matrix tag and avoid this ambiguity.
     private static PixelFormatConverter.YuvMatrix8 ResolveSdrYuvMatrix(
         MFVideoEncoderSettings.YCbCrMatrixType m)
     {
