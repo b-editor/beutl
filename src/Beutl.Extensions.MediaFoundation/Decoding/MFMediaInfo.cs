@@ -26,16 +26,15 @@ internal struct MFMediaInfo
     public WaveFormat AudioFormat;
 
     // Color-space metadata extracted from the input stream's IMFMediaType.
-    // TransferFunction is the only HDR signal we trust — primaries/matrix default to
-    // Unknown when the container omits the tag, which is common for SDR files.
+    // TransferFunction is the primary HDR signal we trust — primaries/matrix default
+    // to Unknown when the container omits the tag, which is common for SDR files.
+    // Note: a stream that tags only ColorPrimaries (e.g. Rec.2020) without a
+    // transfer function still reports IsHdr=false here, so HDR-by-primaries-only
+    // sources fall through the SDR path. That mirrors the FFmpeg/AVF backends.
     public VideoTransferFunction TransferFunction;
     public VideoPrimaries ColorPrimaries;
     public VideoTransferMatrix YCbCrMatrix;
     public bool IsHdr;
-
-    // The subtype we asked Source Reader to emit (YUY2 for SDR, P010 for HDR).
-    // Decoders downstream use this to pick the right YUV→RGB conversion.
-    public Guid OutputSubType;
 
     public readonly string GetMediaInfoText()
     {

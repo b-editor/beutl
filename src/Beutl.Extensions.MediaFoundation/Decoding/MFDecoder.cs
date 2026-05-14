@@ -781,15 +781,15 @@ internal sealed class MFDecoder : IDisposable
             }
 
             Guid subType = mediaType.GetGUID(MediaTypeAttributeKeys.Subtype);
-            // YUY2 — still the Source Reader output, even for HDR input. We do carry
-            // the original PQ/HLG transfer tag up to MFReader so Skia reinterprets the
-            // 8-bit samples in the right color space. True 10-bit preservation would
-            // need a P010 output path; that's a future extension on this code.
+            // Source Reader is always asked for YUY2 (see ConfigureDecoder), even
+            // for HDR input — the original PQ/HLG transfer tag is carried up to
+            // MFReader so Skia reinterprets the 8-bit samples in the right color
+            // space. True 10-bit preservation would need a P010 output path;
+            // that's a future extension on this code.
             bih.Compression = new FourCC("YUY2");
             bih.BitCount = 16;
 
             _mediaInfo.ImageFormat = bih;
-            _mediaInfo.OutputSubType = subType;
             _mediaInfo.TotalFrameCount =
                 TimestampUtilities.ConvertFrameFromTimeStamp(_mediaInfo.HnsDuration, _mediaInfo.Fps);
             _mediaInfo.OutImageBufferSize = bih.Width * bih.Height * (bih.BitCount / 8);
