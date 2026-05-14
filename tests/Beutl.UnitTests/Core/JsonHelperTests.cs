@@ -56,6 +56,44 @@ public class JsonHelperTests
     }
 
     [Test]
+    public void JsonRestore_InvalidJson_ReturnsNull()
+    {
+        string path = Path.GetTempFileName();
+        try
+        {
+            File.WriteAllText(path, "{ this is not valid json");
+
+            JsonNode? result = JsonHelper.JsonRestore(path);
+
+            Assert.That(result, Is.Null);
+        }
+        finally
+        {
+            if (File.Exists(path)) File.Delete(path);
+        }
+    }
+
+    [Test]
+    public void JsonRestore_InvalidJson_LeavesFileUntouched()
+    {
+        string path = Path.GetTempFileName();
+        const string corrupt = "{ this is not valid json";
+        try
+        {
+            File.WriteAllText(path, corrupt);
+
+            _ = JsonHelper.JsonRestore(path);
+
+            Assert.That(File.Exists(path), Is.True);
+            Assert.That(File.ReadAllText(path), Is.EqualTo(corrupt));
+        }
+        finally
+        {
+            if (File.Exists(path)) File.Delete(path);
+        }
+    }
+
+    [Test]
     public void TryGetDiscriminator_Type_ReturnsTypeForKnownEntries()
     {
         var node = new JsonObject { ["$type"] = TypeFormat.ToString(typeof(Optional<int>)) };

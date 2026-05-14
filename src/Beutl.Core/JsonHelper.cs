@@ -5,13 +5,16 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using Beutl.JsonConverters;
+using Beutl.Logging;
 using Beutl.Serialization;
+using Microsoft.Extensions.Logging;
 
 namespace Beutl;
 
 public static class JsonHelper
 {
     private static readonly ConditionalWeakTable<Type, JsonConverter> s_converters = [];
+    private static readonly ILogger s_logger = Log.CreateLogger(typeof(JsonHelper));
 
     public static JsonWriterOptions WriterOptions { get; } = new()
     {
@@ -133,7 +136,17 @@ public static class JsonHelper
     {
         if (!File.Exists(filename)) return null;
         using var stream = new FileStream(filename, FileMode.Open, FileAccess.Read, FileShare.Read);
-        return JsonNode.Parse(stream);
+        try
+        {
+            return JsonNode.Parse(stream);
+        }
+        catch (JsonException ex)
+        {
+            // 破損ファイルは次回保存時にアトミック書き込みで上書きされるためそのまま放置。
+            // ファイルを消すと調査用の証拠を失うので触らない。
+            s_logger.LogError(ex, "Failed to parse JSON file {Path}; treating as missing.", filename);
+            return null;
+        }
     }
 
     public static Type? GetDiscriminator(this JsonNode node)
