@@ -1,13 +1,13 @@
-﻿using System.Diagnostics;
-
-#if MF_BUILD_IN
+﻿#if MF_BUILD_IN
 namespace Beutl.Embedding.MediaFoundation;
 #else
 namespace Beutl.Extensions.MediaFoundation;
 #endif
 
 // Software pixel-format conversions used by the Media Foundation encoder and as
-// a CPU fallback when DXVA2's VideoProcessorMFT isn't available at decode time.
+// a CPU fallback hook (Nv12ToBgra / P010ToRgba16 are not currently called by the
+// decode path — Source Reader's VideoProcessor handles SDR YUV→YUY2 there — but
+// they round-trip the encode-side conversions for tests and future use).
 //
 // These are intentionally straightforward single-threaded scalar loops:
 // Media Foundation's Sink Writer / Source Reader already runs the heavy
@@ -16,7 +16,9 @@ namespace Beutl.Extensions.MediaFoundation;
 // profiling would be premature — keep it correct first.
 //
 // Matrix coefficients:
-//   • BT.709 limited range for 8-bit NV12 (Y: 16..235, UV: 16..240)
+//   • Limited range for 8-bit NV12 (Y: 16..235, UV: 16..240) with BT.709 /
+//     BT.601 / BT.2020 / SMPTE 240M presets — BgraToNv12 and Nv12ToBgra both
+//     take a YuvMatrix8 so the inverse path can match the encoder's tag.
 //   • BT.2020 non-constant luminance limited range for 10-bit P010
 //     (Y: 64..940, UV: 64..960 in a 10-bit scale; stored MSB-aligned in 16-bit)
 internal static unsafe class PixelFormatConverter
@@ -66,10 +68,17 @@ internal static unsafe class PixelFormatConverter
         // BGRA8888 source: 4 bytes/px. NV12 dest: Y plane width bytes/row, then UV
         // plane stacked directly after, sharing dstStride. The shared stride must
         // hold the chroma row (ceil(width/2)*2 bytes), otherwise odd widths walk
-        // one byte past every UV row.
-        Debug.Assert(width >= 0 && height >= 0, "negative dimensions");
-        Debug.Assert(srcStride >= width * 4, "BGRA srcStride too small");
-        Debug.Assert(dstStride >= ((width + 1) / 2) * 2, "NV12 dstStride too small for chroma row");
+        // one byte past every UV row. Enforce at runtime — Debug.Assert is stripped
+        // in Release and a too-small stride here writes through unsafe pointers.
+        if (width < 0 || height < 0)
+            throw new ArgumentOutOfRangeException(nameof(width), "negative dimensions");
+        if (srcStride < width * 4)
+            throw new ArgumentException($"BGRA srcStride {srcStride} too small for width {width}", nameof(srcStride));
+        int requiredNv12Stride = ((width + 1) / 2) * 2;
+        if (dstStride < requiredNv12Stride)
+            throw new ArgumentException(
+                $"NV12 dstStride {dstStride} too small; needs at least {requiredNv12Stride} bytes for the chroma row",
+                nameof(dstStride));
 
         int yPlaneBytes = dstStride * height;
         byte* yPlane = dst;
@@ -123,14 +132,43 @@ internal static unsafe class PixelFormatConverter
         }
     }
 
+    // Inverse matrices (Q8 fixed-point) for each preset. Derived once from the
+    // forward Kr/Kb so the round-trip is symmetric. r = 256/219 * Y' + 2(1-Kr)*255/224 * Cr,
+    // g/b expressed similarly. ClampByte at the end keeps results in 8-bit RGB.
+    public readonly struct InvYuvMatrix8
+    {
+        public readonly short YGain;        // Q8 luma gain
+        public readonly short Yr;           // Cr → R coefficient
+        public readonly short Yg_cb, Yg_cr; // Cb / Cr → G coefficients (subtract)
+        public readonly short Yb;           // Cb → B coefficient
+
+        public InvYuvMatrix8(short yGain, short yr, short ygCb, short ygCr, short yb)
+        {
+            YGain = yGain;
+            Yr = yr;
+            Yg_cb = ygCb;
+            Yg_cr = ygCr;
+            Yb = yb;
+        }
+
+        public static readonly InvYuvMatrix8 Bt709 = new(298, 459, 55, 136, 541);
+        public static readonly InvYuvMatrix8 Bt601 = new(298, 409, 100, 208, 516);
+        public static readonly InvYuvMatrix8 Bt2020 = new(298, 430, 48, 167, 549);
+        public static readonly InvYuvMatrix8 Smpte240M = new(298, 451, 56, 138, 535);
+    }
+
     public static void Nv12ToBgra(
         byte* src, int srcStride,
         byte* dst, int dstStride,
-        int width, int height)
+        int width, int height,
+        in InvYuvMatrix8 matrix)
     {
-        Debug.Assert(width >= 0 && height >= 0, "negative dimensions");
-        Debug.Assert(srcStride >= width, "NV12 srcStride too small");
-        Debug.Assert(dstStride >= width * 4, "BGRA dstStride too small");
+        if (width < 0 || height < 0)
+            throw new ArgumentOutOfRangeException(nameof(width), "negative dimensions");
+        if (srcStride < ((width + 1) / 2) * 2)
+            throw new ArgumentException($"NV12 srcStride {srcStride} too small", nameof(srcStride));
+        if (dstStride < width * 4)
+            throw new ArgumentException($"BGRA dstStride {dstStride} too small", nameof(dstStride));
 
         byte* yPlane = src;
         byte* uvPlane = src + (long)srcStride * height;
@@ -145,10 +183,10 @@ internal static unsafe class PixelFormatConverter
                 int yv = yRow[x] - 16;
                 int cb = uvRow[(x & ~1) + 0] - 128;
                 int cr = uvRow[(x & ~1) + 1] - 128;
-                // Inverse BT.709 limited range.
-                int r = (298 * yv + 459 * cr + 128) >> 8;
-                int g = (298 * yv - 55 * cb - 136 * cr + 128) >> 8;
-                int b = (298 * yv + 541 * cb + 128) >> 8;
+                int luma = matrix.YGain * yv;
+                int r = (luma + matrix.Yr * cr + 128) >> 8;
+                int g = (luma - matrix.Yg_cb * cb - matrix.Yg_cr * cr + 128) >> 8;
+                int b = (luma + matrix.Yb * cb + 128) >> 8;
                 dstRow[x * 4 + 0] = ClampByte(b);
                 dstRow[x * 4 + 1] = ClampByte(g);
                 dstRow[x * 4 + 2] = ClampByte(r);
@@ -171,10 +209,17 @@ internal static unsafe class PixelFormatConverter
         // RGBA16 source: 8 bytes/px. P010 dest: 2 bytes/sample, chroma row is
         // ceil(width/2)*2 ushorts = ceil(width/2)*4 bytes. dstStride must hold
         // that and stay even (it gets reinterpreted as a ushort* stride below).
-        Debug.Assert(width >= 0 && height >= 0, "negative dimensions");
-        Debug.Assert(srcStride >= width * 8, "RGBA16 srcStride too small");
-        Debug.Assert(dstStride >= ((width + 1) / 2) * 4, "P010 dstStride too small for chroma row");
-        Debug.Assert((dstStride & 1) == 0, "P010 dstStride must be even");
+        if (width < 0 || height < 0)
+            throw new ArgumentOutOfRangeException(nameof(width), "negative dimensions");
+        if (srcStride < width * 8)
+            throw new ArgumentException($"RGBA16 srcStride {srcStride} too small for width {width}", nameof(srcStride));
+        int requiredP010Stride = ((width + 1) / 2) * 4;
+        if (dstStride < requiredP010Stride)
+            throw new ArgumentException(
+                $"P010 dstStride {dstStride} too small; needs at least {requiredP010Stride} bytes for the chroma row",
+                nameof(dstStride));
+        if ((dstStride & 1) != 0)
+            throw new ArgumentException($"P010 dstStride {dstStride} must be even", nameof(dstStride));
 
         ushort* y16Plane = (ushort*)dst;
         ushort* uv16Plane = (ushort*)(dst + (long)dstStride * height);
@@ -235,10 +280,14 @@ internal static unsafe class PixelFormatConverter
         byte* dst, int dstStride,
         int width, int height)
     {
-        Debug.Assert(width >= 0 && height >= 0, "negative dimensions");
-        Debug.Assert(srcStride >= width * 2, "P010 srcStride too small");
-        Debug.Assert((srcStride & 1) == 0, "P010 srcStride must be even");
-        Debug.Assert(dstStride >= width * 8, "RGBA16 dstStride too small");
+        if (width < 0 || height < 0)
+            throw new ArgumentOutOfRangeException(nameof(width), "negative dimensions");
+        if (srcStride < width * 2)
+            throw new ArgumentException($"P010 srcStride {srcStride} too small", nameof(srcStride));
+        if ((srcStride & 1) != 0)
+            throw new ArgumentException($"P010 srcStride {srcStride} must be even", nameof(srcStride));
+        if (dstStride < width * 8)
+            throw new ArgumentException($"RGBA16 dstStride {dstStride} too small", nameof(dstStride));
 
         ushort* y16Plane = (ushort*)src;
         ushort* uv16Plane = (ushort*)(src + (long)srcStride * height);
