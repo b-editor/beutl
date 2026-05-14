@@ -41,11 +41,17 @@ internal sealed class MFDecoder : IDisposable
     private IDirect3DDevice9? _device;
     private IMFTransform? _transform;
     private MFMediaInfo _mediaInfo;
-    private readonly bool _useDXVA2;
+    private bool _useDXVA2;
     private IMFSample? _mfOutBufferSample;
     private long _firstGapTimeStamp = 0;
     private long _currentVideoTimeStamp = 0;
     private long _currentAudioTimeStamp = 0;
+
+    // Threshold of consecutive ConvertColor HardError results before we surface
+    // a single high-visibility log (not LogError per-frame). The decode loop keeps
+    // running, but the user gets a clear signal that something systemic is wrong.
+    private int _consecutiveConvertColorErrors = 0;
+    private const int ConvertColorErrorReportThreshold = 30;
 
     private readonly MFSampleCache _sampleCache;
 
@@ -102,8 +108,18 @@ internal sealed class MFDecoder : IDisposable
                 }
                 catch (Exception ex)
                 {
+                    // Video stream configuration failed but the user asked for video.
+                    // Falling through to an audio-only reader would silently drop the
+                    // visual content the caller expected, so we let the original
+                    // exception bubble up after logging — MFReader catches it.
                     _logger.LogError(ex, "ConfigureDecoder(_videoSourceReader, _mediaInfo.VideoStreamIndex) failed");
                     _mediaInfo.VideoStreamIndex = -1;
+                    if (!options.StreamsToLoad.HasFlag(MediaMode.Audio))
+                    {
+                        throw;
+                    }
+                    _logger.LogWarning(
+                        "Video stream configuration failed; continuing with audio-only because StreamsToLoad includes Audio");
                 }
             }
 
@@ -151,6 +167,9 @@ internal sealed class MFDecoder : IDisposable
                 {
                     _useDXVA2 = false;
                     _logger.LogError(ex, "ProcessMessage(MFT_MESSAGE_SET_D3D_MANAGER) failed");
+                    _logger.LogWarning(
+                        "DXVA2 initialization failed mid-setup; falling back to software decoding. " +
+                        "Some D3D attributes remain on the source reader but VideoProcessorMFT is disabled.");
                 }
             }
 
@@ -241,6 +260,7 @@ internal sealed class MFDecoder : IDisposable
                 if (status == ConvertColorStatus.Success)
                 {
                     yuy2Sample = _mfOutBufferSample;
+                    _consecutiveConvertColorErrors = 0;
                 }
                 else
                 {
@@ -257,6 +277,16 @@ internal sealed class MFDecoder : IDisposable
                         _logger.LogWarning(
                             "VideoProcessorMFT returned NEED_MORE_INPUT for a synchronous converter at frame {Frame}; dropping",
                             frame);
+                    }
+                    else if (status == ConvertColorStatus.HardError)
+                    {
+                        _consecutiveConvertColorErrors++;
+                        if (_consecutiveConvertColorErrors == ConvertColorErrorReportThreshold)
+                        {
+                            _logger.LogError(
+                                "VideoProcessorMFT has failed {Count} frames in a row; preview is likely stuck on dropped frames. Toggle UseDXVA2 off in settings to recover.",
+                                _consecutiveConvertColorErrors);
+                        }
                     }
                     return 0;
                 }
@@ -573,28 +603,26 @@ internal sealed class MFDecoder : IDisposable
         destHeight = funcAlign(destHeight, AlignHeightSize);
         destWidth = funcAlign(destWidth, AlignWidth);
 
-        // 色変換 NV12 -> YUY2
-        // 動画の幅は 2の倍数、高さは 16の倍数でないとダメっぽい？
+        // VideoProcessorMFT input/output configuration: NV12 → YUY2. Frame width
+        // must be a multiple of 2 and height a multiple of 16 for the MFT to
+        // accept the type pair.
         using var inputMediaType = MediaFactory.MFCreateMediaType();
         inputMediaType.Set(MediaTypeAttributeKeys.MajorType, MediaTypeGuids.Video);
         inputMediaType.Set(MediaTypeAttributeKeys.Subtype, VideoFormatGuids.NV12);
-        inputMediaType.Set(MediaTypeAttributeKeys.AllSamplesIndependent, true); // UnCompressed
-        inputMediaType.Set(MediaTypeAttributeKeys.FixedSizeSamples, true); // UnCompressed
+        inputMediaType.Set(MediaTypeAttributeKeys.AllSamplesIndependent, true);
+        inputMediaType.Set(MediaTypeAttributeKeys.FixedSizeSamples, true);
 
-        // Todo: 後で確認
         inputMediaType.Set(MediaTypeAttributeKeys.PixelAspectRatio, ((ulong)pixelNume << 32) | pixelDenom);
         inputMediaType.Set(MediaTypeAttributeKeys.FrameSize, ((ulong)width << 32) | height);
         _transform.SetInputType(0, inputMediaType, 0);
 
         using var outputMediaType = MediaFactory.MFCreateMediaType();
         outputMediaType.Set(MediaTypeAttributeKeys.MajorType, MediaTypeGuids.Video);
-        // YUY2
         outputMediaType.Set(MediaTypeAttributeKeys.Subtype, VideoFormatGuids.YUY2);
-        outputMediaType.Set(MediaTypeAttributeKeys.AllSamplesIndependent, true); // UnCompressed
-        outputMediaType.Set(MediaTypeAttributeKeys.FixedSizeSamples, true); // UnCompressed
+        outputMediaType.Set(MediaTypeAttributeKeys.AllSamplesIndependent, true);
+        outputMediaType.Set(MediaTypeAttributeKeys.FixedSizeSamples, true);
 
         inputMediaType.Set(MediaTypeAttributeKeys.PixelAspectRatio, ((ulong)1 << 32) | 1);
-        //spOutputMediaType.Set(MediaTypeAttributeKeys.PixelAspectRatio, ((long)1 << 32) | 1);
         outputMediaType.Set(MediaTypeAttributeKeys.FrameSize, ((ulong)destWidth << 32) | destHeight);
         _transform.SetOutputType(0, outputMediaType, 0);
 
@@ -903,8 +931,11 @@ internal sealed class MFDecoder : IDisposable
                 {
                     _transform?.ProcessMessage(TMessageType.MessageNotifyEndOfStream, 0);
                 }
-                catch (Exception ex)
+                catch (SharpGenException ex)
                 {
+                    // Swallow only MF HRESULT failures here — letting OOM /
+                    // ThreadAbort propagate is intentional. ProcessMessage during
+                    // Dispose is best-effort cleanup; if it fails, log and continue.
                     _logger.LogError(ex, "_transform?.ProcessMessage failed");
                 }
 
