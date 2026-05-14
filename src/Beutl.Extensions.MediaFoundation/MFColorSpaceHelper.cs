@@ -96,6 +96,9 @@ internal static class MFColorSpaceHelper
     {
         return trc switch
         {
+            // MFVideoTransFunc_10 means linear / gamma 1.0 — not 10-bit content,
+            // despite the misleading Vortice enum name. Keep this comment near the
+            // mapping so future readers don't `git blame` the bug into existence.
             VideoTransferFunction.Func10 => BitmapColorSpaceTransferFn.Linear,
             VideoTransferFunction.Func22 => BitmapColorSpaceTransferFn.TwoDotTwo,
             VideoTransferFunction.Func2020 or
@@ -109,8 +112,37 @@ internal static class MFColorSpaceHelper
             VideoTransferFunction.Func240m => BitmapColorSpaceTransferFn.Smpte240M,
             VideoTransferFunction.FuncSmpte428 => BitmapColorSpaceTransferFn.Smpte428,
             VideoTransferFunction.FuncSRGB => BitmapColorSpaceTransferFn.Srgb,
+            // Unknown / unmapped values fall back to sRGB. Callers that need to
+            // know whether the mapping was an exact match should use TryGetTransferFunction.
             _ => BitmapColorSpaceTransferFn.Srgb,
         };
+    }
+
+    // Allows callers to detect "we silently fell back to sRGB" without re-walking
+    // the switch. Returns false for FuncUnknown and any value not enumerated above.
+    public static bool TryGetTransferFunction(VideoTransferFunction trc, out BitmapColorSpaceTransferFn fn)
+    {
+        switch (trc)
+        {
+            case VideoTransferFunction.Func10:
+            case VideoTransferFunction.Func22:
+            case VideoTransferFunction.Func2020:
+            case VideoTransferFunction.Func2020Const:
+            case VideoTransferFunction.Func2084:
+            case VideoTransferFunction.FuncHlg:
+            case VideoTransferFunction.Func709:
+            case VideoTransferFunction.Func709Sym:
+            case VideoTransferFunction.FuncBt1361Ecg:
+            case VideoTransferFunction.Func28:
+            case VideoTransferFunction.Func240m:
+            case VideoTransferFunction.FuncSmpte428:
+            case VideoTransferFunction.FuncSRGB:
+                fn = GetTransferFunction(trc);
+                return true;
+            default:
+                fn = BitmapColorSpaceTransferFn.Srgb;
+                return false;
+        }
     }
 
     public static BitmapColorSpaceXyz GetBitmapColorSpaceXyz(VideoPrimaries primaries)
