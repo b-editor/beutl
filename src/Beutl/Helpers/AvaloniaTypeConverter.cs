@@ -158,13 +158,15 @@ public static class AvaloniaTypeConverter
 
                         break;
                     case NotifyCollectionChangedAction.Move:
-                        int newIndex = e.NewStartingIndex;
-                        if (newIndex > e.OldStartingIndex)
+                        if (e.OldStartingIndex >= 0
+                            && e.OldStartingIndex < stops.Count
+                            && e.NewStartingIndex >= 0
+                            && e.NewStartingIndex < stops.Count
+                            && e.OldStartingIndex != e.NewStartingIndex
+                            && e.OldItems is { Count: 1 })
                         {
-                            newIndex += e.OldItems!.Count;
+                            stops.Move(e.OldStartingIndex, e.NewStartingIndex);
                         }
-
-                        stops.MoveRange(e.OldStartingIndex, e.NewItems!.Count, newIndex);
                         break;
 
                     case NotifyCollectionChangedAction.Reset:

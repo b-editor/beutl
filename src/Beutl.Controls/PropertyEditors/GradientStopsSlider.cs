@@ -321,6 +321,7 @@ public class GradientStopsSlider : TemplatedControl
     private void ThumbDragDelta(object? sender, VectorEventArgs e)
     {
         if (sender is not Thumb { Parent: ContentPresenter presenter, DataContext: GradientStop stop } || _itemsControl == null) return;
+        if (Stops == null) return;
 
         double old = Canvas.GetLeft(presenter);
         if (!double.IsFinite(old)) old = 0;
@@ -330,26 +331,17 @@ public class GradientStopsSlider : TemplatedControl
 
         stop.Offset = x / DragWidth;
 
-        int oldIndex = _backgroundStops.IndexOf(stop);
+        int oldIndex = Stops.IndexOf(stop);
         if (oldIndex < 0) return;
 
         int newIndex = oldIndex;
-        if (oldIndex > 0)
+        if (oldIndex > 0 && Stops[oldIndex - 1].Offset > stop.Offset)
         {
-            GradientStop prev = _backgroundStops[oldIndex - 1];
-            if (prev.Offset > stop.Offset)
-            {
-                newIndex--;
-            }
+            newIndex--;
         }
-
-        if (newIndex == oldIndex && oldIndex + 1 < _backgroundStops.Count)
+        else if (oldIndex + 1 < Stops.Count && Stops[oldIndex + 1].Offset < stop.Offset)
         {
-            GradientStop next = _backgroundStops[oldIndex + 1];
-            if (next.Offset < stop.Offset)
-            {
-                newIndex++;
-            }
+            newIndex++;
         }
 
         Changed?.Invoke(this, (oldIndex, newIndex, stop));
