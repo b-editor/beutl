@@ -28,7 +28,7 @@ public readonly struct TimeRange : IEquatable<TimeRange>
 
     public TimeSpan End => Start + Duration;
 
-    public bool IsEmpty => Start > End;
+    public bool IsEmpty => Duration <= TimeSpan.Zero;
 
     public static TimeRange FromSeconds(double start, double duration)
     {

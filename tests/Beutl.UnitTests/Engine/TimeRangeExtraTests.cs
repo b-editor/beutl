@@ -41,14 +41,13 @@ public class TimeRangeExtraTests
     }
 
     [Test]
-    public void IsEmpty_TrueOnlyWhenStartGreaterThanEnd()
+    public void IsEmpty_TrueWhenDurationIsZeroOrNegative()
     {
-        // duration > 0 means End > Start, so IsEmpty stays false even at zero duration.
         var zero = new TimeRange();
         var positive = TimeRange.FromSeconds(1, 2);
         var negative = new TimeRange(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(-1));
 
-        Assert.That(zero.IsEmpty, Is.False);
+        Assert.That(zero.IsEmpty, Is.True);
         Assert.That(positive.IsEmpty, Is.False);
         Assert.That(negative.IsEmpty, Is.True);
     }
@@ -111,9 +110,8 @@ public class TimeRangeExtraTests
     [Test]
     public void Union_WithIsEmptyOperand_ReturnsOther()
     {
-        // IsEmpty is defined as Start > End, so a negative-duration range is treated as empty.
         var range = TimeRange.FromSeconds(1, 2);
-        var emptyByDef = new TimeRange(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(-1));
+        var emptyByDef = new TimeRange();
 
         Assert.That(emptyByDef.IsEmpty, Is.True);
         Assert.That(emptyByDef.Union(range), Is.EqualTo(range));
