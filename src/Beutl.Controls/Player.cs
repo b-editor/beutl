@@ -256,13 +256,14 @@ public class Player : RangeBase
         {
             handler?.Invoke(this, args);
         }
-        catch (Exception)
+        catch (Exception ex)
         {
             // Subscribers must not let exceptions escape into the Avalonia
             // event loop (it would either crash the app or be swallowed by the
-            // global unhandled-exception handler with no UI feedback). If a
-            // handler throws, treat it as a rejection and let the view show
-            // the fallback tooltip below.
+            // global unhandled-exception handler with no UI feedback). Log the
+            // exception so the stack trace is recoverable, then reject the
+            // submission and let the view show the fallback tooltip below.
+            s_logger.LogError(ex, "A CurrentTimeSubmitted subscriber threw while processing '{Input}'.", input);
             args.Reject(string.Empty);
         }
 
