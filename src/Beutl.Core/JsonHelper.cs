@@ -5,13 +5,38 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using Beutl.JsonConverters;
+using Beutl.Logging;
 using Beutl.Serialization;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Beutl;
 
 public static class JsonHelper
 {
     private static readonly ConditionalWeakTable<Type, JsonConverter> s_converters = [];
+    private static ILogger? s_logger;
+
+    // Program.Main は GlobalConfiguration.Restore (JsonHelper を経由) を Telemetry が
+    // Log.LoggerFactory をセットするより前に呼ぶ。Release ビルドでは LoggerFactory が
+    // null のまま CreateLogger を呼ぶと TypeInitializationException で起動が落ちる。
+    // 失敗時は NullLogger を返すが、その値はキャッシュしない。これにより
+    // LoggerFactory 初期化後の呼び出しでは本物のロガーを取得し直せる。
+    private static ILogger Logger
+    {
+        get
+        {
+            if (s_logger is not null) return s_logger;
+            try
+            {
+                return s_logger = Log.CreateLogger(typeof(JsonHelper));
+            }
+            catch
+            {
+                return NullLogger.Instance;
+            }
+        }
+    }
 
     public static JsonWriterOptions WriterOptions { get; } = new()
     {
@@ -133,7 +158,17 @@ public static class JsonHelper
     {
         if (!File.Exists(filename)) return null;
         using var stream = new FileStream(filename, FileMode.Open, FileAccess.Read, FileShare.Read);
-        return JsonNode.Parse(stream);
+        try
+        {
+            return JsonNode.Parse(stream);
+        }
+        catch (JsonException ex)
+        {
+            // 破損ファイルは次回保存時にアトミック書き込みで上書きされるためそのまま放置。
+            // ファイルを消すと調査用の証拠を失うので触らない。
+            Logger.LogError(ex, "Failed to parse JSON file {Path}; treating as missing.", filename);
+            return null;
+        }
     }
 
     public static Type? GetDiscriminator(this JsonNode node)
