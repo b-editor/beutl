@@ -8,6 +8,7 @@ using Avalonia.Threading;
 using Beutl.Animation;
 using Beutl.Animation.Easings;
 using Beutl.Controls;
+using Beutl.Editor;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Services;
 using Beutl.Logging;
@@ -21,7 +22,7 @@ using Reactive.Bindings;
 namespace Beutl.Editor.Components.GraphEditorTab.ViewModels;
 
 public sealed class GraphEditorViewModel<T>(
-    IEditorContext editorContext,
+    ISceneEditorContext editorContext,
     KeyFrameAnimation<T> animation,
     Element? element)
     : GraphEditorViewModel(editorContext, animation, element)
@@ -70,18 +71,18 @@ public abstract class GraphEditorViewModel : IDisposable
     private bool _editting;
     private TimeSpan _pointerPosition;
 
-    protected GraphEditorViewModel(IEditorContext editorContext, IKeyFrameAnimation animation, Element? element)
+    protected GraphEditorViewModel(ISceneEditorContext editorContext, IKeyFrameAnimation animation, Element? element)
     {
         _logger.LogInformation("Initializing GraphEditorViewModel");
         EditorContext = editorContext;
         Element = element;
         Animation = animation;
 
-        var timelineOptions = editorContext.GetRequiredService<ITimelineOptionsProvider>();
-        _editorClock = editorContext.GetRequiredService<IEditorClock>();
+        ITimelineOptionsProvider timelineOptions = editorContext.TimelineOptions;
+        _editorClock = editorContext.Clock;
         Options = timelineOptions.Options;
         Scene = timelineOptions.Scene;
-        HistoryManager = editorContext.GetRequiredService<HistoryManager>();
+        HistoryManager = editorContext.HistoryManager;
 
         UseGlobalClock = ((CoreObject)animation).GetObservable(KeyFrameAnimation.UseGlobalClockProperty)
             .ToReadOnlyReactivePropertySlim()
@@ -216,7 +217,7 @@ public abstract class GraphEditorViewModel : IDisposable
 
     public GraphEditorViewViewModelFactory? Factory { get; }
 
-    public IEditorContext EditorContext { get; }
+    public ISceneEditorContext EditorContext { get; }
 
     public HistoryManager HistoryManager { get; }
 

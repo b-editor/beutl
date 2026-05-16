@@ -36,7 +36,7 @@ public sealed class BufferedPlayer : IPlayer
         _editViewModel = editViewModel;
         _frameCacheManager = editViewModel.FrameCacheManager.Value;
         _renderer = editViewModel.Renderer.Value;
-        _editorClock = editViewModel.GetRequiredService<IEditorClock>();
+        _editorClock = editViewModel.Clock;
         _scene = scene;
         _isPlaying = isPlaying;
         _rate = rate;

@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using Avalonia.Controls;
+using Beutl.Editor;
 using Beutl.Editor.Components.NodeGraphTab.ViewModels;
 using Beutl.Editor.Components.NodeGraphTab.Views;
 
@@ -26,7 +27,13 @@ public sealed class NodeGraphTabExtension : ToolTabExtension
 
     public override bool TryCreateContext(IEditorContext editorContext, [NotNullWhen(true)] out IToolContext? context)
     {
-        context = new NodeGraphTabViewModel(editorContext);
-        return true;
+        if (editorContext is ISceneEditorContext sceneContext)
+        {
+            context = new NodeGraphTabViewModel(sceneContext);
+            return true;
+        }
+
+        context = null;
+        return false;
     }
 }

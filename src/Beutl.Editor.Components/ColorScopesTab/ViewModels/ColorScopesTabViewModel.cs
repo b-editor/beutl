@@ -1,8 +1,8 @@
 ﻿using System.Text.Json.Nodes;
+using Beutl.Editor;
 using Beutl.Editor.Services;
 using Beutl.Media;
 using Beutl.Media.Source;
-using Microsoft.Extensions.DependencyInjection;
 using Reactive.Bindings;
 
 namespace Beutl.Editor.Components.ColorScopesTab.ViewModels;
@@ -10,13 +10,13 @@ namespace Beutl.Editor.Components.ColorScopesTab.ViewModels;
 public sealed class ColorScopesTabViewModel : IToolContext
 {
     private readonly CompositeDisposable _disposables = [];
-    private readonly IEditorContext _editorContext;
+    private readonly ISceneEditorContext _editorContext;
     private readonly IPreviewPlayer _player;
 
-    public ColorScopesTabViewModel(IEditorContext editorContext)
+    public ColorScopesTabViewModel(ISceneEditorContext editorContext)
     {
         _editorContext = editorContext;
-        _player = editorContext.GetRequiredService<IPreviewPlayer>();
+        _player = editorContext.Player;
         SourceBitmap.Value = _player.PreviewImage.Value;
 
         // Update scope after rendering is complete

@@ -9,6 +9,7 @@ using Avalonia.Input.Platform;
 using Avalonia.Platform.Storage;
 using Beutl.Animation;
 using Beutl.Configuration;
+using Beutl.Editor;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.TimelineTab.Models;
 using Beutl.Editor.Services;
@@ -38,18 +39,18 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
     private readonly Dictionary<int, TrackedLayerTopObservable> _trackerCache = [];
     private bool _isDisposed;
 
-    public TimelineTabViewModel(IEditorContext editorContext)
+    public TimelineTabViewModel(ISceneEditorContext editorContext)
     {
         _logger.LogInformation("Initializing TimelineTabViewModel.");
         EditorContext = editorContext;
-        var timelineOptions = editorContext.GetRequiredService<ITimelineOptionsProvider>();
-        var editorClock = editorContext.GetRequiredService<IEditorClock>();
+        ITimelineOptionsProvider timelineOptions = editorContext.TimelineOptions;
+        IEditorClock editorClock = editorContext.Clock;
         Scene = timelineOptions.Scene;
         Scale = timelineOptions.Scale;
         Options = timelineOptions.Options;
         CurrentTime = editorClock.CurrentTime;
         MaximumTime = editorClock.MaximumTime;
-        BufferStatus = editorContext.GetRequiredService<IBufferStatus>();
+        BufferStatus = editorContext.BufferStatus;
         FrameSelectionRange = new FrameSelectionRange(Scale).DisposeWith(_disposables);
 
         SeekBarMargin = CurrentTime
@@ -86,7 +87,7 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
             .ToReadOnlyReactivePropertySlim()
             .AddTo(_disposables);
 
-        AddElement.Subscribe(desc => editorContext.GetRequiredService<IElementAdder>().AddElement(desc)).AddTo(_disposables);
+        AddElement.Subscribe(desc => editorContext.ElementAdder.AddElement(desc)).AddTo(_disposables);
 
         Paste.Subscribe(PasteCore)
             .AddTo(_disposables);
@@ -256,7 +257,7 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
             Scene.Start = time;
         }
 
-        EditorContext.GetRequiredService<HistoryManager>().Commit(CommandNames.ChangeSceneStart);
+        EditorContext.HistoryManager.Commit(CommandNames.ChangeSceneStart);
 
         _logger.LogInformation("Scene start adjusted to {Time}.", time);
     }
@@ -281,7 +282,7 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
 
             Scene.Duration = Scene.Start - time;
             Scene.Start = time;
-            EditorContext.GetRequiredService<HistoryManager>().Commit(CommandNames.ChangeSceneDuration);
+            EditorContext.HistoryManager.Commit(CommandNames.ChangeSceneDuration);
         }
         else
         {
@@ -293,7 +294,7 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
             }
 
             Scene.Duration = time;
-            EditorContext.GetRequiredService<HistoryManager>().Commit(CommandNames.ChangeSceneDuration);
+            EditorContext.HistoryManager.Commit(CommandNames.ChangeSceneDuration);
             _logger.LogInformation("Scene duration adjusted to {Time}.", time);
         }
     }
@@ -330,7 +331,7 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
 
     public IBufferStatus BufferStatus { get; }
 
-    public IEditorContext EditorContext { get; }
+    public ISceneEditorContext EditorContext { get; }
 
     public ReadOnlyReactivePropertySlim<double> PanelWidth { get; }
 
@@ -544,7 +545,7 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
                 RandomFileNameGenerator.GenerateUri(Scene.Uri!, Constants.ElementFileExtension));
         }
 
-        HistoryManager history = EditorContext.GetRequiredService<HistoryManager>();
+        HistoryManager history = EditorContext.HistoryManager;
 
         var idMapping = new Dictionary<Guid, Guid>();
         for (int i = 0; i < oldElements.Length; i++)
@@ -592,7 +593,7 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
         CoreSerializer.StoreToUri(newElement, RandomFileNameGenerator.GenerateUri(
             Scene.Uri!, Constants.ElementFileExtension));
 
-        HistoryManager history = EditorContext.GetRequiredService<HistoryManager>();
+        HistoryManager history = EditorContext.HistoryManager;
         Scene.AddChild(newElement);
         history.Commit(CommandNames.PasteElement);
 
@@ -630,7 +631,7 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
         CoreSerializer.StoreToUri(newElement, RandomFileNameGenerator.GenerateUri(
             dir, Constants.ElementFileExtension));
 
-        HistoryManager history = EditorContext.GetRequiredService<HistoryManager>();
+        HistoryManager history = EditorContext.HistoryManager;
         Scene.AddChild(newElement);
         history.Commit(CommandNames.PasteElement);
 

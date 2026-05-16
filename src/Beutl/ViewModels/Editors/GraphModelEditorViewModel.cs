@@ -1,4 +1,5 @@
 ﻿using System.Text.Json.Nodes;
+using Beutl.Editor;
 using Beutl.Editor.Components.NodeGraphTab.ViewModels;
 using Beutl.NodeGraph;
 using Beutl.NodeGraph.Nodes;
@@ -79,7 +80,7 @@ public sealed class GraphModelEditorViewModel : ValueEditorViewModel<GraphModel?
 
     public void OpenNodeGraphTab()
     {
-        if (this.GetService<IEditorContext>() is not { } editorContext) return;
+        if (this.GetService<IEditorContext>() is not ISceneEditorContext editorContext) return;
         if (Value.Value == null) return;
 
         NodeGraphTabViewModel tab = editorContext.FindToolTab<NodeGraphTabViewModel>()

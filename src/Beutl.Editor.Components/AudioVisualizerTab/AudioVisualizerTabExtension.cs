@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using Avalonia.Controls;
+using Beutl.Editor;
 using Beutl.Editor.Components.AudioVisualizerTab.ViewModels;
 using Beutl.Editor.Components.AudioVisualizerTab.Views;
 using FluentAvalonia.UI.Controls;
@@ -29,7 +30,13 @@ public sealed class AudioVisualizerTabExtension : ToolTabExtension
 
     public override bool TryCreateContext(IEditorContext editorContext, [NotNullWhen(true)] out IToolContext? context)
     {
-        context = new AudioVisualizerTabViewModel(editorContext, Instance);
-        return true;
+        if (editorContext is ISceneEditorContext sceneContext)
+        {
+            context = new AudioVisualizerTabViewModel(sceneContext, Instance);
+            return true;
+        }
+
+        context = null;
+        return false;
     }
 }

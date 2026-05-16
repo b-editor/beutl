@@ -14,15 +14,15 @@ namespace Beutl.Editor.Components.SceneSettingsTab.ViewModels;
 public sealed class SceneSettingsTabViewModel : IToolContext
 {
     private readonly CompositeDisposable _disposable = [];
-    private IEditorContext _editorContext;
+    private ISceneEditorContext _editorContext;
     private Scene _scene;
     private ITimelineOptionsProvider _optionsProvider;
 
-    public SceneSettingsTabViewModel(IEditorContext editorContext)
+    public SceneSettingsTabViewModel(ISceneEditorContext editorContext)
     {
         _editorContext = editorContext;
-        _scene = editorContext.GetService<Scene>()!;
-        _optionsProvider = editorContext.GetService<ITimelineOptionsProvider>()!;
+        _scene = editorContext.Scene;
+        _optionsProvider = editorContext.TimelineOptions;
         IObservable<Media.PixelSize> frameSize = _scene.GetObservable(Scene.FrameSizeProperty);
         Width = frameSize.Select(v => v.Width)
             .ToReactiveProperty()
@@ -76,7 +76,7 @@ public sealed class SceneSettingsTabViewModel : IToolContext
                         || start != _scene.Start
                         || duration != _scene.Duration)
                     {
-                        HistoryManager history = _editorContext.GetService<HistoryManager>()!;
+                        HistoryManager history = _editorContext.HistoryManager;
                         _scene.FrameSize = new Media.PixelSize(Width.Value, Height.Value);
                         _scene.Start = start;
                         _scene.Duration = duration;

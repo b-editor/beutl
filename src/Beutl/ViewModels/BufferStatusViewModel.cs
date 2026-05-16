@@ -17,7 +17,7 @@ public sealed class BufferStatusViewModel : IBufferStatus, IDisposable
     public BufferStatusViewModel(EditViewModel editViewModel)
     {
         _editViewModel = editViewModel;
-        var timelineOptionsProvider = editViewModel.GetRequiredService<ITimelineOptionsProvider>();
+        ITimelineOptionsProvider timelineOptionsProvider = editViewModel.TimelineOptions;
 
         Start = StartTime.CombineLatest(timelineOptionsProvider.Scale)
             .Select(v => v.First.TimeToPixel(v.Second))

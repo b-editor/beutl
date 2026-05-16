@@ -2,6 +2,7 @@
 
 using Avalonia.Controls;
 
+using Beutl.Editor;
 using Beutl.Editor.Components.ColorGradingTab.ViewModels;
 using Beutl.Editor.Components.ColorGradingTab.Views;
 
@@ -28,7 +29,13 @@ public sealed class ColorGradingTabExtension : ToolTabExtension
 
     public override bool TryCreateContext(IEditorContext editorContext, [NotNullWhen(true)] out IToolContext? context)
     {
-        context = new ColorGradingTabViewModel(editorContext);
-        return true;
+        if (editorContext is ISceneEditorContext sceneContext)
+        {
+            context = new ColorGradingTabViewModel(sceneContext);
+            return true;
+        }
+
+        context = null;
+        return false;
     }
 }

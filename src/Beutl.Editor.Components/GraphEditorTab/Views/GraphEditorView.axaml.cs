@@ -117,8 +117,8 @@ public partial class GraphEditorView : UserControl
         var mode = GlobalConfiguration.Instance.EditorConfig.TimelineAutoScrollMode;
         if (mode == TimelineAutoScrollMode.None) return;
 
-        var previewPlayer = viewModel.EditorContext.GetService<IPreviewPlayer>();
-        if (previewPlayer == null || !previewPlayer.IsPlaying.Value) return;
+        IPreviewPlayer previewPlayer = viewModel.EditorContext.Player;
+        if (!previewPlayer.IsPlaying.Value) return;
 
         float scale = viewModel.Options.Value.Scale;
         double seekBarPixel = currentTime.TimeToPixel(scale);

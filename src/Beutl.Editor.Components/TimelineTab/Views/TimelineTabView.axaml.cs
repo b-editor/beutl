@@ -116,7 +116,7 @@ public sealed partial class TimelineTabView : UserControl
             .Subscribe(OnCurrentTimeChangedForAutoScroll)
             .DisposeWith(_disposables);
 
-        ViewModel.EditorContext.GetRequiredService<Beutl.Editor.Services.IEditorSelection>().SelectedObject.Subscribe(e =>
+        ViewModel.EditorContext.Selection.SelectedObject.Subscribe(e =>
             {
                 if (_selectedElement != null)
                 {
@@ -364,7 +364,7 @@ public sealed partial class TimelineTabView : UserControl
     {
         if (ViewModel == null) return;
         PointerPoint pointerPt = e.GetCurrentPoint(TimelinePanel);
-        HistoryManager history = ViewModel.EditorContext.GetRequiredService<HistoryManager>();
+        HistoryManager history = ViewModel.EditorContext.HistoryManager;
 
         if (pointerPt.Properties.PointerUpdateKind == PointerUpdateKind.LeftButtonReleased)
         {
@@ -559,7 +559,7 @@ public sealed partial class TimelineTabView : UserControl
 
         if (template != null)
         {
-            if (viewModel.EditorContext.GetService<IElementAdder>() is { } adder
+            if (viewModel.EditorContext.ElementAdder is { } adder
                 && (template.BaseType == typeof(Element)
                     || template.BaseType.IsAssignableTo(typeof(EngineObject))))
             {
@@ -690,20 +690,16 @@ public sealed partial class TimelineTabView : UserControl
         if (ViewModel == null) return;
         if (sender is not MenuFlyoutItem { Tag: ObjectTemplateItem template }) return;
 
-        if (ViewModel.EditorContext.GetService(typeof(IElementAdder))
-            is IElementAdder adder)
-        {
-            adder.AddElementFromTemplate(
-                template,
-                ViewModel.ClickedFrame,
-                ViewModel.CalculateClickedLayer());
-        }
+        ViewModel.EditorContext.ElementAdder.AddElementFromTemplate(
+            template,
+            ViewModel.ClickedFrame,
+            ViewModel.CalculateClickedLayer());
     }
 
     private void ShowSceneSettings(object? sender, RoutedEventArgs e)
     {
         if (ViewModel == null) return;
-        IEditorContext editorContext = ViewModel.EditorContext;
+        ISceneEditorContext editorContext = ViewModel.EditorContext;
         SceneSettingsTabViewModel? tab = editorContext.FindToolTab<SceneSettingsTabViewModel>();
         if (tab != null)
         {
@@ -828,8 +824,8 @@ public sealed partial class TimelineTabView : UserControl
         var mode = GlobalConfiguration.Instance.EditorConfig.TimelineAutoScrollMode;
         if (mode == TimelineAutoScrollMode.None) return;
 
-        var previewPlayer = ViewModel.EditorContext.GetService<IPreviewPlayer>();
-        if (previewPlayer == null || !previewPlayer.IsPlaying.Value) return;
+        IPreviewPlayer previewPlayer = ViewModel.EditorContext.Player;
+        if (!previewPlayer.IsPlaying.Value) return;
 
         float scale = ViewModel.Options.Value.Scale;
         double seekBarPixel = currentTime.TimeToPixel(scale);
@@ -886,7 +882,7 @@ public sealed partial class TimelineTabView : UserControl
             marker.Color = initialColor;
             deleted = true;
             ViewModel.Scene.Markers.Remove(marker);
-            ViewModel.EditorContext.GetRequiredService<HistoryManager>().Commit(CommandNames.RemoveMarker);
+            ViewModel.EditorContext.HistoryManager.Commit(CommandNames.RemoveMarker);
         };
 
         flyout.Closed += (_, _) =>
@@ -896,7 +892,7 @@ public sealed partial class TimelineTabView : UserControl
                 || marker.Note != initialNote
                 || marker.Color != initialColor)
             {
-                ViewModel.EditorContext.GetRequiredService<HistoryManager>().Commit(CommandNames.EditMarker);
+                ViewModel.EditorContext.HistoryManager.Commit(CommandNames.EditMarker);
             }
         };
 

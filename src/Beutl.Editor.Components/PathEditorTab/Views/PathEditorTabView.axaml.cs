@@ -85,14 +85,14 @@ public partial class PathEditorTabView : UserControl, IPathEditorView
         // 個別にBindingするのではなく、一括で位置を変更する
         this.GetObservable(DataContextProperty)
             .Select(v => v as PathEditorTabViewModel)
-            .Select(v => v?.EditorContext.GetService<IPreviewPlayer>()?.AfterRendered ?? Observable.ReturnThenNever(Unit.Default))
+            .Select(v => v?.EditorContext.Player.AfterRendered ?? Observable.ReturnThenNever(Unit.Default))
             .Switch()
             .CombineLatest(this.GetObservable(ScaleProperty), this.GetObservable(MatrixProperty))
             .Subscribe(_ => UpdateThumbPosition());
 
         this.GetObservable(DataContextProperty)
             .Select(v => v as PathEditorTabViewModel)
-            .Select(v => v?.EditorContext.GetService<IPreviewPlayer>()?.AfterRendered ?? Observable.ReturnThenNever(Unit.Default))
+            .Select(v => v?.EditorContext.Player.AfterRendered ?? Observable.ReturnThenNever(Unit.Default))
             .Switch()
             .CombineLatest(view.GetObservable(PathGeometryControl.FigureProperty))
             .Subscribe(_ => UpdateBackgroundGeometry());
@@ -180,7 +180,7 @@ public partial class PathEditorTabView : UserControl, IPathEditorView
         {
             if (DataContext is PathEditorTabViewModel viewModel)
             {
-                var clock = viewModel.EditorContext.GetRequiredService<IEditorClock>();
+                IEditorClock clock = viewModel.EditorContext.Clock;
                 foreach (Thumb thumb in canvas.Children.OfType<Thumb>())
                 {
                     if (thumb.DataContext is PathSegment segment)
@@ -324,7 +324,7 @@ public partial class PathEditorTabView : UserControl, IPathEditorView
             && DataContext is PathEditorTabViewModel { Element.Value: { } element } viewModel
             && _dragStates?.Count > 0)
         {
-            viewModel.EditorContext.GetRequiredService<HistoryManager>().Commit(CommandNames.EditPathPoint);
+            viewModel.EditorContext.HistoryManager.Commit(CommandNames.EditPathPoint);
         }
 
         _dragStates = null;
@@ -515,7 +515,7 @@ public partial class PathEditorTabView : UserControl, IPathEditorView
             && viewModel.PathFigure.Value is { } figure
             && viewModel.FigureContext.Value is IPathFigureEditorContext figureContext)
         {
-            var clock = viewModel.GetRequiredService<IEditorClock>();
+            IEditorClock clock = viewModel.EditorContext.Clock;
             int index = figure.Segments.Count;
             BtlPoint lastPoint = default;
             if (index > 0)

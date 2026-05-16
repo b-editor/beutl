@@ -1,5 +1,6 @@
 ﻿using System.Text.Json.Nodes;
 using Beutl.Collections.Pooled;
+using Beutl.Editor;
 using Beutl.NodeGraph;
 using Beutl.ProjectSystem;
 using Microsoft.Extensions.DependencyInjection;
@@ -18,7 +19,7 @@ public sealed class NodeGraphNavigationItem : IDisposable, IJsonSerializable
         NodeGraph = nodeGraph;
     }
 
-    public NodeGraphNavigationItem(ReadOnlyReactivePropertySlim<string> name, GraphModel nodeGraph, IEditorContext editorContext)
+    public NodeGraphNavigationItem(ReadOnlyReactivePropertySlim<string> name, GraphModel nodeGraph, ISceneEditorContext editorContext)
     {
         NodeGraph = nodeGraph;
         _lazyViewModel = new Lazy<NodeGraphViewModel>(() => new NodeGraphViewModel(NodeGraph, editorContext));
@@ -58,9 +59,9 @@ public sealed class NodeGraphTabViewModel : IToolContext
 {
     private readonly ReactiveProperty<bool> _isSelected = new(false);
     private readonly CompositeDisposable _disposables = [];
-    private IEditorContext _editorContext;
+    private ISceneEditorContext _editorContext;
 
-    public NodeGraphTabViewModel(IEditorContext editorContext)
+    public NodeGraphTabViewModel(ISceneEditorContext editorContext)
     {
         _editorContext = editorContext;
 
@@ -216,7 +217,7 @@ public sealed class NodeGraphTabViewModel : IToolContext
 
     private string ViewStateDirectory()
     {
-        Scene scene = _editorContext.GetRequiredService<Scene>();
+        Scene scene = _editorContext.Scene;
         string directory = Path.GetDirectoryName(scene.Uri!.LocalPath)!;
 
         directory = Path.Combine(directory, Constants.BeutlFolder, Constants.ViewStateFolder);
@@ -279,7 +280,7 @@ public sealed class NodeGraphTabViewModel : IToolContext
 
     public void ReadFromJson(JsonObject json)
     {
-        Scene scene = _editorContext.GetRequiredService<Scene>();
+        Scene scene = _editorContext.Scene;
         if (Model.Value == null
             && json.TryGetPropertyValue("ModelId", out JsonNode? idNode)
             && (idNode as JsonValue)?.TryGetValue(out Guid id) == true)

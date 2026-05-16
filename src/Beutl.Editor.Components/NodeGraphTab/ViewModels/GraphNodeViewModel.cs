@@ -5,6 +5,7 @@ using Avalonia;
 using Avalonia.Media;
 using Avalonia.Media.Immutable;
 using Beutl.Controls;
+using Beutl.Editor;
 using Beutl.Editor.Services;
 using Beutl.NodeGraph;
 using Beutl.NodeGraph.Nodes.Group;
@@ -82,7 +83,7 @@ public sealed class GraphNodeViewModel : IDisposable, IJsonSerializable, IProper
                     tree.Disconnect(connection);
                 }
                 tree.Nodes.Remove(GraphNode);
-                EditorContext.GetRequiredService<HistoryManager>().Commit(CommandNames.RemoveNode);
+                EditorContext.HistoryManager.Commit(CommandNames.RemoveNode);
             }
         });
 
@@ -91,7 +92,7 @@ public sealed class GraphNodeViewModel : IDisposable, IJsonSerializable, IProper
 
     public GraphNode GraphNode { get; }
 
-    public IEditorContext EditorContext { get; }
+    public ISceneEditorContext EditorContext { get; }
 
     public NodeGraphViewModel NodeGraphViewModel { get; }
 
@@ -220,13 +221,13 @@ public sealed class GraphNodeViewModel : IDisposable, IJsonSerializable, IProper
 
         GraphNode.Position = (Position.Value.X, Position.Value.Y);
 
-        EditorContext.GetRequiredService<HistoryManager>().Commit(CommandNames.MoveNode);
+        EditorContext.HistoryManager.Commit(CommandNames.MoveNode);
     }
 
     public void UpdateName(string? name)
     {
         GraphNode.Name = name!;
-        EditorContext.GetRequiredService<HistoryManager>().Commit(CommandNames.RenameNode);
+        EditorContext.HistoryManager.Commit(CommandNames.RenameNode);
     }
 
     public void WriteToJson(JsonObject json)

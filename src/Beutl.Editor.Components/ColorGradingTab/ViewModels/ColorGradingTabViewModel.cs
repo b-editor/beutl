@@ -1,4 +1,5 @@
 ﻿using System.Text.Json.Nodes;
+using Beutl.Editor;
 using Beutl.Editor.Services;
 using Beutl.Engine;
 using Beutl.Graphics.Effects;
@@ -21,10 +22,10 @@ public record ColorGradingWheelMode(string Name, int Value)
 public sealed class ColorGradingTabViewModel : IToolContext, IPropertyEditorContextVisitor
 {
     private readonly CompositeDisposable _disposables = [];
-    private readonly IEditorContext _editorContext;
+    private readonly ISceneEditorContext _editorContext;
     private readonly CompositeDisposable _effectDisposables = [];
 
-    public ColorGradingTabViewModel(IEditorContext editorContext)
+    public ColorGradingTabViewModel(ISceneEditorContext editorContext)
     {
         _editorContext = editorContext;
 
@@ -148,8 +149,8 @@ public sealed class ColorGradingTabViewModel : IToolContext, IPropertyEditorCont
             && effectIdValue.TryGetValue(out string? effectIdStr)
             && Guid.TryParse(effectIdStr, out Guid effectId))
         {
-            var scene = _editorContext.GetService<Scene>();
-            var colorGrading = scene?.FindById(effectId) as ColorGrading;
+            Scene scene = _editorContext.Scene;
+            var colorGrading = scene.FindById(effectId) as ColorGrading;
             Effect.Value = colorGrading;
         }
 

@@ -1,5 +1,6 @@
 ﻿using Beutl.Composition;
 using Beutl.Controls;
+using Beutl.Editor;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.PathEditorTab.Services;
 using Beutl.Editor.Components.PropertyEditors.Services;
@@ -20,11 +21,11 @@ public sealed class PathEditorViewModel : IDisposable, IPathEditorContext
     private readonly IEditorClock _clock;
     private readonly Scene _scene;
 
-    public PathEditorViewModel(IEditorContext editorContext, IPreviewPlayer player)
+    public PathEditorViewModel(ISceneEditorContext editorContext, IPreviewPlayer player)
     {
         EditorContext = editorContext;
-        _clock = editorContext.GetRequiredService<IEditorClock>();
-        _scene = editorContext.GetRequiredService<Scene>();
+        _clock = editorContext.Clock;
+        _scene = editorContext.Scene;
 
         SceneWidth = _scene.GetObservable(Scene.FrameSizeProperty)
             .Select(v => v.Width)
@@ -127,7 +128,7 @@ public sealed class PathEditorViewModel : IDisposable, IPathEditorContext
         return matrix;
     }
 
-    public IEditorContext EditorContext { get; }
+    public ISceneEditorContext EditorContext { get; }
 
     public IReactiveProperty<IPathFigureEditorContext?> FigureContext { get; } =
         new ReactiveProperty<IPathFigureEditorContext?>();

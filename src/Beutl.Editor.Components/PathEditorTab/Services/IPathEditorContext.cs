@@ -1,4 +1,5 @@
-﻿using Beutl.Editor.Components.PropertyEditors.Services;
+﻿using Beutl.Editor;
+using Beutl.Editor.Components.PropertyEditors.Services;
 using Beutl.Media;
 using Beutl.ProjectSystem;
 
@@ -8,7 +9,7 @@ namespace Beutl.Editor.Components.PathEditorTab.Services;
 
 public interface IPathEditorContext
 {
-    IEditorContext EditorContext { get; }
+    ISceneEditorContext EditorContext { get; }
 
     IReadOnlyReactiveProperty<Element?> Element { get; }
 

@@ -1,6 +1,7 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;
 using Avalonia.Controls;
+using Beutl.Editor;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Components.TimelineTab.Views;
 
@@ -94,7 +95,13 @@ public sealed class TimelineTabExtension : ToolTabExtension
 
     public override bool TryCreateContext(IEditorContext editorContext, [NotNullWhen(true)] out IToolContext? context)
     {
-        context = new TimelineTabViewModel(editorContext);
-        return true;
+        if (editorContext is ISceneEditorContext sceneContext)
+        {
+            context = new TimelineTabViewModel(sceneContext);
+            return true;
+        }
+
+        context = null;
+        return false;
     }
 }

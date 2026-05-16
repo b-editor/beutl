@@ -66,7 +66,7 @@ public sealed partial class ElementView : UserControl
         if (DataContext is not ElementViewModel viewModel) return;
 
         change2OriginalDuration.IsEnabled = viewModel.HasOriginalDuration();
-        splitByCurrent.IsEnabled = viewModel.Model.Range.Contains(viewModel.Timeline.EditorContext.GetRequiredService<IEditorClock>().CurrentTime.Value);
+        splitByCurrent.IsEnabled = viewModel.Model.Range.Contains(viewModel.Timeline.EditorContext.Clock.CurrentTime.Value);
         groupSelectedElements.IsEnabled = viewModel.CanGroupSelectedElements();
         ungroupSelectedElements.IsEnabled = viewModel.CanUngroupSelectedElements();
     }
@@ -171,7 +171,7 @@ public sealed partial class ElementView : UserControl
     private void EnableElementClick(object? sender, RoutedEventArgs e)
     {
         Element model = ViewModel.Model;
-        HistoryManager history = ViewModel.Timeline.EditorContext.GetRequiredService<HistoryManager>();
+        HistoryManager history = ViewModel.Timeline.EditorContext.HistoryManager;
         model.IsEnabled = !model.IsEnabled;
         history.Commit(CommandNames.ChangeElementEnabled);
     }
@@ -260,7 +260,7 @@ public sealed partial class ElementView : UserControl
             return time;
         }
 
-        IEditorClock clock = timeline.EditorContext.GetRequiredService<IEditorClock>();
+        IEditorClock clock = timeline.EditorContext.Clock;
         IEnumerable<TimeSpan> candidates = SnapHelper
             .CollectElementCandidates(timeline.Scene.Children, model, sameZIndex)
             .Concat(SnapHelper.CollectSceneCandidates(timeline.Scene, clock.CurrentTime.Value));
@@ -454,7 +454,7 @@ public sealed partial class ElementView : UserControl
                     }
                     else if (_resizeContexts.Length > 1)
                     {
-                        HistoryManager history = viewModel.Timeline.EditorContext.GetRequiredService<HistoryManager>();
+                        HistoryManager history = viewModel.Timeline.EditorContext.HistoryManager;
                         var animations = _resizeContexts
                             .Select(x => (ViewModel: x.ViewModel, Context: x.ViewModel.PrepareAnimation()))
                             .ToArray();
@@ -624,7 +624,7 @@ public sealed partial class ElementView : UserControl
                 if (AssociatedObject is { ViewModel: { } viewModel })
                 {
                     viewModel.Timeline.SnapBarPosition.Value = null;
-                    HistoryManager history = viewModel.Timeline.EditorContext.GetRequiredService<HistoryManager>();
+                    HistoryManager history = viewModel.Timeline.EditorContext.HistoryManager;
                     e.Handled = true;
                     IReadOnlyList<ElementViewModel> relatedElements = viewModel.GetGroupOrSelectedElements();
                     var elems = relatedElements.Select(x => x.Model).ToArray();
@@ -696,7 +696,7 @@ public sealed partial class ElementView : UserControl
 
         private void Select(ElementView obj, TimelineTabViewModel timeline)
         {
-            var selection = timeline.EditorContext.GetRequiredService<IEditorSelection>();
+            IEditorSelection selection = timeline.EditorContext.Selection;
             selection.SelectedObject.Value = obj.ViewModel.Model;
 
             timeline.ClearSelected();
@@ -705,7 +705,7 @@ public sealed partial class ElementView : UserControl
 
         private bool IsSelected(ElementView obj, TimelineTabViewModel timeline)
         {
-            var selection = timeline.EditorContext.GetRequiredService<IEditorSelection>();
+            IEditorSelection selection = timeline.EditorContext.Selection;
             return selection.SelectedObject.Value == obj.ViewModel.Model
                 || timeline.SelectedElements.Contains(obj.ViewModel);
         }

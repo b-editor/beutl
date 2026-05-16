@@ -1,11 +1,11 @@
 ﻿using System.Text.Json.Nodes;
 using Avalonia.Threading;
 using Beutl.Animation;
+using Beutl.Editor;
 using Beutl.Editor.Services;
 using Beutl.Engine;
 using Beutl.NodeGraph;
 using Beutl.ProjectSystem;
-using Microsoft.Extensions.DependencyInjection;
 using Reactive.Bindings;
 
 namespace Beutl.Editor.Components.GraphEditorTab.ViewModels;
@@ -14,12 +14,12 @@ public sealed record GraphEditorItemViewModel(string Name, KeyFrameAnimation Obj
 
 public sealed class GraphEditorTabViewModel : IToolContext
 {
-    private readonly IEditorContext _editorContext;
+    private readonly ISceneEditorContext _editorContext;
     private readonly CompositeDisposable _disposables = [];
     private readonly CompositeDisposable _animationDisposables = [];
     private bool _disposed;
 
-    public GraphEditorTabViewModel(IEditorContext editorContext)
+    public GraphEditorTabViewModel(ISceneEditorContext editorContext)
     {
         _editorContext = editorContext;
         Element.Subscribe(_ => Refresh()).DisposeWith(_disposables);
@@ -180,7 +180,7 @@ public sealed class GraphEditorTabViewModel : IToolContext
     {
         try
         {
-            var scene = _editorContext.GetRequiredService<Scene>();
+            Scene scene = _editorContext.Scene;
             if (json.TryGetPropertyValueAsJsonValue("elementId", out Guid elmId)
                 && json.TryGetPropertyValueAsJsonValue("animationId", out Guid anmId)
                 && scene.FindById(elmId) is Element elm)

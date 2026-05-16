@@ -43,7 +43,7 @@ public sealed class LayerHeaderViewModel : IDisposable
         SwitchEnabledCommand = new ReactiveCommand()
             .WithSubscribe(() =>
             {
-                HistoryManager history = Timeline.EditorContext.GetRequiredService<HistoryManager>();
+                HistoryManager history = Timeline.EditorContext.HistoryManager;
                 try
                 {
                     _skipSubscription = true;
@@ -213,7 +213,7 @@ public sealed class LayerHeaderViewModel : IDisposable
 
     public void SetColor(Color color)
     {
-        HistoryManager history = Timeline.EditorContext.GetRequiredService<HistoryManager>();
+        HistoryManager history = Timeline.EditorContext.HistoryManager;
         var model = GetOrCreateModel();
         model.Color = color.ToBtlColor();
         history.Commit(CommandNames.ChangeLayerColor);

@@ -1,6 +1,7 @@
 ﻿using System.Collections.Specialized;
 using System.Text.Json.Nodes;
 
+using Beutl.Editor;
 using Beutl.Editor.Services;
 using Beutl.Engine;
 using Beutl.ProjectSystem;
@@ -15,14 +16,14 @@ namespace Beutl.Editor.Components.ElementPropertyTab.ViewModels;
 public sealed class ElementPropertyTabViewModel : IToolContext
 {
     private readonly IDisposable _disposable0;
-    private IEditorContext _editorContext;
+    private ISceneEditorContext _editorContext;
     private IDisposable? _disposable1;
     private Element? _oldElement;
 
-    public ElementPropertyTabViewModel(IEditorContext editorContext)
+    public ElementPropertyTabViewModel(ISceneEditorContext editorContext)
     {
         _editorContext = editorContext;
-        Element = editorContext.GetRequiredService<IEditorSelection>().SelectedObject
+        Element = editorContext.Selection.SelectedObject
             .Select(x => x as Element)
             .ToReactiveProperty();
 
@@ -111,7 +112,7 @@ public sealed class ElementPropertyTabViewModel : IToolContext
 
     public ToolTabExtension Extension => ElementPropertyTabExtension.Instance;
 
-    public IEditorContext ParentContext => _editorContext;
+    public ISceneEditorContext ParentContext => _editorContext;
 
     public IReactiveProperty<bool> IsSelected { get; } = new ReactivePropertySlim<bool>();
 

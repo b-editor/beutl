@@ -117,7 +117,7 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
             .Subscribe(c =>
             {
                 Model.AccentColor = c.ToBtlColor();
-                Timeline.EditorContext.GetRequiredService<HistoryManager>().Commit(CommandNames.ChangeElementColor);
+                Timeline.EditorContext.HistoryManager.Commit(CommandNames.ChangeElementColor);
             })
             .AddTo(_disposables);
 
@@ -440,7 +440,7 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
         int zindex = Timeline.ToLayerNumber(Margin.Value);
 
         Scene.MoveChild(zindex, start, length, Model);
-        Timeline.EditorContext.GetRequiredService<HistoryManager>().Commit(CommandNames.MoveElement);
+        Timeline.EditorContext.HistoryManager.Commit(CommandNames.MoveElement);
 
         await AnimationRequest(context);
     }
@@ -502,7 +502,7 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
 
     private void OnExclude()
     {
-        var history = Timeline.EditorContext.GetRequiredService<HistoryManager>();
+        var history = Timeline.EditorContext.HistoryManager;
         // IsSelectedがtrueのものをまとめて削除する。
         foreach (ElementViewModel element in GetGroupOrSelectedElements())
         {
@@ -513,7 +513,7 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
 
     private void OnDelete()
     {
-        var history = Timeline.EditorContext.GetRequiredService<HistoryManager>();
+        var history = Timeline.EditorContext.HistoryManager;
         foreach (ElementViewModel element in GetGroupOrSelectedElements())
         {
             Scene.DeleteChild(element.Model);
@@ -597,7 +597,7 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
             }
         }
 
-        Timeline.EditorContext.GetRequiredService<HistoryManager>().Commit(CommandNames.GroupElements);
+        Timeline.EditorContext.HistoryManager.Commit(CommandNames.GroupElements);
     }
 
     private void OnUngroupSelectedElements()
@@ -605,7 +605,7 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
         IReadOnlyCollection<Guid> ids = GetSelectedIdsOrSelf();
         RemoveIdsFromElementSets(ids);
 
-        Timeline.EditorContext.GetRequiredService<HistoryManager>().Commit(CommandNames.UngroupElements);
+        Timeline.EditorContext.HistoryManager.Commit(CommandNames.UngroupElements);
     }
 
     private void OnSetAttached(ImmutableHashSet<Guid> group)
@@ -639,7 +639,7 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
         {
             if (await SetClipboard([.. targets]))
             {
-                var history = Timeline.EditorContext.GetRequiredService<HistoryManager>();
+                var history = Timeline.EditorContext.HistoryManager;
                 foreach (ElementViewModel target in targets)
                 {
                     Scene.RemoveChild(target.Model);
@@ -740,7 +740,7 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
             }
         }
 
-        Timeline.EditorContext.GetRequiredService<HistoryManager>().Commit(CommandNames.SplitElement);
+        Timeline.EditorContext.HistoryManager.Commit(CommandNames.SplitElement);
     }
 
     private async void OnChangeToOriginalDuration()
@@ -764,7 +764,7 @@ public sealed class ElementViewModel : IDisposable, IContextCommandHandler
             }
 
             Scene.MoveChild(Model.ZIndex, Model.Start, duration, Model);
-            Timeline.EditorContext.GetRequiredService<HistoryManager>().Commit(CommandNames.MoveElement);
+            Timeline.EditorContext.HistoryManager.Commit(CommandNames.MoveElement);
 
             await AnimationRequest(context);
         }

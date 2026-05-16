@@ -1,6 +1,6 @@
 ﻿using System.Text.Json.Nodes;
+using Beutl.Editor;
 using Beutl.Editor.Services;
-using Microsoft.Extensions.DependencyInjection;
 using Reactive.Bindings;
 
 namespace Beutl.Editor.Components.AudioVisualizerTab.ViewModels;
@@ -15,18 +15,18 @@ public sealed class AudioVisualizerTabViewModel : IToolContext
     public const SpectrumDisplayShape DefaultSpectrumShape = SpectrumDisplayShape.Bar;
 
     private readonly CompositeDisposable _disposables = [];
-    private readonly IEditorContext _editorContext;
+    private readonly ISceneEditorContext _editorContext;
     private readonly IPreviewPlayer _player;
     private readonly IEditorClock _clock;
     private readonly AudioVisualizerTabExtension _extension;
     private int _composeInFlight;
 
-    public AudioVisualizerTabViewModel(IEditorContext editorContext, AudioVisualizerTabExtension extension)
+    public AudioVisualizerTabViewModel(ISceneEditorContext editorContext, AudioVisualizerTabExtension extension)
     {
         _editorContext = editorContext;
         _extension = extension;
-        _player = editorContext.GetRequiredService<IPreviewPlayer>();
-        _clock = editorContext.GetRequiredService<IEditorClock>();
+        _player = editorContext.Player;
+        _clock = editorContext.Clock;
 
         _player.AudioFramePushed
             .Subscribe(OnAudioFrameReceived)

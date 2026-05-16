@@ -1,5 +1,6 @@
 ﻿using System.Text.Json.Nodes;
 using Avalonia;
+using Beutl.Editor;
 using Beutl.NodeGraph;
 using Beutl.NodeGraph.Nodes.Group;
 using Microsoft.Extensions.DependencyInjection;
@@ -11,7 +12,7 @@ public sealed class NodeGraphViewModel : IDisposable, IJsonSerializable
 {
     private readonly CompositeDisposable _disposables = [];
 
-    public NodeGraphViewModel(GraphModel graph, IEditorContext editorContext)
+    public NodeGraphViewModel(GraphModel graph, ISceneEditorContext editorContext)
     {
         NodeGraph = graph;
         EditorContext = editorContext;
@@ -68,7 +69,7 @@ public sealed class NodeGraphViewModel : IDisposable, IJsonSerializable
             .DisposeWith(_disposables);
     }
 
-    public IEditorContext EditorContext { get; }
+    public ISceneEditorContext EditorContext { get; }
 
     public CoreList<GraphNodeViewModel> Nodes { get; } = [];
 
@@ -113,7 +114,7 @@ public sealed class NodeGraphViewModel : IDisposable, IJsonSerializable
         }
 
         NodeGraph.Nodes.Add(node);
-        EditorContext.GetRequiredService<HistoryManager>().Commit(CommandNames.AddNode);
+        EditorContext.HistoryManager.Commit(CommandNames.AddNode);
     }
 
     public void Dispose()

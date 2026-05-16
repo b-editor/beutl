@@ -24,7 +24,7 @@ public class NodeMonitorViewModel : NodeMemberViewModel
             .DisposeWith(_disposables);
 
         // IsPlaying, IsExpanded -> IsEnabled 連動
-        var previewPlayer = nodeViewModel.EditorContext.GetRequiredService<IPreviewPlayer>();
+        IPreviewPlayer previewPlayer = nodeViewModel.EditorContext.Player;
 
         previewPlayer.IsPlaying.CombineLatest(nodeViewModel.IsExpanded)
             // IsPlayingがfalseで、かつIsExpandedがtrueのときのみ有効

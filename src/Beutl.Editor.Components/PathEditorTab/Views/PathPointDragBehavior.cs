@@ -77,7 +77,7 @@ public sealed class PathPointDragBehavior : Behavior<Thumb>
         if (parent is { DataContext: IPathEditorContext { Element.Value: { } element } viewModel })
         {
             parent.SkipUpdatePosition = false;
-            viewModel.EditorContext.GetRequiredService<HistoryManager>().Commit(CommandNames.EditPathPoint);
+            viewModel.EditorContext.HistoryManager.Commit(CommandNames.EditPathPoint);
         }
 
         _coordDragStates = null;
@@ -290,13 +290,13 @@ public sealed class PathPointDragBehavior : Behavior<Thumb>
                                 Set(c.Previous);
                                 Set(c.Next);
 
-                                var clock = viewModel.EditorContext.GetRequiredService<IEditorClock>();
+                                IEditorClock clock = viewModel.EditorContext.Clock;
                                 UpdateThumbPosition(c.Thumb,
                                     c.GetInterpolatedValue(clock.CurrentTime.Value));
                             }
                             else
                             {
-                                var clock = viewModel.EditorContext.GetRequiredService<IEditorClock>();
+                                IEditorClock clock = viewModel.EditorContext.Clock;
                                 var ctx = new CompositionContext(clock.CurrentTime.Value);
                                 BtlPoint point =
                                     _dragState.GetInterpolatedValue(clock.CurrentTime.Value);
@@ -536,8 +536,8 @@ public sealed class PathPointDragBehavior : Behavior<Thumb>
         PathSegment segment,
         IProperty<BtlPoint> property)
     {
-        var scene = viewModel.EditorContext.GetRequiredService<Scene>();
-        var clock = viewModel.EditorContext.GetRequiredService<IEditorClock>();
+        Scene scene = viewModel.EditorContext.Scene;
+        IEditorClock clock = viewModel.EditorContext.Clock;
         ProjectSystem.Element? element = viewModel.Element.Value;
         int rate = scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;
         TimeSpan globalkeyTime = clock.CurrentTime.Value;

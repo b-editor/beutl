@@ -58,7 +58,7 @@ public sealed partial class ElementPropertyTabView : UserControl
             && DataContext is ElementPropertyTabViewModel vm
             && vm.Element.Value is Element element)
         {
-            HistoryManager history = vm.GetRequiredService<HistoryManager>();
+            HistoryManager history = vm.ParentContext.HistoryManager;
             element.AddObject((EngineObject)Activator.CreateInstance(item)!);
             history.Commit(CommandNames.AddObject);
 

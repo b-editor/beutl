@@ -107,7 +107,7 @@ public sealed class InlineKeyFrameViewModel : IDisposable
 
                 KeyFrame newKeyFrame = (KeyFrame)Activator.CreateInstance(type)!;
                 CoreSerializer.PopulateFromJsonObject(newKeyFrame, jsonObj);
-                HistoryManager history = Timeline.EditorContext.GetRequiredService<HistoryManager>();
+                HistoryManager history = Timeline.EditorContext.HistoryManager;
 
                 if (type.GenericTypeArguments[0] != Parent.Property.PropertyType)
                 {
@@ -140,7 +140,7 @@ public sealed class InlineKeyFrameViewModel : IDisposable
 
     private void Remove()
     {
-        HistoryManager history = Timeline.EditorContext.GetRequiredService<HistoryManager>();
+        HistoryManager history = Timeline.EditorContext.HistoryManager;
         AnimationOperations.RemoveKeyFrame(
             animation: Animation,
             keyframe: Model,
@@ -153,7 +153,7 @@ public sealed class InlineKeyFrameViewModel : IDisposable
         float scale = Timeline.Options.Value.Scale;
         Project? proj = Timeline.Scene.FindHierarchicalParent<Project>();
         int rate = proj?.GetFrameRate() ?? 30;
-        HistoryManager history = Timeline.EditorContext.GetRequiredService<HistoryManager>();
+        HistoryManager history = Timeline.EditorContext.HistoryManager;
 
         TimeSpan time = Left.Value.PixelToTimeSpan(scale).RoundToRate(rate);
         SplineEasingHelper.Move(Animation, Model, time);

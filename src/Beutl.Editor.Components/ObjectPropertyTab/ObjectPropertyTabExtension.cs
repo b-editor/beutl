@@ -2,6 +2,7 @@
 
 using Avalonia.Controls;
 
+using Beutl.Editor;
 using Beutl.Editor.Components.ObjectPropertyTab.ViewModels;
 using Beutl.Editor.Components.ObjectPropertyTab.Views;
 
@@ -32,7 +33,13 @@ public sealed class ObjectPropertyTabExtension : ToolTabExtension
 
     public override bool TryCreateContext(IEditorContext editorContext, [NotNullWhen(true)] out IToolContext? context)
     {
-        context = new ObjectPropertyTabViewModel(editorContext);
-        return true;
+        if (editorContext is ISceneEditorContext sceneContext)
+        {
+            context = new ObjectPropertyTabViewModel(sceneContext);
+            return true;
+        }
+
+        context = null;
+        return false;
     }
 }

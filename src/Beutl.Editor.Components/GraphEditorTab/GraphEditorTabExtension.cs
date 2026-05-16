@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using Avalonia.Controls;
+using Beutl.Editor;
 using Beutl.Editor.Components.GraphEditorTab.ViewModels;
 using Beutl.Editor.Components.GraphEditorTab.Views;
 
@@ -28,7 +29,13 @@ public sealed class GraphEditorTabExtension : ToolTabExtension
 
     public override bool TryCreateContext(IEditorContext editorContext, [NotNullWhen(true)] out IToolContext? context)
     {
-        context = new GraphEditorTabViewModel(editorContext);
-        return true;
+        if (editorContext is ISceneEditorContext sceneContext)
+        {
+            context = new GraphEditorTabViewModel(sceneContext);
+            return true;
+        }
+
+        context = null;
+        return false;
     }
 }

@@ -62,8 +62,8 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
     public PlayerViewModel(EditViewModel editViewModel)
     {
         _editViewModel = editViewModel;
-        _editorClock = editViewModel.GetRequiredService<IEditorClock>();
-        _editorSelection = editViewModel.GetRequiredService<IEditorSelection>();
+        _editorClock = editViewModel.Clock;
+        _editorSelection = editViewModel.Selection;
         Scene = editViewModel.Scene;
         _isEnabled = editViewModel.IsEnabled;
         PlayPause = new AsyncReactiveCommand(_isEnabled.AsObservable())

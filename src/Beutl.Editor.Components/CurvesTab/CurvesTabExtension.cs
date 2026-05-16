@@ -2,6 +2,7 @@
 
 using Avalonia.Controls;
 
+using Beutl.Editor;
 using Beutl.Editor.Components.CurvesTab.ViewModels;
 using Beutl.Editor.Components.CurvesTab.Views;
 
@@ -28,7 +29,13 @@ public sealed class CurvesTabExtension : ToolTabExtension
 
     public override bool TryCreateContext(IEditorContext editorContext, [NotNullWhen(true)] out IToolContext? context)
     {
-        context = new CurvesTabViewModel(editorContext);
-        return true;
+        if (editorContext is ISceneEditorContext sceneContext)
+        {
+            context = new CurvesTabViewModel(sceneContext);
+            return true;
+        }
+
+        context = null;
+        return false;
     }
 }

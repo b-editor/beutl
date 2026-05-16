@@ -49,8 +49,7 @@ public partial class PlayerView
 
                 if (element != null)
                 {
-                    var editorSelection = editViewModel.GetService<IEditorSelection>();
-                    editorSelection?.SelectedObject.Value = element;
+                    editViewModel.Selection.SelectedObject.Value = element;
                 }
 
                 if (containsFe
@@ -85,7 +84,7 @@ public partial class PlayerView
                 return elements.Length == 0 ? 0 : elements.Max(v => v.ZIndex) + 1;
             }
 
-            var adder = editViewModel.GetRequiredService<IElementAdder>();
+            IElementAdder adder = editViewModel.ElementAdder;
             if (e.DataTransfer.TryGetValue(BeutlDataFormats.EngineObject) is { } typeName
                 && TypeFormat.ToType(typeName) is { } type)
             {

@@ -75,7 +75,7 @@ public partial class PathEditorView : UserControl, IPathEditorView
         // TODO: Scale, Matrixが変わった時に位置がずれる
         this.GetObservable(DataContextProperty)
             .Select(v => v as PathEditorViewModel)
-            .Select(v => v?.EditorContext.GetService<IPreviewPlayer>()?.AfterRendered ?? Observable.ReturnThenNever(Unit.Default))
+            .Select(v => v?.EditorContext.Player.AfterRendered ?? Observable.ReturnThenNever(Unit.Default))
             .Switch()
             .CombineLatest(this.GetObservable(ScaleProperty), this.GetObservable(MatrixProperty))
             .Subscribe(_ => UpdateThumbPosition());
@@ -101,7 +101,7 @@ public partial class PathEditorView : UserControl, IPathEditorView
         {
             if (DataContext is PathEditorViewModel viewModel)
             {
-                var clock = viewModel.EditorContext.GetRequiredService<IEditorClock>();
+                IEditorClock clock = viewModel.EditorContext.Clock;
                 foreach (Thumb thumb in canvas.Children.OfType<Thumb>())
                 {
                     if (thumb.DataContext is PathSegment segment)
@@ -251,7 +251,7 @@ public partial class PathEditorView : UserControl, IPathEditorView
             && viewModel.PathFigure.Value is { } figure
             && viewModel.FigureContext.Value is IPathFigureEditorContext figureContext)
         {
-            var clock = viewModel.EditorContext.GetRequiredService<IEditorClock>();
+            IEditorClock clock = viewModel.EditorContext.Clock;
             int index = figure.Segments.Count;
             BtlPoint lastPoint = default;
             if (index > 0)

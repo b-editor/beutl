@@ -1,5 +1,6 @@
 ﻿using System.Text.Json.Nodes;
 using Beutl.Controls.Curves;
+using Beutl.Editor;
 using Beutl.Editor.Services;
 using Beutl.Engine;
 using Beutl.Graphics;
@@ -17,15 +18,15 @@ public sealed class CurvesTabViewModel : IToolContext
 {
     private readonly CompositeDisposable _disposables = [];
     private readonly CompositeDisposable _effectDisposables = [];
-    private readonly IEditorContext _editorContext;
+    private readonly ISceneEditorContext _editorContext;
     private readonly IPreviewPlayer _player;
     private readonly Scene _scene;
 
-    public CurvesTabViewModel(IEditorContext editorContext)
+    public CurvesTabViewModel(ISceneEditorContext editorContext)
     {
         _editorContext = editorContext;
-        _player = editorContext.GetService<IPreviewPlayer>()!;
-        _scene = editorContext.GetService<Scene>()!;
+        _player = editorContext.Player;
+        _scene = editorContext.Scene;
 
         SourceBitmap.Value = _player.PreviewImage.Value;
 
@@ -269,7 +270,7 @@ public sealed class CurvesTabViewModel : IToolContext
     public object? GetService(Type serviceType)
     {
         if (serviceType == typeof(HistoryManager))
-            return _editorContext.GetService<HistoryManager>();
+            return _editorContext.HistoryManager;
 
         if (serviceType == typeof(Element))
             return Effect.Value?.FindHierarchicalParent<Element>();
@@ -328,7 +329,7 @@ public sealed class CurvesTabViewModel : IToolContext
         if (effect == null)
             return;
 
-        var history = _editorContext.GetService<HistoryManager>()!;
+        HistoryManager history = _editorContext.HistoryManager;
 
         MasterCurve.Value = CreateCurve(effect.MasterCurve, history);
         RedCurve.Value = CreateCurve(effect.RedCurve, history);

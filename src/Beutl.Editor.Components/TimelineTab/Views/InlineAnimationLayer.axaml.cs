@@ -173,7 +173,7 @@ public partial class InlineAnimationLayer : UserControl
                     item.ReflectModelKeyTime();
                 }
                 viewModel.ReflectModelKeyTime();
-                var history = viewModel.Timeline.EditorContext.GetRequiredService<HistoryManager>();
+                var history = viewModel.Timeline.EditorContext.HistoryManager;
                 history.Commit(CommandNames.MoveKeyFrame);
             }
             else

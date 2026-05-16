@@ -1324,8 +1324,8 @@ public partial class PlayerView
             return new MouseControlMove
             {
                 ViewModel = viewModel,
-                Clock = viewModel.EditViewModel.GetRequiredService<IEditorClock>(),
-                EditorSelection = viewModel.EditViewModel.GetRequiredService<IEditorSelection>(),
+                Clock = viewModel.EditViewModel.Clock,
+                EditorSelection = viewModel.EditViewModel.Selection,
                 View = this
             };
         }
@@ -1338,8 +1338,8 @@ public partial class PlayerView
             return new MouseControl3DCamera
             {
                 ViewModel = viewModel,
-                Clock = viewModel.EditViewModel.GetRequiredService<IEditorClock>(),
-                EditorSelection = viewModel.EditViewModel.GetRequiredService<IEditorSelection>(),
+                Clock = viewModel.EditViewModel.Clock,
+                EditorSelection = viewModel.EditViewModel.Selection,
                 View = this
             };
         }

@@ -2,6 +2,7 @@
 
 using Avalonia.Controls;
 
+using Beutl.Editor;
 using Beutl.Editor.Components.SceneSettingsTab.ViewModels;
 using Beutl.Editor.Components.SceneSettingsTab.Views;
 
@@ -30,7 +31,13 @@ public sealed class SceneSettingsTabExtension : ToolTabExtension
 
     public override bool TryCreateContext(IEditorContext editorContext, [NotNullWhen(true)] out IToolContext? context)
     {
-        context = new SceneSettingsTabViewModel(editorContext);
-        return true;
+        if (editorContext is ISceneEditorContext sceneContext)
+        {
+            context = new SceneSettingsTabViewModel(sceneContext);
+            return true;
+        }
+
+        context = null;
+        return false;
     }
 }

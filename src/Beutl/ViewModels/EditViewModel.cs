@@ -5,6 +5,7 @@ using Beutl.Configuration;
 using Beutl.Editor;
 using Beutl.Editor.Observers;
 using Beutl.Editor.Operations;
+using Beutl.Editor.Services;
 using Beutl.Graphics.Rendering.Cache;
 using Beutl.Logging;
 using Beutl.Media;
@@ -20,16 +21,12 @@ using Dispatcher = Avalonia.Threading.Dispatcher;
 
 namespace Beutl.ViewModels;
 
-public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEditorContext
+public sealed partial class EditViewModel : ISceneEditorContext, ISupportAutoSaveEditorContext
 {
     private readonly ILogger _logger = Log.CreateLogger<EditViewModel>();
     private readonly AutoSaveService _autoSaveService = new();
 
     private readonly CompositeDisposable _disposables = [];
-    private readonly TimelineOptionsProviderImpl _timelineOptionsProvider;
-    private readonly EditorClockImpl _editorClock;
-    private readonly EditorSelectionImpl _editorSelection;
-    private readonly ElementAdderImpl _elementAdder;
 
     public EditViewModel(Scene scene)
     {
@@ -38,11 +35,11 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
         Scene = scene;
         SceneId = scene.Id.ToString();
 
-        _timelineOptionsProvider = new TimelineOptionsProviderImpl(scene)
+        TimelineOptions = new TimelineOptionsProviderImpl(scene)
             .DisposeWith(_disposables);
-        _editorClock = new EditorClockImpl(scene)
+        Clock = new EditorClockImpl(scene)
             .DisposeWith(_disposables);
-        _editorSelection = new EditorSelectionImpl()
+        Selection = new EditorSelectionImpl()
             .DisposeWith(_disposables);
 
         Renderer = scene.GetObservable(Scene.FrameSizeProperty).Select(_ => new SceneRenderer(Scene))
@@ -85,7 +82,7 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
         DockHost = new DockHostViewModel(SceneId, this)
             .DisposeWith(_disposables);
 
-        _elementAdder = new ElementAdderImpl(this);
+        ElementAdder = new ElementAdderImpl(this);
 
         _autoSaveService.SaveError
             .Subscribe(_ =>
@@ -306,6 +303,14 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
 
     public HistoryManager HistoryManager { get; private set; }
 
+    public IEditorClock Clock { get; }
+
+    public IEditorSelection Selection { get; }
+
+    public IElementAdder ElementAdder { get; }
+
+    public ITimelineOptionsProvider TimelineOptions { get; }
+
     public ReadOnlyReactivePropertySlim<FrameCacheManager> FrameCacheManager { get; private set; }
 
     public EditorExtension Extension => SceneEditorExtension.Instance;
@@ -316,6 +321,10 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
 
     IReactiveProperty<bool> IEditorContext.IsEnabled => IsEnabled;
 
+    IPreviewPlayer ISceneEditorContext.Player => Player;
+
+    IBufferStatus ISceneEditorContext.BufferStatus => BufferStatus;
+
     public DockHostViewModel DockHost { get; }
 
     public async ValueTask DisposeAsync()
@@ -324,7 +333,7 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
 
         GlobalConfiguration.Instance.EditorConfig.PropertyChanged -= OnEditorConfigPropertyChanged;
         SaveState();
-        _editorSelection.SelectedObject.Value = null;
+        Selection.SelectedObject.Value = null;
         // Player を破棄する前にイベント購読を外し、Subject 破棄後の OnNext を抑止する。
         DisposeCommandStateNotifier();
         await Player.DisposeAsync();
@@ -382,22 +391,22 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
         string viewStateDir = ViewStateDirectory();
         var json = new JsonObject
         {
-            ["selected-object"] = _editorSelection.SelectedObject.Value?.Id,
-            ["max-layer-count"] = _timelineOptionsProvider.Options.Value.MaxLayerCount,
-            ["scale"] = _timelineOptionsProvider.Options.Value.Scale,
-            ["offset"] = new JsonObject { ["x"] = _timelineOptionsProvider.Options.Value.Offset.X, ["y"] = _timelineOptionsProvider.Options.Value.Offset.Y, },
+            ["selected-object"] = Selection.SelectedObject.Value?.Id,
+            ["max-layer-count"] = TimelineOptions.Options.Value.MaxLayerCount,
+            ["scale"] = TimelineOptions.Options.Value.Scale,
+            ["offset"] = new JsonObject { ["x"] = TimelineOptions.Options.Value.Offset.X, ["y"] = TimelineOptions.Options.Value.Offset.Y, },
             ["bpm-grid"] = new JsonObject
             {
-                ["bpm"] = _timelineOptionsProvider.Options.Value.BpmGrid.Bpm,
-                ["subdivisions"] = _timelineOptionsProvider.Options.Value.BpmGrid.Subdivisions,
-                ["offset"] = _timelineOptionsProvider.Options.Value.BpmGrid.Offset.ToString("c"),
-                ["is-enabled"] = _timelineOptionsProvider.Options.Value.BpmGrid.IsEnabled,
+                ["bpm"] = TimelineOptions.Options.Value.BpmGrid.Bpm,
+                ["subdivisions"] = TimelineOptions.Options.Value.BpmGrid.Subdivisions,
+                ["offset"] = TimelineOptions.Options.Value.BpmGrid.Offset.ToString("c"),
+                ["is-enabled"] = TimelineOptions.Options.Value.BpmGrid.IsEnabled,
             }
         };
 
         DockHost.WriteToJson(json);
 
-        json["current-time"] = JsonValue.Create(_editorClock.CurrentTime.Value);
+        json["current-time"] = JsonValue.Create(Clock.CurrentTime.Value);
 
         string name = Path.GetFileNameWithoutExtension(Scene.Uri!.LocalPath);
         json.JsonSave(Path.Combine(viewStateDir, $"{name}.config"));
@@ -423,7 +432,7 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
                 if (id.HasValue)
                 {
                     var searcher = new ObjectSearcher(Scene, o => o is CoreObject obj && obj.Id == id.Value);
-                    _editorSelection.SelectedObject.Value = searcher.Search() as CoreObject;
+                    Selection.SelectedObject.Value = searcher.Search() as CoreObject;
                 }
             }
             catch (Exception ex)
@@ -476,14 +485,14 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
                 timelineOptions = timelineOptions with { BpmGrid = bpmGrid };
             }
 
-            _timelineOptionsProvider.Options.Value = timelineOptions;
+            TimelineOptions.Options.Value = timelineOptions;
 
             DockHost.ReadFromJson(jsonObject);
 
             if (jsonObject.TryGetPropertyValueAsJsonValue("current-time", out string? currentTimeStr)
                 && TimeSpan.TryParse(currentTimeStr, out TimeSpan currentTime))
             {
-                _editorClock.CurrentTime.Value = currentTime;
+                Clock.CurrentTime.Value = currentTime;
             }
         }
         else
@@ -505,16 +514,16 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
             return HistoryManager;
 
         if (serviceType.IsAssignableTo(typeof(ITimelineOptionsProvider)))
-            return _timelineOptionsProvider;
+            return TimelineOptions;
 
         if (serviceType.IsAssignableTo(typeof(IEditorClock)))
-            return _editorClock;
+            return Clock;
 
         if (serviceType.IsAssignableTo(typeof(IEditorSelection)))
-            return _editorSelection;
+            return Selection;
 
         if (serviceType.IsAssignableTo(typeof(IElementAdder)))
-            return _elementAdder;
+            return ElementAdder;
 
         if (serviceType == typeof(PlayerViewModel) || serviceType.IsAssignableTo(typeof(IPreviewPlayer)))
             return Player;

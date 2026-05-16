@@ -37,7 +37,7 @@ public sealed class InlineAnimationLayerViewModel<T>(
                 kfAnimation.KeyFrames.FirstOrDefault(v => Math.Abs(v.KeyTime.Ticks - keyTime.Ticks) <= threshold.Ticks);
             if (keyFrame != null)
             {
-                HistoryManager history = Timeline.EditorContext.GetRequiredService<HistoryManager>();
+                HistoryManager history = Timeline.EditorContext.HistoryManager;
                 keyFrame.Easing = easing;
                 history.Commit(CommandNames.ChangeEasing);
             }
@@ -51,7 +51,7 @@ public sealed class InlineAnimationLayerViewModel<T>(
     public override void InsertKeyFrame(Easing easing, TimeSpan keyTime)
     {
         if (Property.Animation is not KeyFrameAnimation<T> animation) return;
-        HistoryManager history = Timeline.EditorContext.GetRequiredService<HistoryManager>();
+        HistoryManager history = Timeline.EditorContext.HistoryManager;
 
         AnimationOperations.InsertKeyFrame(
             animation: animation,
@@ -251,7 +251,7 @@ public abstract class InlineAnimationLayerViewModel : IDisposable
 
         try
         {
-            HistoryManager history = Timeline.EditorContext.GetRequiredService<HistoryManager>();
+            HistoryManager history = Timeline.EditorContext.HistoryManager;
             KeyFrameAnimation animation = (KeyFrameAnimation)Property.Animation!;
 
             if (discriminator.GenericTypeArguments[0] != animation.ValueType)
@@ -304,7 +304,7 @@ public abstract class InlineAnimationLayerViewModel : IDisposable
 
         try
         {
-            HistoryManager history = Timeline.EditorContext.GetRequiredService<HistoryManager>();
+            HistoryManager history = Timeline.EditorContext.HistoryManager;
             KeyFrameAnimation animation = (KeyFrameAnimation)Property.Animation!;
 
             KeyFrame newKeyFrame = (KeyFrame)Activator.CreateInstance(discriminator)!;
@@ -344,7 +344,7 @@ public abstract class InlineAnimationLayerViewModel : IDisposable
 
     public void DeleteAnimation()
     {
-        HistoryManager history = Timeline.EditorContext.GetRequiredService<HistoryManager>();
+        HistoryManager history = Timeline.EditorContext.HistoryManager;
 
         Property.Animation = null;
         history.Commit(CommandNames.DeleteAnimation);

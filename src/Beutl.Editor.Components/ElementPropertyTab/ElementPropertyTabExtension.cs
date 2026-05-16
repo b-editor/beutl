@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using Avalonia.Controls;
+using Beutl.Editor;
 using Beutl.Editor.Components.ElementPropertyTab.ViewModels;
 using Beutl.Editor.Components.ElementPropertyTab.Views;
 
@@ -32,7 +33,13 @@ public sealed class ElementPropertyTabExtension : ToolTabExtension
 
     public override bool TryCreateContext(IEditorContext editorContext, [NotNullWhen(true)] out IToolContext? context)
     {
-        context = new ElementPropertyTabViewModel(editorContext);
-        return true;
+        if (editorContext is ISceneEditorContext sceneContext)
+        {
+            context = new ElementPropertyTabViewModel(sceneContext);
+            return true;
+        }
+
+        context = null;
+        return false;
     }
 }

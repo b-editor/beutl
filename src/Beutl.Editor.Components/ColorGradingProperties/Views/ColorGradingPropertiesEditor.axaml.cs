@@ -4,6 +4,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Interactivity;
 using Beutl.Controls.Converters;
+using Beutl.Editor;
 using Beutl.Editor.Components.ColorGradingProperties.ViewModels;
 using Beutl.Editor.Components.ColorGradingTab.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
@@ -41,7 +42,7 @@ public sealed partial class ColorGradingPropertiesEditor : UserControl
     private void OpenTabClick(object? sender, RoutedEventArgs e)
     {
         if (DataContext is ColorGradingPropertiesViewModel context &&
-            context.GetService<IEditorContext>() is { } editorContext &&
+            context.GetService<IEditorContext>() is ISceneEditorContext editorContext &&
             context.TryGetColorGrading() is { } colorGrading)
         {
             var toolTab = editorContext.FindToolTab<ColorGradingTabViewModel>() ??

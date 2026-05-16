@@ -1,4 +1,5 @@
 ﻿using System.Text.Json.Nodes;
+using Beutl.Editor;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.PathEditorTab.Services;
 using Beutl.Editor.Components.PropertyEditors.Services;
@@ -15,11 +16,11 @@ public sealed class PathEditorTabViewModel : IDisposable, IPathEditorContext, IT
     private readonly CompositeDisposable _disposables = [];
     private readonly IEditorClock _clock;
 
-    public PathEditorTabViewModel(IEditorContext editorContext)
+    public PathEditorTabViewModel(ISceneEditorContext editorContext)
     {
         EditorContext = editorContext;
-        _clock = editorContext.GetRequiredService<IEditorClock>();
-        var player = editorContext.GetRequiredService<IPreviewPlayer>();
+        _clock = editorContext.Clock;
+        IPreviewPlayer player = editorContext.Player;
 
         IsPlaying = player.IsPlaying
             .ToReadOnlyReactiveProperty()
@@ -77,7 +78,7 @@ public sealed class PathEditorTabViewModel : IDisposable, IPathEditorContext, IT
             .DisposeWith(_disposables);
     }
 
-    public IEditorContext EditorContext { get; }
+    public ISceneEditorContext EditorContext { get; }
 
     public IReactiveProperty<IPathFigureEditorContext?> FigureContext { get; } =
         new ReactiveProperty<IPathFigureEditorContext?>();

@@ -2,6 +2,7 @@
 
 using Avalonia.Controls;
 
+using Beutl.Editor;
 using Beutl.Editor.Components.ColorScopesTab.ViewModels;
 using Beutl.Editor.Components.ColorScopesTab.Views;
 
@@ -28,7 +29,13 @@ public sealed class ColorScopesTabExtension : ToolTabExtension
 
     public override bool TryCreateContext(IEditorContext editorContext, [NotNullWhen(true)] out IToolContext? context)
     {
-        context = new ColorScopesTabViewModel(editorContext);
-        return true;
+        if (editorContext is ISceneEditorContext sceneContext)
+        {
+            context = new ColorScopesTabViewModel(sceneContext);
+            return true;
+        }
+
+        context = null;
+        return false;
     }
 }

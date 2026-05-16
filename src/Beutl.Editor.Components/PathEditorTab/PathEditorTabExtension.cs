@@ -2,10 +2,9 @@
 
 using Avalonia.Controls;
 
+using Beutl.Editor;
 using Beutl.Editor.Components.PathEditorTab.ViewModels;
 using Beutl.Editor.Components.PathEditorTab.Views;
-using Beutl.Editor.Services;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Beutl.Editor.Components.PathEditorTab;
 
@@ -24,30 +23,25 @@ public sealed class PathEditorTabExtension : ToolTabExtension
 
     public override bool TryCreateContent(IEditorContext editorContext, [NotNullWhen(true)] out Control? control)
     {
-        // IEditorContextがITimelineOptionsProviderサービスを提供しているかチェック
-        if (editorContext.GetService<ITimelineOptionsProvider>() != null)
+        if (editorContext is ISceneEditorContext)
         {
             control = new PathEditorTabView();
             return true;
         }
-        else
-        {
-            control = null;
-            return false;
-        }
+
+        control = null;
+        return false;
     }
 
     public override bool TryCreateContext(IEditorContext editorContext, [NotNullWhen(true)] out IToolContext? context)
     {
-        if (editorContext.GetService<ITimelineOptionsProvider>() != null)
+        if (editorContext is ISceneEditorContext sceneContext)
         {
-            context = new PathEditorTabViewModel(editorContext);
+            context = new PathEditorTabViewModel(sceneContext);
             return true;
         }
-        else
-        {
-            context = null;
-            return false;
-        }
+
+        context = null;
+        return false;
     }
 }

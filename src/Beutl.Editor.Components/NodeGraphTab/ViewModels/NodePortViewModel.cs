@@ -4,6 +4,7 @@ using Avalonia.Media;
 using Avalonia.Media.Immutable;
 using Beutl.Collections;
 using Beutl.Controls;
+using Beutl.Editor;
 using Beutl.NodeGraph;
 using Microsoft.Extensions.DependencyInjection;
 using Reactive.Bindings;
@@ -12,7 +13,7 @@ namespace Beutl.Editor.Components.NodeGraphTab.ViewModels;
 
 public class NodePortViewModel : NodeMemberViewModel
 {
-    private readonly IEditorContext _editorContext;
+    private readonly ISceneEditorContext _editorContext;
     private readonly CompositeDisposable _disposables = new();
     private IDisposable? _connectionsSubscription;
 
@@ -181,7 +182,7 @@ public class NodePortViewModel : NodeMemberViewModel
 
     public bool TryConnect(NodePortViewModel target)
     {
-        HistoryManager history = _editorContext.GetRequiredService<HistoryManager>();
+        HistoryManager history = _editorContext.HistoryManager;
         if (target.Model == null ^ Model == null)
         {
             // どちらかがNull
@@ -226,7 +227,7 @@ public class NodePortViewModel : NodeMemberViewModel
 
     public bool TryDisconnect(NodePortViewModel target, ConnectionViewModel? connection)
     {
-        HistoryManager history = _editorContext.GetRequiredService<HistoryManager>();
+        HistoryManager history = _editorContext.HistoryManager;
         var graph = GraphNodeViewModel.NodeGraphViewModel.NodeGraph;
         var conn = connection?.Connection;
         if (conn == null && Model != null && target.Model != null
@@ -252,7 +253,7 @@ public class NodePortViewModel : NodeMemberViewModel
 
     public void DisconnectAll()
     {
-        HistoryManager history = _editorContext.GetRequiredService<HistoryManager>();
+        HistoryManager history = _editorContext.HistoryManager;
         var graph = GraphNodeViewModel.NodeGraphViewModel.NodeGraph;
 
         var connections = Model switch
@@ -301,7 +302,7 @@ public class NodePortViewModel : NodeMemberViewModel
         }
 
         GraphNode.Items.Remove(generatedNodePort);
-        _editorContext.GetRequiredService<HistoryManager>().Commit(CommandNames.RemovePort);
+        _editorContext.HistoryManager.Commit(CommandNames.RemovePort);
     }
 
     public void MoveConnectionSlot(int oldIndex, int newIndex)
@@ -309,7 +310,7 @@ public class NodePortViewModel : NodeMemberViewModel
         if (Model is IListPort listNodePort)
         {
             listNodePort.MoveConnection(oldIndex, newIndex);
-            _editorContext.GetRequiredService<HistoryManager>().Commit(CommandNames.MoveConnection);
+            _editorContext.HistoryManager.Commit(CommandNames.MoveConnection);
         }
     }
 
@@ -318,13 +319,13 @@ public class NodePortViewModel : NodeMemberViewModel
         var graph = GraphNodeViewModel.NodeGraphViewModel.NodeGraph;
         Connection connection = connVM.Connection;
         graph.Disconnect(connection);
-        _editorContext.GetRequiredService<HistoryManager>().Commit(CommandNames.DisconnectPort);
+        _editorContext.HistoryManager.Commit(CommandNames.DisconnectPort);
     }
 
     public void UpdateName(string? e)
     {
         Model!.Name = e!;
-        _editorContext.GetRequiredService<HistoryManager>().Commit(CommandNames.RenamePort);
+        _editorContext.HistoryManager.Commit(CommandNames.RenamePort);
     }
 
     protected override void OnDispose()

@@ -97,7 +97,7 @@ public sealed partial class LayerHeader : UserControl
 
         int newLayerNum = _newLayer;
         int oldLayerNum = ViewModel.Number.Value;
-        HistoryManager history = ViewModel.Timeline.EditorContext.GetRequiredService<HistoryManager>();
+        HistoryManager history = ViewModel.Timeline.EditorContext.HistoryManager;
         new MoveLayerCommand(ViewModel, newLayerNum, oldLayerNum, _elements).Do();
         history.Commit(CommandNames.MoveLayer);
         _elements = [];

@@ -135,7 +135,7 @@ public sealed partial class EngineObjectPropertyView : UserControl
                     Element.Value: { } element
                 } viewModel)
             {
-                HistoryManager history = viewModel.GetRequiredService<HistoryManager>();
+                HistoryManager history = viewModel.ParentContext.HistoryManager;
                 element.Objects.Move(oldIndex, newIndex);
                 history.Commit(CommandNames.MoveObject);
             }

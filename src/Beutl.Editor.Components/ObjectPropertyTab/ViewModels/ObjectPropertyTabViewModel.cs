@@ -1,5 +1,6 @@
 ﻿using System.Runtime.CompilerServices;
 using System.Text.Json.Nodes;
+using Beutl.Editor;
 using Beutl.Editor.Services;
 using Beutl.ProjectSystem;
 using Microsoft.Extensions.DependencyInjection;
@@ -10,7 +11,7 @@ namespace Beutl.Editor.Components.ObjectPropertyTab.ViewModels;
 public sealed class ObjectPropertyTabViewModel : IToolContext
 {
     private readonly CompositeDisposable _disposables = [];
-    private readonly IEditorContext _editorContext;
+    private readonly ISceneEditorContext _editorContext;
     private readonly IPropertiesEditorFactory _factory;
     // インデックスが大きい方が新しい
     private readonly List<IPropertiesEditorViewModel> _cache = new(8);
@@ -18,19 +19,19 @@ public sealed class ObjectPropertyTabViewModel : IToolContext
     private readonly ConditionalWeakTable<ICoreObject, IServiceProvider> _providers = new();
     private readonly ReactivePropertySlim<bool> _canBack = new();
 
-    public ObjectPropertyTabViewModel(IEditorContext editorContext)
+    public ObjectPropertyTabViewModel(ISceneEditorContext editorContext)
     {
         _editorContext = editorContext;
         _factory = editorContext.GetRequiredService<IPropertiesEditorFactory>();
 
-        editorContext.GetRequiredService<IEditorSelection>().SelectedObject
+        editorContext.Selection.SelectedObject
             .Subscribe(obj => NavigateCore(obj, false, null))
             .DisposeWith(_disposables);
     }
 
     public ToolTabExtension Extension => ObjectPropertyTabExtension.Instance;
 
-    public IEditorContext ParentContext => _editorContext;
+    public ISceneEditorContext ParentContext => _editorContext;
 
     public ReactiveProperty<IPropertiesEditorViewModel?> ChildContext { get; } = new();
 

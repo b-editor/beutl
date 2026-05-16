@@ -150,7 +150,7 @@ public partial class EditViewModel : IContextCommandHandler, IContextCommandStat
     private void ToggleMarkerAtCurrentTime()
     {
         int rate = Player.GetFrameRate();
-        TimeSpan time = _editorClock.CurrentTime.Value.RoundToRate(rate);
+        TimeSpan time = Clock.CurrentTime.Value.RoundToRate(rate);
         if (time < TimeSpan.Zero) time = TimeSpan.Zero;
 
         SceneMarker? existing = Scene.Markers
@@ -171,7 +171,7 @@ public partial class EditViewModel : IContextCommandHandler, IContextCommandStat
 
     private void SeekToAdjacentMarker(bool forward)
     {
-        TimeSpan current = _editorClock.CurrentTime.Value;
+        TimeSpan current = Clock.CurrentTime.Value;
         TimeSpan? target = null;
         foreach (TimeSpan marker in Scene.Markers.Select(m => m.Time).Union([TimeSpan.Zero, Scene.Start, Scene.Duration + Scene.Start]))
         {
@@ -195,7 +195,7 @@ public partial class EditViewModel : IContextCommandHandler, IContextCommandStat
 
         if (target != null)
         {
-            _editorClock.CurrentTime.Value = target.Value;
+            Clock.CurrentTime.Value = target.Value;
 
             // ターゲットの位置までタイムラインを横スクロールさせる
             if (FindToolTab<TimelineTabViewModel>() is { } timeline)
