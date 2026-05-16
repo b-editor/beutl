@@ -50,6 +50,8 @@ jobs:
           WIN_INSTALLER=$(url_of "beutl-setup.exe")
           WIN_STANDALONE=$(url_of "beutl-standalone-setup.exe")
           LINUX_DEB=$(url_of_glob '\.deb$')
+          LINUX_ZIP=$(url_of "Beutl-linux_x64-$VER.zip")
+          LINUX_ZIP_STANDALONE=$(url_of "Beutl-linux_x64-standalone-$VER.zip")
           MAC_X64=$(url_of "Beutl.osx_x64.app.zip")
           MAC_ARM64=$(url_of "Beutl.osx_arm64.app.zip")
 
@@ -62,11 +64,13 @@ jobs:
               echo "$1 -> $2"
             fi
           }
-          check "beutl-setup.exe"            "$WIN_INSTALLER"
-          check "beutl-standalone-setup.exe" "$WIN_STANDALONE"
-          check "*.deb"                      "$LINUX_DEB"
-          check "Beutl.osx_x64.app.zip"      "$MAC_X64"
-          check "Beutl.osx_arm64.app.zip"    "$MAC_ARM64"
+          check "beutl-setup.exe"                       "$WIN_INSTALLER"
+          check "beutl-standalone-setup.exe"            "$WIN_STANDALONE"
+          check "*.deb"                                 "$LINUX_DEB"
+          check "Beutl-linux_x64-$VER.zip"              "$LINUX_ZIP"
+          check "Beutl-linux_x64-standalone-$VER.zip"   "$LINUX_ZIP_STANDALONE"
+          check "Beutl.osx_x64.app.zip"                 "$MAC_X64"
+          check "Beutl.osx_arm64.app.zip"               "$MAC_ARM64"
           [ "$missing" -eq 0 ] || exit 1
 
           body=$(jq -nc \
@@ -74,6 +78,8 @@ jobs:
             --arg winI "$WIN_INSTALLER" \
             --arg winS "$WIN_STANDALONE" \
             --arg deb "$LINUX_DEB" \
+            --arg linZ "$LINUX_ZIP" \
+            --arg linZS "$LINUX_ZIP_STANDALONE" \
             --arg macX "$MAC_X64" \
             --arg macA "$MAC_ARM64" \
             '{
@@ -81,6 +87,8 @@ jobs:
                 {id:"beutl-\($ver)-win-x64-installer",            version:$ver, os:"win",   arch:"x64",   type:"installer", standalone:false, url:$winI},
                 {id:"beutl-\($ver)-win-x64-installer-standalone", version:$ver, os:"win",   arch:"x64",   type:"installer", standalone:true,  url:$winS},
                 {id:"beutl-\($ver)-linux-x64-debian",             version:$ver, os:"linux", arch:"x64",   type:"debian",                       url:$deb},
+                {id:"beutl-\($ver)-linux-x64-zip",                version:$ver, os:"linux", arch:"x64",   type:"zip",       standalone:false, url:$linZ},
+                {id:"beutl-\($ver)-linux-x64-zip-standalone",     version:$ver, os:"linux", arch:"x64",   type:"zip",       standalone:true,  url:$linZS},
                 {id:"beutl-\($ver)-osx-x64-app",                  version:$ver, os:"osx",   arch:"x64",   type:"app",                          url:$macX},
                 {id:"beutl-\($ver)-osx-arm64-app",                version:$ver, os:"osx",   arch:"arm64", type:"app",                          url:$macA}
               ]
