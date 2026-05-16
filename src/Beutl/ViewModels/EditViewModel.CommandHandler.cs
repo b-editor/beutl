@@ -234,16 +234,11 @@ public partial class EditViewModel : IContextCommandHandler, IContextCommandStat
                 foreach (IKeyFrame kf in anim.KeyFrames)
                 {
                     TimeSpan time = kf.KeyTime + offset;
-                    if (forward)
-                    {
-                        if (time > current && (target == null || time < target.Value))
-                            target = time;
-                    }
-                    else
-                    {
-                        if (time < current && (target == null || time > target.Value))
-                            target = time;
-                    }
+                    bool inDirection = forward ? time > current : time < current;
+                    bool isCloser = target == null
+                        || (forward ? time < target.Value : time > target.Value);
+                    if (inDirection && isCloser)
+                        target = time;
                 }
             }
         }
