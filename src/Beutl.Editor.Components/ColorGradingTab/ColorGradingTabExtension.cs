@@ -23,8 +23,14 @@ public sealed class ColorGradingTabExtension : ToolTabExtension
 
     public override bool TryCreateContent(IEditorContext editorContext, [NotNullWhen(true)] out Control? control)
     {
-        control = new ColorGradingTabView();
-        return true;
+        if (editorContext is ISceneEditorContext)
+        {
+            control = new ColorGradingTabView();
+            return true;
+        }
+
+        control = null;
+        return false;
     }
 
     public override bool TryCreateContext(IEditorContext editorContext, [NotNullWhen(true)] out IToolContext? context)

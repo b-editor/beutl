@@ -23,8 +23,14 @@ public sealed class GraphEditorTabExtension : ToolTabExtension
 
     public override bool TryCreateContent(IEditorContext editorContext, [NotNullWhen(true)] out Control? control)
     {
-        control = new GraphEditorTabView();
-        return true;
+        if (editorContext is ISceneEditorContext)
+        {
+            control = new GraphEditorTabView();
+            return true;
+        }
+
+        control = null;
+        return false;
     }
 
     public override bool TryCreateContext(IEditorContext editorContext, [NotNullWhen(true)] out IToolContext? context)

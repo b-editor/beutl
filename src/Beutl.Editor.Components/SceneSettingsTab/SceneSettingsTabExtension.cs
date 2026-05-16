@@ -25,8 +25,14 @@ public sealed class SceneSettingsTabExtension : ToolTabExtension
 
     public override bool TryCreateContent(IEditorContext editorContext, [NotNullWhen(true)] out Control? control)
     {
-        control = new SceneSettingsTabView();
-        return true;
+        if (editorContext is ISceneEditorContext)
+        {
+            control = new SceneSettingsTabView();
+            return true;
+        }
+
+        control = null;
+        return false;
     }
 
     public override bool TryCreateContext(IEditorContext editorContext, [NotNullWhen(true)] out IToolContext? context)

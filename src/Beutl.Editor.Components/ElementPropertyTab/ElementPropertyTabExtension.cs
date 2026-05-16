@@ -27,8 +27,14 @@ public sealed class ElementPropertyTabExtension : ToolTabExtension
 
     public override bool TryCreateContent(IEditorContext editorContext, [NotNullWhen(true)] out Control? control)
     {
-        control = new ElementPropertyTabView();
-        return true;
+        if (editorContext is ISceneEditorContext)
+        {
+            control = new ElementPropertyTabView();
+            return true;
+        }
+
+        control = null;
+        return false;
     }
 
     public override bool TryCreateContext(IEditorContext editorContext, [NotNullWhen(true)] out IToolContext? context)
