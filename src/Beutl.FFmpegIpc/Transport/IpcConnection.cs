@@ -33,6 +33,13 @@ public sealed class IpcConnection : IDisposable
 
     public bool IsMultiplexed => _receiveLoopTask != null;
 
+    /// <summary>
+    /// 多重化モードで、対応する待機者が居ない/既にキャンセル済みの待機者にメッセージが
+    /// 届いた場合に呼ばれるフック。共有メモリバッファ (bufferIndex 等) のセマンティクスを
+    /// 持つ上位レイヤーがリソース解放のために設定する。例外を投げないこと。
+    /// </summary>
+    public Action<IpcMessage>? DroppedResponseHandler { get; set; }
+
     public int NextId() => Interlocked.Increment(ref _nextId);
 
     /// <summary>
@@ -60,7 +67,18 @@ public sealed class IpcConnection : IDisposable
 
                     if (_pendingRequests.TryRemove(msg.Id, out var tcs))
                     {
-                        tcs.TrySetResult(msg);
+                        // tcs が既にキャンセル済みなら TrySetResult は false を返す。
+                        // その場合、呼び出し元はレスポンスを受け取らないので
+                        // 上位レイヤーに通知してリソース解放のチャンスを与える。
+                        if (!tcs.TrySetResult(msg))
+                        {
+                            InvokeDroppedResponseHandler(msg);
+                        }
+                    }
+                    else
+                    {
+                        // 待機中の TCS が居ない (キャンセル後に到着した stray message)。
+                        InvokeDroppedResponseHandler(msg);
                     }
                 }
             }
@@ -73,7 +91,7 @@ public sealed class IpcConnection : IDisposable
                 foreach (var kvp in _pendingRequests)
                 {
                     if (_pendingRequests.TryRemove(kvp.Key, out var tcs))
-                        tcs.TrySetCanceled();
+                        tcs.TrySetCanceled(loopCt);
                 }
             }
         }, loopCt);
@@ -190,13 +208,22 @@ public sealed class IpcConnection : IDisposable
 
     private async ValueTask<IpcMessage> SendAndReceiveMultiplexedAsync(IpcMessage request, CancellationToken ct)
     {
+        ct.ThrowIfCancellationRequested();
+
         var tcs = new TaskCompletionSource<IpcMessage>(TaskCreationOptions.RunContinuationsAsynchronously);
         _pendingRequests[request.Id] = tcs;
+
+        // SendAsync の前にキャンセルを購読し、送信中・受信待機中いずれの局面でも
+        // ct 発火が確実に tcs へ伝播するようにする。
+        using var registration = ct.Register(static state =>
+        {
+            var (innerTcs, token) = ((TaskCompletionSource<IpcMessage> Tcs, CancellationToken Token))state!;
+            innerTcs.TrySetCanceled(token);
+        }, (tcs, ct));
 
         try
         {
             await SendAsync(request, ct).ConfigureAwait(false);
-            using var registration = ct.Register(() => tcs.TrySetCanceled(ct));
             var response = await tcs.Task.ConfigureAwait(false);
 
             if (response.Error != null)
@@ -204,10 +231,25 @@ public sealed class IpcConnection : IDisposable
 
             return response;
         }
+        finally
+        {
+            // 自身が登録した TCS のみを撤去する。受信ループが先に取り出していれば
+            // TryRemove は失敗し、別 ID で再利用された TCS は誤って消さない。
+            _pendingRequests.TryRemove(new KeyValuePair<int, TaskCompletionSource<IpcMessage>>(request.Id, tcs));
+        }
+    }
+
+    private void InvokeDroppedResponseHandler(IpcMessage message)
+    {
+        var handler = DroppedResponseHandler;
+        if (handler == null) return;
+        try
+        {
+            handler(message);
+        }
         catch
         {
-            _pendingRequests.TryRemove(request.Id, out _);
-            throw;
+            // ハンドラ例外は受信ループを止めない。
         }
     }
 
