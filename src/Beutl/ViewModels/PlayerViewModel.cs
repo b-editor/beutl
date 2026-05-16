@@ -567,7 +567,15 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
             return false;
         }
 
-        _editorClock.CurrentTime.Value = ts.RoundToRate(rate);
+        try
+        {
+            _editorClock.CurrentTime.Value = ts.RoundToRate(rate);
+        }
+        catch (OverflowException)
+        {
+            error = GotoTimecodeError.OutOfRange;
+            return false;
+        }
         return true;
     }
 
