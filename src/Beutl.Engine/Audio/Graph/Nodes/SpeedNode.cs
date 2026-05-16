@@ -75,15 +75,10 @@ public sealed class SpeedNode : AudioNode
         var animation = Speed?.Animation!;
         var keyFrameAnimation = (KeyFrameAnimation<float>)animation;
 
-        // SpeedIntegrator の内部 Interpolate は呼び出し側座標系を尊重するため、
-        // UseGlobalClock=false の場合は親要素の TimeRange.Start を差し引いてローカル時刻に揃える。
-        var parent = Speed!.GetOwnerObject();
-        var integrationInput = keyFrameAnimation.UseGlobalClock || parent == null
-            ? context.TimeRange.Start
-            : context.TimeRange.Start - parent.TimeRange.Start;
-
-        // SpeedIntegrator で開始時間を計算
-        var sourceStartTime = _integrator.Integrate(integrationInput, keyFrameAnimation);
+        // SpeedIntegrator の内部 Interpolate は呼び出し側座標系をそのまま使うため、
+        // ToLocalTime で UseGlobalClock を考慮したローカル時刻へ揃えてから渡す。
+        var sourceStartTime = _integrator.Integrate(
+            keyFrameAnimation.ToLocalTime(context.TimeRange.Start), keyFrameAnimation);
 
         // per-sample速度収集（オーディオ固有のロジック）
         var startInSamples = (int)(context.TimeRange.Start.TotalSeconds * context.SampleRate);

@@ -30,12 +30,20 @@ public class KeyFrameAnimation<T> : KeyFrameAnimation, IAnimation<T>
 
     public T? GetAnimatedValue(TimeSpan time)
     {
+        return Interpolate(ToLocalTime(time));
+    }
+
+    // UseGlobalClock=false のとき、グローバル時刻を所属 EngineObject のローカル時刻へ変換する。
+    // 補間/積分側 (Interpolate, SpeedIntegrator.Integrate) は呼び出し側の座標系をそのまま使うため、
+    // ローカル基準で動かしたい呼び出し元はこのメソッドを通して入力時刻を揃える必要がある。
+    public TimeSpan ToLocalTime(TimeSpan time)
+    {
         if (_parent != null && !UseGlobalClock)
         {
-            return Interpolate(time - _parent.TimeRange.Start);
+            return time - _parent.TimeRange.Start;
         }
 
-        return Interpolate(time);
+        return time;
     }
 
     public T? Interpolate(TimeSpan timeSpan)
