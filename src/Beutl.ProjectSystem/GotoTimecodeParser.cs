@@ -186,6 +186,15 @@ public static class GotoTimecodeParser
             return false;
         }
 
+        // The leading +/- is consumed into `sign`; reject a second sign so
+        // "+-5s" / "--5s" don't silently parse as a negated delta and reverse
+        // the requested seek direction.
+        if (numberPart.Length == 0 || numberPart[0] == '+' || numberPart[0] == '-')
+        {
+            error = GotoTimecodeError.InvalidFormat;
+            return false;
+        }
+
         if (!double.TryParse(numberPart, NumberStyles.Float, CultureInfo.InvariantCulture, out double value)
             || double.IsNaN(value) || double.IsInfinity(value))
         {
