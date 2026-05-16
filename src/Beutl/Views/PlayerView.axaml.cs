@@ -78,18 +78,30 @@ public partial class PlayerView : UserControl
     {
         if (DataContext is not PlayerViewModel vm)
         {
-            _logger.LogWarning("Timecode submitted but DataContext is not PlayerViewModel; ignoring.");
-            e.Reject(Beutl.Language.Strings.GotoTimecode_InvalidFormat);
+            // A wrong DataContext on a PlayerView event handler is a wiring bug,
+            // not a user error — log at Error level so it surfaces in telemetry,
+            // and show a generic "unexpected error" message instead of the
+            // misleading "Invalid timecode format".
+            _logger.LogError("Timecode submitted but DataContext is not PlayerViewModel; ignoring.");
+            e.Reject(Beutl.Language.MessageStrings.UnexpectedError);
             return;
         }
 
-        if (vm.TryGotoTimecode(e.Input, out GotoTimecodeError error))
+        try
         {
-            e.Accept();
+            if (vm.TryGotoTimecode(e.Input, out GotoTimecodeError error))
+            {
+                e.Accept();
+            }
+            else
+            {
+                e.Reject(LookupLocalizedError(error));
+            }
         }
-        else
+        catch (Exception ex)
         {
-            e.Reject(LookupLocalizedError(error));
+            _logger.LogError(ex, "Unexpected error while applying timecode '{Input}'.", e.Input);
+            e.Reject(Beutl.Language.MessageStrings.UnexpectedError);
         }
     }
 

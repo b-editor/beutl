@@ -230,7 +230,19 @@ public class Player : RangeBase
         var handler = CurrentTimeSubmitted;
 
         TimecodeSubmittedEventArgs args = new TimecodeSubmittedEventArgs(input);
-        handler?.Invoke(this, args);
+        try
+        {
+            handler?.Invoke(this, args);
+        }
+        catch (Exception)
+        {
+            // Subscribers must not let exceptions escape into the Avalonia
+            // event loop (it would either crash the app or be swallowed by the
+            // global unhandled-exception handler with no UI feedback). If a
+            // handler throws, treat it as a rejection and let the view show
+            // the fallback tooltip below.
+            args.Reject(string.Empty);
+        }
 
         if (args.Handled)
         {
