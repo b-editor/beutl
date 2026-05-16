@@ -45,46 +45,56 @@ public class IpcConnectionMultiplexedTests
         using var conn = new IpcConnection(client);
         conn.StartMultiplexedReceive();
 
-        // 「Worker」役: 受信したリクエストをそのまま Pong として返す。
+        // Worker 役: 受信した順にレスポンスを返す。
+        // 受信順とは異なる順序で返すことで ID ルーティングを実際にストレスする。
         var workerCts = new CancellationTokenSource();
         var workerTask = Task.Run(async () =>
         {
-            try
+            var received = new List<IpcMessage>();
+            while (!workerCts.IsCancellationRequested)
             {
-                while (!workerCts.IsCancellationRequested)
+                var req = await MessageSerializer.ReadMessageAsync(server, workerCts.Token);
+                if (req == null) return;
+                received.Add(req);
+                if (received.Count == 5)
                 {
-                    var req = await MessageSerializer.ReadMessageAsync(server, workerCts.Token);
-                    if (req == null) return;
-                    var resp = IpcMessage.CreateSimple(req.Id, ResponseType);
-                    await MessageSerializer.WriteMessageAsync(server, resp, workerCts.Token);
+                    foreach (var msg in received.AsEnumerable().Reverse())
+                    {
+                        var resp = IpcMessage.CreateSimple(msg.Id, ResponseType);
+                        await MessageSerializer.WriteMessageAsync(server, resp, workerCts.Token);
+                    }
+                    return;
                 }
             }
-            catch (OperationCanceledException) { }
-            catch (IOException) { }
         });
 
         try
         {
-            var tasks = new List<Task<IpcMessage>>();
+            var tasks = new List<(int Id, Task<IpcMessage> Task)>();
             for (int i = 0; i < 5; i++)
             {
                 int id = conn.NextId();
                 var req = IpcMessage.CreateSimple(id, RequestType);
-                tasks.Add(conn.SendAndReceiveAsync(req).AsTask());
+                tasks.Add((id, conn.SendAndReceiveAsync(req).AsTask()));
             }
 
-            var responses = await Task.WhenAll(tasks);
-            Assert.That(responses.Length, Is.EqualTo(5));
-            Assert.That(responses.Select(r => r.Type), Is.All.EqualTo(ResponseType));
+            await Task.WhenAll(tasks.Select(t => t.Task));
+            foreach (var (id, t) in tasks)
+            {
+                Assert.That(t.Result.Id, Is.EqualTo(id));
+                Assert.That(t.Result.Type, Is.EqualTo(ResponseType));
+            }
 
-            // Pending dictionary は空に戻っているはず。
             Assert.That(PendingCount(conn), Is.EqualTo(0));
         }
         finally
         {
             workerCts.Cancel();
             server.Dispose();
-            try { await workerTask; } catch { }
+            try { await workerTask; }
+            catch (OperationCanceledException) { }
+            catch (IOException) { }
+            catch (ObjectDisposedException) { }
         }
     }
 
@@ -92,27 +102,19 @@ public class IpcConnectionMultiplexedTests
     public async Task AlreadyCanceledToken_ThrowsBeforeRegistering()
     {
         var (server, client) = ConnectPair();
+        using var _ = server;
         using var conn = new IpcConnection(client);
         conn.StartMultiplexedReceive();
 
         using var cts = new CancellationTokenSource();
         cts.Cancel();
 
-        try
-        {
-            int id = conn.NextId();
-            var req = IpcMessage.CreateSimple(id, RequestType);
-            Assert.CatchAsync<OperationCanceledException>(
-                async () => await conn.SendAndReceiveAsync(req, cts.Token));
+        int id = conn.NextId();
+        var req = IpcMessage.CreateSimple(id, RequestType);
+        Assert.CatchAsync<OperationCanceledException>(
+            async () => await conn.SendAndReceiveAsync(req, cts.Token));
 
-            // dict には何も登録されていない。
-            Assert.That(PendingCount(conn), Is.EqualTo(0));
-        }
-        finally
-        {
-            server.Dispose();
-            await Task.Yield();
-        }
+        Assert.That(PendingCount(conn), Is.EqualTo(0));
     }
 
     [Test]
@@ -130,8 +132,8 @@ public class IpcConnectionMultiplexedTests
             var req = IpcMessage.CreateSimple(id, RequestType);
             var requestTask = conn.SendAndReceiveAsync(req, cts.Token).AsTask();
 
-            // 送信完了を待ってからキャンセル。
-            await Task.Delay(50);
+            // 送信完了 (= pending に積まれた) を観測してからキャンセル。Task.Delay よりも安定。
+            await WaitUntil(() => PendingCount(conn) == 1, TimeSpan.FromSeconds(2));
             cts.Cancel();
 
             var oce = Assert.CatchAsync<OperationCanceledException>(async () => await requestTask);
@@ -165,7 +167,7 @@ public class IpcConnectionMultiplexedTests
             var req = IpcMessage.CreateSimple(id, RequestType);
             var requestTask = conn.SendAndReceiveAsync(req, cts.Token).AsTask();
 
-            await Task.Delay(50);
+            await WaitUntil(() => PendingCount(conn) == 1, TimeSpan.FromSeconds(2));
             cts.Cancel();
             Assert.CatchAsync<OperationCanceledException>(async () => await requestTask);
             await WaitUntil(() => PendingCount(conn) == 0, TimeSpan.FromSeconds(2));
@@ -189,7 +191,11 @@ public class IpcConnectionMultiplexedTests
     [Test]
     public async Task RaceCancelAndResponse_NoLeak_StressLoop()
     {
-        for (int iter = 0; iter < 50; iter++)
+        // レスポンス勝ち / キャンセル勝ち どちらでもリークしない不変を確認。
+        // 結果は気にしないが、dropped に乗ったメッセージは必ず送信した id と一致するはず。
+        const int iterations = 500;
+
+        for (int iter = 0; iter < iterations; iter++)
         {
             var (server, client) = ConnectPair();
             using var conn = new IpcConnection(client);
@@ -201,22 +207,16 @@ public class IpcConnectionMultiplexedTests
             var workerCts = new CancellationTokenSource();
             var workerTask = Task.Run(async () =>
             {
-                try
-                {
-                    var req = await MessageSerializer.ReadMessageAsync(server, workerCts.Token);
-                    if (req == null) return;
-                    // worker からは即時にレスポンス。
-                    var resp = IpcMessage.CreateSimple(req.Id, ResponseType);
-                    await MessageSerializer.WriteMessageAsync(server, resp, workerCts.Token);
-                }
-                catch (OperationCanceledException) { }
-                catch (IOException) { }
+                var req = await MessageSerializer.ReadMessageAsync(server, workerCts.Token);
+                if (req == null) return;
+                var resp = IpcMessage.CreateSimple(req.Id, ResponseType);
+                await MessageSerializer.WriteMessageAsync(server, resp, workerCts.Token);
             });
 
             using var cts = new CancellationTokenSource();
+            int id = conn.NextId();
             try
             {
-                int id = conn.NextId();
                 var req = IpcMessage.CreateSimple(id, RequestType);
                 var requestTask = conn.SendAndReceiveAsync(req, cts.Token).AsTask();
 
@@ -226,23 +226,31 @@ public class IpcConnectionMultiplexedTests
                 try
                 {
                     await requestTask;
-                    // 正常完了でも問題なし。
                 }
-                catch (OperationCanceledException)
-                {
-                    // キャンセル勝ち。
-                }
+                catch (OperationCanceledException) { }
+                catch (IOException) { }
             }
             finally
             {
                 workerCts.Cancel();
                 server.Dispose();
-                try { await workerTask; } catch { }
+                // worker は書き込み中に server.Dispose() を踏むと
+                // ObjectDisposedException を投げうる。stress テストでは
+                // この競合は不可避なので想定例外として許容する。
+                try { await workerTask; }
+                catch (OperationCanceledException) { }
+                catch (IOException) { }
+                catch (ObjectDisposedException) { }
             }
 
-            // 反復毎に dict は空に戻っているべき。
             await WaitUntil(() => PendingCount(conn) == 0, TimeSpan.FromSeconds(2));
             Assert.That(PendingCount(conn), Is.EqualTo(0), $"iter={iter}");
+
+            // dropped に乗ったメッセージはすべて送信した id と一致するはず。
+            foreach (var d in dropped)
+            {
+                Assert.That(d.Id, Is.EqualTo(id), $"iter={iter}: dropped foreign id");
+            }
         }
     }
 
@@ -288,7 +296,10 @@ public class IpcConnectionMultiplexedTests
         {
             workerCts.Cancel();
             server.Dispose();
-            await workerTask;
+            try { await workerTask; }
+            catch (OperationCanceledException) { }
+            catch (IOException) { }
+            catch (ObjectDisposedException) { }
         }
     }
 
