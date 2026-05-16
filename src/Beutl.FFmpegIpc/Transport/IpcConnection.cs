@@ -71,10 +71,12 @@ public sealed class IpcConnection : IDisposable
 
         _receiveLoopTask = Task.Run(async () =>
         {
-            // 受信ループが I/O 障害で終了した場合、待機中の TCS にはキャンセルではなく
-            // この例外を伝播させることで「ユーザーがキャンセルした」と「ワーカーが落ちた」を
-            // 呼び出し元から区別可能にする。OperationCanceledException / ObjectDisposedException
-            // (= 正常終了) のときは null のまま finally で TrySetCanceled される。
+            // 受信ループが終了する理由を以下のように区別する:
+            //   - loopCt キャンセル/ObjectDisposedException: 自プロセス由来の停止。
+            //     finally で待機中 TCS を TrySetCanceled(loopCt) してキャンセル扱い。
+            //   - EOF (msg == null) / IOException: 相手側起因の切断。
+            //     terminationError に詰めて TrySetException で伝播し、
+            //     「ユーザーがキャンセル」と「接続が死んだ」を呼び出し元から区別可能にする。
             Exception? terminationError = null;
             try
             {
@@ -82,7 +84,11 @@ public sealed class IpcConnection : IDisposable
                 {
                     var msg = await MessageSerializer.ReadMessageAsync(_pipe, loopCt).ConfigureAwait(false);
                     if (msg == null)
+                    {
+                        terminationError = new IOException(
+                            "IPC receive loop terminated: remote endpoint closed the pipe.");
                         break;
+                    }
 
                     if (_pendingRequests.TryRemove(msg.Id, out var tcs))
                     {
