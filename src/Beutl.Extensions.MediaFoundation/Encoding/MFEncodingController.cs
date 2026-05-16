@@ -61,7 +61,13 @@ public class MFEncodingController : EncodingController
         // Write to a sibling temp file then rename on success. If the encode aborts
         // (cancellation, codec error, exception in RenderFrame), the partially
         // written file is deleted instead of overwriting the user's previous output.
-        string tempFile = OutputFile + ".partial";
+        //
+        // The temp file MUST keep the original extension as its suffix because
+        // MFCreateSinkWriterFromURL picks the container muxer from the file
+        // name — `clip.mp4.partial` would resolve to no recognized muxer and
+        // fail before writing begins. `clip.partial.mp4` preserves `.mp4` at
+        // the end so Sink Writer selects the MP4 sink.
+        string tempFile = BuildTempOutputPath(OutputFile);
         try { if (File.Exists(tempFile)) File.Delete(tempFile); }
         catch (Exception ex) { _logger.LogWarning(ex, "Could not remove stale temp file {Temp}", tempFile); }
 
@@ -392,6 +398,21 @@ public class MFEncodingController : EncodingController
         else resolved = 1;
         clamped = resolved != requested;
         return resolved;
+    }
+
+    // Insert a `.partial` marker before the original extension so the temp
+    // file keeps the container-identifying suffix that Sink Writer needs:
+    //   /tmp/clip.mp4 → /tmp/clip.partial.mp4
+    //   /tmp/track    → /tmp/track.partial
+    internal static string BuildTempOutputPath(string outputFile)
+    {
+        string dir = Path.GetDirectoryName(outputFile) ?? string.Empty;
+        string nameWithoutExt = Path.GetFileNameWithoutExtension(outputFile);
+        string ext = Path.GetExtension(outputFile);
+        string tempName = string.IsNullOrEmpty(ext)
+            ? nameWithoutExt + ".partial"
+            : nameWithoutExt + ".partial" + ext;
+        return Path.Combine(dir, tempName);
     }
 
     internal static bool IsAudioOnlyContainer(string outputFile)

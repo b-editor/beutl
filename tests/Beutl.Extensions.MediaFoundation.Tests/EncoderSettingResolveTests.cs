@@ -214,6 +214,32 @@ public class EncoderSettingResolveTests
         Assert.That(result, Is.EqualTo(expected));
     }
 
+    // -------- BuildTempOutputPath --------
+
+    // Sink Writer infers the muxer from the URL extension; the temp file MUST
+    // keep the original extension at the end. An earlier `OutputFile + ".partial"`
+    // strategy broke that for every extension Sink Writer dispatches on.
+    [TestCase("clip.mp4", "clip.partial.mp4")]
+    [TestCase("audio.m4a", "audio.partial.m4a")]
+    [TestCase("song.wav", "song.partial.wav")]
+    [TestCase("track.aac", "track.partial.aac")]
+    public void BuildTempOutputPath_PreservesContainerExtension(string fileName, string expectedName)
+    {
+        string dir = Path.Combine(Path.GetTempPath(), "mf-temp-test");
+        string output = Path.Combine(dir, fileName);
+        string expected = Path.Combine(dir, expectedName);
+        string temp = MFEncodingController.BuildTempOutputPath(output);
+        Assert.That(temp, Is.EqualTo(expected));
+    }
+
+    [Test]
+    public void BuildTempOutputPath_NoExtensionAppendsPartial()
+    {
+        string output = Path.Combine(Path.GetTempPath(), "track");
+        string expected = Path.Combine(Path.GetTempPath(), "track.partial");
+        Assert.That(MFEncodingController.BuildTempOutputPath(output), Is.EqualTo(expected));
+    }
+
     // -------- ClampAudioChannels --------
 
     [TestCase(0, 2, true)]               // unset → stereo
