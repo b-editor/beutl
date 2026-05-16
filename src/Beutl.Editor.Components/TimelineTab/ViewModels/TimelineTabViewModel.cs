@@ -1230,7 +1230,9 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
         ScheduleNudgeCommit();
     }
 
-    // 連続押下を 1 つの Undo にまとめるため、最終操作から 300ms 経過後にコミットする。
+    // 連続押下を 1 つの Undo にまとめるための debounce。
+    // 典型的なキーリピート間隔 (~30-50ms) より十分長く、かつ単発の意図的な
+    // ナッジとリピート押下のひとかたまりを分離できる値として 300ms を採用 (経験則)。
     private void ScheduleNudgeCommit()
     {
         if (_nudgeCommitTimer is null)
