@@ -256,19 +256,21 @@ public sealed class IpcConnection : IDisposable
         var tcs = new TaskCompletionSource<IpcMessage>(TaskCreationOptions.RunContinuationsAsynchronously);
         _pendingRequests[request.Id] = tcs;
 
-        // SendAsync の前にキャンセルを購読し、送信中・受信待機中いずれの局面でも
-        // ct 発火が確実に tcs へ伝播するようにする。
-        // 旧実装は SendAsync 完了後に Register していたため、送信成功とキャンセル発火と
-        // レスポンス到着が同時に走ると、TCS が中途半端に解決されず競合の隙間で
-        // バッファインデックスを未消費のまま落とすケースがあった。
-        using var registration = ct.Register(static state =>
-        {
-            var (innerTcs, token) = ((TaskCompletionSource<IpcMessage> Tcs, CancellationToken Token))state!;
-            innerTcs.TrySetCanceled(token);
-        }, (tcs, ct));
-
         try
         {
+            // SendAsync の前にキャンセルを購読し、送信中・受信待機中いずれの局面でも
+            // ct 発火が確実に tcs へ伝播するようにする。
+            // 旧実装は SendAsync 完了後に Register していたため、送信成功とキャンセル発火と
+            // レスポンス到着が同時に走ると、TCS が中途半端に解決されず競合の隙間で
+            // バッファインデックスを未消費のまま落とすケースがあった。
+            // Register 自体は ObjectDisposedException 等で失敗しうるため try の内側
+            // に置き、失敗時にも finally で pending を確実に撤去する。
+            using var registration = ct.Register(static state =>
+            {
+                var (innerTcs, token) = ((TaskCompletionSource<IpcMessage> Tcs, CancellationToken Token))state!;
+                innerTcs.TrySetCanceled(token);
+            }, (tcs, ct));
+
             await SendAsync(request, ct).ConfigureAwait(false);
             var response = await tcs.Task.ConfigureAwait(false);
 
