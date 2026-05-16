@@ -4,6 +4,10 @@ public sealed class Int64Animator : Animator<long>
 {
     public override long Interpolate(float progress, long oldValue, long newValue)
     {
+        // long.MaxValue 近傍では (double)oldValue が 2^53 ULP で丸まり、progress=0/1 でも
+        // 端点を正確に返せない。境界進捗は double 経由を回避して oldValue/newValue を直接返す。
+        if (progress is 0f) return oldValue;
+        if (progress is 1f) return newValue;
         double delta = (double)newValue - oldValue;
         double v = oldValue + delta * progress;
         // (double)long.MaxValue は 2^63 に丸まり long に収まらないため Math.Clamp の

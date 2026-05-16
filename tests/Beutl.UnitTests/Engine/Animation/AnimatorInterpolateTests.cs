@@ -207,6 +207,25 @@ public class AnimatorInterpolateTests
     }
 
     [Test]
+    public void Int64Animator_PreservesExactEndpointNearMaxValue()
+    {
+        var animator = new Int64Animator();
+        // double 経由では long.MaxValue - 1 が 2^63 に丸まり long.MaxValue として扱われる。
+        // progress=0/1 では oldValue/newValue を正確に返すこと。
+        Assert.That(animator.Interpolate(0f, long.MaxValue - 1, 0L), Is.EqualTo(long.MaxValue - 1));
+        Assert.That(animator.Interpolate(1f, 0L, long.MaxValue - 1), Is.EqualTo(long.MaxValue - 1));
+        Assert.That(animator.Interpolate(0f, long.MinValue + 1, 0L), Is.EqualTo(long.MinValue + 1));
+    }
+
+    [Test]
+    public void UInt64Animator_PreservesExactEndpointNearMaxValue()
+    {
+        var animator = new UInt64Animator();
+        Assert.That(animator.Interpolate(0f, ulong.MaxValue - 1, 0ul), Is.EqualTo(ulong.MaxValue - 1));
+        Assert.That(animator.Interpolate(1f, 0ul, ulong.MaxValue - 1), Is.EqualTo(ulong.MaxValue - 1));
+    }
+
+    [Test]
     [TestCase(0f, false, false, false)]
     [TestCase(0.49f, false, true, false)]
     [TestCase(0.5f, false, true, false)]
