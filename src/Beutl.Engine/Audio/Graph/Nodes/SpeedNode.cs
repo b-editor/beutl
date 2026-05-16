@@ -73,10 +73,25 @@ public sealed class SpeedNode : AudioNode
     private AudioBuffer ProcessAnimatedSpeed(AudioProcessContext context, int expectedOutputSampleCount)
     {
         var animation = Speed?.Animation!;
+        var keyFrameAnimation = (KeyFrameAnimation<float>)animation;
 
-        // SpeedIntegrator で開始時間を計算
-        var sourceStartTime = _integrator.Integrate(
-            context.TimeRange.Start, (KeyFrameAnimation<float>)animation);
+        // ClipNode 通過後の context.TimeRange.Start は要素ローカル時刻。
+        // SpeedIntegrator.Integrate(t) は「時刻 0 から t までの累積積分」を返すため、
+        // UseGlobalClock=true でグローバル時刻を渡す場合は要素開始前の積分 Integrate(ownerStart)
+        // を差し引いて「要素開始からの累積」へ揃える必要がある。
+        // per-sample 評価で使う GetAnimatedValue は常にグローバル時刻入力を前提とするため、
+        // owner.TimeRange.Start を一律加算してグローバル時刻へ変換する。
+        var ownerStart = Speed?.GetOwnerObject()?.TimeRange.Start ?? TimeSpan.Zero;
+        TimeSpan sourceStartTime;
+        if (keyFrameAnimation.UseGlobalClock)
+        {
+            sourceStartTime = _integrator.Integrate(context.TimeRange.Start + ownerStart, keyFrameAnimation)
+                            - _integrator.Integrate(ownerStart, keyFrameAnimation);
+        }
+        else
+        {
+            sourceStartTime = _integrator.Integrate(context.TimeRange.Start, keyFrameAnimation);
+        }
 
         // per-sample速度収集（オーディオ固有のロジック）
         var startInSamples = (int)(context.TimeRange.Start.TotalSeconds * context.SampleRate);
@@ -84,8 +99,8 @@ public sealed class SpeedNode : AudioNode
         double sum = 0;
         for (int i = 0; i < expectedOutputSampleCount; i++)
         {
-            var value = animation.Interpolate(
-                TimeSpan.FromSeconds((startInSamples + i) / (double)context.SampleRate)) / 100.0;
+            var value = animation.GetAnimatedValue(
+                ownerStart + TimeSpan.FromSeconds((startInSamples + i) / (double)context.SampleRate)) / 100.0;
             speeds[i] = value;
             sum += value;
         }

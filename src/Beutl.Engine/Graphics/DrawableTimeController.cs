@@ -87,14 +87,21 @@ public sealed partial class DrawableTimeController : Drawable, IPresenter<Drawab
         baseTime += resource.OffsetPosition;
 
         // 3. Speed: reflect speed changes via integration
+        // SpeedIntegrator.Integrate(t) は「時刻 0 から t までの累積積分」を返すため、
+        // UseGlobalClock=true でグローバル時刻を渡す場合は要素開始 (TimeRange.Start) 時点の
+        // 積分を差し引いて要素ローカルから見た累積に揃える。
         var anm = Speed.Animation;
         if (anm is KeyFrameAnimation<float> keyFrameAnimation && keyFrameAnimation.KeyFrames.Count > 0)
         {
-            baseTime = CalculateTimeWithSpeed(
-                keyFrameAnimation.UseGlobalClock
-                    ? baseTime + TimeRange.Start
-                    : baseTime,
-                resource);
+            if (keyFrameAnimation.UseGlobalClock)
+            {
+                baseTime = CalculateTimeWithSpeed(baseTime + TimeRange.Start, resource)
+                         - CalculateTimeWithSpeed(TimeRange.Start, resource);
+            }
+            else
+            {
+                baseTime = CalculateTimeWithSpeed(baseTime, resource);
+            }
         }
         else
         {
