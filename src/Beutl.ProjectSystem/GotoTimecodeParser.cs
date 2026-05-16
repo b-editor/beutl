@@ -9,6 +9,7 @@ public enum GotoTimecodeError
     InvalidFormat,
     MarkerNotFound,
     NoScene,
+    OutOfRange,
 }
 
 public static class GotoTimecodeParser
@@ -151,6 +152,12 @@ public static class GotoTimecodeParser
         char unit = text[^1];
         string numberPart = text[1..^1].Trim();
 
+        if (unit is not ('s' or 'S' or 'm' or 'M' or 'f' or 'F'))
+        {
+            error = GotoTimecodeError.InvalidFormat;
+            return false;
+        }
+
         if (!double.TryParse(numberPart, NumberStyles.Float, CultureInfo.InvariantCulture, out double value)
             || double.IsNaN(value) || double.IsInfinity(value))
         {
@@ -164,15 +171,17 @@ public static class GotoTimecodeParser
             {
                 's' or 'S' => TimeSpan.FromSeconds(value),
                 'm' or 'M' => TimeSpan.FromMinutes(value),
-                'f' or 'F' => value.ToTimeSpan(frameRate),
-                _ => throw new FormatException(),
+                _ /* 'f' or 'F' */ => value.ToTimeSpan(frameRate),
             };
 
             result = currentTime + (sign == -1 ? -delta : delta);
         }
-        catch (Exception ex) when (ex is OverflowException or FormatException or ArgumentException)
+        catch (OverflowException)
         {
-            error = GotoTimecodeError.InvalidFormat;
+            // The numeric value parsed but cannot be expressed as a TimeSpan
+            // (either FromSeconds/FromMinutes overflowed, or the addition to
+            // currentTime exceeded TimeSpan.MaxValue/MinValue).
+            error = GotoTimecodeError.OutOfRange;
             return false;
         }
 

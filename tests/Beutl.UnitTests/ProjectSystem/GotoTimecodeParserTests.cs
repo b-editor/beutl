@@ -185,13 +185,13 @@ public class GotoTimecodeParserTests
     [TestCase("+1e20m")]
     [TestCase("+1e20f")]
     [TestCase("+99999999999999s")]
-    public void TryParse_RelativeOutOfRange_ReturnsErrorWithoutThrowing(string input)
+    public void TryParse_RelativeOutOfRange_ReturnsOutOfRangeWithoutThrowing(string input)
     {
         bool ok = GotoTimecodeParser.TryParse(
             input, FrameRate, TimeSpan.Zero, EmptyMarkers, out _, out GotoTimecodeError error);
 
         Assert.That(ok, Is.False);
-        Assert.That(error, Is.EqualTo(GotoTimecodeError.InvalidFormat));
+        Assert.That(error, Is.EqualTo(GotoTimecodeError.OutOfRange));
     }
 
     [Test]

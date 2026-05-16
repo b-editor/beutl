@@ -834,6 +834,9 @@
   <data name="GotoTimecode_NoScene" xml:space="preserve">
     <value>シーンが読み込まれていません。</value>
   </data>
+  <data name="GotoTimecode_OutOfRange" xml:space="preserve">
+    <value>タイムコードが範囲外です。</value>
+  </data>
   <data name="Paste_Description" xml:space="preserve">
     <value>コピーしたデータをペーストします。</value>
   </data>

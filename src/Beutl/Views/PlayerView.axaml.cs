@@ -98,6 +98,7 @@ public partial class PlayerView : UserControl
         GotoTimecodeError.InvalidFormat => Beutl.Language.Strings.GotoTimecode_InvalidFormat,
         GotoTimecodeError.MarkerNotFound => Beutl.Language.Strings.GotoTimecode_MarkerNotFound,
         GotoTimecodeError.NoScene => Beutl.Language.Strings.GotoTimecode_NoScene,
+        GotoTimecodeError.OutOfRange => Beutl.Language.Strings.GotoTimecode_OutOfRange,
         _ => Beutl.Language.Strings.GotoTimecode_InvalidFormat,
     };
 
