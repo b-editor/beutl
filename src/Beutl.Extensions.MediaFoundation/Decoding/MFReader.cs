@@ -31,6 +31,7 @@ public class MFReader : MediaReader
     private readonly MFDecoder? _decoder;
     private readonly VideoStreamInfo? _videoInfo;
     private readonly BitmapColorSpace _videoColorSpace;
+    private readonly PixelFormatConverter.InvYuvMatrix8 _yuy2Inverse;
 
     private readonly AudioStreamInfo? _audioInfo;
     private readonly MediaFoundationReader? _audioReader;
@@ -40,11 +41,27 @@ public class MFReader : MediaReader
     public MFReader(string file, MediaOptions options, MFDecodingExtension extension)
     {
         _videoColorSpace = BitmapColorSpace.Srgb;
+        bool wantsAudio = options.StreamsToLoad.HasFlag(MediaMode.Audio);
         try
         {
             if (options.StreamsToLoad.HasFlag(MediaMode.Video))
             {
-                _decoder = new MFDecoder(file, new MediaOptions(MediaMode.Video), extension);
+                // Wrap decoder creation so a broken video track does not also
+                // hide a readable audio track from the caller. When the caller
+                // asked only for video, let the exception propagate.
+                try
+                {
+                    _decoder = new MFDecoder(file, new MediaOptions(MediaMode.Video), extension);
+                }
+                catch (Exception ex) when (wantsAudio)
+                {
+                    _logger.LogWarning(ex,
+                        "Video stream could not be initialized; opening as audio-only because StreamsToLoad includes Audio");
+                }
+            }
+
+            if (_decoder != null)
+            {
                 MFMediaInfo info = _decoder.GetMediaInfo();
                 _videoInfo = new VideoStreamInfo(
                     info.VideoFormatName ?? "Unknown",
@@ -82,6 +99,18 @@ public class MFReader : MediaReader
                             info.TransferFunction);
                     }
                 }
+                // Pick the inverse YUV matrix that matches the stream tag so the
+                // YUY2 → BGRA conversion below produces the right RGB values
+                // before Skia interprets _videoColorSpace. Falling back to
+                // BT.709 mirrors what most modern decoders pick for tag-less
+                // HD-or-larger SDR content.
+                _yuy2Inverse = info.YCbCrMatrix switch
+                {
+                    Vortice.MediaFoundation.VideoTransferMatrix.Bt601 => PixelFormatConverter.InvYuvMatrix8.Bt601,
+                    Vortice.MediaFoundation.VideoTransferMatrix.Bt202010 => PixelFormatConverter.InvYuvMatrix8.Bt2020,
+                    Vortice.MediaFoundation.VideoTransferMatrix.Smpte240m => PixelFormatConverter.InvYuvMatrix8.Smpte240M,
+                    _ => PixelFormatConverter.InvYuvMatrix8.Bt709,
+                };
                 HasVideo = true;
             }
 
@@ -168,7 +197,11 @@ public class MFReader : MediaReader
                     BitmapColorType.Bgra8888, BitmapAlphaType.Premul, _videoColorSpace);
                 fixed (byte* srcPtr = yuy2Buffer)
                 {
-                    YuvConversion.Yuy2ToBgra(srcPtr, (byte*)result.Data, result.RowBytes, w, h);
+                    // YuvConversion.Yuy2ToBgra is BT.601-only; use the
+                    // matrix-aware variant so BT.709 / BT.2020 / SMPTE 240M
+                    // sources are not silently miscolored.
+                    PixelFormatConverter.Yuy2ToBgra(
+                        srcPtr, (byte*)result.Data, result.RowBytes, w, h, _yuy2Inverse);
                 }
 
                 image = Ref<Bitmap>.Create(result);
