@@ -222,6 +222,72 @@ public unsafe class PixelFormatConverterTests
     }
 
     [Test]
+    public void Yuy2ToBgra_RejectsTooSmallDstStride()
+    {
+        byte[] src = new byte[8];
+        byte[] dst = new byte[8];
+        Assert.Throws<ArgumentException>(() =>
+        {
+            fixed (byte* s = src)
+            fixed (byte* d = dst)
+            {
+                PixelFormatConverter.Yuy2ToBgra(s, d, 4, 2, 1,
+                    PixelFormatConverter.InvYuvMatrix8.Bt709);
+            }
+        });
+    }
+
+    [Test]
+    public void Yuy2ToBgra_GreyscaleRoundTripWithinTolerance()
+    {
+        // Synthesize a uniform grey YUY2 frame (Y=128, Cb=Cr=128) and verify
+        // the inverse maps it back to ~128 RGB across BT.709, BT.601, BT.2020,
+        // and SMPTE 240M. A wrong matrix here would show up as a non-grey tint.
+        const int width = 8;
+        const int height = 4;
+        int srcSize = width * height * 2;
+        byte[] src = new byte[srcSize];
+        for (int i = 0; i < srcSize; i += 4)
+        {
+            src[i + 0] = 128; // Y0
+            src[i + 1] = 128; // Cb
+            src[i + 2] = 128; // Y1
+            src[i + 3] = 128; // Cr
+        }
+        byte[] dst = new byte[width * 4 * height];
+
+        var matrices = new[]
+        {
+            ("Bt709", PixelFormatConverter.InvYuvMatrix8.Bt709),
+            ("Bt601", PixelFormatConverter.InvYuvMatrix8.Bt601),
+            ("Bt2020", PixelFormatConverter.InvYuvMatrix8.Bt2020),
+            ("Smpte240M", PixelFormatConverter.InvYuvMatrix8.Smpte240M),
+        };
+
+        foreach (var (name, matrix) in matrices)
+        {
+            Array.Clear(dst, 0, dst.Length);
+            fixed (byte* sp = src)
+            fixed (byte* dp = dst)
+            {
+                PixelFormatConverter.Yuy2ToBgra(sp, dp, width * 4, width, height, matrix);
+            }
+
+            int i = (height / 2) * width * 4 + (width / 2) * 4;
+            // Limited-range Y=128 maps to ~130 RGB after the 16..235 → 0..255
+            // expansion (298·(128−16)/256 ≈ 130). Tight tolerance to catch
+            // any matrix coefficient that accidentally affects the grey axis.
+            Assert.That(Math.Abs(dst[i + 0] - 130), Is.LessThanOrEqualTo(3),
+                $"{name}: B drifted from neutral grey to {dst[i + 0]}");
+            Assert.That(Math.Abs(dst[i + 1] - 130), Is.LessThanOrEqualTo(3),
+                $"{name}: G drifted from neutral grey to {dst[i + 1]}");
+            Assert.That(Math.Abs(dst[i + 2] - 130), Is.LessThanOrEqualTo(3),
+                $"{name}: R drifted from neutral grey to {dst[i + 2]}");
+            Assert.That(dst[i + 3], Is.EqualTo(255));
+        }
+    }
+
+    [Test]
     public void Smpte240M_PreCorrectionInverseFailsTightTolerance()
     {
         // Regression guard: synthesize the legacy SMPTE 240M inverse and assert it

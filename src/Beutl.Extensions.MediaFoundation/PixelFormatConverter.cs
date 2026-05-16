@@ -217,6 +217,69 @@ internal static unsafe class PixelFormatConverter
         }
     }
 
+    // ---------- SDR: YUY2 → BGRA8888 (limited range, selectable matrix) ----------
+
+    // Source Reader hands us 8-bit YUY2 (`Y0 U Y1 V` pairs). The shared
+    // Beutl.Engine YuvConversion.Yuy2ToBgra is hard-coded to BT.601 and is
+    // therefore wrong for HD content tagged BT.709 or anything tagged BT.2020,
+    // so MFReader uses this matrix-aware version once it knows the stream's
+    // MF_MT_YUV_MATRIX. Output is full-range sRGB-style 0..255.
+    public static void Yuy2ToBgra(
+        byte* src, byte* dst, int dstStride,
+        int width, int height,
+        in InvYuvMatrix8 matrix)
+    {
+        if (width < 0 || height < 0)
+            throw new ArgumentOutOfRangeException(nameof(width), "negative dimensions");
+        if (dstStride < width * 4)
+            throw new ArgumentException($"BGRA dstStride {dstStride} too small", nameof(dstStride));
+
+        int srcStride = width * 2;
+        for (int y = 0; y < height; y++)
+        {
+            byte* srcRow = src + (long)y * srcStride;
+            byte* dstRow = dst + (long)y * dstStride;
+            int pairs = width / 2;
+            for (int i = 0; i < pairs; i++)
+            {
+                int y0 = srcRow[i * 4 + 0];
+                int u = srcRow[i * 4 + 1];
+                int y1 = srcRow[i * 4 + 2];
+                int v = srcRow[i * 4 + 3];
+
+                int cb = u - 128;
+                int cr = v - 128;
+
+                int luma0 = LimitedRangeYGain * (y0 - 16);
+                dstRow[i * 8 + 0] = ClampByte((luma0 + matrix.CbToB * cb + 128) >> 8);
+                dstRow[i * 8 + 1] = ClampByte((luma0 - matrix.CbToG * cb - matrix.CrToG * cr + 128) >> 8);
+                dstRow[i * 8 + 2] = ClampByte((luma0 + matrix.CrToR * cr + 128) >> 8);
+                dstRow[i * 8 + 3] = 255;
+
+                int luma1 = LimitedRangeYGain * (y1 - 16);
+                dstRow[i * 8 + 4] = ClampByte((luma1 + matrix.CbToB * cb + 128) >> 8);
+                dstRow[i * 8 + 5] = ClampByte((luma1 - matrix.CbToG * cb - matrix.CrToG * cr + 128) >> 8);
+                dstRow[i * 8 + 6] = ClampByte((luma1 + matrix.CrToR * cr + 128) >> 8);
+                dstRow[i * 8 + 7] = 255;
+            }
+
+            // Odd width — last column shares Cb/Cr with the previous pair.
+            if ((width & 1) != 0)
+            {
+                int off = pairs * 4;
+                int y0 = srcRow[off + 0];
+                int u = srcRow[off + 1];
+                int cb = u - 128;
+                int luma0 = LimitedRangeYGain * (y0 - 16);
+                int dstOff = pairs * 8;
+                dstRow[dstOff + 0] = ClampByte((luma0 + matrix.CbToB * cb + 128) >> 8);
+                dstRow[dstOff + 1] = ClampByte((luma0 - matrix.CbToG * cb + 128) >> 8);
+                dstRow[dstOff + 2] = ClampByte((luma0 + 128) >> 8);
+                dstRow[dstOff + 3] = 255;
+            }
+        }
+    }
+
     // ---------- HDR: RGBA16161616 ↔ P010 (BT.2020 NCL limited, 10-bit) ----------
 
     // RGBA16 is 16-bit per channel (full precision), P010 packs 10-bit samples in
