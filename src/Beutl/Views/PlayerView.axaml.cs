@@ -74,7 +74,7 @@ public partial class PlayerView : UserControl
         Player.CurrentTimeSubmitted += OnPlayerCurrentTimeSubmitted;
     }
 
-    private void OnPlayerCurrentTimeSubmitted(object? sender, Beutl.Controls.TimecodeSubmittedEventArgs e)
+    private async void OnPlayerCurrentTimeSubmitted(object? sender, Beutl.Controls.TimecodeSubmittedEventArgs e)
     {
         if (DataContext is not PlayerViewModel vm)
         {
@@ -87,21 +87,28 @@ public partial class PlayerView : UserControl
             return;
         }
 
+        // Parse synchronously so Player.SubmitCurrentTimeEdit sees the final
+        // Handled/Error state before its post-Invoke check. The actual seek
+        // is applied after awaiting Pause if playback is running, otherwise
+        // the playback timer would overwrite the new playhead on its next tick.
+        if (!vm.TryParseTimecode(e.Input, out TimeSpan target, out GotoTimecodeError error))
+        {
+            e.Reject(LookupLocalizedError(error));
+            return;
+        }
+
+        e.Accept();
         try
         {
-            if (vm.TryGotoTimecode(e.Input, out GotoTimecodeError error))
+            if (vm.IsPlaying.Value)
             {
-                e.Accept();
+                await vm.Pause();
             }
-            else
-            {
-                e.Reject(LookupLocalizedError(error));
-            }
+            vm.ApplyTimecodeSeek(target);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Unexpected error while applying timecode '{Input}'.", e.Input);
-            e.Reject(Beutl.Language.MessageStrings.UnexpectedError);
         }
     }
 

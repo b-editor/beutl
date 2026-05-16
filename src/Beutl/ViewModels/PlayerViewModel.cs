@@ -553,21 +553,22 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
         BeginEditTimecodeRequested.OnNext(Unit.Default);
     }
 
-    public bool TryGotoTimecode(string input, out GotoTimecodeError error)
+    public bool TryParseTimecode(string input, out TimeSpan target, out GotoTimecodeError error)
     {
+        target = TimeSpan.Zero;
         if (Scene == null)
         {
             // The view should not raise the event without a scene; surface the
             // state mismatch so it is visible in telemetry.
             _logger.LogWarning(
-                "TryGotoTimecode invoked with no scene loaded. ({SceneId}, Input={Input})",
+                "TryParseTimecode invoked with no scene loaded. ({SceneId}, Input={Input})",
                 _editViewModel.SceneId, input);
             error = GotoTimecodeError.NoScene;
             return false;
         }
 
         int rate = GetFrameRate();
-        if (!GotoTimecodeParser.TryParse(input, rate, _editorClock.CurrentTime.Value, Scene.Markers, out TimeSpan ts, out error))
+        if (!GotoTimecodeParser.TryParse(input, rate, _editorClock.CurrentTime.Value, Scene.Markers, out target, out error))
         {
             _logger.LogDebug(
                 "Goto-timecode parse failed. ({SceneId}, Input={Input}, Error={Error})",
@@ -575,22 +576,24 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
             return false;
         }
 
+        return true;
+    }
+
+    public void ApplyTimecodeSeek(TimeSpan target)
+    {
+        int rate = GetFrameRate();
         try
         {
-            _editorClock.CurrentTime.Value = ts.RoundToRate(rate);
+            _editorClock.CurrentTime.Value = target.RoundToRate(rate);
         }
         catch (OverflowException ex)
         {
-            // Reaching this catch means the parser produced a value that the
-            // RoundToRate conversion cannot represent — the parser contract
-            // and RoundToRate's domain have drifted apart. Surface it.
+            // The parser accepted this value but RoundToRate cannot represent it;
+            // log the drift between the parser's accepted domain and RoundToRate's.
             _logger.LogWarning(ex,
-                "RoundToRate overflowed for a goto-timecode that passed the parser. ({SceneId}, Input={Input}, Parsed={Parsed}, Rate={Rate})",
-                _editViewModel.SceneId, input, ts, rate);
-            error = GotoTimecodeError.OutOfRange;
-            return false;
+                "RoundToRate overflowed for goto-timecode target. ({SceneId}, Target={Target}, Rate={Rate})",
+                _editViewModel.SceneId, target, rate);
         }
-        return true;
     }
 
     public void ToggleLoop()
