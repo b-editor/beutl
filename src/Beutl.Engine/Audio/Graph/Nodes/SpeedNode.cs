@@ -75,10 +75,17 @@ public sealed class SpeedNode : AudioNode
         var animation = Speed?.Animation!;
         var keyFrameAnimation = (KeyFrameAnimation<float>)animation;
 
-        // SpeedIntegrator の内部 Interpolate は呼び出し側座標系をそのまま使うため、
-        // ToLocalTime で UseGlobalClock を考慮したローカル時刻へ揃えてから渡す。
-        var sourceStartTime = _integrator.Integrate(
-            keyFrameAnimation.ToLocalTime(context.TimeRange.Start), keyFrameAnimation);
+        // ClipNode 通過後の context.TimeRange.Start は要素ローカル時刻。
+        // - SpeedIntegrator.Integrate は内部 Interpolate を呼び出し側座標系で使うため、
+        //   UseGlobalClock=true のときだけグローバル時刻に戻して渡す (DrawableTimeController と同じ慣習)。
+        // - per-sample 評価で使う GetAnimatedValue は常にグローバル時刻入力を前提とするため、
+        //   owner.TimeRange.Start を一律加算してグローバル時刻へ変換する。
+        var ownerStart = Speed?.GetOwnerObject()?.TimeRange.Start ?? TimeSpan.Zero;
+        var integrationInput = keyFrameAnimation.UseGlobalClock
+            ? context.TimeRange.Start + ownerStart
+            : context.TimeRange.Start;
+
+        var sourceStartTime = _integrator.Integrate(integrationInput, keyFrameAnimation);
 
         // per-sample速度収集（オーディオ固有のロジック）
         var startInSamples = (int)(context.TimeRange.Start.TotalSeconds * context.SampleRate);
@@ -87,7 +94,7 @@ public sealed class SpeedNode : AudioNode
         for (int i = 0; i < expectedOutputSampleCount; i++)
         {
             var value = animation.GetAnimatedValue(
-                TimeSpan.FromSeconds((startInSamples + i) / (double)context.SampleRate)) / 100.0;
+                ownerStart + TimeSpan.FromSeconds((startInSamples + i) / (double)context.SampleRate)) / 100.0;
             speeds[i] = value;
             sum += value;
         }

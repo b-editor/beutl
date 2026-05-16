@@ -140,6 +140,8 @@ public class AnimationSamplerTests
             property, new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)), 4, Span<float>.Empty));
     }
 
+    // 音声グラフでは ClipNode が要素ローカル時刻に変換した context を下流に流すため、
+    // AnimationSampler への range は「要素ローカル」で渡るのが production の挙動である。
     [Test]
     public void SampleBuffer_RespectsElementLocalTime_WhenUseGlobalClockIsFalse()
     {
@@ -152,12 +154,14 @@ public class AnimationSamplerTests
             useGlobalClock: false);
 
         Span<float> buffer = stackalloc float[10];
+        // production と同じく ClipNode 通過後のローカル range (0..1s) を渡す。
         sampler.SampleBuffer(
             property,
-            new TimeRange(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(1)),
+            new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)),
             10,
             buffer);
 
+        // UseGlobalClock=false かつローカル時刻のキーフレーム (0s=0, 1s=100) なので 0..90 に補間されるべき。
         Assert.That(buffer[0], Is.EqualTo(0f).Within(1e-3));
         Assert.That(buffer[^1], Is.EqualTo(90f).Within(1e-3));
         for (int i = 1; i < buffer.Length; i++)
@@ -178,9 +182,12 @@ public class AnimationSamplerTests
             useGlobalClock: true);
 
         Span<float> buffer = stackalloc float[10];
+        // production と同じくローカル range (0..1s) を渡す。owner が 5s に置かれているため、
+        // グローバル時刻換算では 5s..6s に相当する。キーフレームは 0s/1s に存在するので
+        // 最後の値 (100) で保持されることを期待する。
         sampler.SampleBuffer(
             property,
-            new TimeRange(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(1)),
+            new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)),
             10,
             buffer);
 
