@@ -263,7 +263,6 @@ public partial class EditViewModel : IContextCommandHandler, IContextCommandStat
     {
         _editorClock.CurrentTime.Value = time;
 
-        // ターゲットの位置までタイムラインを横スクロールさせる
         if (FindToolTab<TimelineTabViewModel>() is { } timeline)
         {
             int currentZIndex = timeline.ToLayerNumber(timeline.Options.Value.Offset.Y);
