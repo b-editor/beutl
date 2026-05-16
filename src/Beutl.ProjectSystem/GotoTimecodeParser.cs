@@ -12,6 +12,18 @@ public enum GotoTimecodeError
     OutOfRange,
 }
 
+/// <summary>
+/// Parses goto-timecode expressions used by the player's "edit current time" input.
+/// </summary>
+/// <remarks>
+/// Accepted forms (case-insensitive where applicable):
+/// <list type="bullet">
+/// <item><c>@&lt;prefix&gt;</c> — first marker whose name starts with the prefix.</item>
+/// <item><c>#&lt;int&gt;</c> or <c>&lt;int&gt;f</c> — absolute frame number.</item>
+/// <item><c>+&lt;num&gt;{s|m|f}</c> or <c>-&lt;num&gt;{s|m|f}</c> — relative seek in seconds, minutes, or frames.</item>
+/// <item><c>hh:mm:ss[.fff]</c> or <c>mm:ss[.fff]</c> — absolute time.</item>
+/// </list>
+/// </remarks>
 public static class GotoTimecodeParser
 {
     private static readonly string[] s_absoluteFormats =
@@ -34,6 +46,17 @@ public static class GotoTimecodeParser
         @"m\:ss",
     ];
 
+    /// <summary>
+    /// Resolves a goto-timecode expression to a non-negative <see cref="TimeSpan"/> relative to the timeline origin.
+    /// </summary>
+    /// <param name="input">The user-entered expression (see class remarks for accepted forms).</param>
+    /// <param name="frameRate">Frame rate used for frame-based and relative-frame inputs; must be positive.</param>
+    /// <param name="currentTime">Current playhead time used as the base for relative expressions.</param>
+    /// <param name="markers">Markers searched for <c>@</c>-prefixed inputs.</param>
+    /// <param name="result">On success, the resolved time (clamped to <see cref="TimeSpan.Zero"/>).</param>
+    /// <param name="error">On failure, the reason for the failure.</param>
+    /// <returns><see langword="true"/> if <paramref name="input"/> resolved successfully.</returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="frameRate"/> is zero or negative.</exception>
     public static bool TryParse(
         string? input,
         int frameRate,

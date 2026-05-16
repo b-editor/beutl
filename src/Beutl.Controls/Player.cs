@@ -13,6 +13,12 @@ namespace Beutl.Controls;
 // nullable is enabled per-type because the surrounding Player class predates
 // nullable annotations; enabling at file scope would force a broad rewrite of
 // its private fields.
+/// <summary>
+/// Event args for <see cref="Player.CurrentTimeSubmitted"/>. Subscribers must call
+/// <see cref="Accept"/> to consume the submission (closes the editor) or
+/// <see cref="Reject"/> with a localized message to keep the editor open and
+/// display the message as a validation tooltip.
+/// </summary>
 public sealed class TimecodeSubmittedEventArgs : EventArgs
 {
     public TimecodeSubmittedEventArgs(string input)
@@ -195,6 +201,10 @@ public class Player : RangeBase
         }
     }
 
+    /// <summary>
+    /// Enters timecode-editing mode for the current time display. No-op if the
+    /// control template has not been applied yet.
+    /// </summary>
     public void BeginEditCurrentTime()
     {
         if (_currentTimeTextBox == null) return;
