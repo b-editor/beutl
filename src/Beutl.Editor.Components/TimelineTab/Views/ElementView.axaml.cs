@@ -326,7 +326,7 @@ public sealed partial class ElementView : UserControl
 
                 if (view._timeline is { } timeline && _pressed)
                 {
-                    pointerFrame = view.RoundStartTime(pointerFrame, scale, e.KeyModifiers.HasFlag(KeyModifiers.Shift));
+                    pointerFrame = view.RoundStartTime(pointerFrame, scale, e.KeyModifiers.HasFlag(KeyModifiers.Alt));
                     point = point.WithX(pointerFrame.TimeToPixel(scale));
                     int rate = viewModel.Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;
                     double minWidth = TimeSpan.FromSeconds(1d / rate).TimeToPixel(scale);
@@ -387,7 +387,7 @@ public sealed partial class ElementView : UserControl
                 }
 
                 PointerPoint point = e.GetCurrentPoint(view.border);
-                if (point.Properties.IsLeftButtonPressed && e.KeyModifiers is KeyModifiers.None or KeyModifiers.Shift
+                if (point.Properties.IsLeftButtonPressed && e.KeyModifiers is KeyModifiers.None or KeyModifiers.Alt
                                                          && view.Cursor != Cursors.Arrow && view.Cursor is not null)
                 {
                     IReadOnlyList<ElementViewModel> relatedElements = viewModel.GetGroupOrSelectedElements();
@@ -495,7 +495,7 @@ public sealed partial class ElementView : UserControl
                     return;
                 }
 
-                if (e.KeyModifiers is not (KeyModifiers.None or KeyModifiers.Shift))
+                if (e.KeyModifiers is not (KeyModifiers.None or KeyModifiers.Alt))
                 {
                     view.Cursor = null;
                     _resizeType = AlignmentX.Center;
@@ -570,7 +570,7 @@ public sealed partial class ElementView : UserControl
                 float scale = viewModel.Timeline.Options.Value.Scale;
                 TimeSpan pointerFrame = point.X.PixelToTimeSpan(scale);
 
-                pointerFrame = view.RoundStartTime(pointerFrame, scale, e.KeyModifiers.HasFlag(KeyModifiers.Shift));
+                pointerFrame = view.RoundStartTime(pointerFrame, scale, e.KeyModifiers.HasFlag(KeyModifiers.Alt));
 
                 TimeSpan newframe = pointerFrame - _start.X.PixelToTimeSpan(scale);
 
