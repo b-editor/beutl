@@ -105,6 +105,7 @@ public class Player : RangeBase
     private static readonly ILogger s_logger = Beutl.Logging.Log.CreateLogger<Player>();
 
     private string _currentTime = string.Empty;
+    private string _editStartText = string.Empty;
     private bool _isPlaying;
     private bool _isLoopEnabled;
     private ToggleButton _playButton;
@@ -216,6 +217,11 @@ public class Player : RangeBase
         _currentTimeTextBox.Classes.Remove("invalid");
         ToolTip.SetTip(_currentTimeTextBox, null);
         _currentTimeTextBox.Text = _currentTime;
+        // Snapshot the text the editor was opened with; CurrentTime is bound to
+        // the live playhead and may advance under the user during playback, so
+        // SubmitCurrentTimeEdit cannot compare against the latest _currentTime
+        // to decide whether the user edited the value.
+        _editStartText = _currentTime;
         _currentTimeTextBox.IsVisible = true;
         if (_currentTimeTextBlock != null)
         {
@@ -245,9 +251,10 @@ public class Player : RangeBase
         // No-op when the user pressed Enter without editing the displayed text.
         // The CurrentTime string format (hh\:mm\:ss\.ff) day-wraps for timelines
         // >= 24h, so re-parsing it would silently jump the playhead backwards
-        // by one day. Treating an unchanged input as a cancel is also the
-        // expected UX for editing controls.
-        if (string.Equals(input, _currentTime, StringComparison.Ordinal))
+        // by one day. Compare against the snapshot taken at edit start, not the
+        // live _currentTime, because the playhead may have advanced while the
+        // editor was open during playback.
+        if (string.Equals(input, _editStartText, StringComparison.Ordinal))
         {
             EndEditCurrentTime();
             return;
