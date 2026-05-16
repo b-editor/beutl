@@ -345,6 +345,56 @@ public class SourceVideoSpeedTest
     }
 
     [Test]
+    public void CalculateVideoTime_OffsetElement_UseGlobalClockTrue_ShouldStartFromElementZero()
+    {
+        // Arrange: 要素を 5s 開始、UseGlobalClock=true で speed=100% 一定。
+        // 期待: 要素ローカル 1s 時点でビデオ時刻も 1s になること (要素開始前の積分は引かれる)。
+        _sourceVideo!.TimeRange = new TimeRange(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(10));
+        var animation = new KeyFrameAnimation<float>
+        {
+            UseGlobalClock = true
+        };
+        animation.KeyFrames.Add(new KeyFrame<float> { Value = 100f, KeyTime = TimeSpan.Zero });
+        animation.KeyFrames.Add(new KeyFrame<float> { Value = 100f, KeyTime = TimeSpan.FromSeconds(15) });
+        _sourceVideo.Speed.Animation = animation;
+
+        _sourceVideoResource = (SourceVideo.Resource)_sourceVideo.ToResource(CompositionContext.Default);
+
+        // グローバル 6s = 要素ローカル 1s
+        var context = new CompositionContext(TimeSpan.FromSeconds(6));
+        var updateOnly = false;
+        _sourceVideoResource.Update(_sourceVideo, context, ref updateOnly);
+
+        Assert.That(_sourceVideoResource.RequestedPosition.TotalSeconds, Is.EqualTo(1.0).Within(0.1));
+    }
+
+    [Test]
+    public void CalculateVideoTime_OffsetElement_UseGlobalClockTrue_WithVariableSpeed_ShouldAccumulateFromElementStart()
+    {
+        // Arrange: 要素を 5s 開始、UseGlobalClock=true。
+        // 速度は global 0s..15s で 100% → 200% に線形補間。
+        // s(t) = 100 + (100/15)*t [%] を要素開始 (5s) ～ 要素ローカル 1s (=global 6s) で積分。
+        _sourceVideo!.TimeRange = new TimeRange(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(10));
+        var animation = new KeyFrameAnimation<float>
+        {
+            UseGlobalClock = true
+        };
+        animation.KeyFrames.Add(new KeyFrame<float> { Value = 100f, KeyTime = TimeSpan.Zero });
+        animation.KeyFrames.Add(new KeyFrame<float> { Value = 200f, KeyTime = TimeSpan.FromSeconds(15) });
+        _sourceVideo.Speed.Animation = animation;
+
+        _sourceVideoResource = (SourceVideo.Resource)_sourceVideo.ToResource(CompositionContext.Default);
+
+        var context = new CompositionContext(TimeSpan.FromSeconds(6));
+        var updateOnly = false;
+        _sourceVideoResource.Update(_sourceVideo, context, ref updateOnly);
+
+        // 解析解: ∫_{5}^{6} (1 + t/15) dt = [t + t²/30]_{5}^{6}
+        // = (6 + 36/30) - (5 + 25/30) = 1 + 11/30 ≒ 1.3667 s
+        Assert.That(_sourceVideoResource.RequestedPosition.TotalSeconds, Is.EqualTo(1.3667).Within(0.05));
+    }
+
+    [Test]
     public void CalculateOriginalTime_WithVerySlowSpeed_ShouldExpandUpperBound()
     {
         // Arrange: 非常に遅い速度（5%）でのテスト - 上限拡大が必要
