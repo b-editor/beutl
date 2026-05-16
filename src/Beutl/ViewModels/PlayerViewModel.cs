@@ -563,6 +563,8 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
             return false;
         }
 
+        ts = ts.RoundToRate(rate);
+
         if (Scene != null)
         {
             TimeSpan frame = TimeSpan.FromSeconds(1d / rate);
@@ -572,7 +574,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
             if (ts > max) ts = max;
         }
 
-        _editorClock.CurrentTime.Value = ts.RoundToRate(rate);
+        _editorClock.CurrentTime.Value = ts;
         return true;
     }
 
