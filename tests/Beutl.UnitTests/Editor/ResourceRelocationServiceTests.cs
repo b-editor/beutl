@@ -242,6 +242,40 @@ public class ResourceRelocationServiceTests
     }
 
     [Test]
+    public void RelocateFileSourcesAsync_WithCancelledCopy_PropagatesCancellation()
+    {
+        // Arrange: a token already cancelled. CopyFileAsync should throw OCE
+        // before we touch failedResources.
+        var service = new ResourceRelocationService();
+        var project = new Project();
+        string sourceFilePath = Path.Combine(_testDir, "src.bin");
+        File.WriteAllBytes(sourceFilePath, [1, 2, 3]);
+        var sources = new[] { (Guid.NewGuid(), "Prop", new Uri(sourceFilePath)) };
+        using CancellationTokenSource cts = new();
+        cts.Cancel();
+
+        // Act & Assert
+        Assert.ThrowsAsync<OperationCanceledException>(async () =>
+            await service.RelocateFileSourcesAsync(sources, project, _projectDir, cts.Token));
+    }
+
+    [Test]
+    public void RelocateFontsAsync_WithCancelledCopy_PropagatesCancellation()
+    {
+        // Arrange
+        string fontPath = Path.Combine(_testDir, "font.ttf");
+        File.WriteAllBytes(fontPath, [1, 2, 3]);
+        var service = new ResourceRelocationService(_ => new[] { fontPath });
+        var fonts = new[] { new FontFamily("AnyFamily") };
+        using CancellationTokenSource cts = new();
+        cts.Cancel();
+
+        // Act & Assert
+        Assert.ThrowsAsync<OperationCanceledException>(async () =>
+            await service.RelocateFontsAsync(fonts, _projectDir, cts.Token));
+    }
+
+    [Test]
     public async Task RelocateFontsAsync_WithNoFamilies_ReturnsEmptyResult()
     {
         // Arrange

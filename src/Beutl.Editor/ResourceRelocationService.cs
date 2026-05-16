@@ -79,6 +79,10 @@ public sealed class ResourceRelocationService
                 destFilePath = GetUniqueFilePath(resourcesDir, fileName);
                 await CopyFileAsync(sourceFilePath, destFilePath, cancellationToken);
             }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to copy file: {Uri}", originalUri);
@@ -190,6 +194,10 @@ public sealed class ResourceRelocationService
                     _logger.LogWarning("No font files found for family: {FontFamily}", fontFamily.Name);
                     failedResources.Add(fontFamily.Name);
                 }
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
             }
             catch (Exception ex)
             {
