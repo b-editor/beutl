@@ -608,38 +608,54 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
 
     private void DuplicateSelectedElements()
     {
-        var sourceVMs = SelectedElements.ToArray();
-        if (sourceVMs.Length == 0) return;
+        try
+        {
+            var sourceVMs = SelectedElements.ToArray();
+            if (sourceVMs.Length == 0) return;
 
-        var oldElements = sourceVMs.Select(x => x.Model).ToArray();
-        ObjectRegenerator.Regenerate(oldElements, out Element[] newElements);
+            var oldElements = sourceVMs.Select(x => x.Model).ToArray();
+            ObjectRegenerator.Regenerate(oldElements, out Element[] newElements);
 
-        TimeSpan minStart = newElements.Min(e => e.Start);
-        int minZIndex = newElements.Min(e => e.ZIndex);
-        TimeSpan maxStart = newElements.Max(e => e.Start);
-        int maxZIndex = newElements.Max(e => e.ZIndex);
-        TimeSpan length = maxStart - minStart;
+            TimeSpan minStart = newElements.Min(e => e.Start);
+            int minZIndex = newElements.Min(e => e.ZIndex);
+            TimeSpan maxStart = newElements.Max(e => e.Start);
+            int maxZIndex = newElements.Max(e => e.ZIndex);
+            TimeSpan length = maxStart - minStart;
 
-        var (newStart, newZIndex) = CorrectPosition(
-            new TimeRange(minStart, length),
-            minZIndex,
-            maxZIndex);
+            var (newStart, newZIndex) = CorrectPosition(
+                new TimeRange(minStart, length),
+                minZIndex,
+                maxZIndex);
 
-        PlaceAndAddDuplicates(newElements, oldElements, newStart, newZIndex);
-        EditorContext.GetRequiredService<HistoryManager>().Commit(CommandNames.DuplicateElement);
+            PlaceAndAddDuplicates(newElements, oldElements, newStart, newZIndex);
+            EditorContext.GetRequiredService<HistoryManager>().Commit(CommandNames.DuplicateElement);
 
-        ScrollTo.Execute((new TimeRange(newStart, length), newZIndex));
+            ScrollTo.Execute((new TimeRange(newStart, length), newZIndex));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "An exception has occurred while duplicating elements.");
+            NotificationService.ShowError(MessageStrings.UnexpectedError, ex.Message);
+        }
     }
 
     internal void DuplicateElementsAt(IReadOnlyList<Element> sourceElements, TimeSpan anchorStart, int anchorZIndex)
     {
         if (sourceElements.Count == 0) return;
 
-        var src = sourceElements.ToArray();
-        ObjectRegenerator.Regenerate(src, out Element[] newElements);
+        try
+        {
+            var src = sourceElements.ToArray();
+            ObjectRegenerator.Regenerate(src, out Element[] newElements);
 
-        PlaceAndAddDuplicates(newElements, src, anchorStart, Math.Max(anchorZIndex, 0));
-        EditorContext.GetRequiredService<HistoryManager>().Commit(CommandNames.DuplicateElement);
+            PlaceAndAddDuplicates(newElements, src, anchorStart, Math.Max(anchorZIndex, 0));
+            EditorContext.GetRequiredService<HistoryManager>().Commit(CommandNames.DuplicateElement);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "An exception has occurred while duplicating elements at position.");
+            NotificationService.ShowError(MessageStrings.UnexpectedError, ex.Message);
+        }
     }
 
     private async Task PasteElement(IClipboard clipboard)
