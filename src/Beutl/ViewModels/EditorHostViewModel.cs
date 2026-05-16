@@ -56,7 +56,7 @@ public class EditorHostViewModel
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Failed to dispose editor tab item.");
+                    _logger.LogError(ex, "Failed to dispose editor tab item. FilePath={FilePath}", item.FilePath.Value);
                 }
             }
         }
@@ -65,7 +65,11 @@ public class EditorHostViewModel
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Unhandled exception in ProjectChanged.");
+            _logger.LogError(
+                ex,
+                "Unhandled exception in ProjectChanged. OldProject={OldProject} NewProject={NewProject}",
+                old?.Uri?.LocalPath,
+                @new?.Uri?.LocalPath);
             NotificationService.ShowError(string.Empty, MessageStrings.OperationFailed);
         }
     }
@@ -101,7 +105,10 @@ public class EditorHostViewModel
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogError(ex, "Failed to close tab for removed project item.");
+                        _logger.LogError(
+                            ex,
+                            "Failed to close tab for removed project item. FilePath={FilePath}",
+                            item.Uri?.LocalPath);
                     }
                 }
             }
@@ -111,7 +118,10 @@ public class EditorHostViewModel
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Unhandled exception in Project_Items_CollectionChanged.");
+            _logger.LogError(
+                ex,
+                "Unhandled exception in Project_Items_CollectionChanged. Action={Action}",
+                e.Action);
             NotificationService.ShowError(string.Empty, MessageStrings.OperationFailed);
         }
     }
