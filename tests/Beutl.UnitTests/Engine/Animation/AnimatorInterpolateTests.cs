@@ -157,6 +157,56 @@ public class AnimatorInterpolateTests
     }
 
     [Test]
+    public void Int32Animator_ClampsOnRangeOvershoot()
+    {
+        var animator = new Int32Animator();
+        // progress > 1 (Back/Elastic 系イージング由来の overshoot) で int.MaxValue を超える
+        Assert.That(animator.Interpolate(2f, 0, int.MaxValue), Is.EqualTo(int.MaxValue));
+        // progress < 0 で int.MinValue を下回る
+        Assert.That(animator.Interpolate(-2f, 0, int.MaxValue), Is.EqualTo(int.MinValue));
+    }
+
+    [Test]
+    public void Int32Animator_ReverseFullRange()
+    {
+        var animator = new Int32Animator();
+        // int.MaxValue → int.MinValue の逆方向フルレンジ。旧 float 実装で典型的に壊れた経路。
+        Assert.That(animator.Interpolate(1f, int.MaxValue, int.MinValue), Is.EqualTo(int.MinValue));
+    }
+
+    [Test]
+    public void Int64Animator_ClampsOnRangeOvershoot()
+    {
+        var animator = new Int64Animator();
+        Assert.That(animator.Interpolate(2f, 0L, long.MaxValue), Is.EqualTo(long.MaxValue));
+        Assert.That(animator.Interpolate(-2f, 0L, long.MaxValue), Is.EqualTo(long.MinValue));
+    }
+
+    [Test]
+    public void Int64Animator_ReverseFullRange()
+    {
+        var animator = new Int64Animator();
+        Assert.That(animator.Interpolate(1f, long.MaxValue, long.MinValue), Is.EqualTo(long.MinValue));
+    }
+
+    [Test]
+    public void UInt32Animator_ClampsOnRangeOvershoot()
+    {
+        var animator = new UInt32Animator();
+        // progress < 0 で v が負になっても Clamp で 0
+        Assert.That(animator.Interpolate(-2f, 100u, 200u), Is.EqualTo(0u));
+        Assert.That(animator.Interpolate(2f, 0u, uint.MaxValue), Is.EqualTo(uint.MaxValue));
+    }
+
+    [Test]
+    public void UInt64Animator_ClampsOnRangeOvershoot()
+    {
+        var animator = new UInt64Animator();
+        Assert.That(animator.Interpolate(-2f, 100ul, 200ul), Is.EqualTo(0ul));
+        Assert.That(animator.Interpolate(2f, 0ul, ulong.MaxValue), Is.EqualTo(ulong.MaxValue));
+    }
+
+    [Test]
     [TestCase(0f, false, false, false)]
     [TestCase(0.49f, false, true, false)]
     [TestCase(0.5f, false, true, false)]
