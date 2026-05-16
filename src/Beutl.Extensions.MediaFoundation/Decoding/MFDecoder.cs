@@ -27,7 +27,7 @@ namespace Beutl.Extensions.MediaFoundation.Decoding;
 using Beutl.Extensions.MediaFoundation;
 #endif
 
-#pragma warning disable CA1416 // プラットフォームの互換性を検証
+#pragma warning disable CA1416 // Validate platform compatibility (entire file is Windows-only).
 
 internal sealed class MFDecoder : IDisposable
 {
@@ -55,10 +55,12 @@ internal sealed class MFDecoder : IDisposable
 
     private readonly MFSampleCache _sampleCache;
 
-    // 現在のフレームからどれくらいの範囲ならシーケンシャル読み込みさせるかの閾値
+    // Distance (in frames) within which we keep reading sequentially instead of
+    // seeking — seeking is expensive on most codecs, so a small forward jump
+    // is faster to satisfy by reading-through.
     private readonly int _thresholdFrameCount = 30;
 
-    // 現在のサンプル数からどれくらいの範囲ならシーケンシャル読み込みさせるかの閾値
+    // Same as above but in audio samples — equivalent to ~0.7s at 48kHz.
     private readonly int _thresholdSampleCount = 30000;
 
     public MFDecoder(string file, MediaOptions options, MFDecodingExtension extension)
@@ -584,7 +586,9 @@ internal sealed class MFDecoder : IDisposable
         uint destWidth = (uint)destRect.right;
         uint destHeight = (uint)destRect.bottom;
 
-        // 高さが16の倍数、幅が2の倍数になるように調節する
+        // VideoProcessorMFT requires width to be a multiple of 2 and height a
+        // multiple of 16 — otherwise SetInputType / SetOutputType returns an
+        // unsupported-type error.
         const int AlignHeightSize = 16;
         const int AlignWidth = 2;
 
@@ -630,7 +634,6 @@ internal sealed class MFDecoder : IDisposable
 
         _transform.ProcessMessage(TMessageType.MessageNotifyBeginStreaming, 0);
 
-        // 出力先IMFSample作成
         var streamInfo = _transform.GetOutputStreamInfo(0);
 
         _mfOutBufferSample = MediaFactory.MFCreateSample();
@@ -751,7 +754,7 @@ internal sealed class MFDecoder : IDisposable
             }
         }
 
-        // 再生時間取得
+        // Stream duration from the presentation descriptor.
         if (_mediaInfo.VideoStreamIndex != -1 || _mediaInfo.AudioStreamIndex != -1)
         {
             _mediaInfo.HnsDuration = (long)(ulong)sourceReader.GetPresentationAttribute(SourceReaderIndex.MediaSource,

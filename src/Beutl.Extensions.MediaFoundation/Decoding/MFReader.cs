@@ -28,8 +28,6 @@ using Beutl.Extensions.MediaFoundation;
 public class MFReader : MediaReader
 {
     private readonly ILogger _logger = Log.CreateLogger<MFReader>();
-    private readonly string _file;
-    private readonly MediaOptions _options;
 
     private readonly MFDecoder? _decoder;
     private readonly VideoStreamInfo? _videoInfo;
@@ -42,8 +40,6 @@ public class MFReader : MediaReader
 
     public MFReader(string file, MediaOptions options, MFDecodingExtension extension)
     {
-        _file = file;
-        _options = options;
         _videoColorSpace = BitmapColorSpace.Srgb;
         try
         {
@@ -92,7 +88,7 @@ public class MFReader : MediaReader
 
             if (options.StreamsToLoad.HasFlag(MediaMode.Audio))
             {
-                _audioReader = new MediaFoundationReader(_file, new MediaFoundationReaderSettings
+                _audioReader = new MediaFoundationReader(file, new MediaFoundationReaderSettings
                 {
                     RequestFloatOutput = true
                 });
