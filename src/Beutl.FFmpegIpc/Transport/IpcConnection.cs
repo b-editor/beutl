@@ -9,7 +9,9 @@ namespace Beutl.FFmpegIpc.Transport;
 /// 名前付きパイプ上のIPC接続。リクエスト/レスポンスの送受信を行う。
 /// 通常モード: SendAndReceiveAsync で逐次リクエスト/レスポンス。
 /// 多重化モード: StartMultiplexedReceive でバックグラウンド受信ループを開始し、
-///              IDベースで並行リクエスト/レスポンスを実現する。
+///              IDベースで並行リクエスト/レスポンスを実現する。送信元のキャンセルと
+///              レスポンス到着がレースしうるため、待機者を失ったレスポンスは
+///              <see cref="DroppedResponseHandler"/> 経由でドレインされる。
 /// </summary>
 public sealed class IpcConnection : IDisposable
 {
@@ -35,9 +37,15 @@ public sealed class IpcConnection : IDisposable
     public bool IsMultiplexed => _receiveLoopTask != null;
 
     /// <summary>
-    /// 多重化モードで、対応する待機者が居ない/既にキャンセル済みの待機者にメッセージが
-    /// 届いた場合に呼ばれるフック。共有メモリバッファ (bufferIndex 等) のセマンティクスを
-    /// 持つ上位レイヤーがリソース解放のために設定する。例外を投げないこと。
+    /// 多重化モードでルーティング先を失ったレスポンスを受け取るフック。
+    /// 次のいずれかで呼ばれる:
+    ///   - <c>_pendingRequests</c> から TCS を取り出せたがキャンセル済みで TrySetResult が失敗した。
+    ///   - 対応する <c>request.Id</c> の TCS が <c>_pendingRequests</c> に居なかった (キャンセル後到着の stray)。
+    /// 主用途は共有メモリバッファ (bufferIndex 等) を握っているレスポンスを上位レイヤー
+    /// (例: <c>IpcFrameProvider</c>) で解放するセマフォとなること。
+    /// 呼び出しは受信ループスレッドで同期的に行われるため、ブロックすると後続メッセージの
+    /// 処理が遅延する。例外は投げないことを契約とするが、万一スローした場合でも受信ループは
+    /// 継続し、内容は <see cref="Trace"/> に記録される。
     /// </summary>
     public Action<IpcMessage>? DroppedResponseHandler { get; set; }
 
@@ -236,6 +244,9 @@ public sealed class IpcConnection : IDisposable
 
         // SendAsync の前にキャンセルを購読し、送信中・受信待機中いずれの局面でも
         // ct 発火が確実に tcs へ伝播するようにする。
+        // 旧実装は SendAsync 完了後に Register していたため、送信成功とキャンセル発火と
+        // レスポンス到着が同時に走ると、TCS が中途半端に解決されず競合の隙間で
+        // バッファインデックスを未消費のまま落とすケースがあった。
         using var registration = ct.Register(static state =>
         {
             var (innerTcs, token) = ((TaskCompletionSource<IpcMessage> Tcs, CancellationToken Token))state!;
@@ -254,8 +265,11 @@ public sealed class IpcConnection : IDisposable
         }
         finally
         {
-            // 自身が登録した TCS のみを撤去する。受信ループが先に取り出していれば
-            // TryRemove は失敗し、別 ID で再利用された TCS は誤って消さない。
+            // 自身が登録した TCS のみを撤去する (KeyValuePair オーバーロード)。
+            // 受信ループが先に取り出していれば TryRemove は失敗する。
+            // 通常 _nextId は単調増加するが int を一巡 (2^31 件) すると同じ Id が
+            // 再利用されうるため、value 一致を要求して別リクエストの TCS を
+            // 誤って消さないようにする防御的措置。
             _pendingRequests.TryRemove(new KeyValuePair<int, TaskCompletionSource<IpcMessage>>(request.Id, tcs));
         }
     }
