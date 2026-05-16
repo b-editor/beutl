@@ -32,10 +32,10 @@ public interface ISceneEditorContext : IEditorContext
     /// <summary>再生位置 / 最大時間を保持するクロック。</summary>
     IEditorClock Clock { get; }
 
-    /// <summary>タイムラインで選択中のオブジェクト。</summary>
+    /// <summary>エディタ全体で選択中のオブジェクト (タイムライン / プレビュー操作 両方の窓口)。</summary>
     IEditorSelection Selection { get; }
 
-    /// <summary>プレビュー用プレイヤ。Dispose 後は <c>AfterRendered</c> 等にアクセスしない。</summary>
+    /// <summary>プレビュー用プレイヤ。<see cref="System.IAsyncDisposable.DisposeAsync"/> 後はプロパティ自体が <c>null!</c> 化されるため参照しないこと。</summary>
     IPreviewPlayer Player { get; }
 
     /// <summary>新規エレメント追加の入口。</summary>
@@ -44,6 +44,6 @@ public interface ISceneEditorContext : IEditorContext
     /// <summary>フレームキャッシュの状態。</summary>
     IBufferStatus BufferStatus { get; }
 
-    /// <summary>タイムライン表示オプション (スケール / オフセット / レイヤ数 等) のプロバイダ。</summary>
+    /// <summary>タイムライン表示オプション (スケール / オフセット / レイヤ数 / BPM グリッド 等) のプロバイダ。</summary>
     ITimelineOptionsProvider TimelineOptions { get; }
 }
