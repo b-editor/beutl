@@ -1,4 +1,6 @@
-﻿namespace Beutl.Media.Source;
+﻿using System.Diagnostics;
+
+namespace Beutl.Media.Source;
 
 internal sealed class Counter<T>
     where T : class, IDisposable
@@ -46,6 +48,7 @@ internal sealed class Counter<T>
         {
             if (_refs == 0)
             {
+                Debug.WriteLine("Counter<T>.Release called past zero — possible double-release bug.");
                 return;
             }
 
