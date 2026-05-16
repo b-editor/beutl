@@ -424,10 +424,18 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
             using var stream = new FileStream(viewStateFile, FileMode.Open, FileAccess.Read, FileShare.Read);
             json = JsonNode.Parse(stream);
         }
-        catch (Exception ex) when (ex is JsonException or IOException or UnauthorizedAccessException)
+        catch (JsonException ex)
         {
-            _logger.LogError(ex, "Failed to load view state file {ViewStateFile}; opening default tabs.", viewStateFile);
+            _logger.LogError(ex, "View state file {ViewStateFile} is malformed; quarantining and opening default tabs.", viewStateFile);
             QuarantineCorruptViewState(viewStateFile);
+            DockHost.OpenDefaultTabs();
+            return;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // Transient read failures (file lock, antivirus, permission glitches) do not
+            // mean the file is corrupt — leave it in place so the next launch can retry.
+            _logger.LogError(ex, "Failed to read view state file {ViewStateFile}; opening default tabs.", viewStateFile);
             DockHost.OpenDefaultTabs();
             return;
         }
