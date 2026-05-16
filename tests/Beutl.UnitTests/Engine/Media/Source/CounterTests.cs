@@ -1,4 +1,4 @@
-using Beutl.Media.Source;
+﻿using Beutl.Media.Source;
 
 namespace Beutl.UnitTests.Engine.Media.Source;
 

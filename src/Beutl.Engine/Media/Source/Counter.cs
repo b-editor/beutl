@@ -1,4 +1,4 @@
-namespace Beutl.Media.Source;
+﻿namespace Beutl.Media.Source;
 
 internal sealed class Counter<T>
     where T : class, IDisposable
