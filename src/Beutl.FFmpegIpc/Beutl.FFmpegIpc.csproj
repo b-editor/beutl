@@ -6,4 +6,8 @@
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
   </PropertyGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="Beutl.FFmpegIpc.Tests" />
+  </ItemGroup>
+
 </Project>

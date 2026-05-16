@@ -43,6 +43,11 @@ public sealed class IpcConnection : IDisposable
     public int NextId() => Interlocked.Increment(ref _nextId);
 
     /// <summary>
+    /// 多重化モード用 pending request 辞書のエントリ数。テスト/診断専用。
+    /// </summary>
+    internal int PendingRequestCount => _pendingRequests.Count;
+
+    /// <summary>
     /// 多重化受信モードを開始する。バックグラウンドでメッセージを受信し、
     /// IDベースで待機中のリクエストにルーティングする。
     /// クライアント側で複数リーダーからの並行リクエストを可能にする。

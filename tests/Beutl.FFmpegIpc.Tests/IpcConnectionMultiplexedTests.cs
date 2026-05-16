@@ -1,6 +1,5 @@
 using System.Collections.Concurrent;
 using System.IO.Pipes;
-using System.Reflection;
 using Beutl.FFmpegIpc.Protocol;
 using Beutl.FFmpegIpc.Transport;
 
@@ -32,13 +31,7 @@ public class IpcConnectionMultiplexedTests
         return (server, client);
     }
 
-    private static int PendingCount(IpcConnection conn)
-    {
-        var field = typeof(IpcConnection).GetField(
-            "_pendingRequests", BindingFlags.Instance | BindingFlags.NonPublic)!;
-        var dict = (System.Collections.IDictionary)field.GetValue(conn)!;
-        return dict.Count;
-    }
+    private static int PendingCount(IpcConnection conn) => conn.PendingRequestCount;
 
     [Test]
     public async Task ConcurrentRequests_AllReceiveCorrectResponses()
