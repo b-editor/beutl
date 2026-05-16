@@ -1334,6 +1334,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
         _currentFrameSubscription?.Dispose();
         AfterRendered.Dispose();
         _audioFramePushed.Dispose();
+        BeginEditTimecodeRequested.Dispose();
         PreviewInvalidated = null;
         Scene = null!;
         PreviewImage.Value?.Dispose();
