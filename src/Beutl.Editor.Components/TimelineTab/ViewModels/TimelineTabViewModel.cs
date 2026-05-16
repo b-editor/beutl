@@ -216,6 +216,15 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
             .Subscribe(_ => RaiseCanExecuteChanged())
             .AddTo(_disposables);
 
+        // Undo/Redo の直前で debounce 中の Nudge を必ず Commit する。
+        // 未コミットのまま Undo が走ると HistoryManager.Rollback が先に Nudge を
+        // 巻き戻し、続けて前回コミットの Pop も走るため 2 アクション分が
+        // 同時に取り消される。
+        editorContext.GetRequiredService<HistoryManager>()
+            .BeforeMutation
+            .Subscribe(_ => FlushPendingNudgeCommit())
+            .AddTo(_disposables);
+
         _logger.LogInformation("TimelineTabViewModel initialized successfully.");
     }
 
@@ -1106,6 +1115,15 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
     public void Execute(ContextCommandExecution execution)
     {
         _logger.LogDebug("Executing context command {CommandName}.", execution.CommandName);
+
+        // Nudge 連打を 1 Undo にまとめる debounce 中に他コマンドが Commit すると、
+        // 双方が同じ transaction に積まれて 1 Undo で一緒に取り消されてしまう。
+        // Nudge 以外のコマンドを実行する直前に Nudge 分を確定させて分離する。
+        if (!execution.CommandName.StartsWith("Nudge", StringComparison.Ordinal))
+        {
+            FlushPendingNudgeCommit();
+        }
+
         switch (execution.CommandName)
         {
             case "Paste":
@@ -1240,14 +1258,27 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
         if (targets.Count == 0) return;
 
         int rate = Scene.FindHierarchicalParent<Project>()?.GetFrameRate() ?? 30;
-        TimeSpan delta = unit switch
+        int frames = unit switch
         {
-            NudgeUnit.Frame => TimeSpan.FromSeconds(direction * 1d / rate),
-            NudgeUnit.Large => TimeSpan.FromSeconds(direction * 10d / rate),
-            NudgeUnit.Second => TimeSpan.FromSeconds(direction),
-            _ => TimeSpan.Zero,
+            NudgeUnit.Frame => direction,
+            NudgeUnit.Large => direction * 10,
+            NudgeUnit.Second => direction * rate,
+            _ => 0,
         };
 
+        if (frames == 0) return;
+
+        // ドラッグ移動 (ElementView.axaml.cs) では新 Start を RoundToRate で
+        // frame に揃えるので、Nudge も結果がグリッドに乗るようアンカー要素
+        // (= 最初の選択) の現在 Start を一旦丸めてから N フレーム分シフトする。
+        // TimeSpan.FromSeconds は repeating fraction を tick へ丸めるため、
+        // 連打で sub-frame ドリフトする可能性があるので int.ToTimeSpan(rate) で
+        // 整数 tick 計算にする。
+        Element anchor = first.Model;
+        TimeSpan anchoredStart = anchor.Start.RoundToRate(rate) + frames.ToTimeSpan(rate);
+        if (anchoredStart < TimeSpan.Zero) return;
+
+        TimeSpan delta = anchoredStart - anchor.Start;
         if (delta == TimeSpan.Zero) return;
 
         Scene.MoveChildren(0, delta, targets.Select(x => x.Model).ToArray());
