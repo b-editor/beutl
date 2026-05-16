@@ -427,6 +427,7 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
         catch (Exception ex) when (ex is JsonException or IOException or UnauthorizedAccessException)
         {
             _logger.LogError(ex, "Failed to load view state file {ViewStateFile}; opening default tabs.", viewStateFile);
+            QuarantineCorruptViewState(viewStateFile);
             DockHost.OpenDefaultTabs();
             return;
         }
@@ -437,6 +438,7 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
                 "View state root is not a JSON object (was {Kind}) in {ViewStateFile}; opening default tabs.",
                 json?.GetType().Name ?? "null",
                 viewStateFile);
+            QuarantineCorruptViewState(viewStateFile);
             DockHost.OpenDefaultTabs();
             return;
         }
@@ -515,6 +517,22 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
         catch (Exception ex)
         {
             _logger.LogError(ex, "Unexpected error while restoring view state from {ViewStateFile}.", viewStateFile);
+        }
+    }
+
+    private void QuarantineCorruptViewState(string viewStateFile)
+    {
+        // Move the unreadable file aside so AutoSave's next SaveState() does not
+        // overwrite it with the default layout and erase the user's customizations.
+        try
+        {
+            string quarantined = $"{viewStateFile}.corrupt-{DateTime.UtcNow:yyyyMMddHHmmss}";
+            File.Move(viewStateFile, quarantined);
+            _logger.LogInformation("Moved unreadable view state to {QuarantinedFile}.", quarantined);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            _logger.LogWarning(ex, "Failed to quarantine view state file {ViewStateFile}.", viewStateFile);
         }
     }
 
