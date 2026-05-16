@@ -23,10 +23,11 @@ public class AudioProcessContextTests
     [Test]
     public void GetSampleCount_Static_FractionalDuration_CeilingsUp()
     {
-        // 1 サンプル分のちょうど境界 (44100Hz, 1サンプル ≒ 226.7575 ticks) を 1tick だけ超えた duration。
-        // 切り捨て版なら 1 サンプル、Ceiling 版なら 2 サンプル。回帰防止ケース。
-        var oneSampleTicks = TimeSpan.TicksPerSecond / 44100; // 226
-        var range = new TimeRange(TimeSpan.Zero, TimeSpan.FromTicks(oneSampleTicks + 1));
+        // 44100Hz では 1 サンプル ≒ 226.7575 ticks。TimeSpan.TicksPerSecond / 44100 は整数除算で 226 となり、
+        // +1 した 227 ticks は 1 サンプル相当 (226.7575) をわずかに (0.2425 ticks) 超える。
+        // この duration は truncation だと 1 サンプル、Ceiling だと 2 サンプルになり、両者の差を確実に踏ませる。
+        var oneSampleTicksFloor = TimeSpan.TicksPerSecond / 44100; // 226 (true boundary is ~226.7575)
+        var range = new TimeRange(TimeSpan.Zero, TimeSpan.FromTicks(oneSampleTicksFloor + 1));
 
         var truncated = (int)(range.Duration.TotalSeconds * 44100);
         var ceiled = AudioProcessContext.GetSampleCount(range, 44100);
