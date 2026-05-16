@@ -78,6 +78,9 @@ public partial class PlayerView : UserControl
     {
         if (DataContext is not PlayerViewModel vm)
         {
+            _logger.LogWarning("Timecode submitted but DataContext is not PlayerViewModel; ignoring.");
+            e.Handled = false;
+            e.Error = Beutl.Language.Strings.GotoTimecode_InvalidFormat;
             return;
         }
 
@@ -92,14 +95,18 @@ public partial class PlayerView : UserControl
         }
     }
 
-    private static string? LookupLocalizedError(string? errorKey)
+    private string LookupLocalizedError(string? errorKey)
     {
-        return errorKey switch
+        switch (errorKey)
         {
-            "GotoTimecode_InvalidFormat" => Beutl.Language.Strings.GotoTimecode_InvalidFormat,
-            "GotoTimecode_MarkerNotFound" => Beutl.Language.Strings.GotoTimecode_MarkerNotFound,
-            _ => null,
-        };
+            case "GotoTimecode_InvalidFormat":
+                return Beutl.Language.Strings.GotoTimecode_InvalidFormat;
+            case "GotoTimecode_MarkerNotFound":
+                return Beutl.Language.Strings.GotoTimecode_MarkerNotFound;
+            default:
+                _logger.LogWarning("Unknown timecode error key '{Key}'; falling back to invalid-format message.", errorKey);
+                return Beutl.Language.Strings.GotoTimecode_InvalidFormat;
+        }
     }
 
     private void SetupImageControl()
