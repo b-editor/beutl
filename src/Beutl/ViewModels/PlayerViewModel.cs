@@ -568,7 +568,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
         }
 
         int rate = GetFrameRate();
-        if (!GotoTimecodeParser.TryParse(input, rate, _editorClock.CurrentTime.Value, Scene.Markers, out target, out error))
+        if (!GotoTimecodeParser.TryParse(input, rate, _editorClock.CurrentTime.Value, Scene.Markers, out TimeSpan parsed, out error))
         {
             _logger.LogDebug(
                 "Goto-timecode parse failed. ({SceneId}, Input={Input}, Error={Error})",
@@ -576,24 +576,29 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
             return false;
         }
 
+        // Frame-snap up front so ApplyTimecodeSeek cannot fail later — without
+        // this, the parser-accepted value could be returned to the view, the
+        // editor would close on Accept(), and the actual seek would silently
+        // no-op when RoundToRate overflowed.
+        try
+        {
+            target = parsed.RoundToRate(rate);
+        }
+        catch (OverflowException ex)
+        {
+            _logger.LogWarning(ex,
+                "RoundToRate overflowed for goto-timecode target. ({SceneId}, Parsed={Parsed}, Rate={Rate})",
+                _editViewModel.SceneId, parsed, rate);
+            error = GotoTimecodeError.OutOfRange;
+            return false;
+        }
         return true;
     }
 
     public void ApplyTimecodeSeek(TimeSpan target)
     {
-        int rate = GetFrameRate();
-        try
-        {
-            _editorClock.CurrentTime.Value = target.RoundToRate(rate);
-        }
-        catch (OverflowException ex)
-        {
-            // The parser accepted this value but RoundToRate cannot represent it;
-            // log the drift between the parser's accepted domain and RoundToRate's.
-            _logger.LogWarning(ex,
-                "RoundToRate overflowed for goto-timecode target. ({SceneId}, Target={Target}, Rate={Rate})",
-                _editViewModel.SceneId, target, rate);
-        }
+        // target is already frame-snapped by TryParseTimecode.
+        _editorClock.CurrentTime.Value = target;
     }
 
     public void ToggleLoop()
