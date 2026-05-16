@@ -136,10 +136,9 @@ public unsafe class PixelFormatConverterTests
         }
     }
 
-    private static void AssertPrimariesRoundTrip(
+    private static int MaxChannelDiff(
         PixelFormatConverter.YuvMatrix8 forward,
-        PixelFormatConverter.InvYuvMatrix8 inverse,
-        string matrixName)
+        PixelFormatConverter.InvYuvMatrix8 inverse)
     {
         const int width = 16;
         const int height = 8;
@@ -153,6 +152,7 @@ public unsafe class PixelFormatConverterTests
             (B: (byte)0, G: (byte)0, R: (byte)0),
         };
 
+        int worst = 0;
         foreach (var (b, g, r) in cases)
         {
             byte[] src = AllocateBgra(width, height, b, g, r);
@@ -168,16 +168,27 @@ public unsafe class PixelFormatConverterTests
             }
 
             int i = (height / 2) * width * 4 + (width / 2) * 4;
-            // ±10 LSB tolerance — saturated primaries push the chroma close to
-            // the limited-range bounds, so quantization plus the 4-tap chroma
-            // average can drift a bit further than the BT.709 case.
-            Assert.That(Math.Abs(roundTrip[i + 0] - b), Is.LessThanOrEqualTo(10),
-                $"{matrixName} B for ({r},{g},{b}): got {roundTrip[i + 0]}");
-            Assert.That(Math.Abs(roundTrip[i + 1] - g), Is.LessThanOrEqualTo(10),
-                $"{matrixName} G for ({r},{g},{b}): got {roundTrip[i + 1]}");
-            Assert.That(Math.Abs(roundTrip[i + 2] - r), Is.LessThanOrEqualTo(10),
-                $"{matrixName} R for ({r},{g},{b}): got {roundTrip[i + 2]}");
+            worst = Math.Max(worst, Math.Abs(roundTrip[i + 0] - b));
+            worst = Math.Max(worst, Math.Abs(roundTrip[i + 1] - g));
+            worst = Math.Max(worst, Math.Abs(roundTrip[i + 2] - r));
         }
+        return worst;
+    }
+
+    private static void AssertPrimariesRoundTrip(
+        PixelFormatConverter.YuvMatrix8 forward,
+        PixelFormatConverter.InvYuvMatrix8 inverse,
+        string matrixName,
+        int tolerance = 5)
+    {
+        // Tightened from the original ±10 LSB to ±5 once the corrected SMPTE 240M
+        // inverse stopped grazing the limit. A drift beyond 5 LSB on saturated
+        // primaries indicates the forward/inverse pair lost symmetry — e.g. an
+        // accidentally swapped coefficient or the inverse not matching the
+        // matrix tag the encoder advertises.
+        int worst = MaxChannelDiff(forward, inverse);
+        Assert.That(worst, Is.LessThanOrEqualTo(tolerance),
+            $"{matrixName}: round-trip drift {worst} LSB exceeds tolerance {tolerance}");
     }
 
     [Test]
@@ -202,12 +213,27 @@ public unsafe class PixelFormatConverterTests
     public void BgraToNv12_RoundTrip_Smpte240M()
     {
         // SMPTE 240M previously had asymmetric inverse coefficients, so saturated
-        // primaries would drift visibly. With the corrected inverse this test
-        // pins the round-trip back inside the ±10 LSB envelope.
+        // primaries drifted visibly. With the corrected inverse the round-trip
+        // fits inside the ±5 LSB envelope this helper enforces.
         AssertPrimariesRoundTrip(
             PixelFormatConverter.YuvMatrix8.Smpte240M,
             PixelFormatConverter.InvYuvMatrix8.Smpte240M,
             "SMPTE 240M");
+    }
+
+    [Test]
+    public void Smpte240M_PreCorrectionInverseFailsTightTolerance()
+    {
+        // Regression guard: synthesize the legacy SMPTE 240M inverse and assert it
+        // drifts beyond the tight tolerance. If someone re-introduces those
+        // coefficients (or the round-trip becomes lax enough to mask them), this
+        // test fails before the new correctness tests do.
+        var legacyInverse = new PixelFormatConverter.InvYuvMatrix8(
+            crToR: 451, cbToG: 56, crToG: 138, cbToB: 535);
+        int worst = MaxChannelDiff(
+            PixelFormatConverter.YuvMatrix8.Smpte240M, legacyInverse);
+        Assert.That(worst, Is.GreaterThan(5),
+            $"Legacy SMPTE 240M inverse should drift past ±5 LSB; observed {worst}");
     }
 
     [Test]
