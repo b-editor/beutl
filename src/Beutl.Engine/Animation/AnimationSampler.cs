@@ -19,7 +19,7 @@ public sealed class AnimationSampler
         {
             for (int i = 0; i < output.Length; i++)
             {
-                output[i] = keyFrameAnimation.Interpolate(range.Start + TimeSpan.FromSeconds(i / (double)sampleRate));
+                output[i] = keyFrameAnimation.GetAnimatedValue(range.Start + TimeSpan.FromSeconds(i / (double)sampleRate));
             }
         }
         else
