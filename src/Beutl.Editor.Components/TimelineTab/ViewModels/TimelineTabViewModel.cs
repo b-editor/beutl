@@ -1178,27 +1178,51 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
                 break;
             case "NudgeLeftFrame" when execution.KeyEventArgs?.Source is not TextBox:
                 NudgeSelectedElements(-1, NudgeUnit.Frame);
-                if (execution.KeyEventArgs != null) execution.KeyEventArgs.Handled = true;
+                if (execution.KeyEventArgs != null)
+                {
+                    execution.KeyEventArgs.Handled = true;
+                }
+
                 break;
             case "NudgeRightFrame" when execution.KeyEventArgs?.Source is not TextBox:
                 NudgeSelectedElements(+1, NudgeUnit.Frame);
-                if (execution.KeyEventArgs != null) execution.KeyEventArgs.Handled = true;
+                if (execution.KeyEventArgs != null)
+                {
+                    execution.KeyEventArgs.Handled = true;
+                }
+
                 break;
             case "NudgeLeftLarge" when execution.KeyEventArgs?.Source is not TextBox:
                 NudgeSelectedElements(-1, NudgeUnit.Large);
-                if (execution.KeyEventArgs != null) execution.KeyEventArgs.Handled = true;
+                if (execution.KeyEventArgs != null)
+                {
+                    execution.KeyEventArgs.Handled = true;
+                }
+
                 break;
             case "NudgeRightLarge" when execution.KeyEventArgs?.Source is not TextBox:
                 NudgeSelectedElements(+1, NudgeUnit.Large);
-                if (execution.KeyEventArgs != null) execution.KeyEventArgs.Handled = true;
+                if (execution.KeyEventArgs != null)
+                {
+                    execution.KeyEventArgs.Handled = true;
+                }
+
                 break;
             case "NudgeLeftSecond" when execution.KeyEventArgs?.Source is not TextBox:
                 NudgeSelectedElements(-1, NudgeUnit.Second);
-                if (execution.KeyEventArgs != null) execution.KeyEventArgs.Handled = true;
+                if (execution.KeyEventArgs != null)
+                {
+                    execution.KeyEventArgs.Handled = true;
+                }
+
                 break;
             case "NudgeRightSecond" when execution.KeyEventArgs?.Source is not TextBox:
                 NudgeSelectedElements(+1, NudgeUnit.Second);
-                if (execution.KeyEventArgs != null) execution.KeyEventArgs.Handled = true;
+                if (execution.KeyEventArgs != null)
+                {
+                    execution.KeyEventArgs.Handled = true;
+                }
+
                 break;
         }
     }
