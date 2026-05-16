@@ -29,7 +29,12 @@ public sealed class AudioProcessContext
 
     public int GetSampleCount()
     {
-        return (int)Math.Ceiling(TimeRange.Duration.TotalSeconds * SampleRate);
+        return GetSampleCount(TimeRange, SampleRate);
+    }
+
+    public static int GetSampleCount(TimeRange range, int sampleRate)
+    {
+        return (int)Math.Ceiling(range.Duration.TotalSeconds * sampleRate);
     }
 
     public TimeSpan GetTimeForSample(int sampleIndex)
