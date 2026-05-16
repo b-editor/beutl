@@ -1,8 +1,12 @@
 ﻿using System.Reactive.Subjects;
 using Avalonia.Controls;
+using Beutl.Animation;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
+using Beutl.Editor.Services;
+using Beutl.Language;
 using Beutl.Media;
 using Beutl.ProjectSystem;
+using Beutl.Services;
 using Microsoft.Extensions.Logging;
 
 namespace Beutl.ViewModels;
@@ -143,6 +147,12 @@ public partial class EditViewModel : IContextCommandHandler, IContextCommandStat
             case "GotoTimecode" when !isFromTextBox:
                 Player.RequestEditTimecode();
                 break;
+            case "NextKeyFrame" when !isFromTextBox:
+                SeekToAdjacentKeyFrame(forward: true);
+                break;
+            case "PreviousKeyFrame" when !isFromTextBox:
+                SeekToAdjacentKeyFrame(forward: false);
+                break;
             default:
                 if (execution.KeyEventArgs != null)
                     execution.KeyEventArgs.Handled = false;
@@ -198,14 +208,66 @@ public partial class EditViewModel : IContextCommandHandler, IContextCommandStat
 
         if (target != null)
         {
-            _editorClock.CurrentTime.Value = target.Value;
+            SeekAndScroll(target.Value);
+        }
+    }
 
-            // ターゲットの位置までタイムラインを横スクロールさせる
-            if (FindToolTab<TimelineTabViewModel>() is { } timeline)
+    private void SeekToAdjacentKeyFrame(bool forward)
+    {
+        TimeSpan current = _editorClock.CurrentTime.Value;
+
+        // 探索範囲: 選択中の Element → 親 Element → Scene 全 Element
+        CoreObject? sel = _editorSelection.SelectedObject.Value;
+        Element? scope = sel as Element
+            ?? (sel as IHierarchical)?.FindHierarchicalParent<Element>();
+        IReadOnlyList<Element> roots = scope != null
+            ? new[] { scope }
+            : Scene.Children.ToArray();
+
+        TimeSpan? target = null;
+        foreach (Element el in roots)
+        {
+            var searcher = new ObjectSearcher(el, o => o is KeyFrameAnimation);
+            foreach (KeyFrameAnimation anim in searcher.SearchAll().OfType<KeyFrameAnimation>())
             {
-                int currentZIndex = timeline.ToLayerNumber(timeline.Options.Value.Offset.Y);
-                timeline.ScrollTo.Execute((new TimeRange(target.Value, TimeSpan.FromTicks(1)), currentZIndex));
+                TimeSpan offset = anim.UseGlobalClock ? TimeSpan.Zero : el.Start;
+                foreach (IKeyFrame kf in anim.KeyFrames)
+                {
+                    TimeSpan time = kf.KeyTime + offset;
+                    if (forward)
+                    {
+                        if (time > current && (target == null || time < target.Value))
+                            target = time;
+                    }
+                    else
+                    {
+                        if (time < current && (target == null || time > target.Value))
+                            target = time;
+                    }
+                }
             }
+        }
+
+        if (target == null)
+        {
+            NotificationService.ShowInformation(
+                forward ? Strings.NextKeyFrame : Strings.PreviousKeyFrame,
+                Strings.NoKeyFrameToSeek);
+            return;
+        }
+
+        SeekAndScroll(target.Value);
+    }
+
+    private void SeekAndScroll(TimeSpan time)
+    {
+        _editorClock.CurrentTime.Value = time;
+
+        // ターゲットの位置までタイムラインを横スクロールさせる
+        if (FindToolTab<TimelineTabViewModel>() is { } timeline)
+        {
+            int currentZIndex = timeline.ToLayerNumber(timeline.Options.Value.Offset.Y);
+            timeline.ScrollTo.Execute((new TimeRange(time, TimeSpan.FromTicks(1)), currentZIndex));
         }
     }
 }

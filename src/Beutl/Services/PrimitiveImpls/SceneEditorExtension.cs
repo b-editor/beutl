@@ -58,6 +58,16 @@ public sealed class SceneEditorExtension : EditorExtension
             new ContextCommandKeyGesture("Ctrl+Left"),
             new ContextCommandKeyGesture("Alt+Left", OSPlatform.OSX)
         ]),
+        new("NextKeyFrame", Strings.NextKeyFrame, Strings.NextKeyFrame_Description,
+        [
+            new ContextCommandKeyGesture("Ctrl+Shift+Right"),
+            new ContextCommandKeyGesture("Cmd+Shift+Right", OSPlatform.OSX)
+        ]),
+        new("PreviousKeyFrame", Strings.PreviousKeyFrame, Strings.PreviousKeyFrame_Description,
+        [
+            new ContextCommandKeyGesture("Ctrl+Shift+Left"),
+            new ContextCommandKeyGesture("Cmd+Shift+Left", OSPlatform.OSX)
+        ]),
         new("ShuttleForward", Strings.ShuttleForward, Strings.ShuttleForward_Description,
         [
             new ContextCommandKeyGesture("L")
