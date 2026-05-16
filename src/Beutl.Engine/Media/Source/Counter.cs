@@ -1,11 +1,12 @@
-﻿namespace Beutl.Media.Source;
+namespace Beutl.Media.Source;
 
 internal sealed class Counter<T>
     where T : class, IDisposable
 {
+    private readonly Lock _lock = new();
     private T? _value;
     private Action? _onRelease;
-    private volatile int _refs;
+    private int _refs;
 
     public Counter(T value, Action? onRelease)
     {
@@ -16,50 +17,72 @@ internal sealed class Counter<T>
 
     public void AddRef()
     {
-        int old = _refs;
-        while (true)
+        if (!TryAddRef())
         {
-            ObjectDisposedException.ThrowIf(old == 0, this);
-            int current = Interlocked.CompareExchange(ref _refs, old + 1, old);
-            if (current == old)
+            throw new ObjectDisposedException(GetType().FullName);
+        }
+    }
+
+    public bool TryAddRef()
+    {
+        lock (_lock)
+        {
+            if (_refs == 0)
             {
-                break;
+                return false;
             }
-            old = current;
+
+            _refs++;
+            return true;
         }
     }
 
     public void Release()
     {
-        int old = _refs;
-        while (true)
+        T? toDispose = null;
+        Action? onRelease = null;
+
+        lock (_lock)
         {
-            int current = Interlocked.CompareExchange(ref _refs, old - 1, old);
-
-            if (current == old)
+            if (_refs == 0)
             {
-                if (old == 1)
-                {
-                    _onRelease?.Invoke();
-                    _onRelease = null;
-
-                    _value?.Dispose();
-                    _value = null;
-                }
-                break;
+                return;
             }
-            old = current;
+
+            _refs--;
+            if (_refs == 0)
+            {
+                toDispose = _value;
+                _value = null;
+                onRelease = _onRelease;
+                _onRelease = null;
+            }
         }
+
+        onRelease?.Invoke();
+        toDispose?.Dispose();
     }
 
     public T Value
     {
         get
         {
-            ObjectDisposedException.ThrowIf(_refs == 0, this);
-            return _value!;
+            lock (_lock)
+            {
+                ObjectDisposedException.ThrowIf(_refs == 0, this);
+                return _value!;
+            }
         }
     }
 
-    public int RefCount => _refs;
+    public int RefCount
+    {
+        get
+        {
+            lock (_lock)
+            {
+                return _refs;
+            }
+        }
+    }
 }

@@ -83,14 +83,13 @@ public sealed class VideoSource : MediaSource
                 if (!context.DisableResourceShare)
                 {
                     var localRef = Volatile.Read(ref videoSource._mediaReaderRef);
-                    if (localRef?.TryGetTarget(out var counter) == true && counter.RefCount > 0)
+                    if (localRef?.TryGetTarget(out var counter) == true && counter.TryAddRef())
                         shared = counter;
                 }
 
                 if (shared is not null)
                 {
                     _counter = shared;
-                    shared.AddRef();
                 }
                 else
                 {
