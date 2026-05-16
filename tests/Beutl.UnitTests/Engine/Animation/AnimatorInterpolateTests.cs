@@ -170,7 +170,7 @@ public class AnimatorInterpolateTests
     public void Int32Animator_ReverseFullRange()
     {
         var animator = new Int32Animator();
-        // int.MaxValue → int.MinValue の逆方向フルレンジ。旧 float 実装で典型的に壊れた経路。
+        // 逆方向フルレンジの境界 (progress=1) で newValue に到達することを確認。
         Assert.That(animator.Interpolate(1f, int.MaxValue, int.MinValue), Is.EqualTo(int.MinValue));
     }
 
