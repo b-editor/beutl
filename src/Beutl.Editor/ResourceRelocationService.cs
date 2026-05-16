@@ -64,35 +64,42 @@ public sealed class ResourceRelocationService
         {
             cancellationToken.ThrowIfCancellationRequested();
             var originalUri = group.Key;
+            string sourceFilePath = originalUri.LocalPath;
+            if (!File.Exists(sourceFilePath))
+            {
+                _logger.LogWarning("Source file not found: {FilePath}", sourceFilePath);
+                failedItems.Add(sourceFilePath);
+                continue;
+            }
+
+            string destFilePath;
             try
             {
-                string sourceFilePath = originalUri.LocalPath;
-                if (!File.Exists(sourceFilePath))
-                {
-                    _logger.LogWarning("Source file not found: {FilePath}", sourceFilePath);
-                    failedItems.Add(sourceFilePath);
-                    continue;
-                }
-
                 string fileName = Path.GetFileName(sourceFilePath);
-                string destFilePath = GetUniqueFilePath(resourcesDir, fileName);
-
+                destFilePath = GetUniqueFilePath(resourcesDir, fileName);
                 await CopyFileAsync(sourceFilePath, destFilePath, cancellationToken);
-
-                foreach ((Guid id, string prop, _) in group)
-                {
-                    cancellationToken.ThrowIfCancellationRequested();
-                    // Update the URI to the new path
-                    UpdateUri(stagingProject, id, prop, new Uri(destFilePath));
-
-                    count++;
-                    _logger.LogDebug("Relocated file: {OriginalPath} -> {NewPath}", sourceFilePath, destFilePath);
-                }
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to relocate file: {Uri}", originalUri);
+                _logger.LogError(ex, "Failed to copy file: {Uri}", originalUri);
                 failedItems.Add(originalUri.ToString());
+                continue;
+            }
+
+            foreach ((Guid id, string prop, _) in group)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                try
+                {
+                    UpdateUri(stagingProject, id, prop, new Uri(destFilePath));
+                    count++;
+                    _logger.LogDebug("Relocated file: {OriginalPath} -> {NewPath}", sourceFilePath, destFilePath);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to update URI for {Id}.{Property}: {Uri}", id, prop, originalUri);
+                    failedItems.Add($"{originalUri} ({id}.{prop})");
+                }
             }
         }
 

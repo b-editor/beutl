@@ -68,17 +68,20 @@ public class ResourceRelocationServiceTests
         string sourceFilePath = Path.Combine(_testDir, "asset.bin");
         await File.WriteAllBytesAsync(sourceFilePath, new byte[] { 1, 2, 3 });
         Uri sourceUri = new(sourceFilePath);
-        var sources = new[] { (Guid.NewGuid(), "NonExistentProperty", sourceUri) };
+        Guid id = Guid.NewGuid();
+        var sources = new[] { (id, "NonExistentProperty", sourceUri) };
 
         // Act
         RelocationResult result = await service.RelocateFileSourcesAsync(sources, project, _projectDir);
 
-        // Assert
+        // Assert: the per-property failure path tags the entry with the GUID and property,
+        // which lets us tell it apart from the source-not-found branch.
         Assert.Multiple(() =>
         {
             Assert.That(result.SuccessCount, Is.EqualTo(0));
             Assert.That(result.FailedItems, Has.Count.EqualTo(1));
-            Assert.That(result.FailedItems[0], Does.Contain("asset.bin"));
+            Assert.That(result.FailedItems[0], Does.Contain(id.ToString()));
+            Assert.That(result.FailedItems[0], Does.Contain("NonExistentProperty"));
         });
     }
 
