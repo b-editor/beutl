@@ -1,65 +1,104 @@
 ﻿using System.Collections.Specialized;
+using Beutl.Logging;
 using Beutl.Services;
+using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
+using Reactive.Bindings.Extensions;
 
 namespace Beutl.ViewModels;
 
 public class EditorHostViewModel
 {
+    private readonly ILogger _logger = Log.CreateLogger<EditorHostViewModel>();
     private readonly ProjectService _projectService = ProjectService.Current;
     private readonly EditorService _editorService = EditorService.Current;
 
     public EditorHostViewModel()
     {
-        _projectService.ProjectObservable.Subscribe(item => ProjectChanged(item.New, item.Old));
+        _projectService.ProjectObservable
+            .ObserveOnUIDispatcher()
+            .Subscribe(item => _ = OnProjectChangedAsync(item.New, item.Old));
     }
 
     public IReactiveProperty<EditorTabItem?> SelectedTabItem => _editorService.SelectedTabItem;
 
-    private async void ProjectChanged(Project? @new, Project? old)
+    private async Task OnProjectChangedAsync(Project? @new, Project? old)
     {
-        var oldItems = _editorService.TabItems.ToArray();
-        _editorService.TabItems.Clear();
-
-        // プロジェクトが閉じた
-        if (old != null)
+        try
         {
-            old.Items.CollectionChanged -= Project_Items_CollectionChanged;
-        }
+            var oldItems = _editorService.TabItems.ToArray();
+            _editorService.TabItems.Clear();
 
-        // プロジェクトが開いた
-        if (@new != null)
-        {
-            @new.Items.CollectionChanged += Project_Items_CollectionChanged;
-            foreach (ProjectItem item in @new.Items)
+            // プロジェクトが閉じた
+            if (old != null)
             {
-                _editorService.ActivateTabItem(item);
+                old.Items.CollectionChanged -= Project_Items_CollectionChanged;
+            }
+
+            // プロジェクトが開いた
+            if (@new != null)
+            {
+                @new.Items.CollectionChanged += Project_Items_CollectionChanged;
+                foreach (ProjectItem item in @new.Items)
+                {
+                    _editorService.ActivateTabItem(item);
+                }
+            }
+
+            foreach (var item in oldItems)
+            {
+                try
+                {
+                    await item.DisposeAsync();
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to dispose editor tab item.");
+                }
             }
         }
-
-        foreach (var item in oldItems)
+        catch (Exception ex)
         {
-            await item.DisposeAsync();
+            _logger.LogError(ex, "Unhandled exception in ProjectChanged.");
         }
     }
 
-    private async void Project_Items_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    private void Project_Items_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
-        if (e.Action == NotifyCollectionChangedAction.Add &&
-            e.NewItems != null)
+        _ = HandleProjectItemsChangedAsync(e);
+    }
+
+    private async Task HandleProjectItemsChangedAsync(NotifyCollectionChangedEventArgs e)
+    {
+        try
         {
-            foreach (ProjectItem item in e.NewItems.OfType<ProjectItem>())
+            if (e.Action == NotifyCollectionChangedAction.Add &&
+                e.NewItems != null)
             {
-                _editorService.ActivateTabItem(item);
+                foreach (ProjectItem item in e.NewItems.OfType<ProjectItem>())
+                {
+                    _editorService.ActivateTabItem(item);
+                }
+            }
+            else if (e.Action == NotifyCollectionChangedAction.Remove &&
+                     e.OldItems != null)
+            {
+                foreach (ProjectItem item in e.OldItems.OfType<ProjectItem>())
+                {
+                    try
+                    {
+                        await _editorService.CloseTabItem(item);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Failed to close tab for removed project item.");
+                    }
+                }
             }
         }
-        else if (e.Action == NotifyCollectionChangedAction.Remove &&
-                 e.OldItems != null)
+        catch (Exception ex)
         {
-            foreach (ProjectItem item in e.OldItems.OfType<ProjectItem>())
-            {
-                await _editorService.CloseTabItem(item);
-            }
+            _logger.LogError(ex, "Unhandled exception in Project_Items_CollectionChanged.");
         }
     }
 }
