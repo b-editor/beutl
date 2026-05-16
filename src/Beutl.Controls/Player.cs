@@ -261,7 +261,7 @@ public class Player : RangeBase
         }
 
         _currentTimeTextBox.Classes.Add("invalid");
-        ToolTip.SetTip(_currentTimeTextBox, !string.IsNullOrEmpty(args.Error) ? args.Error : "Cannot process timecode submission.");
+        ToolTip.SetTip(_currentTimeTextBox, !string.IsNullOrEmpty(args.Error) ? args.Error : Beutl.Language.MessageStrings.UnexpectedError);
         _currentTimeTextBox.SelectAll();
     }
 
