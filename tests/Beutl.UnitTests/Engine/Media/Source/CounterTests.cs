@@ -160,26 +160,37 @@ public class CounterTests
     [Test]
     public void ParallelTryAddRefRace_NeverObservesDisposedValue()
     {
-        const int Trials = 20;
+        // Two threads race against each other through a Barrier so both
+        // actually contend on the same Counter:
+        //  - consumer: TryAddRef -> read Value -> Release (the call-site
+        //    pattern in VideoSource/ImageSource/SoundSource)
+        //  - releaser: drops the initial reference at an unpredictable
+        //    point during the consumer's loop, forcing the TOCTOU window
+        //    the volatile+CAS implementation could not close.
+        const int Trials = 200;
+        const int ConsumerIterations = 5_000;
+        int totalTryAddRefSuccesses = 0;
 
         for (int trial = 0; trial < Trials; trial++)
         {
             var fake = new Fake();
             var counter = new Counter<Fake>(fake, null);
 
-            var ready = new ManualResetEventSlim();
+            var barrier = new Barrier(2);
             int observedDisposed = 0;
+            int tryAddRefSuccesses = 0;
 
             var consumer = Task.Run(() =>
             {
-                ready.Wait();
-                for (int i = 0; i < 2_000; i++)
+                barrier.SignalAndWait();
+                for (int i = 0; i < ConsumerIterations; i++)
                 {
                     if (!counter.TryAddRef())
                     {
-                        break;
+                        continue;
                     }
 
+                    Interlocked.Increment(ref tryAddRefSuccesses);
                     try
                     {
                         Fake value = counter.Value;
@@ -197,16 +208,21 @@ public class CounterTests
 
             var releaser = Task.Run(() =>
             {
-                ready.Wait();
-                Thread.Yield();
+                barrier.SignalAndWait();
                 counter.Release();
             });
 
-            ready.Set();
             Task.WaitAll(consumer, releaser);
 
             Assert.That(observedDisposed, Is.Zero, $"Trial {trial}: TryAddRef succeeded but observed disposed value");
             Assert.That(fake.DisposeCount, Is.EqualTo(1), $"Trial {trial}: value not disposed exactly once");
+            totalTryAddRefSuccesses += tryAddRefSuccesses;
         }
+
+        // Per-trial scheduling can cause the releaser to win the race
+        // before the consumer enters its loop. Across 200 trials we
+        // expect many successful interleavings — if zero, the test
+        // never actually exercised the TOCTOU window.
+        Assert.That(totalTryAddRefSuccesses, Is.GreaterThan(0), "No trial observed an alive counter — race window collapsed across all trials");
     }
 }
