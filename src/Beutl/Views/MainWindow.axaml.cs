@@ -62,8 +62,29 @@ public sealed partial class MainWindow : AppWindow
         mainView.Focus();
     }
 
+    private bool _captureStopped;
+    private Task? _captureStopTask;
+
     protected override void OnClosing(WindowClosingEventArgs e)
     {
+        if (!_captureStopped)
+        {
+            if (_captureStopTask is not null)
+            {
+                // A shutdown task is already draining ffmpeg from a prior close
+                // attempt; keep cancelling until that task finalizes and calls Close().
+                e.Cancel = true;
+                return;
+            }
+
+            if (mainView is { HasActiveCapture: true } mv)
+            {
+                e.Cancel = true;
+                _captureStopTask = StopCaptureAndCloseAsync(mv);
+                return;
+            }
+        }
+
         base.OnClosing(e);
         ViewConfig viewConfig = GlobalConfiguration.Instance.ViewConfig;
         viewConfig.WindowSize = ((int)ClientSize.Width, (int)ClientSize.Height);
@@ -74,5 +95,12 @@ public sealed partial class MainWindow : AppWindow
         {
             viewModel.Dispose();
         }
+    }
+
+    private async Task StopCaptureAndCloseAsync(MainView mv)
+    {
+        await mv.EnsureCaptureStoppedAsync();
+        _captureStopped = true;
+        Close();
     }
 }

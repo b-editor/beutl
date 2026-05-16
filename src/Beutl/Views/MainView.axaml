@@ -206,6 +206,12 @@
                     <MenuItem Click="ThrowUnhandledException_Click"
                               Header="Throw Unhandled Exception"
                               IsVisible="{Binding IsDebuggerAttached}" />
+                    <MenuItem Click="StartWindowCapture_Click"
+                              Header="Start Window Capture"
+                              IsVisible="{Binding IsDebuggerAttached}" />
+                    <MenuItem Click="StopWindowCapture_Click"
+                              Header="Stop Window Capture"
+                              IsVisible="{Binding IsDebuggerAttached}" />
                     <MenuItem Click="GoToInformationPage" Header="{x:Static lang:Strings.Info}" />
                 </MenuItem>
             </Menu>

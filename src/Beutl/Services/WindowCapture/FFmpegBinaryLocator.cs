@@ -1,0 +1,98 @@
+﻿using System.Diagnostics;
+using System.Runtime.InteropServices;
+
+namespace Beutl.Services.WindowCapture;
+
+internal static class FFmpegBinaryLocator
+{
+    private static string ExecutableFileName =>
+        OperatingSystem.IsWindows() ? "ffmpeg.exe" : "ffmpeg";
+
+    public static string? Find()
+    {
+        foreach (string candidate in EnumerateCandidatePaths())
+        {
+            // Existence alone is not enough — a stale or non-executable file at a probed
+            // location would otherwise shadow a working ffmpeg on PATH.
+            if (File.Exists(candidate) && CanLaunch(candidate))
+                return candidate;
+        }
+
+        return CanLaunch("ffmpeg") ? "ffmpeg" : null;
+    }
+
+    private static IEnumerable<string> EnumerateCandidatePaths()
+    {
+        string home = BeutlEnvironment.GetHomeDirectoryPath();
+        yield return Path.Combine(home, "ffmpeg", ExecutableFileName);
+        yield return Path.Combine(home, "ffmpeg", "bin", ExecutableFileName);
+
+        if (OperatingSystem.IsMacOS())
+        {
+            yield return "/opt/homebrew/bin/ffmpeg";
+            yield return "/usr/local/bin/ffmpeg";
+            yield return "/opt/homebrew/opt/ffmpeg/bin/ffmpeg";
+            yield return "/usr/local/opt/ffmpeg/bin/ffmpeg";
+        }
+        else if (OperatingSystem.IsWindows())
+        {
+            yield return Path.Combine(
+                AppContext.BaseDirectory,
+                "runtimes",
+                GetWindowsRuntimeIdentifier(),
+                "native",
+                "ffmpeg.exe");
+        }
+    }
+
+    private static string GetWindowsRuntimeIdentifier() => RuntimeInformation.ProcessArchitecture switch
+    {
+        Architecture.Arm64 => "win-arm64",
+        Architecture.X86 => "win-x86",
+        _ => "win-x64",
+    };
+
+    private static bool CanLaunch(string path)
+    {
+        Process? process = null;
+        try
+        {
+            process = Process.Start(new ProcessStartInfo
+            {
+                FileName = path,
+                Arguments = "-version",
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+            });
+            if (process is null) return false;
+
+            // Drain stdout/stderr so the child does not block on a full pipe when
+            // ffmpeg -version produces a long configuration banner.
+            process.OutputDataReceived += (_, _) => { };
+            process.ErrorDataReceived += (_, _) => { };
+            process.BeginOutputReadLine();
+            process.BeginErrorReadLine();
+
+            if (!process.WaitForExit(2000))
+            {
+                // Disposing the Process object does not terminate the underlying process,
+                // so explicitly kill it to avoid leaving a stray ffmpeg around.
+                try { process.Kill(entireProcessTree: true); }
+                catch { /* best effort */ }
+                return false;
+            }
+
+            return process.ExitCode == 0;
+        }
+        catch
+        {
+            return false;
+        }
+        finally
+        {
+            process?.Dispose();
+        }
+    }
+}

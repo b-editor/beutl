@@ -9,8 +9,10 @@ using Beutl.Pages;
 using Beutl.Services;
 using Beutl.Services.PrimitiveImpls;
 using Beutl.Services.Tutorials;
+using Beutl.Services.WindowCapture;
 using Beutl.Utilities;
 using Beutl.ViewModels;
+using Beutl.ViewModels.Dialogs;
 using Beutl.Views.Dialogs;
 using Beutl.Views.Tutorial;
 using DynamicData;
@@ -28,6 +30,8 @@ public sealed partial class MainView : UserControl
     private readonly ILogger<MainView> _logger = Log.CreateLogger<MainView>();
     private readonly CompositeDisposable _disposables = [];
     private readonly Dictionary<ToolWindowExtension, List<Window>> _openToolWindows = new();
+    private WindowCaptureSession? _captureSession;
+    private bool _captureStopInProgress;
 
     public MainView()
     {
@@ -428,7 +432,9 @@ public sealed partial class MainView : UserControl
     }
 
     [Conditional("DEBUG")]
-    private void GC_Collect_Click(object? sender, RoutedEventArgs e)
+    private void GC_Collect_Click(object? sender, RoutedEventArgs e) => RunGcCollect();
+
+    internal void RunGcCollect()
     {
         DateTime dateTime = DateTime.UtcNow;
         long totalBytes = GC.GetTotalMemory(false);
@@ -448,7 +454,9 @@ public sealed partial class MainView : UserControl
     }
 
     [Conditional("DEBUG")]
-    private void MonitorKeyModifier_Click(object? sender, RoutedEventArgs e)
+    private void MonitorKeyModifier_Click(object? sender, RoutedEventArgs e) => OpenKeyModifierMonitor();
+
+    internal void OpenKeyModifierMonitor()
     {
         if (TopLevel.GetTopLevel(this) is Window owner)
         {
@@ -457,12 +465,135 @@ public sealed partial class MainView : UserControl
     }
 
     [Conditional("DEBUG")]
-    private void ThrowUnhandledException_Click(object? sender, RoutedEventArgs e)
+    private void ThrowUnhandledException_Click(object? sender, RoutedEventArgs e) => ThrowDebugException();
+
+    internal void ThrowDebugException()
     {
         throw new Exception("An unhandled exception occurred.");
     }
 
-    private async void GoToInformationPage(object? sender, RoutedEventArgs e)
+    [Conditional("DEBUG")]
+    private async void StartWindowCapture_Click(object? sender, RoutedEventArgs e) => await StartWindowCaptureAsync();
+
+    internal async Task StartWindowCaptureAsync()
+    {
+        if (_captureSession is not null)
+        {
+            NotificationService.ShowWarning(
+                "Window Capture",
+                "A capture session is already running. Stop it before starting a new one.");
+            return;
+        }
+
+        if (TopLevel.GetTopLevel(this) is not Window window)
+            return;
+
+        // ffmpeg -version probes run synchronously inside Find(); push the work off
+        // the UI thread so a slow probe doesn't make the menu click appear to hang.
+        string? ffmpegPath = await Task.Run(FFmpegBinaryLocator.Find);
+        if (ffmpegPath is null)
+        {
+            NotificationService.ShowError(
+                "Window Capture",
+                "ffmpeg executable was not found. Install ffmpeg and ensure it is on PATH.");
+            return;
+        }
+
+        var dialogVm = new WindowCaptureDialogViewModel();
+        var dialog = new WindowCaptureDialog { DataContext = dialogVm };
+        ContentDialogResult result = await dialog.ShowAsync();
+        if (result != ContentDialogResult.Primary || !dialogVm.CanStart.Value)
+            return;
+
+        WindowCaptureSession? session = null;
+        try
+        {
+            session = new WindowCaptureSession(
+                window,
+                dialogVm.Scale.Value,
+                dialogVm.FrameRate.Value,
+                dialogVm.OutputPath.Value!,
+                ffmpegPath);
+            session.Start();
+            _captureSession = session;
+
+            NotificationService.ShowInformation(
+                "Window Capture",
+                $"Recording started: {session.Width}x{session.Height} @ {session.FrameRate}fps");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to start window capture.");
+            if (session is not null)
+            {
+                try { await session.DisposeAsync(); }
+                catch (Exception disposeEx) { _logger.LogWarning(disposeEx, "Failed to dispose capture session after start failure."); }
+            }
+            NotificationService.ShowError("Window Capture", ex.Message);
+        }
+    }
+
+    [Conditional("DEBUG")]
+    private async void StopWindowCapture_Click(object? sender, RoutedEventArgs e) => await StopWindowCaptureAsync();
+
+    internal async Task StopWindowCaptureAsync()
+    {
+        // Re-entrancy guard: a second Stop click while the first is in flight would
+        // otherwise re-enter with the same session, call StopAsync() (which returns
+        // immediately because _stopped=true), and emit a duplicate "Saved" toast
+        // while the first stop is still finalizing.
+        if (_captureStopInProgress) return;
+        WindowCaptureSession? session = _captureSession;
+        if (session is null)
+        {
+            NotificationService.ShowWarning("Window Capture", "No active capture session.");
+            return;
+        }
+
+        _captureStopInProgress = true;
+        try
+        {
+            await session.StopAsync();
+            _captureSession = null;
+            NotificationService.ShowSuccess(
+                "Window Capture",
+                $"Saved: {session.OutputPath}\nCaptured {session.CapturedFrameCount} frames (dropped {session.DroppedFrameCount}).");
+        }
+        catch (Exception ex)
+        {
+            _captureSession = null;
+            _logger.LogError(ex, "Failed to stop window capture.");
+            NotificationService.ShowError("Window Capture", ex.Message);
+        }
+        finally
+        {
+            _captureStopInProgress = false;
+        }
+    }
+
+    internal bool HasActiveCapture => _captureSession is not null;
+
+    internal async Task EnsureCaptureStoppedAsync()
+    {
+        if (_captureStopInProgress)
+        {
+            // A user-initiated stop is already running; spin briefly until it finishes
+            // so window close waits for the same teardown rather than racing with it.
+            while (_captureStopInProgress)
+                await Task.Yield();
+            return;
+        }
+
+        WindowCaptureSession? session = _captureSession;
+        if (session is null) return;
+        try { await session.StopAsync(); }
+        catch (Exception ex) { _logger.LogWarning(ex, "Failed to stop capture during shutdown."); }
+        finally { _captureSession = null; }
+    }
+
+    private async void GoToInformationPage(object? sender, RoutedEventArgs e) => await GoToInformationPageAsync();
+
+    internal async Task GoToInformationPageAsync()
     {
         if (DataContext is MainViewModel viewModel && TopLevel.GetTopLevel(this) is Window window)
         {
@@ -502,7 +633,9 @@ public sealed partial class MainView : UserControl
         await dialog.ShowDialog(window);
     }
 
-    private async void OpenTutorialsDialog(object? sender, RoutedEventArgs e)
+    private async void OpenTutorialsDialog(object? sender, RoutedEventArgs e) => await ShowTutorialsDialogAsync();
+
+    internal async Task ShowTutorialsDialogAsync()
     {
         var dialog = new TutorialListDialog();
         await dialog.ShowAsync();
