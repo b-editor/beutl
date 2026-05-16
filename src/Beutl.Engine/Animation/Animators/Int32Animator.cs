@@ -1,4 +1,4 @@
-namespace Beutl.Animation.Animators;
+﻿namespace Beutl.Animation.Animators;
 
 public sealed class Int32Animator : Animator<int>
 {
