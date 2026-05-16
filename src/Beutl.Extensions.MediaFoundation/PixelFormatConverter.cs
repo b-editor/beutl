@@ -4,10 +4,13 @@ namespace Beutl.Embedding.MediaFoundation;
 namespace Beutl.Extensions.MediaFoundation;
 #endif
 
-// Software pixel-format conversions used by the Media Foundation encoder and as
-// a CPU fallback hook (Nv12ToBgra / P010ToRgba16 are not currently called by the
-// decode path — Source Reader's VideoProcessor handles SDR YUV→YUY2 there — but
-// they round-trip the encode-side conversions for tests and future use).
+// Software pixel-format conversions used by the Media Foundation encoder.
+// BgraToNv12 / Rgba16ToP010 are called from MFEncodingController.WriteVideoSample.
+// The inverse helpers (Nv12ToBgra / P010ToRgba16) are currently only exercised by
+// unit tests — Source Reader's VideoProcessorMFT handles SDR YUV→YUY2 on the
+// decode path, and the HDR decode path does not exist yet. They are kept here
+// for round-trip verification and so a future CPU decoder fallback has a
+// matrix-aware inverse ready.
 //
 // These are intentionally straightforward single-threaded scalar loops:
 // Media Foundation's Sink Writer / Source Reader already runs the heavy
@@ -132,30 +135,49 @@ internal static unsafe class PixelFormatConverter
         }
     }
 
-    // Inverse matrices (Q8 fixed-point) for each preset. Derived once from the
-    // forward Kr/Kb so the round-trip is symmetric. r = 256/219 * Y' + 2(1-Kr)*255/224 * Cr,
-    // g/b expressed similarly. ClampByte at the end keeps results in 8-bit RGB.
+    // Inverse matrices (Q8 fixed-point) for each preset. Coefficients are
+    // derived from the forward Kr/Kb so the round-trip is symmetric:
+    //   CrToR = round(256 · 2(1-Kr) · 255/224)
+    //   CbToB = round(256 · 2(1-Kb) · 255/224)
+    //   CbToG = round(256 · 2(1-Kb)·Kb/Kg · 255/224)
+    //   CrToG = round(256 · 2(1-Kr)·Kr/Kg · 255/224)
+    // Luma gain is fixed at 298 (≈ 256·255/219) for the 16..235 limited
+    // range and lives outside the struct so it cannot be overridden per
+    // preset. ClampByte at the consumer keeps results in 8-bit RGB.
+    //
+    // Field names mirror "Source → Destination": CrToR means "the
+    // coefficient that scales Cr when computing R". This avoids the
+    // visual collision with the forward YuvMatrix8 where the identically-
+    // spelled fields meant the opposite direction (e.g. Yr was R→Y there).
     public readonly struct InvYuvMatrix8
     {
-        public readonly short YGain;        // Q8 luma gain
-        public readonly short Yr;           // Cr → R coefficient
-        public readonly short Yg_cb, Yg_cr; // Cb / Cr → G coefficients (subtract)
-        public readonly short Yb;           // Cb → B coefficient
+        public readonly short CrToR;        // Cr → R coefficient (added)
+        public readonly short CbToG, CrToG; // Cb/Cr → G coefficients (consumer subtracts)
+        public readonly short CbToB;        // Cb → B coefficient (added)
 
-        public InvYuvMatrix8(short yGain, short yr, short ygCb, short ygCr, short yb)
+        public InvYuvMatrix8(short crToR, short cbToG, short crToG, short cbToB)
         {
-            YGain = yGain;
-            Yr = yr;
-            Yg_cb = ygCb;
-            Yg_cr = ygCr;
-            Yb = yb;
+            CrToR = crToR;
+            CbToG = cbToG;
+            CrToG = crToG;
+            CbToB = cbToB;
         }
 
-        public static readonly InvYuvMatrix8 Bt709 = new(298, 459, 55, 136, 541);
-        public static readonly InvYuvMatrix8 Bt601 = new(298, 409, 100, 208, 516);
-        public static readonly InvYuvMatrix8 Bt2020 = new(298, 430, 48, 167, 549);
-        public static readonly InvYuvMatrix8 Smpte240M = new(298, 451, 56, 138, 535);
+        // Kr=0.2126, Kb=0.0722
+        public static readonly InvYuvMatrix8 Bt709 = new(459, 55, 136, 541);
+
+        // Kr=0.299, Kb=0.114
+        public static readonly InvYuvMatrix8 Bt601 = new(409, 100, 208, 516);
+
+        // Kr=0.2627, Kb=0.0593
+        public static readonly InvYuvMatrix8 Bt2020 = new(430, 48, 167, 549);
+
+        // Kr=0.212, Kb=0.087
+        public static readonly InvYuvMatrix8 Smpte240M = new(459, 66, 139, 532);
     }
+
+    // Limited-range 8-bit luma gain in Q8: round(256 · 255/219) = 298.
+    private const int LimitedRangeYGain = 298;
 
     public static void Nv12ToBgra(
         byte* src, int srcStride,
@@ -183,10 +205,10 @@ internal static unsafe class PixelFormatConverter
                 int yv = yRow[x] - 16;
                 int cb = uvRow[(x & ~1) + 0] - 128;
                 int cr = uvRow[(x & ~1) + 1] - 128;
-                int luma = matrix.YGain * yv;
-                int r = (luma + matrix.Yr * cr + 128) >> 8;
-                int g = (luma - matrix.Yg_cb * cb - matrix.Yg_cr * cr + 128) >> 8;
-                int b = (luma + matrix.Yb * cb + 128) >> 8;
+                int luma = LimitedRangeYGain * yv;
+                int r = (luma + matrix.CrToR * cr + 128) >> 8;
+                int g = (luma - matrix.CbToG * cb - matrix.CrToG * cr + 128) >> 8;
+                int b = (luma + matrix.CbToB * cb + 128) >> 8;
                 dstRow[x * 4 + 0] = ClampByte(b);
                 dstRow[x * 4 + 1] = ClampByte(g);
                 dstRow[x * 4 + 2] = ClampByte(r);
