@@ -1210,8 +1210,8 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
         ElementViewModel? first = SelectedElements.FirstOrDefault();
         if (first is null) return;
 
-        // ドラッグ移動 (ElementView.axaml.cs) と同じく、選択がグループの一部なら
-        // グループ全体を移動対象に展開する。
+        // 他の編集操作との一貫性と、グループの位置関係が崩れることを防ぐため、
+        // メンバーが 1 つだけ選択されていてもグループ全体を移動対象にする。
         IReadOnlyList<ElementViewModel> targets = first.GetGroupOrSelectedElements();
         if (targets.Count == 0) return;
 
