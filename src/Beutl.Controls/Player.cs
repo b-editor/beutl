@@ -213,28 +213,19 @@ public class Player : RangeBase
         if (_currentTimeTextBox == null) return;
         string input = _currentTimeTextBox.Text ?? string.Empty;
         var handler = CurrentTimeSubmitted;
-        if (handler == null)
+
+        TimecodeSubmittedEventArgs args = new TimecodeSubmittedEventArgs(input);
+        handler?.Invoke(this, args);
+
+        if (args.Handled)
         {
             EndEditCurrentTime();
             return;
         }
 
-        var args = new TimecodeSubmittedEventArgs(input);
-        handler(this, args);
-
-        if (args.Handled)
-        {
-            EndEditCurrentTime();
-        }
-        else
-        {
-            _currentTimeTextBox.Classes.Add("invalid");
-            if (!string.IsNullOrEmpty(args.Error))
-            {
-                ToolTip.SetTip(_currentTimeTextBox, args.Error);
-            }
-            _currentTimeTextBox.SelectAll();
-        }
+        _currentTimeTextBox.Classes.Add("invalid");
+        ToolTip.SetTip(_currentTimeTextBox, !string.IsNullOrEmpty(args.Error) ? args.Error : "Cannot process timecode submission.");
+        _currentTimeTextBox.SelectAll();
     }
 
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
