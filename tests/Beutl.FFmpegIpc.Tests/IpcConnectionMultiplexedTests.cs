@@ -6,9 +6,14 @@ using Beutl.FFmpegIpc.Transport;
 namespace Beutl.FFmpegIpc.Tests;
 
 /// <summary>
-/// IpcConnection.SendAndReceiveMultiplexedAsync のキャンセル順序と
-/// 競合パスを検証する。NamedPipe を使ったクロスプラットフォーム動作。
+/// IpcConnection.SendAndReceiveMultiplexedAsync のキャンセル順序・競合パス・
+/// ドロップ応答フック・受信ループ終端処理を検証する。
+/// NamedPipe を使ったクロスプラットフォーム動作。
 /// </summary>
+/// <remarks>
+/// NamedPipe をテストごとに多数生成しタイミングに依存するため、
+/// 他フィクスチャと並列に動作させない。
+/// </remarks>
 [TestFixture, NonParallelizable]
 public class IpcConnectionMultiplexedTests
 {
@@ -129,9 +134,9 @@ public class IpcConnectionMultiplexedTests
             await Task.Delay(50);
             cts.Cancel();
 
-            Assert.CatchAsync<OperationCanceledException>(async () => await requestTask);
+            var oce = Assert.CatchAsync<OperationCanceledException>(async () => await requestTask);
+            Assert.That(oce!.CancellationToken, Is.EqualTo(cts.Token));
 
-            // dict は撤去済み。
             await WaitUntil(() => PendingCount(conn) == 0, TimeSpan.FromSeconds(2));
             Assert.That(PendingCount(conn), Is.EqualTo(0));
         }
@@ -170,8 +175,10 @@ public class IpcConnectionMultiplexedTests
             await MessageSerializer.WriteMessageAsync(server, resp);
 
             await WaitUntil(() => dropped.Count >= 1, TimeSpan.FromSeconds(2));
-            Assert.That(dropped.Count, Is.GreaterThanOrEqualTo(1));
-            Assert.That(dropped.Any(m => m.Id == id), Is.True);
+            Assert.That(dropped.Count, Is.EqualTo(1));
+            Assert.That(dropped.TryDequeue(out var dropMsg), Is.True);
+            Assert.That(dropMsg!.Id, Is.EqualTo(id));
+            Assert.That(dropMsg.Type, Is.EqualTo(ResponseType));
         }
         finally
         {
@@ -237,6 +244,86 @@ public class IpcConnectionMultiplexedTests
             await WaitUntil(() => PendingCount(conn) == 0, TimeSpan.FromSeconds(2));
             Assert.That(PendingCount(conn), Is.EqualTo(0), $"iter={iter}");
         }
+    }
+
+    [Test]
+    public void StartMultiplexedReceive_CalledTwice_Throws()
+    {
+        var (server, client) = ConnectPair();
+        using var _ = server;
+        using var conn = new IpcConnection(client);
+        conn.StartMultiplexedReceive();
+
+        Assert.Throws<InvalidOperationException>(() => conn.StartMultiplexedReceive());
+    }
+
+    [Test]
+    public async Task ErrorResponse_ThrowsWorkerException_AndDictIsClean()
+    {
+        var (server, client) = ConnectPair();
+        using var conn = new IpcConnection(client);
+        conn.StartMultiplexedReceive();
+
+        var workerCts = new CancellationTokenSource();
+        var workerTask = Task.Run(async () =>
+        {
+            var req = await MessageSerializer.ReadMessageAsync(server, workerCts.Token);
+            if (req == null) return;
+            var resp = IpcMessage.CreateError(req.Id, "boom", "stack-here");
+            await MessageSerializer.WriteMessageAsync(server, resp, workerCts.Token);
+        });
+
+        try
+        {
+            int id = conn.NextId();
+            var req = IpcMessage.CreateSimple(id, RequestType);
+            var ex = Assert.ThrowsAsync<FFmpegWorkerException>(
+                async () => await conn.SendAndReceiveAsync(req));
+            Assert.That(ex!.Message, Is.EqualTo("boom"));
+
+            await WaitUntil(() => PendingCount(conn) == 0, TimeSpan.FromSeconds(2));
+            Assert.That(PendingCount(conn), Is.EqualTo(0));
+        }
+        finally
+        {
+            workerCts.Cancel();
+            server.Dispose();
+            await workerTask;
+        }
+    }
+
+    [Test]
+    public async Task BrokenPipe_PendingRequestsObserveIOException()
+    {
+        var (server, client) = ConnectPair();
+        using var conn = new IpcConnection(client);
+        conn.StartMultiplexedReceive();
+
+        // worker は何も返さない。リクエストを 3 本立てて in-flight にしてから
+        // server 側を強制クローズし、受信ループを IOException で終わらせる。
+        var tasks = new List<Task<IpcMessage>>();
+        for (int i = 0; i < 3; i++)
+        {
+            int id = conn.NextId();
+            var req = IpcMessage.CreateSimple(id, RequestType);
+            tasks.Add(conn.SendAndReceiveAsync(req).AsTask());
+        }
+
+        await WaitUntil(() => PendingCount(conn) == 3, TimeSpan.FromSeconds(2));
+
+        server.Dispose();
+
+        var exceptions = await Task.WhenAll(tasks.Select(async t =>
+        {
+            try { await t; return (Exception?)null; }
+            catch (Exception ex) { return ex; }
+        }));
+
+        Assert.That(exceptions, Has.All.Not.Null);
+        // 全タスクが broken-pipe 例外として観測される (OperationCanceledException ではない)。
+        Assert.That(exceptions, Has.All.InstanceOf<IOException>());
+        await WaitUntil(() => PendingCount(conn) == 0, TimeSpan.FromSeconds(2));
+        Assert.That(PendingCount(conn), Is.EqualTo(0));
     }
 
     private static async Task WaitUntil(Func<bool> predicate, TimeSpan timeout)
