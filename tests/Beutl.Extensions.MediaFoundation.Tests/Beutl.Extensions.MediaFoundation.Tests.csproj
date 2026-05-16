@@ -4,9 +4,13 @@
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <!-- MediaFoundation native APIs only resolve on Windows, but PixelFormatConverter
-         and MFColorSpaceHelper are pure-logic (Vortice enum + Beutl.Media) so they
-         exercise on Linux/macOS CI too. -->
+    <!-- PixelFormatConverter / MFColorSpaceHelper are pure-logic (Vortice enums +
+         Beutl.Media) so they could in principle run on Linux/macOS too, but the
+         source project's MFBuildIn=True branch overrides AssemblyName mid-build
+         and that confuses NerdBank.GitVersioning into writing deps.json with
+         fileVersion=0.0.0.0 — the test host then refuses to load the runtime
+         assembly on non-Windows. Test fixtures are tagged [Platform("Win")]
+         until that root cause is addressed. Tests do run on Windows CI. -->
     <TargetFrameworks>net10.0</TargetFrameworks>
     <NoWarn>$(NoWarn);CA1416</NoWarn>
   </PropertyGroup>
