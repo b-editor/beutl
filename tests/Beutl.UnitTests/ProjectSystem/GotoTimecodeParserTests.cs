@@ -1,4 +1,4 @@
-using Beutl;
+﻿using Beutl;
 using Beutl.ProjectSystem;
 
 namespace Beutl.UnitTests.ProjectSystem;
