@@ -1256,6 +1256,8 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
 
     private void FlushPendingNudgeCommit()
     {
+        // IsEnabled == true は「まだ Commit していないナッジが残っている」状態を示す。
+        // 既に Tick で Commit 済みのものを Dispose 時に二重コミットしないためのガード。
         if (_nudgeCommitTimer is null || !_nudgeCommitTimer.IsEnabled) return;
         _nudgeCommitTimer.Stop();
         EditorContext.GetRequiredService<HistoryManager>().Commit(CommandNames.MoveElement);
