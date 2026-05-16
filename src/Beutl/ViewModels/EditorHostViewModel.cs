@@ -29,34 +29,39 @@ public class EditorHostViewModel
             var oldItems = _editorService.TabItems.ToArray();
             _editorService.TabItems.Clear();
 
-            // プロジェクトが閉じた
-            if (old != null)
+            try
             {
-                old.Items.CollectionChanged -= Project_Items_CollectionChanged;
-            }
+                // プロジェクトが閉じた
+                if (old != null)
+                {
+                    old.Items.CollectionChanged -= Project_Items_CollectionChanged;
+                }
 
-            // プロジェクトが開いた
-            if (@new != null)
-            {
-                @new.Items.CollectionChanged += Project_Items_CollectionChanged;
-                foreach (ProjectItem item in @new.Items)
+                // プロジェクトが開いた
+                if (@new != null)
                 {
-                    _editorService.ActivateTabItem(item);
+                    @new.Items.CollectionChanged += Project_Items_CollectionChanged;
+                    foreach (ProjectItem item in @new.Items)
+                    {
+                        _editorService.ActivateTabItem(item);
+                    }
                 }
             }
-
-            foreach (var item in oldItems)
+            finally
             {
-                try
+                foreach (var item in oldItems)
                 {
-                    await item.DisposeAsync();
-                }
-                catch (OperationCanceledException)
-                {
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Failed to dispose editor tab item. FilePath={FilePath}", item.FilePath.Value);
+                    try
+                    {
+                        await item.DisposeAsync();
+                    }
+                    catch (OperationCanceledException)
+                    {
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Failed to dispose editor tab item. FilePath={FilePath}", item.FilePath.Value);
+                    }
                 }
             }
         }
