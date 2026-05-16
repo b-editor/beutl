@@ -2,6 +2,7 @@
 using Avalonia.Controls;
 using Beutl.Animation;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
+using Beutl.Engine;
 using Beutl.Language;
 using Beutl.Media;
 using Beutl.ProjectSystem;
@@ -231,7 +232,12 @@ public partial class EditViewModel : IContextCommandHandler, IContextCommandStat
             // では届かない。Hierarchical ツリーを直接辿る必要がある。
             foreach (KeyFrameAnimation anim in EnumerateKeyFrameAnimations(el))
             {
-                TimeSpan offset = anim.UseGlobalClock ? TimeSpan.Zero : el.Start;
+                // UseGlobalClock=false の場合、KeyFrameAnimation<T>.GetAnimatedValue は直近の親
+                // EngineObject.TimeRange.Start でローカル時刻を解釈する (KeyFrameAnimation{T}.cs:35)。
+                // time-anchored で Element.Start とズレるケースに備え、実際の owner から offset を取る。
+                TimeSpan offset = anim.UseGlobalClock
+                    ? TimeSpan.Zero
+                    : anim.FindHierarchicalParent<EngineObject>()?.TimeRange.Start ?? el.Start;
                 foreach (IKeyFrame kf in anim.KeyFrames)
                 {
                     TimeSpan time = kf.KeyTime + offset;
