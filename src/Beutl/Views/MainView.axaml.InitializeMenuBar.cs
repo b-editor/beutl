@@ -267,6 +267,10 @@ public partial class MainView
                     NotificationService.ShowSuccess(Strings.ExportProject, MessageStrings.OperationCompletedSuccessfully);
                 }
             }
+            catch (OperationCanceledException)
+            {
+                // User-initiated cancellation is not a failure.
+            }
             catch (Exception ex)
             {
                 _ = ex.Handle();
@@ -331,6 +335,10 @@ public partial class MainView
             {
                 NotificationService.ShowError(Strings.ImportProject, MessageStrings.OperationFailed);
             }
+        }
+        catch (OperationCanceledException)
+        {
+            // User-initiated cancellation is not a failure.
         }
         catch (Exception ex)
         {
