@@ -166,21 +166,30 @@ public sealed partial class MainView : UserControl
     private void InitExtMenuItems(MainViewModel viewModel)
     {
         // ToolTabExtensionをメニューに表示する
-        static MenuItem CreateToolTabMenuItem(ToolTabExtension item)
+        MenuItem CreateToolTabMenuItem(ToolTabExtension item)
         {
             var menuItem = new MenuItem() { Header = item.Header, DataContext = item };
 
             menuItem.Click += (s, e) =>
             {
-                if (EditorService.Current.SelectedTabItem.Value?.Context.Value is IEditorContext editorContext
-                    && s is MenuItem { DataContext: ToolTabExtension ext }
-                    && ext.TryCreateContext(editorContext, out IToolContext? toolContext))
+                if (EditorService.Current.SelectedTabItem.Value?.Context.Value is not IEditorContext editorContext
+                    || s is not MenuItem { DataContext: ToolTabExtension ext })
                 {
-                    bool result = editorContext.OpenToolTab(toolContext);
-                    if (!result)
-                    {
-                        toolContext.Dispose();
-                    }
+                    return;
+                }
+
+                if (!ext.TryCreateContext(editorContext, out IToolContext? toolContext))
+                {
+                    _logger.LogWarning(
+                        "Tool tab '{ToolTabName}' rejected the editor context (gating failed)",
+                        ext.Name);
+                    return;
+                }
+
+                bool result = editorContext.OpenToolTab(toolContext);
+                if (!result)
+                {
+                    toolContext.Dispose();
                 }
             };
 

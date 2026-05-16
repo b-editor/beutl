@@ -4,16 +4,19 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Platform;
 using Beutl.Configuration;
+using Beutl.Logging;
 using Beutl.Services;
 using Beutl.ViewModels;
 using DynamicData;
 using DynamicData.Binding;
+using Microsoft.Extensions.Logging;
 using Reactive.Bindings.Extensions;
 
 namespace Beutl.Views;
 
 public sealed partial class MacWindow : Window
 {
+    private readonly ILogger<MacWindow> _logger = Log.CreateLogger<MacWindow>();
     private readonly Dictionary<ToolWindowExtension, List<Window>> _openToolWindows = new();
 
     public MacWindow()
@@ -149,21 +152,30 @@ public sealed partial class MacWindow : Window
         if (viewMenuItem == null || editorTabMenu == null || toolTabMenu == null || toolWindowMenu == null) return;
 
         // ToolTabExtensionをメニューに表示する
-        static NativeMenuItem CreateToolTabMenuItem(ToolTabExtension item)
+        NativeMenuItem CreateToolTabMenuItem(ToolTabExtension item)
         {
             var menuItem = new NativeMenuItem() { Header = item.Header, CommandParameter = item };
 
             menuItem.Click += (s, e) =>
             {
-                if (EditorService.Current.SelectedTabItem.Value?.Context.Value is IEditorContext editorContext
-                    && s is NativeMenuItem { CommandParameter: ToolTabExtension ext }
-                    && ext.TryCreateContext(editorContext, out IToolContext? toolContext))
+                if (EditorService.Current.SelectedTabItem.Value?.Context.Value is not IEditorContext editorContext
+                    || s is not NativeMenuItem { CommandParameter: ToolTabExtension ext })
                 {
-                    bool result = editorContext.OpenToolTab(toolContext);
-                    if (!result)
-                    {
-                        toolContext.Dispose();
-                    }
+                    return;
+                }
+
+                if (!ext.TryCreateContext(editorContext, out IToolContext? toolContext))
+                {
+                    _logger.LogWarning(
+                        "Tool tab '{ToolTabName}' rejected the editor context (gating failed)",
+                        ext.Name);
+                    return;
+                }
+
+                bool result = editorContext.OpenToolTab(toolContext);
+                if (!result)
+                {
+                    toolContext.Dispose();
                 }
             };
 
