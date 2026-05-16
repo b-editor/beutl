@@ -28,6 +28,10 @@
                             <Style Selector="icons|SymbolIcon">
                                 <Setter Property="FontSize" Value="20" />
                             </Style>
+                            <Style Selector="TextBox.invalid">
+                                <Setter Property="BorderBrush" Value="{DynamicResource SystemFillColorCriticalBrush}" />
+                                <Setter Property="BorderThickness" Value="2" />
+                            </Style>
                         </Grid.Styles>
 
                         <Slider Name="PART_Slider"
@@ -40,9 +44,19 @@
                                    Grid.Row="1"
                                    HorizontalAlignment="Left"
                                    VerticalAlignment="Center"
+                                   Cursor="IBeam"
                                    FontWeight="SemiBold"
                                    Foreground="{DynamicResource AccentFillColorDefaultBrush}"
                                    Text="{TemplateBinding CurrentTime}" />
+
+                        <TextBox Name="PART_CurrentTimeTextBox"
+                                 Grid.Row="1"
+                                 MinWidth="120"
+                                 Padding="4,2"
+                                 HorizontalAlignment="Left"
+                                 VerticalAlignment="Center"
+                                 FontWeight="SemiBold"
+                                 IsVisible="False" />
 
                         <TextBlock Name="PART_DurationTextBlock"
                                    Grid.Row="1"

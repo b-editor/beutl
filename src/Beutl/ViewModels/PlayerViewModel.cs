@@ -546,6 +546,36 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
         return (Scene.Start, Scene.Start + Scene.Duration);
     }
 
+    public Subject<Unit> BeginEditTimecodeRequested { get; } = new();
+
+    public void RequestEditTimecode()
+    {
+        BeginEditTimecodeRequested.OnNext(Unit.Default);
+    }
+
+    public bool TryGotoTimecode(string input, out string? error)
+    {
+        int rate = GetFrameRate();
+        IReadOnlyList<SceneMarker> markers = Scene?.Markers ?? (IReadOnlyList<SceneMarker>)Array.Empty<SceneMarker>();
+
+        if (!GotoTimecodeParser.TryParse(input, rate, _editorClock.CurrentTime.Value, markers, out TimeSpan ts, out error))
+        {
+            return false;
+        }
+
+        if (Scene != null)
+        {
+            TimeSpan frame = TimeSpan.FromSeconds(1d / rate);
+            TimeSpan max = Scene.Start + Scene.Duration - frame;
+            if (max < Scene.Start) max = Scene.Start;
+            if (ts < Scene.Start) ts = Scene.Start;
+            if (ts > max) ts = max;
+        }
+
+        _editorClock.CurrentTime.Value = ts.RoundToRate(rate);
+        return true;
+    }
+
     public void ToggleLoop()
     {
         IsLoopEnabled.Value = !IsLoopEnabled.Value;

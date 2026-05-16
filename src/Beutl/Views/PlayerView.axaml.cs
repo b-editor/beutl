@@ -70,6 +70,36 @@ public partial class PlayerView : UserControl
         DragDrop.SetAllowDrop(framePanel, true);
         framePanel.AddHandler(DragDrop.DragOverEvent, OnFrameDragOver);
         framePanel.AddHandler(DragDrop.DropEvent, OnFrameDrop);
+
+        Player.CurrentTimeSubmitted += OnPlayerCurrentTimeSubmitted;
+    }
+
+    private void OnPlayerCurrentTimeSubmitted(object? sender, Beutl.Controls.TimecodeSubmittedEventArgs e)
+    {
+        if (DataContext is not PlayerViewModel vm)
+        {
+            return;
+        }
+
+        if (vm.TryGotoTimecode(e.Input, out string? errorKey))
+        {
+            e.Handled = true;
+        }
+        else
+        {
+            e.Handled = false;
+            e.Error = LookupLocalizedError(errorKey);
+        }
+    }
+
+    private static string? LookupLocalizedError(string? errorKey)
+    {
+        return errorKey switch
+        {
+            "GotoTimecode_InvalidFormat" => Beutl.Language.Strings.GotoTimecode_InvalidFormat,
+            "GotoTimecode_MarkerNotFound" => Beutl.Language.Strings.GotoTimecode_MarkerNotFound,
+            _ => null,
+        };
     }
 
     private void SetupImageControl()
@@ -182,6 +212,11 @@ public partial class PlayerView : UserControl
         {
             vm.PreviewInvalidated += Player_PreviewInvalidated;
             Disposable.Create(vm, x => x.PreviewInvalidated -= Player_PreviewInvalidated)
+                .DisposeWith(_disposables);
+
+            vm.BeginEditTimecodeRequested
+                .ObserveOnUIDispatcher()
+                .Subscribe(_ => Player.BeginEditCurrentTime())
                 .DisposeWith(_disposables);
 
             vm.FrameMatrix

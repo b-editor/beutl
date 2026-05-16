@@ -82,6 +82,10 @@ public sealed class SceneEditorExtension : EditorExtension
         [
             new ContextCommandKeyGesture("OemQuestion")
         ]),
+        new("GotoTimecode", Strings.GotoTimecode, Strings.GotoTimecode_Description,
+        [
+            new ContextCommandKeyGesture("G")
+        ]),
     ];
 
     public override bool TryCreateEditor(CoreObject obj, [NotNullWhen(true)] out Control? editor)

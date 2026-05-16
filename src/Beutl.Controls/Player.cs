@@ -4,8 +4,24 @@ using Avalonia.Controls;
 using Avalonia.Controls.Presenters;
 using Avalonia.Controls.Primitives;
 using Avalonia.Data;
+using Avalonia.Input;
+using Avalonia.Interactivity;
 
 namespace Beutl.Controls;
+
+public sealed class TimecodeSubmittedEventArgs : EventArgs
+{
+    public TimecodeSubmittedEventArgs(string input)
+    {
+        Input = input;
+    }
+
+    public string Input { get; }
+
+    public bool Handled { get; set; }
+
+    public string Error { get; set; }
+}
 
 public class Player : RangeBase
 {
@@ -72,11 +88,15 @@ public class Player : RangeBase
     private Slider _slider;
     private ContentPresenter _innerLeftPresenter;
     private ContentPresenter _contentPresenter;
+    private TextBlock _currentTimeTextBlock;
+    private TextBox _currentTimeTextBox;
     private ICommand _playButtonCommand;
     private ICommand _nextButtonCommand;
     private ICommand _previousButtonCommand;
     private ICommand _endButtonCommand;
     private ICommand _startButtonCommand;
+
+    public event EventHandler<TimecodeSubmittedEventArgs> CurrentTimeSubmitted;
 
     public string Duration
     {
@@ -158,6 +178,63 @@ public class Player : RangeBase
         }
     }
 
+    public void BeginEditCurrentTime()
+    {
+        if (_currentTimeTextBox == null) return;
+
+        _currentTimeTextBox.Classes.Remove("invalid");
+        ToolTip.SetTip(_currentTimeTextBox, null);
+        _currentTimeTextBox.Text = _currentTime;
+        _currentTimeTextBox.IsVisible = true;
+        if (_currentTimeTextBlock != null)
+        {
+            _currentTimeTextBlock.IsVisible = false;
+        }
+        _currentTimeTextBox.Focus();
+        _currentTimeTextBox.SelectAll();
+    }
+
+    private void EndEditCurrentTime()
+    {
+        if (_currentTimeTextBox == null) return;
+        _currentTimeTextBox.IsVisible = false;
+        _currentTimeTextBox.Classes.Remove("invalid");
+        ToolTip.SetTip(_currentTimeTextBox, null);
+        if (_currentTimeTextBlock != null)
+        {
+            _currentTimeTextBlock.IsVisible = true;
+        }
+    }
+
+    private void SubmitCurrentTimeEdit()
+    {
+        if (_currentTimeTextBox == null) return;
+        string input = _currentTimeTextBox.Text ?? string.Empty;
+        var handler = CurrentTimeSubmitted;
+        if (handler == null)
+        {
+            EndEditCurrentTime();
+            return;
+        }
+
+        var args = new TimecodeSubmittedEventArgs(input);
+        handler(this, args);
+
+        if (args.Handled)
+        {
+            EndEditCurrentTime();
+        }
+        else
+        {
+            _currentTimeTextBox.Classes.Add("invalid");
+            if (!string.IsNullOrEmpty(args.Error))
+            {
+                ToolTip.SetTip(_currentTimeTextBox, args.Error);
+            }
+            _currentTimeTextBox.SelectAll();
+        }
+    }
+
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {
         base.OnApplyTemplate(e);
@@ -169,6 +246,8 @@ public class Player : RangeBase
         _slider = e.NameScope.Find<Slider>("PART_Slider");
         _innerLeftPresenter = e.NameScope.Find<ContentPresenter>("InnerLeftPresenter");
         _contentPresenter = e.NameScope.Find<ContentPresenter>("ContentPresenter");
+        _currentTimeTextBlock = e.NameScope.Find<TextBlock>("PART_CurrentTimeTextBlock");
+        _currentTimeTextBox = e.NameScope.Find<TextBox>("PART_CurrentTimeTextBox");
 
         _playButton.Click += (s, e) => PlayButtonCommand?.Execute(null);
         _nextButton.Click += (s, e) => NextButtonCommand?.Execute(null);
@@ -176,7 +255,55 @@ public class Player : RangeBase
         _endButton.Click += (s, e) => EndButtonCommand?.Execute(null);
         _startButton.Click += (s, e) => StartButtonCommand?.Execute(null);
 
+        if (_currentTimeTextBlock != null)
+        {
+            _currentTimeTextBlock.PointerPressed += OnCurrentTimeTextBlockPointerPressed;
+        }
+
+        if (_currentTimeTextBox != null)
+        {
+            _currentTimeTextBox.IsVisible = false;
+            _currentTimeTextBox.KeyDown += OnCurrentTimeTextBoxKeyDown;
+            _currentTimeTextBox.LostFocus += OnCurrentTimeTextBoxLostFocus;
+            _currentTimeTextBox.GetObservable(TextBox.TextProperty).Subscribe(_ =>
+            {
+                _currentTimeTextBox.Classes.Remove("invalid");
+                ToolTip.SetTip(_currentTimeTextBox, null);
+            });
+        }
+
         _innerLeftPresenter.GetObservable(BoundsProperty).Subscribe(OnInnerLeftBoundsChanged);
+    }
+
+    private void OnCurrentTimeTextBlockPointerPressed(object sender, PointerPressedEventArgs e)
+    {
+        if (e.GetCurrentPoint(_currentTimeTextBlock).Properties.IsLeftButtonPressed)
+        {
+            BeginEditCurrentTime();
+            e.Handled = true;
+        }
+    }
+
+    private void OnCurrentTimeTextBoxKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Enter)
+        {
+            SubmitCurrentTimeEdit();
+            e.Handled = true;
+        }
+        else if (e.Key == Key.Escape)
+        {
+            EndEditCurrentTime();
+            e.Handled = true;
+        }
+    }
+
+    private void OnCurrentTimeTextBoxLostFocus(object sender, RoutedEventArgs e)
+    {
+        if (_currentTimeTextBox != null && _currentTimeTextBox.IsVisible)
+        {
+            EndEditCurrentTime();
+        }
     }
 
     private void OnInnerLeftBoundsChanged(Rect rect)
