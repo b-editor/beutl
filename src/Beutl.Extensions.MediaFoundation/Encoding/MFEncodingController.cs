@@ -461,6 +461,14 @@ public class MFEncodingController : EncodingController
             || ext.Equals(".asf", StringComparison.OrdinalIgnoreCase)
             || ext.Equals(".wmv", StringComparison.OrdinalIgnoreCase))
             resolved = MFAudioEncoderSettings.AudioCodecType.WMA;
+        else if (ext.Equals(".aac", StringComparison.OrdinalIgnoreCase)
+            || ext.Equals(".adts", StringComparison.OrdinalIgnoreCase)
+            || ext.Equals(".m4a", StringComparison.OrdinalIgnoreCase))
+            // Raw AAC / ADTS streams (and AAC-in-MP4 audio-only) must carry an
+            // AAC payload — Sink Writer cannot mux MP3 / WMA / PCM into these
+            // containers, so the configured subtype has to be AAC even if the
+            // user picked something else in the UI.
+            resolved = MFAudioEncoderSettings.AudioCodecType.AAC;
         else
             resolved = requested;
 
