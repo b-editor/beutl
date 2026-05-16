@@ -2,7 +2,6 @@
 using Avalonia.Controls;
 using Beutl.Animation;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
-using Beutl.Editor.Services;
 using Beutl.Language;
 using Beutl.Media;
 using Beutl.ProjectSystem;
@@ -227,8 +226,10 @@ public partial class EditViewModel : IContextCommandHandler, IContextCommandStat
         TimeSpan? target = null;
         foreach (Element el in roots)
         {
-            var searcher = new ObjectSearcher(el, o => o is KeyFrameAnimation);
-            foreach (KeyFrameAnimation anim in searcher.SearchAll().OfType<KeyFrameAnimation>())
+            // KeyFrameAnimation は AnimatableProperty.SetOwnerObject 等で HierarchicalChildren に
+            // attach されるため、ObjectSearcher (CoreProperty/EngineObject.Properties.CurrentValue 経由)
+            // では届かない。Hierarchical ツリーを直接辿る必要がある。
+            foreach (KeyFrameAnimation anim in EnumerateKeyFrameAnimations(el))
             {
                 TimeSpan offset = anim.UseGlobalClock ? TimeSpan.Zero : el.Start;
                 foreach (IKeyFrame kf in anim.KeyFrames)
@@ -262,6 +263,25 @@ public partial class EditViewModel : IContextCommandHandler, IContextCommandStat
         {
             int currentZIndex = timeline.ToLayerNumber(timeline.Options.Value.Offset.Y);
             timeline.ScrollTo.Execute((new TimeRange(time, TimeSpan.FromTicks(1)), currentZIndex));
+        }
+    }
+
+    private static IEnumerable<KeyFrameAnimation> EnumerateKeyFrameAnimations(IHierarchical root)
+    {
+        var visited = new HashSet<IHierarchical>();
+        var stack = new Stack<IHierarchical>();
+        stack.Push(root);
+        while (stack.Count > 0)
+        {
+            IHierarchical node = stack.Pop();
+            if (!visited.Add(node))
+                continue;
+
+            if (node is KeyFrameAnimation kfa)
+                yield return kfa;
+
+            foreach (IHierarchical child in node.HierarchicalChildren)
+                stack.Push(child);
         }
     }
 }
