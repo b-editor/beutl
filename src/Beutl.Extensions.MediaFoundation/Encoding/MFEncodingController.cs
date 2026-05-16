@@ -98,14 +98,14 @@ public class MFEncodingController : EncodingController
                 if (isHdr)
                 {
                     hdrTargetColorSpace = MFColorSpaceHelper.BuildHdrColorSpace(
-                        MapTransferForHelper(VideoSettings.ColorTransfer),
-                        MapPrimariesForHelper(VideoSettings.ColorPrimaries));
+                        MapTransferForHelper(VideoSettings.ColorTransfer, isHdr: true),
+                        MapPrimariesForHelper(VideoSettings.ColorPrimaries, isHdr: true));
                 }
                 else
                 {
                     sdrSourceColorSpace = MFColorSpaceHelper.BuildTargetColorSpace(
-                        MapTransferForHelper(VideoSettings.ColorTransfer),
-                        MapPrimariesForHelper(VideoSettings.ColorPrimaries));
+                        MapTransferForHelper(VideoSettings.ColorTransfer, isHdr: false),
+                        MapPrimariesForHelper(VideoSettings.ColorPrimaries, isHdr: false));
                 }
             }
             // SDR NV12 conversion must match the matrix we tag on the output stream.
@@ -190,13 +190,11 @@ public class MFEncodingController : EncodingController
 
             if (encodeCompleted)
             {
-                // Atomic publish: replace any prior file in one step so partial writes
-                // never appear under OutputFile.
-                if (File.Exists(OutputFile))
-                {
-                    File.Delete(OutputFile);
-                }
-                File.Move(tempFile, OutputFile);
+                // Single-syscall replace on Windows / Linux so we never leave a window
+                // where the prior output has been deleted but the new one is not yet
+                // in place. A previous Delete + Move sequence could lose the user's
+                // existing file if the Move failed mid-way (permission, sharing).
+                File.Move(tempFile, OutputFile, overwrite: true);
             }
         }
         finally
@@ -368,25 +366,33 @@ public class MFEncodingController : EncodingController
     // to fill it, so clamping is safer than declaring a layout we cannot populate.
     private int ResolveAudioChannels()
     {
-        int requested = AudioSettings.Channels;
-        int resolved;
-        if (requested <= 0) resolved = 2;
-        else if (requested >= 2) resolved = 2;
-        else resolved = 1;
-
-        if (resolved != requested)
+        int resolved = ClampAudioChannels(AudioSettings.Channels, out bool clamped);
+        if (clamped)
         {
             // Visible warning instead of a silent clamp — a user asking for 5.1
             // should at least see why they got stereo so they can adjust the UI
             // (or change the upstream sample provider).
             _logger.LogWarning(
                 "AudioSettings.Channels {Requested} not supported by the Stereo32BitFloat source; clamping to {Resolved}",
-                requested, resolved);
+                AudioSettings.Channels, resolved);
         }
         return resolved;
     }
 
-    private static bool IsAudioOnlyContainer(string outputFile)
+    // Pure-logic split of ResolveAudioChannels so the clamp rules can be
+    // unit-tested without instantiating MFEncodingController (which requires
+    // the MF runtime on Windows).
+    internal static int ClampAudioChannels(int requested, out bool clamped)
+    {
+        int resolved;
+        if (requested <= 0) resolved = 2;
+        else if (requested >= 2) resolved = 2;
+        else resolved = 1;
+        clamped = resolved != requested;
+        return resolved;
+    }
+
+    internal static bool IsAudioOnlyContainer(string outputFile)
     {
         string ext = Path.GetExtension(outputFile);
         return ext.Equals(".m4a", StringComparison.OrdinalIgnoreCase)
@@ -684,7 +690,7 @@ public class MFEncodingController : EncodingController
     // MF_MT_* attribute values). MapXxxForHelper: input to MFColorSpaceHelper
     // (same enum, but Default already resolved into a concrete HDR transfer/
     // primaries so Skia gets a fully-specified color space).
-    private static VideoTransferFunction MapTransferToMF(
+    internal static VideoTransferFunction MapTransferToMF(
         MFVideoEncoderSettings.ColorTransferCharacteristic t, bool isHdr)
     {
         // HDR must have a valid transfer tag — default to PQ (HDR10) when the user
@@ -704,7 +710,7 @@ public class MFEncodingController : EncodingController
         };
     }
 
-    private static VideoPrimaries MapPrimariesToMF(
+    internal static VideoPrimaries MapPrimariesToMF(
         MFVideoEncoderSettings.ColorPrimariesType p, bool isHdr)
     {
         if (p == MFVideoEncoderSettings.ColorPrimariesType.Default)
@@ -727,7 +733,7 @@ public class MFEncodingController : EncodingController
     // BT.601 instead — so a Default + SD-sized output may decode with a slight
     // hue shift. Users encoding SD content should select Bt601 explicitly to
     // pin the matrix tag and avoid this ambiguity.
-    private static PixelFormatConverter.YuvMatrix8 ResolveSdrYuvMatrix(
+    internal static PixelFormatConverter.YuvMatrix8 ResolveSdrYuvMatrix(
         MFVideoEncoderSettings.YCbCrMatrixType m)
     {
         return m switch
@@ -739,7 +745,7 @@ public class MFEncodingController : EncodingController
         };
     }
 
-    private static VideoTransferMatrix MapMatrixToMF(
+    internal static VideoTransferMatrix MapMatrixToMF(
         MFVideoEncoderSettings.YCbCrMatrixType m, bool isHdr)
     {
         if (m == MFVideoEncoderSettings.YCbCrMatrixType.Default)
@@ -755,8 +761,13 @@ public class MFEncodingController : EncodingController
         };
     }
 
-    private static VideoTransferFunction MapTransferForHelper(
-        MFVideoEncoderSettings.ColorTransferCharacteristic t)
+    // Resolve a settings enum to a Vortice transfer/primaries value with the
+    // Default branch turned into a concrete value, so MFColorSpaceHelper does
+    // not have to second-guess. `isHdr` decides which side's default applies:
+    // HDR → PQ + Rec.2020, SDR → sRGB + Bt.709. Previously the unified default
+    // mapped Default→PQ for SDR too, which produced PQ-tagged sRGB pixels.
+    internal static VideoTransferFunction MapTransferForHelper(
+        MFVideoEncoderSettings.ColorTransferCharacteristic t, bool isHdr)
     {
         return t switch
         {
@@ -766,12 +777,12 @@ public class MFEncodingController : EncodingController
             MFVideoEncoderSettings.ColorTransferCharacteristic.Srgb => VideoTransferFunction.FuncSRGB,
             MFVideoEncoderSettings.ColorTransferCharacteristic.Linear => VideoTransferFunction.Func10,
             MFVideoEncoderSettings.ColorTransferCharacteristic.Smpte240M => VideoTransferFunction.Func240m,
-            _ => VideoTransferFunction.Func2084, // HDR default
+            _ => isHdr ? VideoTransferFunction.Func2084 : VideoTransferFunction.FuncSRGB,
         };
     }
 
-    private static VideoPrimaries MapPrimariesForHelper(
-        MFVideoEncoderSettings.ColorPrimariesType p)
+    internal static VideoPrimaries MapPrimariesForHelper(
+        MFVideoEncoderSettings.ColorPrimariesType p, bool isHdr)
     {
         return p switch
         {
@@ -779,7 +790,7 @@ public class MFEncodingController : EncodingController
             MFVideoEncoderSettings.ColorPrimariesType.Rec2020 => VideoPrimaries.Bt2020,
             MFVideoEncoderSettings.ColorPrimariesType.Dcip3 => VideoPrimaries.DciP3,
             MFVideoEncoderSettings.ColorPrimariesType.Smpte170M => VideoPrimaries.Smpte170m,
-            _ => VideoPrimaries.Bt2020, // HDR default
+            _ => isHdr ? VideoPrimaries.Bt2020 : VideoPrimaries.Bt709,
         };
     }
 }
