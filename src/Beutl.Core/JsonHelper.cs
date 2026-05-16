@@ -19,19 +19,22 @@ public static class JsonHelper
 
     // Program.Main は GlobalConfiguration.Restore (JsonHelper を経由) を Telemetry が
     // Log.LoggerFactory をセットするより前に呼ぶ。Release ビルドでは LoggerFactory が
-    // null のまま CreateLogger を呼ぶと TypeInitializationException で起動が落ちるため、
-    // 遅延取得 + 失敗時は NullLogger にフォールバックする。
-    private static ILogger Logger => s_logger ??= CreateLoggerSafe();
-
-    private static ILogger CreateLoggerSafe()
+    // null のまま CreateLogger を呼ぶと TypeInitializationException で起動が落ちる。
+    // 失敗時は NullLogger を返すが、その値はキャッシュしない。これにより
+    // LoggerFactory 初期化後の呼び出しでは本物のロガーを取得し直せる。
+    private static ILogger Logger
     {
-        try
+        get
         {
-            return Log.CreateLogger(typeof(JsonHelper));
-        }
-        catch
-        {
-            return NullLogger.Instance;
+            if (s_logger is not null) return s_logger;
+            try
+            {
+                return s_logger = Log.CreateLogger(typeof(JsonHelper));
+            }
+            catch
+            {
+                return NullLogger.Instance;
+            }
         }
     }
 
