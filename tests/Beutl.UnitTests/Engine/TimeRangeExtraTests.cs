@@ -128,6 +128,20 @@ public class TimeRangeExtraTests
     }
 
     [Test]
+    public void Intersects_EmptyRange_ReturnsFalse()
+    {
+        var zeroDuration = new TimeRange(TimeSpan.FromSeconds(5), TimeSpan.Zero);
+        var negativeDuration = new TimeRange(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(-1));
+        var nonEmpty = TimeRange.FromSeconds(0, 10);
+
+        Assert.That(zeroDuration.Intersects(nonEmpty), Is.False);
+        Assert.That(nonEmpty.Intersects(zeroDuration), Is.False);
+        Assert.That(negativeDuration.Intersects(nonEmpty), Is.False);
+        Assert.That(nonEmpty.Intersects(negativeDuration), Is.False);
+        Assert.That(TimeRange.Empty.Intersects(TimeRange.Empty), Is.False);
+    }
+
+    [Test]
     public void Equality_OnEqualRanges_IsTrueAndHashesMatch()
     {
         var a = TimeRange.FromSeconds(2, 3);

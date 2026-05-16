@@ -77,6 +77,11 @@ public readonly struct TimeRange : IEquatable<TimeRange>
 
     public bool Intersects(TimeRange time)
     {
+        if (IsEmpty || time.IsEmpty)
+        {
+            return false;
+        }
+
         return time.Start < End && Start < time.End;
     }
 
