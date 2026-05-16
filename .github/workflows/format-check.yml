@@ -5,7 +5,7 @@ on:
     branches: [ main ]
 
 jobs:
-  dotnet-format:
+  csharpier:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -16,15 +16,12 @@ jobs:
         with:
           global-json-file: global.json
 
-      - name: Run dotnet format
-        run: dotnet format Beutl.slnx --verbosity diagnostic
+      - name: Restore .NET tools
+        run: dotnet tool restore
 
-      - name: Check for formatting changes
-        run: |
-          if ! git diff --quiet; then
-            echo "::error::Formatting issues detected. Please run 'dotnet format' locally and commit the changes."
-            git diff --stat
-            echo "Showing first 200 lines of formatting diff (truncated):"
-            git diff | head -n 200
-            exit 1
-          fi
+      - name: Run CSharpier
+        run: dotnet csharpier check .
+
+      - name: Report formatting issues
+        if: failure()
+        run: echo "::error::Formatting issues detected. Please run 'dotnet csharpier format .' locally and commit the changes."
