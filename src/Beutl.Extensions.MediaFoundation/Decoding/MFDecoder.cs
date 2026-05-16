@@ -261,8 +261,65 @@ internal sealed class MFDecoder : IDisposable
         int funcCopyBuffer(IMFSample sample)
         {
             IMFSample yuy2Sample = sample;
-            if (_useDXVA2 && _mfOutBufferSample != null)
+
+            // Source Reader's GetCurrentMediaType can lag behind the underlying
+            // decoder's actual output. In DXVA2 mode the hardware decoder
+            // switches to NV12 once the D3D Manager is attached, but Source
+            // Reader keeps reporting the YUY2 we set via SetCurrentMediaType
+            // until the first sample is read — and the CurrentMediaTypeChanged
+            // flag does not reliably fire across every Media Foundation build.
+            // If we trusted the reported subtype we would leave
+            // _mfOutBufferSample null and copy the NV12 buffer straight into
+            // a YUY2-shaped destination, which Yuy2ToBgra then renders as a
+            // doubled, magenta+green frame. Disambiguate by buffer length:
+            // NV12 is w*h*1.5 bytes, YUY2 is w*h*2.
+            int actualLen = sample.TotalLength;
+            int yuy2ExpectedLen = _mediaInfo.OutImageBufferSize;
+            int nv12ExpectedLen = (yuy2ExpectedLen / 4) * 3;
+            // 64-byte slack absorbs stride/height alignment padding the codec
+            // may add to NV12 surfaces (e.g. 1088-row tile padding on 1080p).
+            bool sampleLooksLikeNv12 = actualLen < yuy2ExpectedLen
+                                    && actualLen >= nv12ExpectedLen - 64;
+
+            if (sampleLooksLikeNv12)
             {
+                // Lazy NV12→YUY2 transform setup: the constructor-time call to
+                // ChangeColorConvertSettingAndCreateBuffer may have skipped
+                // setup because GetCurrentMediaType reported YUY2. Force it
+                // now that we know the actual sample is NV12.
+                if (_mfOutBufferSample == null && _useDXVA2 && _transform != null)
+                {
+                    try
+                    {
+                        ChangeColorConvertSettingAndCreateBuffer(forceSetup: true);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex,
+                            "Lazy NV12→YUY2 transform setup failed at frame {Frame}", frame);
+                        return 0;
+                    }
+                }
+
+                if (_mfOutBufferSample == null)
+                {
+                    // No transform available (typically because DXVA2 was off
+                    // and Source Reader's internal video processor failed to
+                    // honor the YUY2 request). Falling through would copy the
+                    // NV12 buffer as if it were YUY2; surface the cause once
+                    // every ConvertColorErrorReportThreshold frames so the
+                    // root issue (Source Reader video processing not engaged)
+                    // is visible without spamming logs.
+                    _consecutiveConvertColorErrors++;
+                    if (_consecutiveConvertColorErrors == ConvertColorErrorReportThreshold)
+                    {
+                        _logger.LogError(
+                            "Source Reader is delivering NV12 samples ({Actual} bytes) but no NV12→YUY2 transform is available ({Threshold} frames in a row). Enable UseDXVA2 in settings to engage VideoProcessorMFT.",
+                            actualLen, _consecutiveConvertColorErrors);
+                    }
+                    return 0;
+                }
+
                 ConvertColorStatus status = ConvertColor(sample);
                 if (status == ConvertColorStatus.Success)
                 {
@@ -298,6 +355,10 @@ internal sealed class MFDecoder : IDisposable
                     return 0;
                 }
             }
+            // Sample is YUY2-sized (or an unknown larger format we can't
+            // disambiguate). Skip ConvertColor — running the NV12-input
+            // transform on a YUY2 sample would fail with MF_E_INVALIDMEDIATYPE
+            // and we'd drop frames unnecessarily.
 
             return SampleUtilities.SampleCopyToBuffer(yuy2Sample, buf, _mediaInfo.OutImageBufferSize);
         }
@@ -551,7 +612,7 @@ internal sealed class MFDecoder : IDisposable
         return ConvertColorStatus.HardError;
     }
 
-    private void ChangeColorConvertSettingAndCreateBuffer()
+    private void ChangeColorConvertSettingAndCreateBuffer(bool forceSetup = false)
     {
         _mfOutBufferSample?.Dispose();
         _mfOutBufferSample = null;
@@ -566,12 +627,18 @@ internal sealed class MFDecoder : IDisposable
         Guid subType = mediaType.GetGUID(MediaTypeAttributeKeys.Subtype);
 
         string? subTypeText = VideoFormatName.GetName(subType) ?? subType.ToString();
-        _logger.LogInformation("GetCurrentMediaType subType: {SubType}", subTypeText);
+        _logger.LogInformation(
+            "GetCurrentMediaType subType: {SubType} (forceSetup={ForceSetup})",
+            subTypeText, forceSetup);
 
         // If Source Reader + its video-processing attributes already delivered
         // YUY2, VideoProcessorMFT would be an identity transform. Skip it —
         // the ProcessInput/ProcessOutput round-trip is pure overhead in that case.
-        if (subType == VideoFormatGuids.YUY2)
+        //
+        // The forceSetup escape hatch is used by funcCopyBuffer when it sees
+        // an NV12-sized sample but the reported subtype is still YUY2 (stale
+        // GetCurrentMediaType after the D3D Manager attach in DXVA2 mode).
+        if (subType == VideoFormatGuids.YUY2 && !forceSetup)
         {
             return;
         }
