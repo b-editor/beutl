@@ -424,15 +424,19 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
             using var stream = new FileStream(viewStateFile, FileMode.Open, FileAccess.Read, FileShare.Read);
             json = JsonNode.Parse(stream);
         }
-        catch (Exception ex) when (ex is JsonException or IOException)
+        catch (Exception ex) when (ex is JsonException or IOException or UnauthorizedAccessException)
         {
-            _logger.LogWarning(ex, "Failed to load view state file {ViewStateFile}; opening default tabs.", viewStateFile);
+            _logger.LogError(ex, "Failed to load view state file {ViewStateFile}; opening default tabs.", viewStateFile);
             DockHost.OpenDefaultTabs();
             return;
         }
 
         if (json is not JsonObject jsonObject)
         {
+            _logger.LogWarning(
+                "View state root is not a JSON object (was {Kind}) in {ViewStateFile}; opening default tabs.",
+                json?.GetType().Name ?? "null",
+                viewStateFile);
             DockHost.OpenDefaultTabs();
             return;
         }
