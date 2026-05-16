@@ -51,11 +51,17 @@ public class EditorHostViewModel
                 {
                     await item.DisposeAsync();
                 }
+                catch (OperationCanceledException)
+                {
+                }
                 catch (Exception ex)
                 {
                     _logger.LogError(ex, "Failed to dispose editor tab item.");
                 }
             }
+        }
+        catch (OperationCanceledException)
+        {
         }
         catch (Exception ex)
         {
@@ -89,12 +95,18 @@ public class EditorHostViewModel
                     {
                         await _editorService.CloseTabItem(item);
                     }
+                    catch (OperationCanceledException)
+                    {
+                    }
                     catch (Exception ex)
                     {
                         _logger.LogError(ex, "Failed to close tab for removed project item.");
                     }
                 }
             }
+        }
+        catch (OperationCanceledException)
+        {
         }
         catch (Exception ex)
         {
