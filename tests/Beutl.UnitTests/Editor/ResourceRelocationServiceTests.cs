@@ -54,8 +54,8 @@ public class ResourceRelocationServiceTests
         Assert.Multiple(() =>
         {
             Assert.That(result.SuccessCount, Is.EqualTo(0));
-            Assert.That(result.FailedItems, Has.Count.EqualTo(1));
-            Assert.That(result.FailedItems[0], Does.Contain("does_not_exist.png"));
+            Assert.That(result.FailedResources, Has.Count.EqualTo(1));
+            Assert.That(result.FailedResources[0], Does.Contain("does_not_exist.png"));
         });
     }
 
@@ -79,9 +79,9 @@ public class ResourceRelocationServiceTests
         Assert.Multiple(() =>
         {
             Assert.That(result.SuccessCount, Is.EqualTo(0));
-            Assert.That(result.FailedItems, Has.Count.EqualTo(1));
-            Assert.That(result.FailedItems[0], Does.Contain(id.ToString()));
-            Assert.That(result.FailedItems[0], Does.Contain("NonExistentProperty"));
+            Assert.That(result.FailedResources, Has.Count.EqualTo(1));
+            Assert.That(result.FailedResources[0], Does.Contain(id.ToString()));
+            Assert.That(result.FailedResources[0], Does.Contain("NonExistentProperty"));
         });
     }
 
@@ -104,8 +104,8 @@ public class ResourceRelocationServiceTests
         Assert.Multiple(() =>
         {
             Assert.That(result.SuccessCount, Is.EqualTo(0));
-            Assert.That(result.FailedItems, Has.Count.EqualTo(1));
-            Assert.That(result.FailedItems[0], Is.EqualTo("BrokenFont"));
+            Assert.That(result.FailedResources, Has.Count.EqualTo(1));
+            Assert.That(result.FailedResources[0], Is.EqualTo("BrokenFont"));
         });
     }
 
@@ -123,8 +123,8 @@ public class ResourceRelocationServiceTests
         Assert.Multiple(() =>
         {
             Assert.That(result.SuccessCount, Is.EqualTo(0));
-            Assert.That(result.FailedItems, Has.Count.EqualTo(1));
-            Assert.That(result.FailedItems[0], Is.EqualTo("UnknownFamily"));
+            Assert.That(result.FailedResources, Has.Count.EqualTo(1));
+            Assert.That(result.FailedResources[0], Is.EqualTo("UnknownFamily"));
         });
     }
 
@@ -144,8 +144,8 @@ public class ResourceRelocationServiceTests
         Assert.Multiple(() =>
         {
             Assert.That(result.SuccessCount, Is.EqualTo(0));
-            Assert.That(result.FailedItems, Has.Count.EqualTo(1));
-            Assert.That(result.FailedItems[0], Is.EqualTo("FamilyWithMissingFile"));
+            Assert.That(result.FailedResources, Has.Count.EqualTo(1));
+            Assert.That(result.FailedResources[0], Is.EqualTo("FamilyWithMissingFile"));
         });
     }
 
@@ -163,7 +163,7 @@ public class ResourceRelocationServiceTests
         Assert.Multiple(() =>
         {
             Assert.That(result.SuccessCount, Is.EqualTo(0));
-            Assert.That(result.FailedItems, Is.Empty);
+            Assert.That(result.FailedResources, Is.Empty);
         });
     }
 
@@ -180,7 +180,7 @@ public class ResourceRelocationServiceTests
         Assert.Multiple(() =>
         {
             Assert.That(result.SuccessCount, Is.EqualTo(0));
-            Assert.That(result.FailedItems, Is.Empty);
+            Assert.That(result.FailedResources, Is.Empty);
         });
     }
 }

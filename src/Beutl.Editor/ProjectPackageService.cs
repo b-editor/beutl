@@ -86,9 +86,9 @@ public sealed class ProjectPackageService
                 tempProjectDir,
                 cancellationToken);
             _logger.LogInformation("Relocated {Count} external files", fileResult.SuccessCount);
-            if (fileResult.FailedItems.Count > 0)
+            if (fileResult.FailedResources.Count > 0)
             {
-                _logger.LogWarning("Failed to relocate {Count} external files", fileResult.FailedItems.Count);
+                _logger.LogWarning("Failed to relocate {Count} external files", fileResult.FailedResources.Count);
             }
 
             // Step 6: Copy fonts
@@ -98,9 +98,9 @@ public sealed class ProjectPackageService
                 tempProjectDir,
                 cancellationToken);
             _logger.LogInformation("Relocated {Count} font files", fontResult.SuccessCount);
-            if (fontResult.FailedItems.Count > 0)
+            if (fontResult.FailedResources.Count > 0)
             {
-                _logger.LogWarning("Failed to relocate {Count} font families", fontResult.FailedItems.Count);
+                _logger.LogWarning("Failed to relocate {Count} font families", fontResult.FailedResources.Count);
             }
 
             // Step 7: Save the project
@@ -122,7 +122,7 @@ public sealed class ProjectPackageService
             progress?.Report((Strings.ExportingProject, 1.0));
             _logger.LogInformation("Project exported successfully to {OutputPath}", outputPath);
 
-            List<string> failedResources = [.. fileResult.FailedItems, .. fontResult.FailedItems];
+            List<string> failedResources = [.. fileResult.FailedResources, .. fontResult.FailedResources];
             return new ExportResult(true, failedResources);
         }
         catch (OperationCanceledException)

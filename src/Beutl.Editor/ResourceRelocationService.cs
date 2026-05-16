@@ -13,9 +13,9 @@ namespace Beutl.Editor;
 /// <summary>
 /// Result of a resource relocation operation.
 /// </summary>
-/// <param name="SuccessCount">Number of property updates (file sources) or font files (fonts) that were successfully relocated. Granularity differs from <paramref name="FailedItems"/>.Count.</param>
-/// <param name="FailedItems">Identifiers of resources that could not be relocated. The string format depends on the failure path: local file paths for missing sources, "<c>uri (guid.property)</c>" for per-property URI rewrites that threw, full URI strings for file-copy failures, and font family names for font failures.</param>
-public sealed record RelocationResult(int SuccessCount, IReadOnlyList<string> FailedItems);
+/// <param name="SuccessCount">Number of property updates (file sources) or font files (fonts) that were successfully relocated. Granularity differs from <paramref name="FailedResources"/>.Count.</param>
+/// <param name="FailedResources">Identifiers of resources that could not be relocated. The string format depends on the failure path: local file paths for missing sources, "<c>uri (guid.property)</c>" for per-property URI rewrites that threw, full URI strings for file-copy failures, and font family names for font failures.</param>
+public sealed record RelocationResult(int SuccessCount, IReadOnlyList<string> FailedResources);
 
 /// <summary>
 /// Service for copying resource files and rewriting their URIs.
@@ -59,7 +59,7 @@ public sealed class ResourceRelocationService
         Directory.CreateDirectory(resourcesDir);
 
         int count = 0;
-        List<string> failedItems = [];
+        List<string> failedResources = [];
         foreach (var group in sources.GroupBy(i => i.OriginalUri))
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -68,7 +68,7 @@ public sealed class ResourceRelocationService
             if (!File.Exists(sourceFilePath))
             {
                 _logger.LogWarning("Source file not found: {FilePath}", sourceFilePath);
-                failedItems.Add(sourceFilePath);
+                failedResources.Add(sourceFilePath);
                 continue;
             }
 
@@ -82,7 +82,7 @@ public sealed class ResourceRelocationService
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to copy file: {Uri}", originalUri);
-                failedItems.Add(originalUri.ToString());
+                failedResources.Add(originalUri.ToString());
                 continue;
             }
 
@@ -98,12 +98,12 @@ public sealed class ResourceRelocationService
                 catch (Exception ex)
                 {
                     _logger.LogError(ex, "Failed to update URI for {Id}.{Property}: {Uri}", id, prop, originalUri);
-                    failedItems.Add($"{originalUri} ({id}.{prop})");
+                    failedResources.Add($"{originalUri} ({id}.{prop})");
                 }
             }
         }
 
-        return new RelocationResult(count, failedItems);
+        return new RelocationResult(count, failedResources);
     }
 
     private void UpdateUri(Project stagingProject, Guid id, string propertyName, Uri newUri)
@@ -158,7 +158,7 @@ public sealed class ResourceRelocationService
 
         HashSet<string> copiedFiles = [];
         int count = 0;
-        List<string> failedItems = [];
+        List<string> failedResources = [];
 
         foreach (FontFamily fontFamily in fontFamilies)
         {
@@ -188,17 +188,17 @@ public sealed class ResourceRelocationService
                 if (!foundAnyFile)
                 {
                     _logger.LogWarning("No font files found for family: {FontFamily}", fontFamily.Name);
-                    failedItems.Add(fontFamily.Name);
+                    failedResources.Add(fontFamily.Name);
                 }
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to relocate font: {FontFamily}", fontFamily.Name);
-                failedItems.Add(fontFamily.Name);
+                failedResources.Add(fontFamily.Name);
             }
         }
 
-        return new RelocationResult(count, failedItems);
+        return new RelocationResult(count, failedResources);
     }
 
     /// <summary>
