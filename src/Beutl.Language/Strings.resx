@@ -557,6 +557,24 @@
   <data name="SetEndTime" xml:space="preserve">
     <value>Set end time</value>
   </data>
+  <data name="NudgeLeftFrame" xml:space="preserve">
+    <value>Nudge left (1 frame)</value>
+  </data>
+  <data name="NudgeRightFrame" xml:space="preserve">
+    <value>Nudge right (1 frame)</value>
+  </data>
+  <data name="NudgeLeftLarge" xml:space="preserve">
+    <value>Nudge left (10 frames)</value>
+  </data>
+  <data name="NudgeRightLarge" xml:space="preserve">
+    <value>Nudge right (10 frames)</value>
+  </data>
+  <data name="NudgeLeftSecond" xml:space="preserve">
+    <value>Nudge left (1 second)</value>
+  </data>
+  <data name="NudgeRightSecond" xml:space="preserve">
+    <value>Nudge right (1 second)</value>
+  </data>
   <data name="Editor" xml:space="preserve">
     <value>Editor</value>
   </data>

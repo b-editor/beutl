@@ -70,6 +70,32 @@ public sealed class TimelineTabExtension : ToolTabExtension
         [
             new ContextCommandKeyGesture("OemCloseBrackets")
         ]),
+        new ContextCommandDefinition("NudgeLeftFrame", Strings.NudgeLeftFrame, "",
+        [
+            new ContextCommandKeyGesture("Left"),
+        ]),
+        new ContextCommandDefinition("NudgeRightFrame", Strings.NudgeRightFrame, "",
+        [
+            new ContextCommandKeyGesture("Right"),
+        ]),
+        new ContextCommandDefinition("NudgeLeftLarge", Strings.NudgeLeftLarge, "",
+        [
+            new ContextCommandKeyGesture("Shift+Left"),
+        ]),
+        new ContextCommandDefinition("NudgeRightLarge", Strings.NudgeRightLarge, "",
+        [
+            new ContextCommandKeyGesture("Shift+Right"),
+        ]),
+        new ContextCommandDefinition("NudgeLeftSecond", Strings.NudgeLeftSecond, "",
+        [
+            new ContextCommandKeyGesture("Alt+Left"),
+            new ContextCommandKeyGesture("Cmd+Left", OSPlatform.OSX),
+        ]),
+        new ContextCommandDefinition("NudgeRightSecond", Strings.NudgeRightSecond, "",
+        [
+            new ContextCommandKeyGesture("Alt+Right"),
+            new ContextCommandKeyGesture("Cmd+Right", OSPlatform.OSX),
+        ]),
         new ContextCommandDefinition("ToggleGroup", Strings.Group, "",
         [
             new ContextCommandKeyGesture("Ctrl+G"),

@@ -7,6 +7,7 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Input.Platform;
 using Avalonia.Platform.Storage;
+using Avalonia.Threading;
 using Beutl.Animation;
 using Beutl.Configuration;
 using Beutl.Editor.Components.Helpers;
@@ -36,6 +37,7 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
     private readonly Subject<LayerHeaderViewModel> _layerHeightChanged = new();
     private readonly Subject<System.Reactive.Unit> _canExecuteChangedSubject = new();
     private readonly Dictionary<int, TrackedLayerTopObservable> _trackerCache = [];
+    private DispatcherTimer? _nudgeCommitTimer;
     private bool _isDisposed;
 
     public TimelineTabViewModel(IEditorContext editorContext)
@@ -407,6 +409,7 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
     public void Dispose()
     {
         _logger.LogInformation("Disposing TimelineViewModel.");
+        FlushPendingNudgeCommit();
         // 以降の OnNext を抑止してから内部 Subject を Dispose する。
         _isDisposed = true;
         _disposables.Dispose();
@@ -1087,6 +1090,9 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
         return execution.CommandName switch
         {
             "Copy" or "Cut" or "Delete" or "Exclude" => SelectedElements.Count > 0,
+            "NudgeLeftFrame" or "NudgeRightFrame"
+                or "NudgeLeftLarge" or "NudgeRightLarge"
+                or "NudgeLeftSecond" or "NudgeRightSecond" => SelectedElements.Count > 0,
             "ToggleGroup" => SelectedElements.FirstOrDefault() is { } first
                 && (first.CanUngroupSelectedElements() || first.CanGroupSelectedElements()),
             "ExitRazorMode" => IsRazorMode.Value,
@@ -1170,7 +1176,87 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
                 }
 
                 break;
+            case "NudgeLeftFrame" when execution.KeyEventArgs?.Source is not TextBox:
+                NudgeSelectedElements(-1, NudgeUnit.Frame);
+                if (execution.KeyEventArgs != null) execution.KeyEventArgs.Handled = true;
+                break;
+            case "NudgeRightFrame" when execution.KeyEventArgs?.Source is not TextBox:
+                NudgeSelectedElements(+1, NudgeUnit.Frame);
+                if (execution.KeyEventArgs != null) execution.KeyEventArgs.Handled = true;
+                break;
+            case "NudgeLeftLarge" when execution.KeyEventArgs?.Source is not TextBox:
+                NudgeSelectedElements(-1, NudgeUnit.Large);
+                if (execution.KeyEventArgs != null) execution.KeyEventArgs.Handled = true;
+                break;
+            case "NudgeRightLarge" when execution.KeyEventArgs?.Source is not TextBox:
+                NudgeSelectedElements(+1, NudgeUnit.Large);
+                if (execution.KeyEventArgs != null) execution.KeyEventArgs.Handled = true;
+                break;
+            case "NudgeLeftSecond" when execution.KeyEventArgs?.Source is not TextBox:
+                NudgeSelectedElements(-1, NudgeUnit.Second);
+                if (execution.KeyEventArgs != null) execution.KeyEventArgs.Handled = true;
+                break;
+            case "NudgeRightSecond" when execution.KeyEventArgs?.Source is not TextBox:
+                NudgeSelectedElements(+1, NudgeUnit.Second);
+                if (execution.KeyEventArgs != null) execution.KeyEventArgs.Handled = true;
+                break;
         }
+    }
+
+    private enum NudgeUnit { Frame, Large, Second }
+
+    private void NudgeSelectedElements(int direction, NudgeUnit unit)
+    {
+        ElementViewModel? first = SelectedElements.FirstOrDefault();
+        if (first is null) return;
+
+        // ドラッグ移動 (ElementView.axaml.cs) と同じく、選択がグループの一部なら
+        // グループ全体を移動対象に展開する。
+        IReadOnlyList<ElementViewModel> targets = first.GetGroupOrSelectedElements();
+        if (targets.Count == 0) return;
+
+        int rate = Scene.FindHierarchicalParent<Project>()?.GetFrameRate() ?? 30;
+        TimeSpan delta = unit switch
+        {
+            NudgeUnit.Frame => TimeSpan.FromSeconds(direction * 1d / rate),
+            NudgeUnit.Large => TimeSpan.FromSeconds(direction * 10d / rate),
+            NudgeUnit.Second => TimeSpan.FromSeconds(direction),
+            _ => TimeSpan.Zero,
+        };
+
+        if (delta == TimeSpan.Zero) return;
+
+        Scene.MoveChildren(0, delta, targets.Select(x => x.Model).ToArray());
+        ScheduleNudgeCommit();
+    }
+
+    // 連続押下を 1 つの Undo にまとめるため、最終操作から 300ms 経過後にコミットする。
+    private void ScheduleNudgeCommit()
+    {
+        if (_nudgeCommitTimer is null)
+        {
+            _nudgeCommitTimer = new DispatcherTimer(
+                TimeSpan.FromMilliseconds(300),
+                DispatcherPriority.Background,
+                OnNudgeCommitTick);
+        }
+
+        _nudgeCommitTimer.Stop();
+        _nudgeCommitTimer.Start();
+    }
+
+    private void OnNudgeCommitTick(object? sender, EventArgs e)
+    {
+        _nudgeCommitTimer?.Stop();
+        if (_isDisposed) return;
+        EditorContext.GetRequiredService<HistoryManager>().Commit(CommandNames.MoveElement);
+    }
+
+    private void FlushPendingNudgeCommit()
+    {
+        if (_nudgeCommitTimer is null || !_nudgeCommitTimer.IsEnabled) return;
+        _nudgeCommitTimer.Stop();
+        EditorContext.GetRequiredService<HistoryManager>().Commit(CommandNames.MoveElement);
     }
 
     public void RazorSplitAt(TimeSpan time, bool acrossAllLayers)
