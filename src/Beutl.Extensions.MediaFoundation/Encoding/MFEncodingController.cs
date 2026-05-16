@@ -381,7 +381,11 @@ public class MFEncodingController : EncodingController
 
     // Pure-logic split of ResolveAudioChannels so the clamp rules can be
     // unit-tested without instantiating MFEncodingController (which requires
-    // the MF runtime on Windows).
+    // the MF runtime on Windows). The clamp itself encodes the same contract
+    // the instance method's doc-comment describes: source is always
+    // Pcm<Stereo32BitFloat>, so mono and stereo are honored, anything wider
+    // collapses to stereo because there is no source data for the extra
+    // channels.
     internal static int ClampAudioChannels(int requested, out bool clamped)
     {
         int resolved;

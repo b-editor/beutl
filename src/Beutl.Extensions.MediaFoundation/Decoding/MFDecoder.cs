@@ -60,7 +60,7 @@ internal sealed class MFDecoder : IDisposable
     // is faster to satisfy by reading-through.
     private readonly int _thresholdFrameCount = 30;
 
-    // Same as above but in audio samples — equivalent to ~0.7s at 48kHz.
+    // Same as above but in audio samples — ~0.6s at 48 kHz (30000 / 48000).
     private readonly int _thresholdSampleCount = 30000;
 
     public MFDecoder(string file, MediaOptions options, MFDecodingExtension extension)
@@ -586,9 +586,10 @@ internal sealed class MFDecoder : IDisposable
         uint destWidth = (uint)destRect.right;
         uint destHeight = (uint)destRect.bottom;
 
-        // VideoProcessorMFT requires width to be a multiple of 2 and height a
-        // multiple of 16 — otherwise SetInputType / SetOutputType returns an
-        // unsupported-type error.
+        // VideoProcessorMFT in practice rejects type pairs with width not a
+        // multiple of 2 or height not a multiple of 16 — this is observed
+        // empirically (the MSDN docs do not formalize the requirement) and
+        // matches the upstream MFVideoReader sample we forked from.
         const int AlignHeightSize = 16;
         const int AlignWidth = 2;
 
