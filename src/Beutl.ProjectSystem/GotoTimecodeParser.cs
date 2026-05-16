@@ -3,6 +3,14 @@ using Beutl.ProjectSystem;
 
 namespace Beutl;
 
+public enum GotoTimecodeError
+{
+    None,
+    InvalidFormat,
+    MarkerNotFound,
+    NoScene,
+}
+
 public static class GotoTimecodeParser
 {
     private static readonly string[] s_absoluteFormats =
@@ -31,14 +39,14 @@ public static class GotoTimecodeParser
         TimeSpan currentTime,
         IReadOnlyList<SceneMarker> markers,
         out TimeSpan result,
-        out string? error)
+        out GotoTimecodeError error)
     {
         result = TimeSpan.Zero;
-        error = null;
+        error = GotoTimecodeError.None;
 
         if (string.IsNullOrWhiteSpace(input))
         {
-            error = "GotoTimecode_InvalidFormat";
+            error = GotoTimecodeError.InvalidFormat;
             return false;
         }
 
@@ -75,7 +83,7 @@ public static class GotoTimecodeParser
             return true;
         }
 
-        error = "GotoTimecode_InvalidFormat";
+        error = GotoTimecodeError.InvalidFormat;
         return false;
     }
 
@@ -108,13 +116,13 @@ public static class GotoTimecodeParser
         return true;
     }
 
-    private static bool TryParseFrame(string text, int frameRate, out TimeSpan result, out string? error)
+    private static bool TryParseFrame(string text, int frameRate, out TimeSpan result, out GotoTimecodeError error)
     {
         result = TimeSpan.Zero;
-        error = null;
+        error = GotoTimecodeError.None;
         if (!int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out int frame))
         {
-            error = "GotoTimecode_InvalidFormat";
+            error = GotoTimecodeError.InvalidFormat;
             return false;
         }
 
@@ -128,14 +136,14 @@ public static class GotoTimecodeParser
         int frameRate,
         TimeSpan currentTime,
         out TimeSpan result,
-        out string? error)
+        out GotoTimecodeError error)
     {
         result = TimeSpan.Zero;
-        error = null;
+        error = GotoTimecodeError.None;
 
         if (text.Length < 3)
         {
-            error = "GotoTimecode_InvalidFormat";
+            error = GotoTimecodeError.InvalidFormat;
             return false;
         }
 
@@ -146,7 +154,7 @@ public static class GotoTimecodeParser
         if (!double.TryParse(numberPart, NumberStyles.Float, CultureInfo.InvariantCulture, out double value)
             || double.IsNaN(value) || double.IsInfinity(value))
         {
-            error = "GotoTimecode_InvalidFormat";
+            error = GotoTimecodeError.InvalidFormat;
             return false;
         }
 
@@ -164,7 +172,7 @@ public static class GotoTimecodeParser
         }
         catch (Exception ex) when (ex is OverflowException or FormatException or ArgumentException)
         {
-            error = "GotoTimecode_InvalidFormat";
+            error = GotoTimecodeError.InvalidFormat;
             return false;
         }
 
@@ -176,14 +184,14 @@ public static class GotoTimecodeParser
         string name,
         IReadOnlyList<SceneMarker> markers,
         out TimeSpan result,
-        out string? error)
+        out GotoTimecodeError error)
     {
         result = TimeSpan.Zero;
-        error = null;
+        error = GotoTimecodeError.None;
 
         if (name.Length == 0)
         {
-            error = "GotoTimecode_InvalidFormat";
+            error = GotoTimecodeError.InvalidFormat;
             return false;
         }
 
@@ -199,7 +207,7 @@ public static class GotoTimecodeParser
             }
         }
 
-        error = "GotoTimecode_MarkerNotFound";
+        error = GotoTimecodeError.MarkerNotFound;
         return false;
     }
 

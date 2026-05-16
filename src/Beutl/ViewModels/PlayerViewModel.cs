@@ -553,11 +553,11 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
         BeginEditTimecodeRequested.OnNext(Unit.Default);
     }
 
-    public bool TryGotoTimecode(string input, out string? error)
+    public bool TryGotoTimecode(string input, out GotoTimecodeError error)
     {
         if (Scene == null)
         {
-            error = "GotoTimecode_NoScene";
+            error = GotoTimecodeError.NoScene;
             return false;
         }
 

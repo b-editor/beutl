@@ -1,3 +1,4 @@
+using Beutl;
 using Beutl.ProjectSystem;
 
 namespace Beutl.UnitTests.ProjectSystem;
@@ -18,10 +19,10 @@ public class GotoTimecodeParserTests
     public void TryParse_Absolute_Succeeds(string input, int h, int m, int s, int ms)
     {
         bool ok = GotoTimecodeParser.TryParse(
-            input, FrameRate, TimeSpan.Zero, EmptyMarkers, out TimeSpan result, out string? error);
+            input, FrameRate, TimeSpan.Zero, EmptyMarkers, out TimeSpan result, out GotoTimecodeError error);
 
         Assert.That(ok, Is.True);
-        Assert.That(error, Is.Null);
+        Assert.That(error, Is.EqualTo(GotoTimecodeError.None));
         Assert.That(result, Is.EqualTo(new TimeSpan(0, h, m, s, ms)));
     }
 
@@ -33,10 +34,10 @@ public class GotoTimecodeParserTests
     public void TryParse_Frame_ReturnsFrameDuration(string input, int frame)
     {
         bool ok = GotoTimecodeParser.TryParse(
-            input, FrameRate, TimeSpan.Zero, EmptyMarkers, out TimeSpan result, out string? error);
+            input, FrameRate, TimeSpan.Zero, EmptyMarkers, out TimeSpan result, out GotoTimecodeError error);
 
         Assert.That(ok, Is.True);
-        Assert.That(error, Is.Null);
+        Assert.That(error, Is.EqualTo(GotoTimecodeError.None));
         Assert.That(result, Is.EqualTo(frame.ToTimeSpan(FrameRate)));
     }
 
@@ -136,10 +137,10 @@ public class GotoTimecodeParserTests
         };
 
         bool ok = GotoTimecodeParser.TryParse(
-            "@missing", FrameRate, TimeSpan.Zero, markers, out _, out string? error);
+            "@missing", FrameRate, TimeSpan.Zero, markers, out _, out GotoTimecodeError error);
 
         Assert.That(ok, Is.False);
-        Assert.That(error, Is.EqualTo("GotoTimecode_MarkerNotFound"));
+        Assert.That(error, Is.EqualTo(GotoTimecodeError.MarkerNotFound));
     }
 
     [TestCase("")]
@@ -153,20 +154,20 @@ public class GotoTimecodeParserTests
     public void TryParse_InvalidInput_ReturnsError(string input)
     {
         bool ok = GotoTimecodeParser.TryParse(
-            input, FrameRate, TimeSpan.Zero, EmptyMarkers, out _, out string? error);
+            input, FrameRate, TimeSpan.Zero, EmptyMarkers, out _, out GotoTimecodeError error);
 
         Assert.That(ok, Is.False);
-        Assert.That(error, Is.EqualTo("GotoTimecode_InvalidFormat"));
+        Assert.That(error, Is.EqualTo(GotoTimecodeError.InvalidFormat));
     }
 
     [Test]
     public void TryParse_NullInput_ReturnsError()
     {
         bool ok = GotoTimecodeParser.TryParse(
-            null, FrameRate, TimeSpan.Zero, EmptyMarkers, out _, out string? error);
+            null, FrameRate, TimeSpan.Zero, EmptyMarkers, out _, out GotoTimecodeError error);
 
         Assert.That(ok, Is.False);
-        Assert.That(error, Is.EqualTo("GotoTimecode_InvalidFormat"));
+        Assert.That(error, Is.EqualTo(GotoTimecodeError.InvalidFormat));
     }
 
     [Test]
@@ -187,10 +188,10 @@ public class GotoTimecodeParserTests
     public void TryParse_RelativeOutOfRange_ReturnsErrorWithoutThrowing(string input)
     {
         bool ok = GotoTimecodeParser.TryParse(
-            input, FrameRate, TimeSpan.Zero, EmptyMarkers, out _, out string? error);
+            input, FrameRate, TimeSpan.Zero, EmptyMarkers, out _, out GotoTimecodeError error);
 
         Assert.That(ok, Is.False);
-        Assert.That(error, Is.EqualTo("GotoTimecode_InvalidFormat"));
+        Assert.That(error, Is.EqualTo(GotoTimecodeError.InvalidFormat));
     }
 
     [Test]
@@ -198,7 +199,7 @@ public class GotoTimecodeParserTests
     {
         bool ok = GotoTimecodeParser.TryParse(
             "+9999999d.99999h", FrameRate, TimeSpan.MaxValue / 2, EmptyMarkers,
-            out _, out string? _);
+            out _, out GotoTimecodeError _);
 
         // Either succeeds with a clamped result, or returns false with InvalidFormat — must not throw.
         Assert.That(ok, Is.False.Or.True);
