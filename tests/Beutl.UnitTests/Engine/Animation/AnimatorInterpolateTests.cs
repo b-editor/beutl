@@ -96,6 +96,65 @@ public class AnimatorInterpolateTests
     }
 
     [Test]
+    public void Int32Animator_DoesNotOverflowAtMaxValue()
+    {
+        var animator = new Int32Animator();
+        Assert.That(animator.Interpolate(1f, 0, int.MaxValue), Is.EqualTo(int.MaxValue));
+        Assert.That(animator.Interpolate(0f, int.MaxValue, 0), Is.EqualTo(int.MaxValue));
+    }
+
+    [Test]
+    public void Int32Animator_FullRangeMidpoint()
+    {
+        var animator = new Int32Animator();
+        // (int.MinValue + int.MaxValue) / 2 = -0.5 → AwayFromZero → -1
+        Assert.That(animator.Interpolate(0.5f, int.MinValue, int.MaxValue), Is.EqualTo(-1));
+    }
+
+    [Test]
+    public void Int64Animator_DoesNotOverflowAtMaxValue()
+    {
+        var animator = new Int64Animator();
+        Assert.That(animator.Interpolate(1f, 0L, long.MaxValue), Is.EqualTo(long.MaxValue));
+        Assert.That(animator.Interpolate(0f, long.MaxValue, 0L), Is.EqualTo(long.MaxValue));
+    }
+
+    [Test]
+    public void Int64Animator_PreservesPrecisionInModerateRange()
+    {
+        var animator = new Int64Animator();
+        // float-based の旧実装では long.MaxValue 比の正規化で精度が崩れ、
+        // 1_000_000_000L の中点で誤差が出ていた領域。
+        Assert.That(animator.Interpolate(0.5f, 0L, 1_000_000_000L), Is.EqualTo(500_000_000L));
+    }
+
+    [Test]
+    public void UInt32Animator_DoesNotOverflowAtMaxValue()
+    {
+        var animator = new UInt32Animator();
+        Assert.That(animator.Interpolate(1f, 0u, uint.MaxValue), Is.EqualTo(uint.MaxValue));
+    }
+
+    [Test]
+    public void UInt64Animator_DoesNotOverflowAtMaxValue()
+    {
+        var animator = new UInt64Animator();
+        Assert.That(animator.Interpolate(1f, 0ul, ulong.MaxValue), Is.EqualTo(ulong.MaxValue));
+    }
+
+    [Test]
+    public void UInt64Animator_DoesNotUnderflowOnReverseInterpolation()
+    {
+        var animator = new UInt64Animator();
+        // newValue < oldValue でも ulong 直接減算による underflow を起こさず、
+        // 中点近傍の値を返すこと (double 精度の許容差あり)。
+        var result = animator.Interpolate(0.5f, ulong.MaxValue, 0ul);
+        const ulong expected = ulong.MaxValue / 2;
+        // double の仮数部精度 (52bit) を考慮した許容差
+        Assert.That(result, Is.GreaterThan(expected - 4096ul).And.LessThan(expected + 4096ul));
+    }
+
+    [Test]
     [TestCase(0f, false, false, false)]
     [TestCase(0.49f, false, true, false)]
     [TestCase(0.5f, false, true, false)]

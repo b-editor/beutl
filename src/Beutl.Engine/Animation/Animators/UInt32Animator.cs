@@ -1,14 +1,11 @@
-﻿namespace Beutl.Animation.Animators;
+namespace Beutl.Animation.Animators;
 
 public sealed class UInt32Animator : Animator<uint>
 {
     public override uint Interpolate(float progress, uint oldValue, uint newValue)
     {
-        const float maxVal = uint.MaxValue;
-
-        var normOV = oldValue / maxVal;
-        var normNV = newValue / maxVal;
-        var deltaV = normNV - normOV;
-        return (uint)MathF.Round(maxVal * ((deltaV * progress) + normOV));
+        double delta = (double)newValue - (double)oldValue;
+        double v = oldValue + delta * progress;
+        return (uint)Math.Round(Math.Clamp(v, uint.MinValue, uint.MaxValue), MidpointRounding.AwayFromZero);
     }
 }
