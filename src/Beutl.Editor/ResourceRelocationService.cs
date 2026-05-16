@@ -11,6 +11,13 @@ using SkiaSharp;
 namespace Beutl.Editor;
 
 /// <summary>
+/// Result of a resource relocation operation.
+/// </summary>
+/// <param name="SuccessCount">Number of resources successfully relocated.</param>
+/// <param name="FailedItems">Identifiers (URI strings, paths, or font family names) of resources that failed to relocate.</param>
+public sealed record RelocationResult(int SuccessCount, IReadOnlyList<string> FailedItems);
+
+/// <summary>
 /// Service for copying resource files and rewriting their URIs.
 /// </summary>
 public sealed class ResourceRelocationService
@@ -41,8 +48,8 @@ public sealed class ResourceRelocationService
     /// <param name="stagingProject">The project to apply URI updates to.</param>
     /// <param name="projectDirectory">The path of the project directory.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>The number of files copied.</returns>
-    public async Task<int> RelocateFileSourcesAsync(
+    /// <returns>A <see cref="RelocationResult"/> with success count and failed source identifiers.</returns>
+    public async Task<RelocationResult> RelocateFileSourcesAsync(
         IEnumerable<(Guid Object, string PropertyName, Uri OriginalUri)> sources,
         Project stagingProject,
         string projectDirectory,
@@ -52,6 +59,7 @@ public sealed class ResourceRelocationService
         Directory.CreateDirectory(resourcesDir);
 
         int count = 0;
+        List<string> failedItems = [];
         foreach (var group in sources.GroupBy(i => i.OriginalUri))
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -62,6 +70,7 @@ public sealed class ResourceRelocationService
                 if (!File.Exists(sourceFilePath))
                 {
                     _logger.LogWarning("Source file not found: {FilePath}", sourceFilePath);
+                    failedItems.Add(sourceFilePath);
                     continue;
                 }
 
@@ -83,10 +92,11 @@ public sealed class ResourceRelocationService
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to relocate file: {Uri}", originalUri);
+                failedItems.Add(originalUri.ToString());
             }
         }
 
-        return count;
+        return new RelocationResult(count, failedItems);
     }
 
     private void UpdateUri(Project stagingProject, Guid id, string propertyName, Uri newUri)
@@ -130,8 +140,8 @@ public sealed class ResourceRelocationService
     /// <param name="fontFamilies">The list of font families to copy.</param>
     /// <param name="projectDirectory">The path of the project directory.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>The number of font files copied.</returns>
-    public async Task<int> RelocateFontsAsync(
+    /// <returns>A <see cref="RelocationResult"/> with success count and failed font family names.</returns>
+    public async Task<RelocationResult> RelocateFontsAsync(
         IEnumerable<FontFamily> fontFamilies,
         string projectDirectory,
         CancellationToken cancellationToken = default)
@@ -141,6 +151,7 @@ public sealed class ResourceRelocationService
 
         HashSet<string> copiedFiles = [];
         int count = 0;
+        List<string> failedItems = [];
 
         foreach (FontFamily fontFamily in fontFamilies)
         {
@@ -168,10 +179,11 @@ public sealed class ResourceRelocationService
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to relocate font: {FontFamily}", fontFamily.Name);
+                failedItems.Add(fontFamily.Name);
             }
         }
 
-        return count;
+        return new RelocationResult(count, failedItems);
     }
 
     /// <summary>

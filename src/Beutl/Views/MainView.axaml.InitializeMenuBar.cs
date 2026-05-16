@@ -244,7 +244,7 @@ public partial class MainView
         {
             try
             {
-                bool result = await ProjectPackageService.Current.ExportAsync(
+                ExportResult result = await ProjectPackageService.Current.ExportAsync(
                     project,
                     outputPath,
                     new Progress<(string Message, double Progress)>(p =>
@@ -252,13 +252,19 @@ public partial class MainView
                         // 進捗表示（将来的にはプログレスダイアログを表示）
                     }));
 
-                if (result)
+                if (!result.Success)
                 {
-                    NotificationService.ShowSuccess(Strings.ExportProject, MessageStrings.OperationCompletedSuccessfully);
+                    NotificationService.ShowError(Strings.ExportProject, MessageStrings.OperationFailed);
+                }
+                else if (result.FailedResources.Count > 0)
+                {
+                    NotificationService.ShowWarning(
+                        Strings.ExportProject,
+                        string.Format(MessageStrings.ExportProjectPartialFailure, result.FailedResources.Count));
                 }
                 else
                 {
-                    NotificationService.ShowError(Strings.ExportProject, MessageStrings.OperationFailed);
+                    NotificationService.ShowSuccess(Strings.ExportProject, MessageStrings.OperationCompletedSuccessfully);
                 }
             }
             catch (Exception ex)

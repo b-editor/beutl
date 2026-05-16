@@ -29,6 +29,9 @@
   <data name="OperationCompletedSuccessfully" xml:space="preserve">
     <value>The operation completed successfully.</value>
   </data>
+  <data name="ExportProjectPartialFailure" xml:space="preserve">
+    <value>Export completed, but {0} resources failed to copy. The exported package may be incomplete.</value>
+  </data>
   <data name="ConfirmDeleteDirectory" xml:space="preserve">
     <value>Do you want to delete this directory?</value>
   </data>

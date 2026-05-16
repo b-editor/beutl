@@ -118,12 +118,13 @@ public class ProjectPackageServiceTests
         string outputPath = Path.Combine(_exportDir, "test.zip");
 
         // Act
-        bool result = await service.ExportAsync(project, outputPath);
+        ExportResult result = await service.ExportAsync(project, outputPath);
 
         // Assert
         Assert.Multiple(() =>
         {
-            Assert.That(result, Is.True);
+            Assert.That(result.Success, Is.True);
+            Assert.That(result.FailedResources, Is.Empty);
             Assert.That(File.Exists(outputPath), Is.True);
         });
     }
@@ -140,10 +141,10 @@ public class ProjectPackageServiceTests
         var progress = new Progress<(string Message, double Progress)>(p => progressValues.Add(p.Progress));
 
         // Act
-        bool result = await service.ExportAsync(project, outputPath, progress);
+        ExportResult result = await service.ExportAsync(project, outputPath, progress);
 
         // Assert
-        Assert.That(result, Is.True);
+        Assert.That(result.Success, Is.True);
         // Progress may or may not be reported depending on timing
     }
 
@@ -175,12 +176,12 @@ public class ProjectPackageServiceTests
         File.WriteAllText(outputPath, "dummy content");
 
         // Act
-        bool result = await service.ExportAsync(project, outputPath);
+        ExportResult result = await service.ExportAsync(project, outputPath);
 
         // Assert
         Assert.Multiple(() =>
         {
-            Assert.That(result, Is.True);
+            Assert.That(result.Success, Is.True);
             // File should be a valid ZIP now, not "dummy content"
             Assert.That(new FileInfo(outputPath).Length, Is.GreaterThan(13)); // "dummy content" length
         });
@@ -200,10 +201,10 @@ public class ProjectPackageServiceTests
         File.WriteAllText(Path.Combine(beutlDir, "state.json"), "{}");
 
         // Act
-        bool result = await service.ExportAsync(project, outputPath);
+        ExportResult result = await service.ExportAsync(project, outputPath);
 
         // Assert
-        Assert.That(result, Is.True);
+        Assert.That(result.Success, Is.True);
         // Extract and verify .beutl is not included
         string extractDir = Path.Combine(_testDir, "verify");
         System.IO.Compression.ZipFile.ExtractToDirectory(outputPath, extractDir);
@@ -220,12 +221,13 @@ public class ProjectPackageServiceTests
         string outputPath = Path.Combine(_exportDir, "test_with_items.zip");
 
         // Act
-        bool result = await service.ExportAsync(project, outputPath);
+        ExportResult result = await service.ExportAsync(project, outputPath);
 
         // Assert
         Assert.Multiple(() =>
         {
-            Assert.That(result, Is.True);
+            Assert.That(result.Success, Is.True);
+            Assert.That(result.FailedResources, Is.Empty);
             Assert.That(File.Exists(outputPath), Is.True);
         });
     }
@@ -406,10 +408,10 @@ public class ProjectPackageServiceTests
         File.WriteAllText(Path.Combine(nestedDir, "image.txt"), "image data");
 
         // Act
-        bool result = await service.ExportAsync(project, outputPath);
+        ExportResult result = await service.ExportAsync(project, outputPath);
 
         // Assert
-        Assert.That(result, Is.True);
+        Assert.That(result.Success, Is.True);
     }
 
     [Test]
@@ -424,10 +426,10 @@ public class ProjectPackageServiceTests
         Directory.CreateDirectory(Path.Combine(_projectDir, "empty_dir"));
 
         // Act
-        bool result = await service.ExportAsync(project, outputPath);
+        ExportResult result = await service.ExportAsync(project, outputPath);
 
         // Assert
-        Assert.That(result, Is.True);
+        Assert.That(result.Success, Is.True);
     }
 
     [Test]
@@ -492,10 +494,10 @@ public class ProjectPackageServiceTests
         Directory.CreateDirectory(invalidOutputPath);
 
         // Act
-        bool result = await service.ExportAsync(project, invalidOutputPath);
+        ExportResult result = await service.ExportAsync(project, invalidOutputPath);
 
         // Assert - should return false because the export failed
-        Assert.That(result, Is.False);
+        Assert.That(result.Success, Is.False);
     }
 
     [Test]
