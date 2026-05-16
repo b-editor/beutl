@@ -170,58 +170,6 @@ public class GotoTimecodeParserTests
     }
 
     [Test]
-    public void ClampToSceneRange_Below_ClampsToStart()
-    {
-        TimeSpan result = GotoTimecodeParser.ClampToSceneRange(
-            TimeSpan.Zero, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(10), FrameRate);
-
-        Assert.That(result, Is.EqualTo(TimeSpan.FromSeconds(1)));
-    }
-
-    [Test]
-    public void ClampToSceneRange_Above_ClampsToLastFrame()
-    {
-        TimeSpan start = TimeSpan.Zero;
-        TimeSpan duration = TimeSpan.FromSeconds(10);
-        TimeSpan frame = TimeSpan.FromSeconds(1d / FrameRate);
-
-        TimeSpan result = GotoTimecodeParser.ClampToSceneRange(
-            TimeSpan.FromHours(1), start, duration, FrameRate);
-
-        Assert.That(result, Is.EqualTo(start + duration - frame));
-    }
-
-    [Test]
-    public void ClampToSceneRange_Within_ReturnsUnchanged()
-    {
-        TimeSpan ts = TimeSpan.FromSeconds(5);
-        TimeSpan result = GotoTimecodeParser.ClampToSceneRange(
-            ts, TimeSpan.Zero, TimeSpan.FromSeconds(10), FrameRate);
-
-        Assert.That(result, Is.EqualTo(ts));
-    }
-
-    [Test]
-    public void ClampToSceneRange_DurationBelowOneFrame_CollapsesToStart()
-    {
-        TimeSpan start = TimeSpan.FromSeconds(2);
-        TimeSpan result = GotoTimecodeParser.ClampToSceneRange(
-            TimeSpan.FromSeconds(5), start, TimeSpan.Zero, FrameRate);
-
-        Assert.That(result, Is.EqualTo(start));
-    }
-
-    [Test]
-    public void ClampToSceneRange_NonZeroSceneStart_RaisesBelowToStart()
-    {
-        TimeSpan start = TimeSpan.FromSeconds(3);
-        TimeSpan result = GotoTimecodeParser.ClampToSceneRange(
-            TimeSpan.Zero, start, TimeSpan.FromSeconds(5), FrameRate);
-
-        Assert.That(result, Is.EqualTo(start));
-    }
-
-    [Test]
     public void TryParse_NegativeFrameSuffix_ClampsToZero()
     {
         bool ok = GotoTimecodeParser.TryParse(

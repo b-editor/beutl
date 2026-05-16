@@ -567,8 +567,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
             return false;
         }
 
-        _editorClock.CurrentTime.Value = GotoTimecodeParser.ClampToSceneRange(
-            ts.RoundToRate(rate), Scene.Start, Scene.Duration, rate);
+        _editorClock.CurrentTime.Value = ts.RoundToRate(rate);
         return true;
     }
 
