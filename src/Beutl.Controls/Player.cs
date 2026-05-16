@@ -241,6 +241,18 @@ public class Player : RangeBase
     {
         if (_currentTimeTextBox == null) return;
         string input = _currentTimeTextBox.Text ?? string.Empty;
+
+        // No-op when the user pressed Enter without editing the displayed text.
+        // The CurrentTime string format (hh\:mm\:ss\.ff) day-wraps for timelines
+        // >= 24h, so re-parsing it would silently jump the playhead backwards
+        // by one day. Treating an unchanged input as a cancel is also the
+        // expected UX for editing controls.
+        if (string.Equals(input, _currentTime, StringComparison.Ordinal))
+        {
+            EndEditCurrentTime();
+            return;
+        }
+
         var handler = CurrentTimeSubmitted;
 
         if (handler == null)
