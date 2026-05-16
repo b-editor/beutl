@@ -440,7 +440,7 @@ public sealed partial class EditViewModel : ISceneEditorContext, ISupportAutoSav
                 _logger.LogWarning(ex, "An error occurred while restoring the selected object.");
             }
 
-            var timelineOptions = new TimelineOptions();
+            var timelineOptions = new ProjectSystem.TimelineOptions();
 
             if (jsonObject.TryGetPropertyValue("max-layer-count", out JsonNode? maxLayer)
                 && maxLayer is JsonValue maxLayerValue
