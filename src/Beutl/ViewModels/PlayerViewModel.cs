@@ -555,27 +555,30 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
 
     public bool TryGotoTimecode(string input, out string? error)
     {
-        int rate = GetFrameRate();
-        IReadOnlyList<SceneMarker> markers = Scene?.Markers ?? (IReadOnlyList<SceneMarker>)Array.Empty<SceneMarker>();
+        if (Scene == null)
+        {
+            error = "GotoTimecode_InvalidFormat";
+            return false;
+        }
 
-        if (!GotoTimecodeParser.TryParse(input, rate, _editorClock.CurrentTime.Value, markers, out TimeSpan ts, out error))
+        int rate = GetFrameRate();
+        if (!GotoTimecodeParser.TryParse(input, rate, _editorClock.CurrentTime.Value, Scene.Markers, out TimeSpan ts, out error))
         {
             return false;
         }
 
-        ts = ts.RoundToRate(rate);
-
-        if (Scene != null)
-        {
-            TimeSpan frame = TimeSpan.FromSeconds(1d / rate);
-            TimeSpan max = Scene.Start + Scene.Duration - frame;
-            if (max < Scene.Start) max = Scene.Start;
-            if (ts < Scene.Start) ts = Scene.Start;
-            if (ts > max) ts = max;
-        }
-
-        _editorClock.CurrentTime.Value = ts;
+        _editorClock.CurrentTime.Value = ClampToSceneRange(ts.RoundToRate(rate), Scene.Start, Scene.Duration, rate);
         return true;
+    }
+
+    internal static TimeSpan ClampToSceneRange(TimeSpan ts, TimeSpan sceneStart, TimeSpan sceneDuration, int frameRate)
+    {
+        TimeSpan frame = TimeSpan.FromSeconds(1d / Math.Max(frameRate, 1));
+        TimeSpan max = sceneStart + sceneDuration - frame;
+        if (max < sceneStart) max = sceneStart;
+        if (ts < sceneStart) return sceneStart;
+        if (ts > max) return max;
+        return ts;
     }
 
     public void ToggleLoop()
