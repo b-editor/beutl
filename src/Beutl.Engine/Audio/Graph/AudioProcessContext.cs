@@ -34,6 +34,9 @@ public sealed class AudioProcessContext
 
     public static int GetSampleCount(TimeRange range, int sampleRate)
     {
+        if (sampleRate <= 0)
+            throw new ArgumentOutOfRangeException(nameof(sampleRate), "Sample rate must be positive.");
+
         return (int)Math.Ceiling(range.Duration.TotalSeconds * sampleRate);
     }
 
