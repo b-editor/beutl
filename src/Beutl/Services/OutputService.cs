@@ -172,6 +172,9 @@ public sealed class OutputService(EditViewModel editViewModel) : IDisposable
 
     public void RestoreItems()
     {
+        // 再試行時に前回の成功状態が残ると、IO/JSON 失敗後も SaveItems が有効になり
+        // 空または不整合な _items が書き込まれてユーザーのプロファイルを消す恐れがある。
+        _isRestored = false;
         try
         {
             if (!File.Exists(_filePath))
@@ -218,7 +221,7 @@ public sealed class OutputService(EditViewModel editViewModel) : IDisposable
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "An exception has occurred while restoring output profile file.");
+            _logger.LogError(ex, "An exception has occurred while restoring output profile file: {FilePath}", _filePath);
         }
     }
 
