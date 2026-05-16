@@ -66,6 +66,7 @@ public class EditorHostViewModel
         catch (Exception ex)
         {
             _logger.LogError(ex, "Unhandled exception in ProjectChanged.");
+            NotificationService.ShowError(string.Empty, MessageStrings.OperationFailed);
         }
     }
 
@@ -111,6 +112,7 @@ public class EditorHostViewModel
         catch (Exception ex)
         {
             _logger.LogError(ex, "Unhandled exception in Project_Items_CollectionChanged.");
+            NotificationService.ShowError(string.Empty, MessageStrings.OperationFailed);
         }
     }
 }
