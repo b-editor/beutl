@@ -179,6 +179,31 @@ public class GotoTimecodeParserTests
         Assert.That(result, Is.EqualTo(TimeSpan.Zero));
     }
 
+    [TestCase("+1e20s")]
+    [TestCase("-1e20s")]
+    [TestCase("+1e20m")]
+    [TestCase("+1e20f")]
+    [TestCase("+99999999999999s")]
+    public void TryParse_RelativeOutOfRange_ReturnsErrorWithoutThrowing(string input)
+    {
+        bool ok = GotoTimecodeParser.TryParse(
+            input, FrameRate, TimeSpan.Zero, EmptyMarkers, out _, out string? error);
+
+        Assert.That(ok, Is.False);
+        Assert.That(error, Is.EqualTo("GotoTimecode_InvalidFormat"));
+    }
+
+    [Test]
+    public void TryParse_RelativeOverflowOnAddition_ReturnsErrorWithoutThrowing()
+    {
+        bool ok = GotoTimecodeParser.TryParse(
+            "+9999999d.99999h", FrameRate, TimeSpan.MaxValue / 2, EmptyMarkers,
+            out _, out string? _);
+
+        // Either succeeds with a clamped result, or returns false with InvalidFormat — must not throw.
+        Assert.That(ok, Is.False.Or.True);
+    }
+
     [Test]
     public void TryParse_FrameRateZero_DefaultsTo30()
     {

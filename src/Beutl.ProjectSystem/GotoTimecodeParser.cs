@@ -150,27 +150,24 @@ public static class GotoTimecodeParser
             return false;
         }
 
-        TimeSpan delta;
-        switch (unit)
+        try
         {
-            case 's':
-            case 'S':
-                delta = TimeSpan.FromSeconds(value);
-                break;
-            case 'm':
-            case 'M':
-                delta = TimeSpan.FromMinutes(value);
-                break;
-            case 'f':
-            case 'F':
-                delta = value.ToTimeSpan(frameRate);
-                break;
-            default:
-                error = "GotoTimecode_InvalidFormat";
-                return false;
+            TimeSpan delta = unit switch
+            {
+                's' or 'S' => TimeSpan.FromSeconds(value),
+                'm' or 'M' => TimeSpan.FromMinutes(value),
+                'f' or 'F' => value.ToTimeSpan(frameRate),
+                _ => throw new FormatException(),
+            };
+
+            result = currentTime + (sign == -1 ? -delta : delta);
+        }
+        catch (Exception ex) when (ex is OverflowException or FormatException or ArgumentException)
+        {
+            error = "GotoTimecode_InvalidFormat";
+            return false;
         }
 
-        result = currentTime + (sign == -1 ? -delta : delta);
         ClampNonNegative(ref result);
         return true;
     }
