@@ -205,13 +205,12 @@ public class GotoTimecodeParserTests
         Assert.That(ok, Is.False.Or.True);
     }
 
-    [Test]
-    public void TryParse_FrameRateZero_DefaultsTo30()
+    [TestCase(0)]
+    [TestCase(-1)]
+    public void TryParse_NonPositiveFrameRate_Throws(int frameRate)
     {
-        bool ok = GotoTimecodeParser.TryParse(
-            "30f", frameRate: 0, TimeSpan.Zero, EmptyMarkers, out TimeSpan result, out _);
-
-        Assert.That(ok, Is.True);
-        Assert.That(result, Is.EqualTo(TimeSpan.FromSeconds(1)));
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            GotoTimecodeParser.TryParse(
+                "30f", frameRate, TimeSpan.Zero, EmptyMarkers, out _, out _));
     }
 }

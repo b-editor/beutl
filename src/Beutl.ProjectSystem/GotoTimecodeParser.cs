@@ -45,15 +45,12 @@ public static class GotoTimecodeParser
         result = TimeSpan.Zero;
         error = GotoTimecodeError.None;
 
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(frameRate);
+
         if (string.IsNullOrWhiteSpace(input))
         {
             error = GotoTimecodeError.InvalidFormat;
             return false;
-        }
-
-        if (frameRate <= 0)
-        {
-            frameRate = 30;
         }
 
         string text = input.Trim();
