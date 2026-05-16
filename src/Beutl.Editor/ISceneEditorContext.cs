@@ -5,13 +5,20 @@ using Beutl.ProjectSystem;
 namespace Beutl.Editor;
 
 /// <summary>
-/// シーン編集器が公開する強い型付けのコンテキスト契約。
+/// シーン編集器が公開する強い型付けのコンテキスト契約。タイムライン / プロパティ /
+/// グラフエディタなどの 1st-party scene tab はこのインターフェース実装を要求する。
+/// <see cref="IEditorContext"/> のみを実装する拡張機能 (例: 独自テキストエディタ)
+/// は scene tab を開けない — これは意図的なゲートで、必要なサービス
+/// (Scene、HistoryManager 等) を提供できない context が runtime で
+/// <c>GetRequiredService</c> 例外を出すのを防ぐ。
+/// </summary>
+/// <remarks>
 /// 全プロパティはコンストラクタで初期化され、authoritative な teardown
 /// (<see cref="System.IAsyncDisposable.DisposeAsync"/>) が完了するまで non-null。
 /// 破棄後の参照動作は未定義。<see cref="IEditorContext"/> のデフォルト
 /// <see cref="System.IDisposable.Dispose"/> 実装は no-op のため、同期破棄は実際の
 /// クリーンアップを行わない点に注意。
-/// </summary>
+/// </remarks>
 public interface ISceneEditorContext : IEditorContext
 {
     /// <summary>編集対象のシーン。</summary>
