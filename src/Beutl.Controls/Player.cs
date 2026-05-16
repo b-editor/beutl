@@ -8,6 +8,8 @@ using Avalonia.Data;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 
+using Microsoft.Extensions.Logging;
+
 namespace Beutl.Controls;
 
 // nullable is enabled per-type because the surrounding Player class predates
@@ -99,6 +101,8 @@ public class Player : RangeBase
             nameof(StartButtonCommand),
             owner => owner.StartButtonCommand,
             (owner, obj) => owner.StartButtonCommand = obj);
+
+    private static readonly ILogger s_logger = Beutl.Logging.Log.CreateLogger<Player>();
 
     private string _currentTime = string.Empty;
     private bool _isPlaying;
@@ -238,6 +242,14 @@ public class Player : RangeBase
         if (_currentTimeTextBox == null) return;
         string input = _currentTimeTextBox.Text ?? string.Empty;
         var handler = CurrentTimeSubmitted;
+
+        if (handler == null)
+        {
+            // The editor stays open with the fallback tooltip below; surface the
+            // misconfiguration so it is detectable in telemetry rather than
+            // silently masquerading as a user input error.
+            s_logger.LogWarning("CurrentTimeSubmitted has no subscribers; timecode '{Input}' cannot be processed.", input);
+        }
 
         TimecodeSubmittedEventArgs args = new TimecodeSubmittedEventArgs(input);
         try

@@ -86,14 +86,14 @@ public class GotoTimecodeParserTests
     }
 
     [Test]
-    public void TryParse_RelativeUnderflow_ClampsToZero()
+    public void TryParse_RelativeUnderflow_ReturnsOutOfRange()
     {
         TimeSpan current = TimeSpan.FromSeconds(1);
         bool ok = GotoTimecodeParser.TryParse(
-            "-10s", FrameRate, current, EmptyMarkers, out TimeSpan result, out _);
+            "-10s", FrameRate, current, EmptyMarkers, out _, out GotoTimecodeError error);
 
-        Assert.That(ok, Is.True);
-        Assert.That(result, Is.EqualTo(TimeSpan.Zero));
+        Assert.That(ok, Is.False);
+        Assert.That(error, Is.EqualTo(GotoTimecodeError.OutOfRange));
     }
 
     [Test]
@@ -220,14 +220,15 @@ public class GotoTimecodeParserTests
         Assert.That(error, Is.EqualTo(GotoTimecodeError.InvalidFormat));
     }
 
-    [Test]
-    public void TryParse_NegativeFrameSuffix_ClampsToZero()
+    [TestCase("-10f")]
+    [TestCase("#-30")]
+    public void TryParse_NegativeFrame_ReturnsOutOfRange(string input)
     {
         bool ok = GotoTimecodeParser.TryParse(
-            "-10f", FrameRate, TimeSpan.Zero, EmptyMarkers, out TimeSpan result, out _);
+            input, FrameRate, TimeSpan.Zero, EmptyMarkers, out _, out GotoTimecodeError error);
 
-        Assert.That(ok, Is.True);
-        Assert.That(result, Is.EqualTo(TimeSpan.Zero));
+        Assert.That(ok, Is.False);
+        Assert.That(error, Is.EqualTo(GotoTimecodeError.OutOfRange));
     }
 
     [TestCase("+1e20s")]

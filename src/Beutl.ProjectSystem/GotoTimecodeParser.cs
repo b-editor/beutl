@@ -121,18 +121,21 @@ public static class GotoTimecodeParser
 
     private static bool TryParseFrameSuffix(string text, int frameRate, out TimeSpan result)
     {
+        // Negative inputs are routed to TryParseRelative before this method runs,
+        // so a negative frame number here would only originate from an
+        // out-of-int.MinValue overflow that int.TryParse already rejects.
         result = TimeSpan.Zero;
         if (text.Length < 2) return false;
         char last = text[^1];
         if (last != 'f' && last != 'F') return false;
 
         string numberPart = text[..^1].Trim();
-        if (!int.TryParse(numberPart, NumberStyles.Integer, CultureInfo.InvariantCulture, out int frame))
+        if (!int.TryParse(numberPart, NumberStyles.Integer, CultureInfo.InvariantCulture, out int frame)
+            || frame < 0)
         {
             return false;
         }
 
-        if (frame < 0) frame = 0;
         result = frame.ToTimeSpan(frameRate);
         return true;
     }
@@ -147,7 +150,12 @@ public static class GotoTimecodeParser
             return false;
         }
 
-        if (frame < 0) frame = 0;
+        if (frame < 0)
+        {
+            error = GotoTimecodeError.OutOfRange;
+            return false;
+        }
+
         result = frame.ToTimeSpan(frameRate);
         return true;
     }
@@ -205,7 +213,12 @@ public static class GotoTimecodeParser
             return false;
         }
 
-        ClampNonNegative(ref result);
+        if (result < TimeSpan.Zero)
+        {
+            error = GotoTimecodeError.OutOfRange;
+            return false;
+        }
+
         return true;
     }
 
