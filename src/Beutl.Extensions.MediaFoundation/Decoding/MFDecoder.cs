@@ -150,7 +150,12 @@ internal sealed class MFDecoder : IDisposable
                 throw new Exception(message);
             }
 
-            if (_useDXVA2 && _videoSourceReader != null)
+            // VideoStreamIndex may have been reset to -1 above when video
+            // ConfigureDecoder threw but the caller still wanted audio; in
+            // that case there is no video stream to attach DXVA2 to, and
+            // GetServiceForStream(-1, ...) would immediately throw and turn
+            // the intended audio-only fallback into a second failure.
+            if (_useDXVA2 && _videoSourceReader != null && _mediaInfo.VideoStreamIndex != -1)
             {
                 // Send a message to the decoder to tell it to use DXVA2.
                 nint videoDecoderPtr = _videoSourceReader.GetServiceForStream(
