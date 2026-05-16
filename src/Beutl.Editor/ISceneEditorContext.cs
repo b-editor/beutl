@@ -14,10 +14,12 @@ namespace Beutl.Editor;
 /// </summary>
 /// <remarks>
 /// 全プロパティはコンストラクタで初期化され、authoritative な teardown
-/// (<see cref="System.IAsyncDisposable.DisposeAsync"/>) が完了するまで non-null。
-/// 破棄後の参照動作は未定義。<see cref="IEditorContext"/> のデフォルト
-/// <see cref="System.IDisposable.Dispose"/> 実装は no-op のため、同期破棄は実際の
-/// クリーンアップを行わない点に注意。
+/// (<see cref="System.IAsyncDisposable.DisposeAsync"/>) が呼び出されるまでは non-null。
+/// <c>DisposeAsync</c> 実行中は依存オブジェクトが順次破棄され、一部のプロパティ
+/// (<see cref="Scene"/> / <see cref="Player"/> / <see cref="BufferStatus"/> 等) は
+/// 戻る前に <c>null!</c> 化されるため、<c>DisposeAsync</c> 開始後の参照動作は未定義。
+/// <see cref="IEditorContext"/> のデフォルト <see cref="System.IDisposable.Dispose"/>
+/// 実装は no-op のため、同期破棄は実際のクリーンアップを行わない点にも注意。
 /// </remarks>
 public interface ISceneEditorContext : IEditorContext
 {
