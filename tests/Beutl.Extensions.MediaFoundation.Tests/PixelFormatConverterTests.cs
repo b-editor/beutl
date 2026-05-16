@@ -136,6 +136,80 @@ public unsafe class PixelFormatConverterTests
         }
     }
 
+    private static void AssertPrimariesRoundTrip(
+        PixelFormatConverter.YuvMatrix8 forward,
+        PixelFormatConverter.InvYuvMatrix8 inverse,
+        string matrixName)
+    {
+        const int width = 16;
+        const int height = 8;
+
+        var cases = new[]
+        {
+            (B: (byte)0, G: (byte)0, R: (byte)255),
+            (B: (byte)0, G: (byte)255, R: (byte)0),
+            (B: (byte)255, G: (byte)0, R: (byte)0),
+            (B: (byte)255, G: (byte)255, R: (byte)255),
+            (B: (byte)0, G: (byte)0, R: (byte)0),
+        };
+
+        foreach (var (b, g, r) in cases)
+        {
+            byte[] src = AllocateBgra(width, height, b, g, r);
+            byte[] nv12 = AllocateNv12Buffer(width, height);
+            byte[] roundTrip = new byte[width * 4 * height];
+
+            fixed (byte* sp = src)
+            fixed (byte* dp = nv12)
+            fixed (byte* rp = roundTrip)
+            {
+                PixelFormatConverter.BgraToNv12(sp, width * 4, dp, width, width, height, forward);
+                PixelFormatConverter.Nv12ToBgra(dp, width, rp, width * 4, width, height, inverse);
+            }
+
+            int i = (height / 2) * width * 4 + (width / 2) * 4;
+            // ±10 LSB tolerance — saturated primaries push the chroma close to
+            // the limited-range bounds, so quantization plus the 4-tap chroma
+            // average can drift a bit further than the BT.709 case.
+            Assert.That(Math.Abs(roundTrip[i + 0] - b), Is.LessThanOrEqualTo(10),
+                $"{matrixName} B for ({r},{g},{b}): got {roundTrip[i + 0]}");
+            Assert.That(Math.Abs(roundTrip[i + 1] - g), Is.LessThanOrEqualTo(10),
+                $"{matrixName} G for ({r},{g},{b}): got {roundTrip[i + 1]}");
+            Assert.That(Math.Abs(roundTrip[i + 2] - r), Is.LessThanOrEqualTo(10),
+                $"{matrixName} R for ({r},{g},{b}): got {roundTrip[i + 2]}");
+        }
+    }
+
+    [Test]
+    public void BgraToNv12_RoundTrip_Bt601()
+    {
+        AssertPrimariesRoundTrip(
+            PixelFormatConverter.YuvMatrix8.Bt601,
+            PixelFormatConverter.InvYuvMatrix8.Bt601,
+            "BT.601");
+    }
+
+    [Test]
+    public void BgraToNv12_RoundTrip_Bt2020()
+    {
+        AssertPrimariesRoundTrip(
+            PixelFormatConverter.YuvMatrix8.Bt2020,
+            PixelFormatConverter.InvYuvMatrix8.Bt2020,
+            "BT.2020");
+    }
+
+    [Test]
+    public void BgraToNv12_RoundTrip_Smpte240M()
+    {
+        // SMPTE 240M previously had asymmetric inverse coefficients, so saturated
+        // primaries would drift visibly. With the corrected inverse this test
+        // pins the round-trip back inside the ±10 LSB envelope.
+        AssertPrimariesRoundTrip(
+            PixelFormatConverter.YuvMatrix8.Smpte240M,
+            PixelFormatConverter.InvYuvMatrix8.Smpte240M,
+            "SMPTE 240M");
+    }
+
     [Test]
     public void BgraToNv12_RoundTrip_PreservesPrimaryColorsBt709()
     {
