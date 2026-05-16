@@ -91,6 +91,31 @@ public class SceneMoveChildrenTests
     }
 
     [Test]
+    public void MoveChildren_ConflictingShift_LeavesElementUnchanged()
+    {
+        string basePath = GetTempPath();
+        try
+        {
+            Scene scene = CreateScene(basePath);
+            Element movable = CreateElement(basePath, TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(1), zIndex: 0);
+            Element obstacle = CreateElement(basePath, TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(1), zIndex: 1);
+            scene.Children.Add(movable);
+            scene.Children.Add(obstacle);
+
+            // movable を obstacle の ZIndex に重ねようとすると衝突する。
+            // 時間方向の自動補正は効かないので no-op になる契約。
+            scene.MoveChildren(+1, TimeSpan.Zero, [movable]);
+
+            ClassicAssert.AreEqual(0, movable.ZIndex);
+            ClassicAssert.AreEqual(TimeSpan.FromSeconds(2), movable.Start);
+        }
+        finally
+        {
+            if (Directory.Exists(basePath)) Directory.Delete(basePath, recursive: true);
+        }
+    }
+
+    [Test]
     public void MoveChildren_MultipleElements_AllShiftTogether()
     {
         string basePath = GetTempPath();
