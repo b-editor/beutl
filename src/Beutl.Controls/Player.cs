@@ -10,6 +10,9 @@ using Avalonia.Interactivity;
 
 namespace Beutl.Controls;
 
+// nullable is enabled per-type because the surrounding Player class predates
+// nullable annotations; enabling at file scope would force a broad rewrite of
+// its private fields.
 public sealed class TimecodeSubmittedEventArgs : EventArgs
 {
     public TimecodeSubmittedEventArgs(string input)
@@ -19,9 +22,21 @@ public sealed class TimecodeSubmittedEventArgs : EventArgs
 
     public string Input { get; }
 
-    public bool Handled { get; set; }
+    public bool Handled { get; private set; }
 
-    public string? Error { get; set; }
+    public string? Error { get; private set; }
+
+    public void Accept()
+    {
+        Handled = true;
+        Error = null;
+    }
+
+    public void Reject(string error)
+    {
+        Handled = false;
+        Error = error ?? string.Empty;
+    }
 }
 #nullable restore
 

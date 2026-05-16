@@ -79,19 +79,17 @@ public partial class PlayerView : UserControl
         if (DataContext is not PlayerViewModel vm)
         {
             _logger.LogWarning("Timecode submitted but DataContext is not PlayerViewModel; ignoring.");
-            e.Handled = false;
-            e.Error = Beutl.Language.Strings.GotoTimecode_InvalidFormat;
+            e.Reject(Beutl.Language.Strings.GotoTimecode_InvalidFormat);
             return;
         }
 
         if (vm.TryGotoTimecode(e.Input, out GotoTimecodeError error))
         {
-            e.Handled = true;
+            e.Accept();
         }
         else
         {
-            e.Handled = false;
-            e.Error = LookupLocalizedError(error);
+            e.Reject(LookupLocalizedError(error));
         }
     }
 
