@@ -514,7 +514,7 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "An error occurred while restoring view state from {ViewStateFile}.", viewStateFile);
+            _logger.LogError(ex, "Unexpected error while restoring view state from {ViewStateFile}.", viewStateFile);
         }
     }
 
