@@ -579,8 +579,14 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
         {
             _editorClock.CurrentTime.Value = ts.RoundToRate(rate);
         }
-        catch (OverflowException)
+        catch (OverflowException ex)
         {
+            // Reaching this catch means the parser produced a value that the
+            // RoundToRate conversion cannot represent — the parser contract
+            // and RoundToRate's domain have drifted apart. Surface it.
+            _logger.LogWarning(ex,
+                "RoundToRate overflowed for a goto-timecode that passed the parser. ({SceneId}, Input={Input}, Parsed={Parsed}, Rate={Rate})",
+                _editViewModel.SceneId, input, ts, rate);
             error = GotoTimecodeError.OutOfRange;
             return false;
         }
