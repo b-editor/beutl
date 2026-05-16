@@ -610,7 +610,18 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
     {
         try
         {
-            var sourceVMs = SelectedElements.ToArray();
+            if (SelectedElements.Count == 0) return;
+
+            var ids = new HashSet<Guid>(SelectedElements.Select(s => s.Model.Id));
+            foreach (ImmutableHashSet<Guid> group in Scene.Groups)
+            {
+                if (group.Overlaps(ids))
+                {
+                    ids.UnionWith(group);
+                }
+            }
+
+            var sourceVMs = Elements.Where(x => ids.Contains(x.Model.Id)).ToArray();
             if (sourceVMs.Length == 0) return;
 
             var oldElements = sourceVMs.Select(x => x.Model).ToArray();
