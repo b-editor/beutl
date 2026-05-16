@@ -143,6 +143,54 @@ public class GotoTimecodeParserTests
         Assert.That(error, Is.EqualTo(GotoTimecodeError.MarkerNotFound));
     }
 
+    [Test]
+    public void TryParse_MarkerByPrefix_TimeOrderDoesNotOverrideDeclarationOrder()
+    {
+        // Tie-breaker contract: when multiple markers share a prefix, the first
+        // in declaration order wins regardless of which has the earlier Time.
+        var markers = new[]
+        {
+            new SceneMarker(TimeSpan.FromSeconds(10), "Interlude"),
+            new SceneMarker(TimeSpan.FromSeconds(2), "Intro"),
+        };
+
+        bool ok = GotoTimecodeParser.TryParse(
+            "@in", FrameRate, TimeSpan.Zero, markers, out TimeSpan result, out _);
+
+        Assert.That(ok, Is.True);
+        Assert.That(result, Is.EqualTo(TimeSpan.FromSeconds(10)));
+    }
+
+    [TestCase("@INTRO")]
+    [TestCase("@Intro")]
+    [TestCase("@intro")]
+    public void TryParse_MarkerName_IsCaseInsensitive(string input)
+    {
+        var markers = new[] { new SceneMarker(TimeSpan.FromSeconds(2), "Intro") };
+
+        bool ok = GotoTimecodeParser.TryParse(
+            input, FrameRate, TimeSpan.Zero, markers, out TimeSpan result, out _);
+
+        Assert.That(ok, Is.True);
+        Assert.That(result, Is.EqualTo(TimeSpan.FromSeconds(2)));
+    }
+
+    [Test]
+    public void TryParse_MarkerWithEmptyName_IsSkipped()
+    {
+        var markers = new[]
+        {
+            new SceneMarker(TimeSpan.FromSeconds(1), ""),
+            new SceneMarker(TimeSpan.FromSeconds(5), "Outro"),
+        };
+
+        bool ok = GotoTimecodeParser.TryParse(
+            "@outro", FrameRate, TimeSpan.Zero, markers, out TimeSpan result, out _);
+
+        Assert.That(ok, Is.True);
+        Assert.That(result, Is.EqualTo(TimeSpan.FromSeconds(5)));
+    }
+
     [TestCase("")]
     [TestCase("   ")]
     [TestCase("abc")]
@@ -151,6 +199,8 @@ public class GotoTimecodeParserTests
     [TestCase("#abc")]
     [TestCase("@")]
     [TestCase("+")]
+    [TestCase("100")]
+    [TestCase("1.5")]
     public void TryParse_InvalidInput_ReturnsError(string input)
     {
         bool ok = GotoTimecodeParser.TryParse(
