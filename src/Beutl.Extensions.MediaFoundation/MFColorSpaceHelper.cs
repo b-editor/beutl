@@ -85,7 +85,12 @@ internal static class MFColorSpaceHelper
         float eotfValue = BitmapColorSpaceTransferFn.Hlg.Transform(hlgReferenceCode);
         if (eotfValue <= 0 || !float.IsFinite(eotfValue))
         {
-            // OOTF γ=3 fallback — matches FFmpeg helper.
+            // Fallback when Skia hasn't initialized the HLG curve. 18.0 is the
+            // empirical scale FFmpeg uses for the BT.2100 OOTF γ=3 / 1000-nit
+            // peak case (extracted from libavfilter/vf_tonemap.c). Matching it
+            // keeps cross-backend output consistent in the rare init-failure
+            // path even though the analytic derivation is not a single closed
+            // form (it folds the OOTF system gain at the chosen peak).
             return 18.0f;
         }
 
@@ -94,51 +99,45 @@ internal static class MFColorSpaceHelper
 
     public static BitmapColorSpaceTransferFn GetTransferFunction(VideoTransferFunction trc)
     {
-        return trc switch
-        {
-            // MFVideoTransFunc_10 means linear / gamma 1.0 — not 10-bit content,
-            // despite the misleading Vortice enum name. Keep this comment near the
-            // mapping so future readers don't `git blame` the bug into existence.
-            VideoTransferFunction.Func10 => BitmapColorSpaceTransferFn.Linear,
-            VideoTransferFunction.Func22 => BitmapColorSpaceTransferFn.TwoDotTwo,
-            VideoTransferFunction.Func2020 or
-                VideoTransferFunction.Func2020Const => BitmapColorSpaceTransferFn.Rec2020,
-            VideoTransferFunction.Func2084 => BitmapColorSpaceTransferFn.Pq,
-            VideoTransferFunction.FuncHlg => BitmapColorSpaceTransferFn.Hlg,
-            VideoTransferFunction.Func709 or
-                VideoTransferFunction.Func709Sym or
-                VideoTransferFunction.FuncBt1361Ecg => BitmapColorSpaceTransferFn.Bt709,
-            VideoTransferFunction.Func28 => BitmapColorSpaceTransferFn.Gamma28,
-            VideoTransferFunction.Func240m => BitmapColorSpaceTransferFn.Smpte240M,
-            VideoTransferFunction.FuncSmpte428 => BitmapColorSpaceTransferFn.Smpte428,
-            VideoTransferFunction.FuncSRGB => BitmapColorSpaceTransferFn.Srgb,
-            // Unknown / unmapped values fall back to sRGB. Callers that need to
-            // know whether the mapping was an exact match should use TryGetTransferFunction.
-            _ => BitmapColorSpaceTransferFn.Srgb,
-        };
+        // Unmapped values fall back to sRGB. Callers that need to know whether
+        // the mapping was an exact match should use TryGetTransferFunction.
+        return TryGetTransferFunction(trc, out var fn) ? fn : BitmapColorSpaceTransferFn.Srgb;
     }
 
-    // Allows callers to detect "we silently fell back to sRGB" without re-walking
-    // the switch. Returns false for FuncUnknown and any value not enumerated above.
+    // Returns false for FuncUnknown and any value not enumerated below — callers
+    // (e.g. MFReader) use this to emit a "stream advertised a transfer we cannot
+    // honour" warning instead of silently substituting sRGB. Single source of
+    // truth so GetTransferFunction cannot drift from the mapping table.
     public static bool TryGetTransferFunction(VideoTransferFunction trc, out BitmapColorSpaceTransferFn fn)
     {
         switch (trc)
         {
+            // MFVideoTransFunc_10 means linear / gamma 1.0 — not 10-bit content,
+            // despite the misleading Vortice enum name. Keep this comment near
+            // the mapping so future readers don't re-introduce the bug.
             case VideoTransferFunction.Func10:
+                fn = BitmapColorSpaceTransferFn.Linear; return true;
             case VideoTransferFunction.Func22:
+                fn = BitmapColorSpaceTransferFn.TwoDotTwo; return true;
             case VideoTransferFunction.Func2020:
             case VideoTransferFunction.Func2020Const:
+                fn = BitmapColorSpaceTransferFn.Rec2020; return true;
             case VideoTransferFunction.Func2084:
+                fn = BitmapColorSpaceTransferFn.Pq; return true;
             case VideoTransferFunction.FuncHlg:
+                fn = BitmapColorSpaceTransferFn.Hlg; return true;
             case VideoTransferFunction.Func709:
             case VideoTransferFunction.Func709Sym:
             case VideoTransferFunction.FuncBt1361Ecg:
+                fn = BitmapColorSpaceTransferFn.Bt709; return true;
             case VideoTransferFunction.Func28:
+                fn = BitmapColorSpaceTransferFn.Gamma28; return true;
             case VideoTransferFunction.Func240m:
+                fn = BitmapColorSpaceTransferFn.Smpte240M; return true;
             case VideoTransferFunction.FuncSmpte428:
+                fn = BitmapColorSpaceTransferFn.Smpte428; return true;
             case VideoTransferFunction.FuncSRGB:
-                fn = GetTransferFunction(trc);
-                return true;
+                fn = BitmapColorSpaceTransferFn.Srgb; return true;
             default:
                 fn = BitmapColorSpaceTransferFn.Srgb;
                 return false;
