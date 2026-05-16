@@ -26,6 +26,20 @@ public class GotoTimecodeParserTests
         Assert.That(result, Is.EqualTo(new TimeSpan(0, h, m, s, ms)));
     }
 
+    [TestCase("1.00:00:05", 1, 0, 0, 5, 0)]
+    [TestCase("2.13:45:30.50", 2, 13, 45, 30, 500)]
+    public void TryParse_AbsoluteWithDayPrefix_Succeeds(string input, int d, int h, int m, int s, int ms)
+    {
+        // Required so users can type a >=24h timecode that the current-time
+        // display would render as a day-wrapped value otherwise.
+        bool ok = GotoTimecodeParser.TryParse(
+            input, FrameRate, TimeSpan.Zero, EmptyMarkers, out TimeSpan result, out GotoTimecodeError error);
+
+        Assert.That(ok, Is.True);
+        Assert.That(error, Is.EqualTo(GotoTimecodeError.None));
+        Assert.That(result, Is.EqualTo(new TimeSpan(d, h, m, s, ms)));
+    }
+
     [TestCase("60f", 60)]
     [TestCase("0f", 0)]
     [TestCase("1234F", 1234)]

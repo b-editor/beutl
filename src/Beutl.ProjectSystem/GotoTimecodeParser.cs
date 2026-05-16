@@ -28,6 +28,11 @@ public static class GotoTimecodeParser
 {
     private static readonly string[] s_absoluteFormats =
     [
+        // d.hh:mm:ss[.f...] — needed for >=24h timelines, since hh wraps to 0-23.
+        @"d\.hh\:mm\:ss\.fff",
+        @"d\.hh\:mm\:ss\.ff",
+        @"d\.hh\:mm\:ss\.f",
+        @"d\.hh\:mm\:ss",
         @"hh\:mm\:ss\.fff",
         @"hh\:mm\:ss\.ff",
         @"hh\:mm\:ss\.f",
