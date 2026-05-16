@@ -557,6 +557,11 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
     {
         if (Scene == null)
         {
+            // The view should not raise the event without a scene; surface the
+            // state mismatch so it is visible in telemetry.
+            _logger.LogWarning(
+                "TryGotoTimecode invoked with no scene loaded. ({SceneId}, Input={Input})",
+                _editViewModel.SceneId, input);
             error = GotoTimecodeError.NoScene;
             return false;
         }
@@ -564,6 +569,9 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
         int rate = GetFrameRate();
         if (!GotoTimecodeParser.TryParse(input, rate, _editorClock.CurrentTime.Value, Scene.Markers, out TimeSpan ts, out error))
         {
+            _logger.LogDebug(
+                "Goto-timecode parse failed. ({SceneId}, Input={Input}, Error={Error})",
+                _editViewModel.SceneId, input, error);
             return false;
         }
 
