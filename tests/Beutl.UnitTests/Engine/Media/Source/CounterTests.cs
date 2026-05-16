@@ -7,8 +7,13 @@ public class CounterTests
     private sealed class Fake : IDisposable
     {
         public int DisposeCount;
+        public Action? OnDispose;
 
-        public void Dispose() => Interlocked.Increment(ref DisposeCount);
+        public void Dispose()
+        {
+            Interlocked.Increment(ref DisposeCount);
+            OnDispose?.Invoke();
+        }
     }
 
     [Test]
@@ -66,10 +71,14 @@ public class CounterTests
     [Test]
     public void TryAddRef_WhileAlive_ReturnsTrueAndIncrementsRefCount()
     {
-        var counter = new Counter<Fake>(new Fake(), null);
+        var fake = new Fake();
+        var counter = new Counter<Fake>(fake, null);
 
         Assert.That(counter.TryAddRef(), Is.True);
         Assert.That(counter.RefCount, Is.EqualTo(2));
+        // Contract used by VideoSource/ImageSource/SoundSource: a successful
+        // TryAddRef must guarantee Value is safe to read until matching Release.
+        Assert.That(counter.Value, Is.SameAs(fake));
     }
 
     [Test]
@@ -108,6 +117,19 @@ public class CounterTests
         counter.Release(); // noop
 
         Assert.That(callCount, Is.EqualTo(1));
+    }
+
+    [Test]
+    public void OnRelease_InvokedBeforeUnderlyingDispose()
+    {
+        var order = new List<string>();
+        var fake = new Fake();
+        fake.OnDispose = () => { lock (order) order.Add("dispose"); };
+        var counter = new Counter<Fake>(fake, () => { lock (order) order.Add("onRelease"); });
+
+        counter.Release();
+
+        Assert.That(order, Is.EqualTo(new[] { "onRelease", "dispose" }));
     }
 
     [Test]
