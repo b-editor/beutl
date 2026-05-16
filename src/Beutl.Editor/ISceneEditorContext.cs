@@ -6,8 +6,11 @@ namespace Beutl.Editor;
 
 /// <summary>
 /// シーン編集器が公開する強い型付けのコンテキスト契約。
-/// 全プロパティはコンストラクタで初期化され、<see cref="System.IDisposable.Dispose"/> が
-/// 呼ばれるまで non-null。Dispose 後の参照動作は未定義。
+/// 全プロパティはコンストラクタで初期化され、authoritative な teardown
+/// (<see cref="System.IAsyncDisposable.DisposeAsync"/>) が完了するまで non-null。
+/// 破棄後の参照動作は未定義。<see cref="IEditorContext"/> のデフォルト
+/// <see cref="System.IDisposable.Dispose"/> 実装は no-op のため、同期破棄は実際の
+/// クリーンアップを行わない点に注意。
 /// </summary>
 public interface ISceneEditorContext : IEditorContext
 {
