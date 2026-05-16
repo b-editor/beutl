@@ -629,9 +629,9 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
 
             TimeSpan minStart = newElements.Min(e => e.Start);
             int minZIndex = newElements.Min(e => e.ZIndex);
-            TimeSpan maxStart = newElements.Max(e => e.Start);
+            TimeSpan maxEnd = newElements.Max(e => e.Range.End);
             int maxZIndex = newElements.Max(e => e.ZIndex);
-            TimeSpan length = maxStart - minStart;
+            TimeSpan length = maxEnd - minStart;
 
             var (newStart, newZIndex) = CorrectPosition(
                 new TimeRange(minStart, length),
