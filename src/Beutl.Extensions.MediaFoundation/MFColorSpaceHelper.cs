@@ -85,12 +85,11 @@ internal static class MFColorSpaceHelper
         float eotfValue = BitmapColorSpaceTransferFn.Hlg.Transform(hlgReferenceCode);
         if (eotfValue <= 0 || !float.IsFinite(eotfValue))
         {
-            // Fallback when Skia hasn't initialized the HLG curve. 18.0 is the
-            // empirical scale FFmpeg uses for the BT.2100 OOTF γ=3 / 1000-nit
-            // peak case (extracted from libavfilter/vf_tonemap.c). Matching it
-            // keeps cross-backend output consistent in the rare init-failure
-            // path even though the analytic derivation is not a single closed
-            // form (it folds the OOTF system gain at the chosen peak).
+            // Fallback when Skia hasn't initialized the HLG curve. Mirrors the
+            // value used by the FFmpeg backend in this repo
+            // (Beutl.Extensions.FFmpeg/ColorSpaceHelper.cs), which derives it
+            // empirically from the BT.2100 OOTF γ=3 / 1000-nit peak case so
+            // both backends stay consistent on init failure.
             return 18.0f;
         }
 
