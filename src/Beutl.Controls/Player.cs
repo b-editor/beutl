@@ -1,4 +1,5 @@
-﻿using System.Windows.Input;
+﻿#nullable enable
+using System.Windows.Input;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Presenters;
@@ -13,15 +14,16 @@ public sealed class TimecodeSubmittedEventArgs : EventArgs
 {
     public TimecodeSubmittedEventArgs(string input)
     {
-        Input = input;
+        Input = input ?? string.Empty;
     }
 
     public string Input { get; }
 
     public bool Handled { get; set; }
 
-    public string Error { get; set; }
+    public string? Error { get; set; }
 }
+#nullable restore
 
 public class Player : RangeBase
 {
