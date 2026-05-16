@@ -107,7 +107,7 @@ public class AnimatorInterpolateTests
     public void Int32Animator_FullRangeMidpoint()
     {
         var animator = new Int32Animator();
-        // (int.MinValue + int.MaxValue) / 2 = -0.5 → AwayFromZero → -1
+        // double 補間: -2^31 + (2^32 - 1) * 0.5 = -0.5 → Math.Round(AwayFromZero) → -1
         Assert.That(animator.Interpolate(0.5f, int.MinValue, int.MaxValue), Is.EqualTo(-1));
     }
 
@@ -120,12 +120,13 @@ public class AnimatorInterpolateTests
     }
 
     [Test]
-    public void Int64Animator_PreservesPrecisionInModerateRange()
+    public void Int64Animator_PreservesPrecisionForLargeValues()
     {
         var animator = new Int64Animator();
-        // float-based の旧実装では long.MaxValue 比の正規化で精度が崩れ、
-        // 1_000_000_000L の中点で誤差が出ていた領域。
-        Assert.That(animator.Interpolate(0.5f, 0L, 1_000_000_000L), Is.EqualTo(500_000_000L));
+        // 旧 float ベース実装では (float)long.MaxValue で正規化するため 1e11 付近で
+        // ~1024 程度の誤差が出る (旧実装は 49_999_998_976L を返す)。新実装の double
+        // 補間では完全に一致する。
+        Assert.That(animator.Interpolate(0.5f, 0L, 100_000_000_000L), Is.EqualTo(50_000_000_000L));
     }
 
     [Test]
@@ -150,7 +151,8 @@ public class AnimatorInterpolateTests
         // 中点近傍の値を返すこと (double 精度の許容差あり)。
         var result = animator.Interpolate(0.5f, ulong.MaxValue, 0ul);
         const ulong expected = ulong.MaxValue / 2;
-        // double の仮数部精度 (52bit) を考慮した許容差
+        // double の有効精度は 53bit (仮数 52bit + 暗黙の先頭 1bit)。
+        // ulong.MaxValue 近傍の 1 ULP は 2^(64-53) = 2048 なので 2 ULP 分の許容差。
         Assert.That(result, Is.GreaterThan(expected - 4096ul).And.LessThan(expected + 4096ul));
     }
 
