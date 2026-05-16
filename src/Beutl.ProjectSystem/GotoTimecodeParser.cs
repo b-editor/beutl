@@ -207,4 +207,16 @@ public static class GotoTimecodeParser
     {
         if (value < TimeSpan.Zero) value = TimeSpan.Zero;
     }
+
+    public static TimeSpan ClampToSceneRange(TimeSpan ts, TimeSpan sceneStart, TimeSpan sceneDuration, int frameRate)
+    {
+        if (frameRate <= 0) frameRate = 30;
+
+        TimeSpan frame = TimeSpan.FromSeconds(1d / frameRate);
+        TimeSpan max = sceneStart + sceneDuration - frame;
+        if (max < sceneStart) max = sceneStart;
+        if (ts < sceneStart) return sceneStart;
+        if (ts > max) return max;
+        return ts;
+    }
 }

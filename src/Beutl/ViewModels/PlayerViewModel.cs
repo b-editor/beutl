@@ -567,18 +567,9 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
             return false;
         }
 
-        _editorClock.CurrentTime.Value = ClampToSceneRange(ts.RoundToRate(rate), Scene.Start, Scene.Duration, rate);
+        _editorClock.CurrentTime.Value = GotoTimecodeParser.ClampToSceneRange(
+            ts.RoundToRate(rate), Scene.Start, Scene.Duration, rate);
         return true;
-    }
-
-    internal static TimeSpan ClampToSceneRange(TimeSpan ts, TimeSpan sceneStart, TimeSpan sceneDuration, int frameRate)
-    {
-        TimeSpan frame = TimeSpan.FromSeconds(1d / Math.Max(frameRate, 1));
-        TimeSpan max = sceneStart + sceneDuration - frame;
-        if (max < sceneStart) max = sceneStart;
-        if (ts < sceneStart) return sceneStart;
-        if (ts > max) return max;
-        return ts;
     }
 
     public void ToggleLoop()
