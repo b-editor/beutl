@@ -831,6 +831,9 @@
   <data name="GotoTimecode_MarkerNotFound" xml:space="preserve">
     <value>マーカーが見つかりません。</value>
   </data>
+  <data name="GotoTimecode_NoScene" xml:space="preserve">
+    <value>シーンが読み込まれていません。</value>
+  </data>
   <data name="Paste_Description" xml:space="preserve">
     <value>コピーしたデータをペーストします。</value>
   </data>

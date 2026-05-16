@@ -557,7 +557,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
     {
         if (Scene == null)
         {
-            error = "GotoTimecode_InvalidFormat";
+            error = "GotoTimecode_NoScene";
             return false;
         }
 
