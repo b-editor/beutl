@@ -107,6 +107,25 @@ public class ResourceRelocationServiceTests
     }
 
     [Test]
+    public async Task RelocateFontsAsync_WithNoMatchingFontFiles_ReportsFailedItem()
+    {
+        // Arrange: font finder returns an empty enumerable for the family (font not installed).
+        var service = new ResourceRelocationService(_ => []);
+        var fonts = new[] { new FontFamily("UnknownFamily") };
+
+        // Act
+        RelocationResult result = await service.RelocateFontsAsync(fonts, _projectDir);
+
+        // Assert
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.SuccessCount, Is.EqualTo(0));
+            Assert.That(result.FailedItems, Has.Count.EqualTo(1));
+            Assert.That(result.FailedItems[0], Is.EqualTo("UnknownFamily"));
+        });
+    }
+
+    [Test]
     public async Task RelocateFontsAsync_WithMissingFontFile_ReportsFailedItem()
     {
         // Arrange: font finder returns a path that does not exist; CopyFileAsync throws.

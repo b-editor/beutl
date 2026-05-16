@@ -162,8 +162,10 @@ public sealed class ResourceRelocationService
                 IEnumerable<string> fontFiles = _fontFileFinder != null
                     ? _fontFileFinder(fontFamily.Name)
                     : FindFontFiles(fontFamily.Name);
+                bool foundAnyFile = false;
                 foreach (string sourceFilePath in fontFiles)
                 {
+                    foundAnyFile = true;
                     if (!copiedFiles.Add(sourceFilePath))
                         continue;
 
@@ -174,6 +176,12 @@ public sealed class ResourceRelocationService
 
                     count++;
                     _logger.LogDebug("Relocated font: {OriginalPath} -> {NewPath}", sourceFilePath, destFilePath);
+                }
+
+                if (!foundAnyFile)
+                {
+                    _logger.LogWarning("No font files found for family: {FontFamily}", fontFamily.Name);
+                    failedItems.Add(fontFamily.Name);
                 }
             }
             catch (Exception ex)
