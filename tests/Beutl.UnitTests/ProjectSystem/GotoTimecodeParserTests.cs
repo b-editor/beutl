@@ -218,6 +218,11 @@ public class GotoTimecodeParserTests
     [TestCase("+-5s")]
     [TestCase("--5s")]
     [TestCase("+-1m")]
+    [TestCase("+-5f")]
+    [TestCase("--5f")]
+    [TestCase("-+5s")]
+    [TestCase("-+5m")]
+    [TestCase("-+5f")]
     public void TryParse_InvalidInput_ReturnsError(string input)
     {
         bool ok = GotoTimecodeParser.TryParse(
