@@ -223,13 +223,12 @@ public class IpcConnectionMultiplexedTests
                 // 受信ループとキャンセルがほぼ同時に走るよう仕向ける。
                 cts.Cancel();
 
-                try
-                {
-                    await requestTask;
-                }
-                catch (OperationCanceledException) { }
-                catch (IOException) { }
+                // PR で修正したキャンセル経路がリグレッションすると await が永久に
+                // 返らなくなるため、フェイルファストで上限を切る。
+                await AwaitWithTimeout(requestTask, TimeSpan.FromSeconds(5), $"iter={iter}: requestTask");
             }
+            catch (OperationCanceledException) { }
+            catch (IOException) { }
             finally
             {
                 workerCts.Cancel();
@@ -237,7 +236,7 @@ public class IpcConnectionMultiplexedTests
                 // worker は書き込み中に server.Dispose() を踏むと
                 // ObjectDisposedException を投げうる。stress テストでは
                 // この競合は不可避なので想定例外として許容する。
-                try { await workerTask; }
+                try { await AwaitWithTimeout(workerTask, TimeSpan.FromSeconds(5), $"iter={iter}: workerTask"); }
                 catch (OperationCanceledException) { }
                 catch (IOException) { }
                 catch (ObjectDisposedException) { }
@@ -348,5 +347,19 @@ public class IpcConnectionMultiplexedTests
         {
             Assert.Fail($"Timeout {timeout.TotalMilliseconds}ms waiting for: {description}");
         }
+    }
+
+    /// <summary>
+    /// Task の完了を上限時間で待つ。タイムアウト時は Assert.Fail でテストを落とす。
+    /// 既に Task が faulted であれば内側の例外が再 throw される (呼び出し元で catch する想定)。
+    /// </summary>
+    private static async Task AwaitWithTimeout(Task task, TimeSpan timeout, string description)
+    {
+        var completed = await Task.WhenAny(task, Task.Delay(timeout));
+        if (completed != task)
+        {
+            Assert.Fail($"Timeout {timeout.TotalMilliseconds}ms waiting for: {description}");
+        }
+        await task;
     }
 }
