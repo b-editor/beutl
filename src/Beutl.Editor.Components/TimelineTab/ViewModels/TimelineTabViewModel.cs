@@ -94,6 +94,9 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
         Paste.Subscribe(PasteCore)
             .AddTo(_disposables);
 
+        Duplicate.Subscribe(DuplicateSelectedElements)
+            .AddTo(_disposables);
+
         TimelineOptions options = Options.Value;
         LayerHeaders.AddRange(Enumerable.Range(0, options.MaxLayerCount)
             .Select(num => new LayerHeaderViewModel(num, this)));
@@ -363,6 +366,8 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
 
     public ReactiveCommand Paste { get; } = new();
 
+    public ReactiveCommand Duplicate { get; } = new();
+
     public ReactiveCommand<(TimeRange Range, int ZIndex)> ScrollTo { get; } = new();
 
     public ReactiveCommandSlim SetStartTimeToPointerPosition { get; } = new();
@@ -543,7 +548,6 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
 
         ObjectRegenerator.Regenerate(oldElements, out Element[] newElements);
 
-        // 時間の範囲、レイヤーの範囲を計算
         TimeSpan minStart = newElements.Min(e => e.Start);
         int minZIndex = newElements.Min(e => e.ZIndex);
         TimeSpan maxStart = newElements.Max(e => e.Start);
@@ -555,26 +559,36 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
             minZIndex,
             maxZIndex);
 
-        // 新しい位置に移動して保存、シーンに追加
+        PlaceAndAddDuplicates(newElements, oldElements, newStart, newZIndex);
+        EditorContext.GetRequiredService<HistoryManager>().Commit(CommandNames.PasteElement);
+
+        ScrollTo.Execute((new TimeRange(newStart, length), newZIndex));
+    }
+
+    private void PlaceAndAddDuplicates(
+        Element[] newElements,
+        Element[] sourceElements,
+        TimeSpan newStartAnchor,
+        int newZIndexAnchor)
+    {
+        TimeSpan minStart = newElements.Min(e => e.Start);
+        int minZIndex = newElements.Min(e => e.ZIndex);
+
         foreach (Element newElement in newElements)
         {
-            newElement.Start = newElement.Start - minStart + newStart;
-            newElement.ZIndex = newElement.ZIndex - minZIndex + newZIndex;
+            newElement.Start = newElement.Start - minStart + newStartAnchor;
+            newElement.ZIndex = newElement.ZIndex - minZIndex + newZIndexAnchor;
 
             CoreSerializer.StoreToUri(newElement,
                 RandomFileNameGenerator.GenerateUri(Scene.Uri!, Constants.ElementFileExtension));
         }
 
-        HistoryManager history = EditorContext.GetRequiredService<HistoryManager>();
-
         var idMapping = new Dictionary<Guid, Guid>();
-        for (int i = 0; i < oldElements.Length; i++)
+        for (int i = 0; i < sourceElements.Length; i++)
         {
-            idMapping[oldElements[i].Id] = newElements[i].Id;
+            idMapping[sourceElements[i].Id] = newElements[i].Id;
         }
 
-        // コピーする要素が含まれるグループを取得
-        var scene = Scene;
         List<ImmutableHashSet<Guid>> newGroups = Scene.Groups
             .Select(g => g.Where(id => idMapping.ContainsKey(id))
                 .Select(id => idMapping[id])
@@ -583,17 +597,49 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
             .ToList();
         if (newGroups.Count > 0)
         {
-            scene.Groups.AddRange(newGroups);
+            Scene.Groups.AddRange(newGroups);
         }
 
         foreach (Element newElement in newElements)
         {
             Scene.AddChild(newElement);
         }
+    }
 
-        history.Commit(CommandNames.PasteElement);
+    private void DuplicateSelectedElements()
+    {
+        var sourceVMs = SelectedElements.ToArray();
+        if (sourceVMs.Length == 0) return;
 
-        ScrollTo.Execute((new TimeRange(newStart, maxStart - minStart), newZIndex));
+        var oldElements = sourceVMs.Select(x => x.Model).ToArray();
+        ObjectRegenerator.Regenerate(oldElements, out Element[] newElements);
+
+        TimeSpan minStart = newElements.Min(e => e.Start);
+        int minZIndex = newElements.Min(e => e.ZIndex);
+        TimeSpan maxStart = newElements.Max(e => e.Start);
+        int maxZIndex = newElements.Max(e => e.ZIndex);
+        TimeSpan length = maxStart - minStart;
+
+        var (newStart, newZIndex) = CorrectPosition(
+            new TimeRange(minStart, length),
+            minZIndex,
+            maxZIndex);
+
+        PlaceAndAddDuplicates(newElements, oldElements, newStart, newZIndex);
+        EditorContext.GetRequiredService<HistoryManager>().Commit(CommandNames.DuplicateElement);
+
+        ScrollTo.Execute((new TimeRange(newStart, length), newZIndex));
+    }
+
+    internal void DuplicateElementsAt(IReadOnlyList<Element> sourceElements, TimeSpan anchorStart, int anchorZIndex)
+    {
+        if (sourceElements.Count == 0) return;
+
+        var src = sourceElements.ToArray();
+        ObjectRegenerator.Regenerate(src, out Element[] newElements);
+
+        PlaceAndAddDuplicates(newElements, src, anchorStart, Math.Max(anchorZIndex, 0));
+        EditorContext.GetRequiredService<HistoryManager>().Commit(CommandNames.DuplicateElement);
     }
 
     private async Task PasteElement(IClipboard clipboard)
@@ -1107,7 +1153,7 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
     {
         return execution.CommandName switch
         {
-            "Copy" or "Cut" or "Delete" or "Exclude" => SelectedElements.Count > 0,
+            "Copy" or "Cut" or "Delete" or "Exclude" or "Duplicate" => SelectedElements.Count > 0,
             "NudgeLeftFrame" or "NudgeRightFrame"
                 or "NudgeLeftLarge" or "NudgeRightLarge"
                 or "NudgeLeftSecond" or "NudgeRightSecond" => SelectedElements.Count > 0,
@@ -1141,6 +1187,14 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
                 {
                     execution.KeyEventArgs.Handled = true;
                     _logger.LogDebug("Paste command executed and KeyEventArgs handled.");
+                }
+
+                break;
+            case "Duplicate":
+                Duplicate.Execute();
+                if (execution.KeyEventArgs != null)
+                {
+                    execution.KeyEventArgs.Handled = true;
                 }
 
                 break;

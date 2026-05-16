@@ -33,6 +33,9 @@
   <data name="SplitElement" xml:space="preserve">
     <value>要素を分割</value>
   </data>
+  <data name="DuplicateElement" xml:space="preserve">
+    <value>要素を複製</value>
+  </data>
   <data name="ChangeElementColor" xml:space="preserve">
     <value>要素の色を変更</value>
   </data>

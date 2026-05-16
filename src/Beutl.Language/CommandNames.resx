@@ -38,6 +38,9 @@
   <data name="SplitElement" xml:space="preserve">
     <value>Split Element</value>
   </data>
+  <data name="DuplicateElement" xml:space="preserve">
+    <value>Duplicate Element</value>
+  </data>
   <data name="ChangeElementColor" xml:space="preserve">
     <value>Change Element Color</value>
   </data>

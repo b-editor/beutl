@@ -62,6 +62,11 @@ public sealed class TimelineTabExtension : ToolTabExtension
             new ContextCommandKeyGesture("Ctrl+K"),
             new ContextCommandKeyGesture("Cmd+K", OSPlatform.OSX),
         ]),
+        new ContextCommandDefinition("Duplicate", Strings.Duplicate, Strings.Duplicate_Description,
+        [
+            new ContextCommandKeyGesture("Ctrl+D"),
+            new ContextCommandKeyGesture("Cmd+D", OSPlatform.OSX),
+        ]),
         new ContextCommandDefinition("SetStartTime", Strings.SetStartTime, "",
         [
             new ContextCommandKeyGesture("OemOpenBrackets")

@@ -326,7 +326,7 @@ public sealed partial class ElementView : UserControl
 
                 if (view._timeline is { } timeline && _pressed)
                 {
-                    pointerFrame = view.RoundStartTime(pointerFrame, scale, e.KeyModifiers.HasFlag(KeyModifiers.Alt));
+                    pointerFrame = view.RoundStartTime(pointerFrame, scale, e.KeyModifiers.HasFlag(KeyModifiers.Shift));
                     point = point.WithX(pointerFrame.TimeToPixel(scale));
                     int rate = viewModel.Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;
                     double minWidth = TimeSpan.FromSeconds(1d / rate).TimeToPixel(scale);
@@ -387,7 +387,7 @@ public sealed partial class ElementView : UserControl
                 }
 
                 PointerPoint point = e.GetCurrentPoint(view.border);
-                if (point.Properties.IsLeftButtonPressed && e.KeyModifiers is KeyModifiers.None or KeyModifiers.Alt
+                if (point.Properties.IsLeftButtonPressed && e.KeyModifiers is KeyModifiers.None or KeyModifiers.Shift
                                                          && view.Cursor != Cursors.Arrow && view.Cursor is not null)
                 {
                     IReadOnlyList<ElementViewModel> relatedElements = viewModel.GetGroupOrSelectedElements();
@@ -495,7 +495,7 @@ public sealed partial class ElementView : UserControl
                     return;
                 }
 
-                if (e.KeyModifiers is not (KeyModifiers.None or KeyModifiers.Alt))
+                if (e.KeyModifiers is not (KeyModifiers.None or KeyModifiers.Shift))
                 {
                     view.Cursor = null;
                     _resizeType = AlignmentX.Center;
@@ -539,6 +539,7 @@ public sealed partial class ElementView : UserControl
     private sealed class _MoveBehavior : Behavior<ElementView>
     {
         private bool _pressed;
+        private bool _duplicateMode;
         private Point _start;
 
         protected override void OnAttached()
@@ -569,7 +570,7 @@ public sealed partial class ElementView : UserControl
                 float scale = viewModel.Timeline.Options.Value.Scale;
                 TimeSpan pointerFrame = point.X.PixelToTimeSpan(scale);
 
-                pointerFrame = view.RoundStartTime(pointerFrame, scale, e.KeyModifiers.HasFlag(KeyModifiers.Alt));
+                pointerFrame = view.RoundStartTime(pointerFrame, scale, e.KeyModifiers.HasFlag(KeyModifiers.Shift));
 
                 TimeSpan newframe = pointerFrame - _start.X.PixelToTimeSpan(scale);
 
@@ -609,6 +610,7 @@ public sealed partial class ElementView : UserControl
                     && (view.Cursor == Cursors.Arrow || view.Cursor == null))
                 {
                     _pressed = true;
+                    _duplicateMode = e.KeyModifiers.HasFlag(KeyModifiers.Alt);
                     _start = point.Position;
                     e.Handled = true;
                 }
@@ -620,6 +622,8 @@ public sealed partial class ElementView : UserControl
             if (_pressed)
             {
                 _pressed = false;
+                bool duplicate = _duplicateMode;
+                _duplicateMode = false;
 
                 if (AssociatedObject is { ViewModel: { } viewModel })
                 {
@@ -629,7 +633,39 @@ public sealed partial class ElementView : UserControl
                     IReadOnlyList<ElementViewModel> relatedElements = viewModel.GetGroupOrSelectedElements();
                     var elems = relatedElements.Select(x => x.Model).ToArray();
 
-                    if (elems.Length == 1)
+                    float scale = viewModel.Timeline.Options.Value.Scale;
+                    int rate = viewModel.Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;
+                    TimeSpan newStart = viewModel.BorderMargin.Value.Left.PixelToTimeSpan(scale).RoundToRate(rate);
+                    TimeSpan deltaStart = newStart - viewModel.Model.Start;
+                    int newIndex = viewModel.Timeline.ToLayerNumber(viewModel.Margin.Value);
+                    int deltaIndex = newIndex - viewModel.Model.ZIndex;
+
+                    if (duplicate)
+                    {
+                        // ドラッグした要素はすべて元位置に戻し、ドロップ位置に複製を作成
+                        var animations = relatedElements
+                            .Select(x => (ViewModel: x, Context: x.PrepareAnimation()))
+                            .ToArray();
+
+                        TimeSpan minFrame = TimeSpan.FromSeconds(1d / rate);
+                        bool hasDrag = Math.Abs(deltaStart.Ticks) >= minFrame.Ticks || deltaIndex != 0;
+                        if (hasDrag && elems.Length > 0)
+                        {
+                            TimeSpan minSourceStart = elems.Min(m => m.Start);
+                            int minSourceZIndex = elems.Min(m => m.ZIndex);
+                            TimeSpan anchorStart = minSourceStart + deltaStart;
+                            if (anchorStart < TimeSpan.Zero) anchorStart = TimeSpan.Zero;
+                            int anchorZIndex = Math.Max(minSourceZIndex + deltaIndex, 0);
+
+                            viewModel.Timeline.DuplicateElementsAt(elems, anchorStart, anchorZIndex);
+                        }
+
+                        foreach (var (item, context) in animations)
+                        {
+                            _ = item.AnimationRequest(context);
+                        }
+                    }
+                    else if (elems.Length == 1)
                     {
                         await viewModel.SubmitViewModelChanges();
                     }
@@ -638,13 +674,6 @@ public sealed partial class ElementView : UserControl
                         var animations = relatedElements
                             .Select(x => (ViewModel: x, Context: x.PrepareAnimation()))
                             .ToArray();
-
-                        float scale = viewModel.Timeline.Options.Value.Scale;
-                        int rate = viewModel.Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;
-                        TimeSpan newStart = viewModel.BorderMargin.Value.Left.PixelToTimeSpan(scale).RoundToRate(rate);
-                        TimeSpan deltaStart = newStart - viewModel.Model.Start;
-                        int newIndex = viewModel.Timeline.ToLayerNumber(viewModel.Margin.Value);
-                        int deltaIndex = newIndex - viewModel.Model.ZIndex;
 
                         viewModel.Scene.MoveChildren(deltaIndex, deltaStart, elems);
                         history.Commit(CommandNames.MoveElement);
