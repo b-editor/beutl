@@ -170,7 +170,7 @@ internal static unsafe class PixelFormatConverter
         public static readonly InvYuvMatrix8 Bt601 = new(409, 100, 208, 516);
 
         // Kr=0.2627, Kb=0.0593
-        public static readonly InvYuvMatrix8 Bt2020 = new(430, 48, 167, 549);
+        public static readonly InvYuvMatrix8 Bt2020 = new(430, 48, 167, 548);
 
         // Kr=0.212, Kb=0.087
         public static readonly InvYuvMatrix8 Smpte240M = new(459, 66, 139, 532);
