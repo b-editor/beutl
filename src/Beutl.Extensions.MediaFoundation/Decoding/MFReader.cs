@@ -7,7 +7,6 @@ using Beutl.Media;
 using Beutl.Media.Decoding;
 using Beutl.Media.Music;
 using Beutl.Media.Music.Samples;
-using Beutl.Media.Pixel;
 using Beutl.Media.Source;
 
 using Microsoft.Extensions.Logging;
