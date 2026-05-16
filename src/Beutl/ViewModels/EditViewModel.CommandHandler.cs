@@ -216,7 +216,7 @@ public partial class EditViewModel : IContextCommandHandler, IContextCommandStat
     {
         TimeSpan current = _editorClock.CurrentTime.Value;
 
-        // 探索範囲: 選択中の Element → 親 Element → Scene 全 Element
+        // 探索範囲のフォールバックチェーン: 選択中の Element → 直近の親 Element → Scene 全 Element (いずれか1つのみ)
         CoreObject? sel = _editorSelection.SelectedObject.Value;
         Element? scope = sel as Element
             ?? (sel as IHierarchical)?.FindHierarchicalParent<Element>();
