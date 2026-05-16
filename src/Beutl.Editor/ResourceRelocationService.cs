@@ -13,8 +13,8 @@ namespace Beutl.Editor;
 /// <summary>
 /// Result of a resource relocation operation.
 /// </summary>
-/// <param name="SuccessCount">Number of resources successfully relocated.</param>
-/// <param name="FailedItems">Identifiers (URI strings, paths, or font family names) of resources that failed to relocate.</param>
+/// <param name="SuccessCount">Number of property updates (file sources) or font files (fonts) that were successfully relocated. Granularity differs from <paramref name="FailedItems"/>.Count.</param>
+/// <param name="FailedItems">Identifiers of resources that could not be relocated. The string format depends on the failure path: local file paths for missing sources, "<c>uri (guid.property)</c>" for per-property URI rewrites that threw, full URI strings for file-copy failures, and font family names for font failures.</param>
 public sealed record RelocationResult(int SuccessCount, IReadOnlyList<string> FailedItems);
 
 /// <summary>

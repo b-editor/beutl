@@ -10,8 +10,8 @@ namespace Beutl.Editor;
 /// <summary>
 /// Result of a project export operation.
 /// </summary>
-/// <param name="Success">Whether the export completed without a fatal error. The ZIP file is created when this is <c>true</c>.</param>
-/// <param name="FailedResources">Identifiers of resources that could not be copied. Non-empty even when <see cref="Success"/> is <c>true</c> indicates a partial failure: the ZIP exists but some referenced files or fonts are missing.</param>
+/// <param name="Success">Whether the ZIP was written. Cancellation does not set this to <c>false</c> — it propagates as <see cref="OperationCanceledException"/>.</param>
+/// <param name="FailedResources">Identifiers of resources that could not be fully relocated. Non-empty while <see cref="Success"/> is <c>true</c> means partial failure: the ZIP exists, but some referenced files/fonts are either missing from it or still pointing at the original path inside the saved project.</param>
 public sealed record ExportResult(bool Success, IReadOnlyList<string> FailedResources);
 
 /// <summary>
