@@ -133,13 +133,13 @@ public class IpcConnectionMultiplexedTests
             var requestTask = conn.SendAndReceiveAsync(req, cts.Token).AsTask();
 
             // 送信完了 (= pending に積まれた) を観測してからキャンセル。Task.Delay よりも安定。
-            await WaitUntil(() => PendingCount(conn) == 1, TimeSpan.FromSeconds(2));
+            await WaitUntil(() => PendingCount(conn) == 1, TimeSpan.FromSeconds(2), "request enters pending dict");
             cts.Cancel();
 
             var oce = Assert.CatchAsync<OperationCanceledException>(async () => await requestTask);
             Assert.That(oce!.CancellationToken, Is.EqualTo(cts.Token));
 
-            await WaitUntil(() => PendingCount(conn) == 0, TimeSpan.FromSeconds(2));
+            await WaitUntil(() => PendingCount(conn) == 0, TimeSpan.FromSeconds(2), "pending dict drains after cancel");
             Assert.That(PendingCount(conn), Is.EqualTo(0));
         }
         finally
@@ -167,16 +167,16 @@ public class IpcConnectionMultiplexedTests
             var req = IpcMessage.CreateSimple(id, RequestType);
             var requestTask = conn.SendAndReceiveAsync(req, cts.Token).AsTask();
 
-            await WaitUntil(() => PendingCount(conn) == 1, TimeSpan.FromSeconds(2));
+            await WaitUntil(() => PendingCount(conn) == 1, TimeSpan.FromSeconds(2), "request enters pending dict");
             cts.Cancel();
             Assert.CatchAsync<OperationCanceledException>(async () => await requestTask);
-            await WaitUntil(() => PendingCount(conn) == 0, TimeSpan.FromSeconds(2));
+            await WaitUntil(() => PendingCount(conn) == 0, TimeSpan.FromSeconds(2), "pending dict drains after cancel");
 
             // 遅延レスポンスを送り込む → dropped ハンドラに来るはず。
             var resp = IpcMessage.CreateSimple(id, ResponseType);
             await MessageSerializer.WriteMessageAsync(server, resp);
 
-            await WaitUntil(() => dropped.Count >= 1, TimeSpan.FromSeconds(2));
+            await WaitUntil(() => dropped.Count >= 1, TimeSpan.FromSeconds(2), "DroppedResponseHandler is invoked for late response");
             Assert.That(dropped.Count, Is.EqualTo(1));
             Assert.That(dropped.TryDequeue(out var dropMsg), Is.True);
             Assert.That(dropMsg!.Id, Is.EqualTo(id));
@@ -243,7 +243,7 @@ public class IpcConnectionMultiplexedTests
                 catch (ObjectDisposedException) { }
             }
 
-            await WaitUntil(() => PendingCount(conn) == 0, TimeSpan.FromSeconds(2));
+            await WaitUntil(() => PendingCount(conn) == 0, TimeSpan.FromSeconds(2), $"iter={iter}: pending dict drains");
             Assert.That(PendingCount(conn), Is.EqualTo(0), $"iter={iter}");
 
             // dropped に乗ったメッセージはすべて送信した id と一致するはず。
@@ -289,7 +289,7 @@ public class IpcConnectionMultiplexedTests
                 async () => await conn.SendAndReceiveAsync(req));
             Assert.That(ex!.Message, Is.EqualTo("boom"));
 
-            await WaitUntil(() => PendingCount(conn) == 0, TimeSpan.FromSeconds(2));
+            await WaitUntil(() => PendingCount(conn) == 0, TimeSpan.FromSeconds(2), "pending dict drains after error response");
             Assert.That(PendingCount(conn), Is.EqualTo(0));
         }
         finally
@@ -320,7 +320,7 @@ public class IpcConnectionMultiplexedTests
             tasks.Add(conn.SendAndReceiveAsync(req).AsTask());
         }
 
-        await WaitUntil(() => PendingCount(conn) == 3, TimeSpan.FromSeconds(2));
+        await WaitUntil(() => PendingCount(conn) == 3, TimeSpan.FromSeconds(2), "all 3 requests enter pending dict");
 
         server.Dispose();
 
@@ -333,16 +333,20 @@ public class IpcConnectionMultiplexedTests
         Assert.That(exceptions, Has.All.Not.Null);
         // 全タスクが broken-pipe 例外として観測される (OperationCanceledException ではない)。
         Assert.That(exceptions, Has.All.InstanceOf<IOException>());
-        await WaitUntil(() => PendingCount(conn) == 0, TimeSpan.FromSeconds(2));
+        await WaitUntil(() => PendingCount(conn) == 0, TimeSpan.FromSeconds(2), "pending dict drains after broken pipe");
         Assert.That(PendingCount(conn), Is.EqualTo(0));
     }
 
-    private static async Task WaitUntil(Func<bool> predicate, TimeSpan timeout)
+    private static async Task WaitUntil(Func<bool> predicate, TimeSpan timeout, string description)
     {
         var deadline = DateTime.UtcNow + timeout;
         while (!predicate() && DateTime.UtcNow < deadline)
         {
             await Task.Delay(10);
+        }
+        if (!predicate())
+        {
+            Assert.Fail($"Timeout {timeout.TotalMilliseconds}ms waiting for: {description}");
         }
     }
 }
