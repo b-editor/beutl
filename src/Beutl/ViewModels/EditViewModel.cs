@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel;
 using System.Numerics;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using Beutl.Configuration;
 using Beutl.Editor;
@@ -409,14 +410,35 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
         string name = Path.GetFileNameWithoutExtension(Scene.Uri!.LocalPath);
         string viewStateFile = Path.Combine(viewStateDir, $"{name}.config");
 
-        if (File.Exists(viewStateFile))
+        if (!File.Exists(viewStateFile))
         {
-            _logger.LogInformation("Restoring state from {ViewStateFile}.", viewStateFile);
-            using var stream = new FileStream(viewStateFile, FileMode.Open, FileAccess.Read, FileShare.Read);
-            var json = JsonNode.Parse(stream);
-            if (json is not JsonObject jsonObject)
-                return;
+            _logger.LogInformation("No state file found, opening default tabs.");
+            DockHost.OpenDefaultTabs();
+            return;
+        }
 
+        _logger.LogInformation("Restoring state from {ViewStateFile}.", viewStateFile);
+        JsonNode? json;
+        try
+        {
+            using var stream = new FileStream(viewStateFile, FileMode.Open, FileAccess.Read, FileShare.Read);
+            json = JsonNode.Parse(stream);
+        }
+        catch (Exception ex) when (ex is JsonException or IOException)
+        {
+            _logger.LogWarning(ex, "Failed to load view state file {ViewStateFile}; opening default tabs.", viewStateFile);
+            DockHost.OpenDefaultTabs();
+            return;
+        }
+
+        if (json is not JsonObject jsonObject)
+        {
+            DockHost.OpenDefaultTabs();
+            return;
+        }
+
+        try
+        {
             try
             {
                 Guid? id = (Guid?)json["selected-object"];
@@ -486,10 +508,9 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
                 _editorClock.CurrentTime.Value = currentTime;
             }
         }
-        else
+        catch (Exception ex)
         {
-            _logger.LogInformation("No state file found, opening default tabs.");
-            DockHost.OpenDefaultTabs();
+            _logger.LogWarning(ex, "An error occurred while restoring view state from {ViewStateFile}.", viewStateFile);
         }
     }
 
