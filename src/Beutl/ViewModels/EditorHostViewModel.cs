@@ -72,7 +72,8 @@ public class EditorHostViewModel
         {
             _logger.LogError(
                 ex,
-                "Unhandled exception in ProjectChanged. OldProject={OldProject} NewProject={NewProject}",
+                "Unhandled exception in {Method}. OldProject={OldProject} NewProject={NewProject}",
+                nameof(OnProjectChangedAsync),
                 old?.Uri?.LocalPath,
                 @new?.Uri?.LocalPath);
             NotificationService.ShowError(string.Empty, MessageStrings.OperationFailed);
@@ -125,7 +126,8 @@ public class EditorHostViewModel
         {
             _logger.LogError(
                 ex,
-                "Unhandled exception in Project_Items_CollectionChanged. Action={Action}",
+                "Unhandled exception in {Method}. Action={Action}",
+                nameof(HandleProjectItemsChangedAsync),
                 e.Action);
             NotificationService.ShowError(string.Empty, MessageStrings.OperationFailed);
         }
