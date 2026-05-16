@@ -70,6 +70,27 @@ public class SceneMoveChildrenTests
     }
 
     [Test]
+    public void MoveChildren_NonZeroDeltaIndex_ShiftsZIndex()
+    {
+        string basePath = GetTempPath();
+        try
+        {
+            Scene scene = CreateScene(basePath);
+            Element element = CreateElement(basePath, TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(1), zIndex: 1);
+            scene.Children.Add(element);
+
+            scene.MoveChildren(+2, TimeSpan.Zero, [element]);
+
+            ClassicAssert.AreEqual(3, element.ZIndex);
+            ClassicAssert.AreEqual(TimeSpan.FromSeconds(2), element.Start);
+        }
+        finally
+        {
+            if (Directory.Exists(basePath)) Directory.Delete(basePath, recursive: true);
+        }
+    }
+
+    [Test]
     public void MoveChildren_MultipleElements_AllShiftTogether()
     {
         string basePath = GetTempPath();
