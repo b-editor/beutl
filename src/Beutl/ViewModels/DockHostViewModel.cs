@@ -148,7 +148,16 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
     private void OpenToolTabFromExtension(ToolTabExtension ext, IToolDock? target)
     {
         if (ext.TryCreateContext(_editViewModel, out IToolContext? tab))
+        {
             OpenToolTab(tab, target);
+        }
+        else
+        {
+            _logger.LogWarning(
+                "Tool tab '{ToolTabName}' rejected the editor context (gating failed) ({SceneId})",
+                ext.Name,
+                _sceneId);
+        }
     }
 
     private void EnsureDefaultLayout()
@@ -543,13 +552,32 @@ public class DockHostViewModel : IDisposable, IJsonSerializable
     private BeutlToolDockable? RestoreBeutlTool(JsonObject obj)
     {
         if (obj["extension"] is not JsonObject extObj || !extObj.TryGetDiscriminator(out Type? extType))
+        {
+            _logger.LogWarning(
+                "Skipping tool restore: missing or unresolvable extension discriminator ({SceneId})",
+                _sceneId);
             return null;
+        }
 
         var extension = ExtensionProvider.Current.AllExtensions
             .FirstOrDefault(x => x.GetType() == extType) as ToolTabExtension;
-        if (extension is null) return null;
+        if (extension is null)
+        {
+            _logger.LogWarning(
+                "Skipping tool restore: extension '{ToolType}' not found in the current provider ({SceneId})",
+                extType.FullName,
+                _sceneId);
+            return null;
+        }
 
-        if (!extension.TryCreateContext(_editViewModel, out IToolContext? ctx)) return null;
+        if (!extension.TryCreateContext(_editViewModel, out IToolContext? ctx))
+        {
+            _logger.LogWarning(
+                "Skipping tool restore: '{ToolTabName}' rejected the editor context (gating failed) ({SceneId})",
+                extension.Name,
+                _sceneId);
+            return null;
+        }
 
         try
         {
