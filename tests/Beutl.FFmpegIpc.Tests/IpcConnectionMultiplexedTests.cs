@@ -497,6 +497,27 @@ public class IpcConnectionMultiplexedTests
     }
 
     [Test]
+    public async Task Dispose_RethrowsFatalExceptionFromReceiveLoop()
+    {
+        // 受信ループが OOM/SOE/AVE を投げた場合、IPC のフレーム化エラーとして
+        // 握りつぶしてはならない。Dispose は AggregateException から取り出した
+        // 致命例外を ExceptionDispatchInfo で原型のまま再 throw する。
+        var pipe = new FailingPipeStream(() => new OutOfMemoryException("synthetic fatal"));
+        var conn = new IpcConnection(pipe);
+        conn.StartMultiplexedReceive();
+
+        // ループが OOM を投げて Faulted で終わるまで観測してから Dispose を呼ぶ。
+        // StartMultiplexedReceive 直後に Dispose だと、まだ loop body が走らないうちに
+        // _receiveLoopCts.Cancel() が先に走り、OOM ではなく cancel 経路で終わる可能性がある。
+        int id = conn.NextId();
+        var req = IpcMessage.CreateSimple(id, RequestType);
+        Assert.CatchAsync(async () => await conn.SendAndReceiveAsync(req));
+
+        var oom = Assert.Throws<OutOfMemoryException>(() => conn.Dispose());
+        Assert.That(oom!.Message, Is.EqualTo("synthetic fatal"));
+    }
+
+    [Test]
     public async Task BrokenPipe_PendingRequestsObserveIOException()
     {
         var (server, client) = ConnectPair();
@@ -568,5 +589,35 @@ public class IpcConnectionMultiplexedTests
             Assert.Fail($"Timeout {timeout.TotalMilliseconds}ms waiting for task result.");
         }
         return await task;
+    }
+
+    /// <summary>
+    /// ReadAsync/Read で任意の例外を投げる PipeStream。Dispose 内 receive-loop の
+    /// fail-fast 経路や fatal 再 throw 経路をテストするために使う。
+    /// </summary>
+    private sealed class FailingPipeStream : PipeStream
+    {
+        private readonly Func<Exception> _factory;
+
+        public FailingPipeStream(Func<Exception> factory)
+            : base(PipeDirection.InOut, 4096)
+        {
+            _factory = factory;
+        }
+
+        public override int Read(byte[] buffer, int offset, int count) => throw _factory();
+
+        public override int Read(Span<byte> buffer) => throw _factory();
+
+        public override ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
+            => throw _factory();
+
+        public override Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
+            => throw _factory();
+
+        public override void Write(byte[] buffer, int offset, int count) { }
+
+        public override ValueTask WriteAsync(ReadOnlyMemory<byte> buffer, CancellationToken cancellationToken = default)
+            => ValueTask.CompletedTask;
     }
 }
