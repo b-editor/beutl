@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel;
 using System.Numerics;
+using System.Security;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Beutl.Configuration;
@@ -561,7 +562,7 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
             File.Move(viewStateFile, quarantined);
             _logger.LogInformation("Moved unreadable view state to {QuarantinedFile}.", quarantined);
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or SecurityException)
         {
             _logger.LogWarning(ex, "Failed to quarantine view state file {ViewStateFile}.", viewStateFile);
         }
