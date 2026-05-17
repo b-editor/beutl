@@ -209,6 +209,11 @@ public class CounterTests
             var releaser = Task.Run(() =>
             {
                 barrier.SignalAndWait();
+                // Yield once so the consumer typically reaches its TryAddRef
+                // loop before the unbalanced Release lands. This keeps the
+                // TOCTOU window observable on schedulers that would otherwise
+                // let the releaser win the lock first on every trial.
+                Thread.Yield();
                 counter.Release();
             });
 
@@ -219,10 +224,12 @@ public class CounterTests
             totalTryAddRefSuccesses += tryAddRefSuccesses;
         }
 
-        // Per-trial scheduling can cause the releaser to win the race
-        // before the consumer enters its loop. Across 200 trials we
-        // expect many successful interleavings — if zero, the test
-        // never actually exercised the TOCTOU window.
-        Assert.That(totalTryAddRefSuccesses, Is.GreaterThan(0), "No trial observed an alive counter — race window collapsed across all trials");
+        // The releaser yields once after the barrier, so the consumer
+        // should generally enter its TryAddRef loop before the unbalanced
+        // Release lands. Require at least Trials/2 successful hits across
+        // 200 trials: large enough to fail if the race window collapses,
+        // small enough to stay reliable under noisy CI schedulers.
+        Assert.That(totalTryAddRefSuccesses, Is.GreaterThan(Trials / 2),
+            $"Race window collapsed: only {totalTryAddRefSuccesses} TryAddRef hits across {Trials} trials");
     }
 }
