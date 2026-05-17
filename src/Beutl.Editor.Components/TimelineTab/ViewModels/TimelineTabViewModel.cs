@@ -1301,6 +1301,12 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
     // 連続押下を 1 つの Undo にまとめるための debounce。
     // 典型的なキーリピート間隔 (~30-50ms) より十分長く、かつ単発の意図的な
     // ナッジとリピート押下のひとかたまりを分離できる値として 300ms を採用 (経験則)。
+    //
+    // 既知の制約: debounce 中 (~300ms 以内) に Timeline 外の経路 (例:
+    // ElementViewModel の色変更が直接 Commit する) が走ると、その操作の Record と
+    // 未コミット nudge ops が同じ HistoryTransaction にマージしてしまう。
+    // 完全に分離するには nudge 専用 transaction の導入が必要だが、UI 上 300ms 以内
+    // にダイアログを伴う操作が完結することは稀なため、現状はこの制約を受け入れる。
     private void ScheduleNudgeCommit()
     {
         if (_nudgeCommitTimer is null)
