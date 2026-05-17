@@ -182,7 +182,7 @@ public sealed class HistoryManager : IDisposable
     {
         ThrowIfDisposed();
 
-        _beforeMutation.OnNext(System.Reactive.Unit.Default);
+        FireBeforeMutation();
 
         lock (_lock)
         {
@@ -213,7 +213,7 @@ public sealed class HistoryManager : IDisposable
     {
         ThrowIfDisposed();
 
-        _beforeMutation.OnNext(System.Reactive.Unit.Default);
+        FireBeforeMutation();
 
         lock (_lock)
         {
@@ -463,6 +463,21 @@ public sealed class HistoryManager : IDisposable
     private void NotifyStateChanged()
     {
         _stateChanged.OnNext(new HistoryState(CanUndo, CanRedo, UndoCount, RedoCount));
+    }
+
+    // BeforeMutation subscribers are user-supplied (e.g. timeline flush handlers).
+    // A throw must not abort the Undo/Redo that triggered the notification, since
+    // the history operation itself is independent of any debounce flush.
+    private void FireBeforeMutation()
+    {
+        try
+        {
+            _beforeMutation.OnNext(System.Reactive.Unit.Default);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "BeforeMutation subscriber threw; continuing with the pending Undo/Redo.");
+        }
     }
 
     public IDisposable SuppressRecording()
