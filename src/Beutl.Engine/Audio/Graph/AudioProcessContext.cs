@@ -47,7 +47,11 @@ public sealed class AudioProcessContext
         if (range.Duration < TimeSpan.Zero)
             throw new ArgumentOutOfRangeException(nameof(range), $"Duration must be non-negative; was {range.Duration}.");
 
-        return (int)Math.Ceiling(range.Duration.TotalSeconds * sampleRate);
+        double samples = Math.Ceiling(range.Duration.TotalSeconds * sampleRate);
+        if (samples > int.MaxValue)
+            throw new ArgumentOutOfRangeException(nameof(range), $"Sample count {samples} exceeds Int32.MaxValue at sampleRate={sampleRate}.");
+
+        return (int)samples;
     }
 
     public TimeSpan GetTimeForSample(int sampleIndex)

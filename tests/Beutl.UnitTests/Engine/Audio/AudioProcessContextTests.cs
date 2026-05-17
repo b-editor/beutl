@@ -93,6 +93,20 @@ public class AudioProcessContextTests
     }
 
     [Test]
+    public void GetSampleCount_Static_OverflowsInt32_Throws()
+    {
+        // double で計算してから (int) キャストすると、Int32.MaxValue を超える値は
+        // 暗黙に未定義動作 (-2147483648 になる実装が多い) になり後段で気付けない。
+        // 長時間 × 高サンプルレートで int をはみ出すケースを早期に弾けることを担保する。
+        // 例: ~14 時間 @ 48000Hz は 2.4e9 サンプルで Int32.MaxValue (~2.15e9) を超える。
+        var range = new TimeRange(TimeSpan.Zero, TimeSpan.FromHours(14));
+
+        var ex = Assert.Throws<ArgumentOutOfRangeException>(
+            () => AudioProcessContext.GetSampleCount(range, 48000));
+        Assert.That(ex!.ParamName, Is.EqualTo("range"));
+    }
+
+    [Test]
     public void GetSampleCount_Static_NegativeDuration_Throws()
     {
         // TimeRange は構造体で Duration の不変条件を保証しない (コンストラクタや WithDuration /
