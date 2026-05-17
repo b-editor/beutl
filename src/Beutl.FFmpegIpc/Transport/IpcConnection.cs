@@ -273,9 +273,11 @@ public sealed class IpcConnection : IDisposable
         ct.ThrowIfCancellationRequested();
 
         // 受信ループが既に死んでいたら、TCS をハングさせずに即時失敗する。
+        // 同じ fault インスタンスが複数 caller に rethrow されるため、各 caller の
+        // スタックトレースが残るよう ExceptionDispatchInfo 経由で投げる。
         var fault = Volatile.Read(ref _receiveLoopFault);
         if (fault != null)
-            throw fault;
+            ExceptionDispatchInfo.Capture(fault).Throw();
 
         var tcs = new TaskCompletionSource<IpcMessage>(TaskCreationOptions.RunContinuationsAsynchronously);
         // Id 衝突は indexer 代入だと前 TCS を黙って捨てて永久 await になる。
@@ -292,7 +294,7 @@ public sealed class IpcConnection : IDisposable
         if (fault != null)
         {
             _pendingRequests.TryRemove(new KeyValuePair<int, TaskCompletionSource<IpcMessage>>(request.Id, tcs));
-            throw fault;
+            ExceptionDispatchInfo.Capture(fault).Throw();
         }
 
         try
