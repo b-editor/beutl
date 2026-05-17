@@ -84,7 +84,12 @@ internal static class Program
             return 3;
         }
 
-        using var connection = new IpcConnection(pipeClient);
+        using var connection = new IpcConnection(pipeClient)
+        {
+            // 受信ループ / Dispose 異常系の診断は WorkerLog 経由でホストに送る。
+            // DroppedResponseHandler はワーカー側が多重化モードを使わないため未設定。
+            DiagnosticLogger = (msg, ex) => WorkerLog.Error(msg, ex)
+        };
 
         // ハンドシェイク送信（プロトコルバージョン含む）
         await connection.SendAsync(
