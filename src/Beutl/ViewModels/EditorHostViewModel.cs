@@ -118,6 +118,14 @@ public class EditorHostViewModel
                     }
                 }
             }
+            else
+            {
+                _logger.LogWarning(
+                    "Unhandled project items collection change. Action={Action} NewCount={NewCount} OldCount={OldCount}",
+                    e.Action,
+                    e.NewItems?.Count,
+                    e.OldItems?.Count);
+            }
         }
         catch (OperationCanceledException)
         {
