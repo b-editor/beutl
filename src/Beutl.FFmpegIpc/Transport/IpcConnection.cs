@@ -357,11 +357,19 @@ public sealed class IpcConnection : IDisposable
         // 待つことで、ループ内ハング (理論上ありえない) でも Dispose は必ず進む。
         try
         {
-            _receiveLoopTask?.Wait(TimeSpan.FromSeconds(5));
+            if (_receiveLoopTask is { } task && !task.Wait(TimeSpan.FromSeconds(5)))
+            {
+                // タイムアウト = ループが停止しなかった。続行するとパイプ破棄で
+                // ObjectDisposedException を引き起こし、その先で診断が消える。
+                // 続行はするが、痕跡が残るよう Trace に出す。
+                Trace.TraceError("IpcConnection.Dispose: receive loop did not exit within 5s; proceeding with disposal.");
+            }
         }
-        catch (AggregateException)
+        catch (AggregateException ex)
         {
-            // 受信ループ内例外は finally で pending TCS へ伝播済み。
+            // 受信ループ内例外は finally で pending TCS / _receiveLoopFault へ伝播済みだが、
+            // Dispose 時の根因をたどれるよう原例外を残す。
+            Trace.TraceError($"IpcConnection.Dispose: receive loop ended with exception: {ex}");
         }
 
         _receiveLoopCts?.Dispose();
