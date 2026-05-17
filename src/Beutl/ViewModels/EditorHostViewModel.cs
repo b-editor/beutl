@@ -76,7 +76,7 @@ public class EditorHostViewModel
                 nameof(OnProjectChangedAsync),
                 old?.Uri?.LocalPath,
                 @new?.Uri?.LocalPath);
-            NotificationService.ShowError(string.Empty, MessageStrings.OperationFailed);
+            NotificationService.ShowError(Strings.Project, MessageStrings.OperationFailed);
         }
     }
 
@@ -129,7 +129,7 @@ public class EditorHostViewModel
                 "Unhandled exception in {Method}. Action={Action}",
                 nameof(HandleProjectItemsChangedAsync),
                 e.Action);
-            NotificationService.ShowError(string.Empty, MessageStrings.OperationFailed);
+            NotificationService.ShowError(Strings.Project, MessageStrings.OperationFailed);
         }
     }
 }
