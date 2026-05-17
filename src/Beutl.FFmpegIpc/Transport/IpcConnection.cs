@@ -139,10 +139,12 @@ public sealed class IpcConnection : IDisposable
             }
             finally
             {
-                // fault を先に公開し、その後で待機中 TCS を解放する。
-                // 送信側は登録後にもう一度 fault を読むことで、foreach に拾われなかった
-                // 新規 TCS の永久 await を防ぐ。clean-cancel の場合も「fault 無し」では
-                // なく ObjectDisposedException を載せて fail-fast を保証する。
+                // ストア順序: Volatile.Write (release) → foreach の順を厳守する。
+                // 送信側は TryAdd 後に Volatile.Read (acquire) で fault を読み直すので、
+                // この release/acquire ペアが ARM などの弱メモリモデルでも保証される。
+                // 逆順だと foreach で拾われなかった TCS が永久 await になる。
+                // clean-cancel の場合も「fault 無し」ではなく ObjectDisposedException を
+                // 載せて fail-fast を保証する。
                 Volatile.Write(
                     ref _receiveLoopFault,
                     terminationError ?? (Exception)new ObjectDisposedException(
@@ -292,8 +294,10 @@ public sealed class IpcConnection : IDisposable
                 $"Request id {request.Id} is already in flight on this multiplexed connection.");
         }
 
-        // 登録後にもう一度 fault を読む。「fault 読み (null)」→「ループ finally で
-        // fault 書き&foreach (空)」→「登録」のレースで永久 await になるのを防ぐ。
+        // TryAdd の後に acquire-read で fault を再読する。受信ループ finally の
+        // Volatile.Write (release) と対になり、ループが foreach を抜けた後の状態
+        // (fault 公開済み) を必ず観測できる。「fault 読み (null)」→「ループ finally で
+        // fault 書き & foreach (空)」→「登録」のレースで永久 await になるのを防ぐ。
         fault = Volatile.Read(ref _receiveLoopFault);
         if (fault != null)
         {
