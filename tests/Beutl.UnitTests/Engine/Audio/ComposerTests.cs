@@ -44,6 +44,8 @@ public class ComposerTests
         using AudioBuffer? buffer = composer.Compose(range, frame);
 
         Assert.That(buffer, Is.Not.Null);
-        Assert.That(buffer!.SampleCount, Is.EqualTo(sampleRate));
+        // ヘルパー経由で取得した値とそのまま比較し、Composer の silence fallback がヘルパーと
+        // 乖離した場合 (整数秒入力でも) に検出できるようにする。
+        Assert.That(buffer!.SampleCount, Is.EqualTo(AudioProcessContext.GetSampleCount(range, sampleRate)));
     }
 }
