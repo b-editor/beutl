@@ -1271,7 +1271,7 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
             NudgeUnit.Frame => direction,
             NudgeUnit.Large => direction * 10,
             NudgeUnit.Second => direction * rate,
-            _ => 0,
+            _ => throw new ArgumentOutOfRangeException(nameof(unit), unit, "Unhandled NudgeUnit."),
         };
 
         if (frames == 0) return;
