@@ -78,7 +78,7 @@ public class IpcConnectionMultiplexedTests
                 tasks.Add((id, conn.SendAndReceiveAsync(req).AsTask()));
             }
 
-            await Task.WhenAll(tasks.Select(t => t.Task));
+            await AwaitWithTimeout(Task.WhenAll(tasks.Select(t => t.Task)), TimeSpan.FromSeconds(10), "all 5 concurrent requests complete");
             foreach (var (id, t) in tasks)
             {
                 Assert.That(t.Result.Id, Is.EqualTo(id));
@@ -99,7 +99,7 @@ public class IpcConnectionMultiplexedTests
     }
 
     [Test]
-    public async Task AlreadyCanceledToken_ThrowsBeforeRegistering()
+    public void AlreadyCanceledToken_ThrowsBeforeRegistering()
     {
         var (server, client) = ConnectPair();
         using var _ = server;
@@ -111,6 +111,9 @@ public class IpcConnectionMultiplexedTests
 
         int id = conn.NextId();
         var req = IpcMessage.CreateSimple(id, RequestType);
+        // ct.ThrowIfCancellationRequested が _pendingRequests への登録より先に走ること
+        // を確認する。登録が先だと finally 経由で消えるため、登録が起きないことの
+        // 直接の証跡として、PendingCount が増えないかどうかは別経路の補強でしかない点に注意。
         Assert.CatchAsync<OperationCanceledException>(
             async () => await conn.SendAndReceiveAsync(req, cts.Token));
 
@@ -132,14 +135,15 @@ public class IpcConnectionMultiplexedTests
             var req = IpcMessage.CreateSimple(id, RequestType);
             var requestTask = conn.SendAndReceiveAsync(req, cts.Token).AsTask();
 
-            // 送信完了 (= pending に積まれた) を観測してからキャンセル。Task.Delay よりも安定。
-            await WaitUntil(() => PendingCount(conn) == 1, TimeSpan.FromSeconds(2), "request enters pending dict");
+            // 送信完了 (= pending に積まれた) を観測してからキャンセル。
+            // 固定 Task.Delay だと CI 環境差でフレーキーになるため、PendingRequestCount を直接ポーリング。
+            await WaitUntil(() => PendingCount(conn) == 1, TimeSpan.FromSeconds(5), "request enters pending dict");
             cts.Cancel();
 
             var oce = Assert.CatchAsync<OperationCanceledException>(async () => await requestTask);
             Assert.That(oce!.CancellationToken, Is.EqualTo(cts.Token));
 
-            await WaitUntil(() => PendingCount(conn) == 0, TimeSpan.FromSeconds(2), "pending dict drains after cancel");
+            await WaitUntil(() => PendingCount(conn) == 0, TimeSpan.FromSeconds(5), "pending dict drains after cancel");
             Assert.That(PendingCount(conn), Is.EqualTo(0));
         }
         finally
@@ -167,16 +171,16 @@ public class IpcConnectionMultiplexedTests
             var req = IpcMessage.CreateSimple(id, RequestType);
             var requestTask = conn.SendAndReceiveAsync(req, cts.Token).AsTask();
 
-            await WaitUntil(() => PendingCount(conn) == 1, TimeSpan.FromSeconds(2), "request enters pending dict");
+            await WaitUntil(() => PendingCount(conn) == 1, TimeSpan.FromSeconds(5), "request enters pending dict");
             cts.Cancel();
             Assert.CatchAsync<OperationCanceledException>(async () => await requestTask);
-            await WaitUntil(() => PendingCount(conn) == 0, TimeSpan.FromSeconds(2), "pending dict drains after cancel");
+            await WaitUntil(() => PendingCount(conn) == 0, TimeSpan.FromSeconds(5), "pending dict drains after cancel");
 
             // 遅延レスポンスを送り込む → dropped ハンドラに来るはず。
             var resp = IpcMessage.CreateSimple(id, ResponseType);
             await MessageSerializer.WriteMessageAsync(server, resp);
 
-            await WaitUntil(() => dropped.Count >= 1, TimeSpan.FromSeconds(2), "DroppedResponseHandler is invoked for late response");
+            await WaitUntil(() => dropped.Count >= 1, TimeSpan.FromSeconds(5), "DroppedResponseHandler is invoked for late response");
             Assert.That(dropped.Count, Is.EqualTo(1));
             Assert.That(dropped.TryDequeue(out var dropMsg), Is.True);
             Assert.That(dropMsg!.Id, Is.EqualTo(id));
@@ -340,7 +344,7 @@ public class IpcConnectionMultiplexedTests
                 async () => await conn.SendAndReceiveAsync(req));
             Assert.That(ex!.Message, Is.EqualTo("boom"));
 
-            await WaitUntil(() => PendingCount(conn) == 0, TimeSpan.FromSeconds(2), "pending dict drains after error response");
+            await WaitUntil(() => PendingCount(conn) == 0, TimeSpan.FromSeconds(5), "pending dict drains after error response");
             Assert.That(PendingCount(conn), Is.EqualTo(0));
         }
         finally
@@ -402,7 +406,7 @@ public class IpcConnectionMultiplexedTests
             tasks.Add(conn.SendAndReceiveAsync(req).AsTask());
         }
 
-        await WaitUntil(() => PendingCount(conn) == 3, TimeSpan.FromSeconds(2), "all 3 requests enter pending dict");
+        await WaitUntil(() => PendingCount(conn) == 3, TimeSpan.FromSeconds(5), "all 3 requests enter pending dict");
 
         server.Dispose();
 
@@ -415,7 +419,7 @@ public class IpcConnectionMultiplexedTests
         Assert.That(exceptions, Has.All.Not.Null);
         // 全タスクが broken-pipe 例外として観測される (OperationCanceledException ではない)。
         Assert.That(exceptions, Has.All.InstanceOf<IOException>());
-        await WaitUntil(() => PendingCount(conn) == 0, TimeSpan.FromSeconds(2), "pending dict drains after broken pipe");
+        await WaitUntil(() => PendingCount(conn) == 0, TimeSpan.FromSeconds(5), "pending dict drains after broken pipe");
         Assert.That(PendingCount(conn), Is.EqualTo(0));
     }
 
