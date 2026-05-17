@@ -95,9 +95,10 @@ public class AudioProcessContextTests
     [Test]
     public void GetSampleCount_Static_NegativeDuration_Throws()
     {
-        // TimeRange は構造体で Duration の不変条件を保証しない (Intersect などの算術で負値が入り得る)。
-        // 負の duration を Math.Ceiling に渡すと負の int が返り、後段 AudioBuffer のコンストラクタで
-        // "sampleCount" の例外として出るため、ここで早期に弾いてエラーの帰属を正しく保つ。
+        // TimeRange は構造体で Duration の不変条件を保証しない (コンストラクタや WithDuration /
+        // SubtractStart などで負値が入り得る)。負の duration を Math.Ceiling に渡すと負の int が返り、
+        // 後段 AudioBuffer のコンストラクタで "sampleCount" の例外として出るため、ここで早期に弾いて
+        // エラーの帰属を正しく保つ。
         var range = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(-1));
 
         var ex = Assert.Throws<ArgumentOutOfRangeException>(

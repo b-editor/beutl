@@ -37,8 +37,8 @@ public sealed class AudioProcessContext
     /// </summary>
     /// <remarks>
     /// Always rounds up via <see cref="Math.Ceiling(double)"/> so non-integer-second durations never under-allocate.
-    /// Both per-node audio paths and <c>Composer.BuildFinalOutput</c>'s silence fallback must route through this
-    /// helper to stay in sync; replacing it with truncation will desynchronise mix and silent buffers by one sample.
+    /// Both per-node audio paths and the silence fallback in <see cref="Composing.Composer"/> must route through
+    /// this helper to stay in sync; replacing it with truncation will desynchronise mix and silent buffers by one sample.
     /// </remarks>
     public static int GetSampleCount(TimeRange range, int sampleRate)
     {
