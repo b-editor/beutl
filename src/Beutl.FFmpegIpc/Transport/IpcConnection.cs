@@ -1,6 +1,7 @@
 ﻿using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.IO.Pipes;
+using System.Runtime.ExceptionServices;
 using Beutl.FFmpegIpc.Protocol;
 
 namespace Beutl.FFmpegIpc.Transport;
@@ -381,6 +382,16 @@ public sealed class IpcConnection : IDisposable
             // 受信ループ内例外は finally で pending TCS / _receiveLoopFault へ伝播済みだが、
             // Dispose 時の根因をたどれるよう原例外を残す。
             Trace.TraceError($"IpcConnection.Dispose: receive loop ended with exception: {ex}");
+
+            // 受信ループの generic catch が除外している致命系 (OOM/SOE/AVE) は
+            // Dispose 経路でも握りつぶさず再 throw する。さもないと receive-loop の
+            // exclusion 規約がこの行で undo される。
+            var fatal = ex.InnerExceptions.FirstOrDefault(static e =>
+                e is OutOfMemoryException or StackOverflowException or AccessViolationException);
+            if (fatal != null)
+            {
+                ExceptionDispatchInfo.Capture(fatal).Throw();
+            }
         }
 
         _receiveLoopCts?.Dispose();
