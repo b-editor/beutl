@@ -57,6 +57,29 @@ public class AudioProcessContextTests
         Assert.That(AudioProcessContext.GetSampleCount(range, 48000), Is.EqualTo(96000));
     }
 
+    [Test]
+    public void GetSampleCount_Static_OneTick_ReturnsOne()
+    {
+        // 1 tick (100 ns) は 0 ではない最小の duration。Composer の silence fallback が
+        // 「サンプルが必要なら最低 1 サンプル確保する」という不変条件に依存しているため、
+        // 微小な正 duration がゼロにならないことを直接ピン留めする。
+        var range = new TimeRange(TimeSpan.Zero, TimeSpan.FromTicks(1));
+
+        Assert.That(AudioProcessContext.GetSampleCount(range, 44100), Is.EqualTo(1));
+    }
+
+    [Test]
+    public void GetSampleCount_Static_JustBelowSampleBoundary_DoesNotOverCount()
+    {
+        // 整数除算で 226 ticks 取ると真の境界 (~226.7575 ticks) を 0.7575 下回るため、
+        // Ceiling でも 1 サンプル止まり。境界の "下側" を踏むことで Ceiling が
+        // 過剰サンプル化していないことを補強する (FractionalDuration テストの裏側)。
+        var oneSampleTicksFloor = TimeSpan.TicksPerSecond / 44100; // 226
+        var range = new TimeRange(TimeSpan.Zero, TimeSpan.FromTicks(oneSampleTicksFloor));
+
+        Assert.That(AudioProcessContext.GetSampleCount(range, 44100), Is.EqualTo(1));
+    }
+
     [TestCase(0)]
     [TestCase(-1)]
     [TestCase(int.MinValue)]
