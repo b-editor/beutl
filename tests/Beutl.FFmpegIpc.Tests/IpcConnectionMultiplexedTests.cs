@@ -303,6 +303,37 @@ public class IpcConnectionMultiplexedTests
     }
 
     [Test]
+    public async Task ProtocolCorruption_PendingRequestsObserveIOExceptionWithCause()
+    {
+        // commit 9325ed5 で追加した catch (Exception) アームの回帰テスト。
+        // 不正な length prefix を流し込み、MessageSerializer が
+        // InvalidOperationException を投げて受信ループが死ぬケースを再現する。
+        var (server, client) = ConnectPair();
+        using var _ = server;
+        using var conn = new IpcConnection(client);
+        conn.StartMultiplexedReceive();
+
+        int id = conn.NextId();
+        var req = IpcMessage.CreateSimple(id, RequestType);
+        var requestTask = conn.SendAndReceiveAsync(req).AsTask();
+
+        await WaitUntil(() => PendingCount(conn) == 1, TimeSpan.FromSeconds(5), "request enters pending dict");
+
+        // 長さ -1 は MessageSerializer.ReadMessageAsync で
+        // "Invalid message length" の InvalidOperationException を引き起こす。
+        byte[] badLength = [0xFF, 0xFF, 0xFF, 0xFF];
+        await server.WriteAsync(badLength);
+        await server.FlushAsync();
+
+        var ex = Assert.CatchAsync<IOException>(async () => await requestTask);
+        Assert.That(ex!.Message, Does.Contain("unexpected protocol or deserialization error"));
+        Assert.That(ex.InnerException, Is.InstanceOf<InvalidOperationException>());
+
+        await WaitUntil(() => PendingCount(conn) == 0, TimeSpan.FromSeconds(5), "pending dict drains after protocol error");
+        Assert.That(PendingCount(conn), Is.EqualTo(0));
+    }
+
+    [Test]
     public async Task BrokenPipe_PendingRequestsObserveIOException()
     {
         var (server, client) = ConnectPair();
