@@ -426,6 +426,37 @@ public class IpcConnectionMultiplexedTests
     }
 
     [Test]
+    public async Task DisposeWhileRequestPending_ObservesCancellationNotIOException()
+    {
+        // commit 1d3304e5c で修正した Dispose 順序の回帰テスト。
+        // 自己 Dispose 中は受信ループの完了を待ってからパイプを破棄する契約。
+        // パイプ破棄を先にすると pending TCS に IOException("broken pipe") が
+        // 伝播してしまい、自プロセス由来か peer 由来かが区別不能になる。
+        var (server, client) = ConnectPair();
+        using var _ = server;
+        var conn = new IpcConnection(client);
+        try
+        {
+            conn.StartMultiplexedReceive();
+
+            int id = conn.NextId();
+            var req = IpcMessage.CreateSimple(id, RequestType);
+            var requestTask = conn.SendAndReceiveAsync(req).AsTask();
+            await WaitUntil(() => PendingCount(conn) == 1, TimeSpan.FromSeconds(5), "request enters pending dict");
+
+            conn.Dispose();
+
+            var ex = Assert.CatchAsync(async () => await requestTask);
+            Assert.That(ex, Is.InstanceOf<OperationCanceledException>(),
+                $"expected OperationCanceledException (self-dispose), got {ex?.GetType().Name}: {ex?.Message}");
+        }
+        finally
+        {
+            conn.Dispose();
+        }
+    }
+
+    [Test]
     public async Task BrokenPipe_PendingRequestsObserveIOException()
     {
         var (server, client) = ConnectPair();
