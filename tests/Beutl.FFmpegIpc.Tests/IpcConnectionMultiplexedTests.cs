@@ -559,8 +559,9 @@ public class IpcConnectionMultiplexedTests
         int id = conn.NextId();
         var req = IpcMessage.CreateSimple(id, RequestType);
         var ex = Assert.CatchAsync<IOException>(async () => await conn.SendAndReceiveAsync(req));
-        Assert.That(ex!.Message, Does.Contain("unexpected protocol or deserialization error"));
-        Assert.That(ex.InnerException, Is.InstanceOf<OperationCanceledException>());
+        // メッセージ文字列ではなく InnerException 型でルートを判定する。
+        // 「OCE を clean-cancel として握り潰すかどうか」だけが本テストの本質。
+        Assert.That(ex!.InnerException, Is.InstanceOf<OperationCanceledException>());
 
         await WaitUntil(() => PendingCount(conn) == 0, TimeSpan.FromSeconds(5), "pending dict drains after foreign-token OCE");
     }
