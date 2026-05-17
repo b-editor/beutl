@@ -1,9 +1,9 @@
 ﻿using System.Collections.Specialized;
+using Avalonia.Threading;
 using Beutl.Logging;
 using Beutl.Services;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
-using Reactive.Bindings.Extensions;
 
 namespace Beutl.ViewModels;
 
@@ -15,9 +15,22 @@ public class EditorHostViewModel
 
     public EditorHostViewModel()
     {
-        _projectService.ProjectObservable
-            .ObserveOnUIDispatcher()
-            .Subscribe(item => _ = OnProjectChangedAsync(item.New, item.Old));
+        _projectService.ProjectObservable.Subscribe(item => DispatchProjectChange(item.New, item.Old));
+    }
+
+    private void DispatchProjectChange(Project? @new, Project? old)
+    {
+        // Run inline when already on the UI thread so callers awaiting OpenProject
+        // (e.g. RestoreLastProjectTask) still see tabs populated on return. Post only
+        // when the notification comes from a background thread.
+        if (Dispatcher.UIThread.CheckAccess())
+        {
+            _ = OnProjectChangedAsync(@new, old);
+        }
+        else
+        {
+            Dispatcher.UIThread.Post(() => _ = OnProjectChangedAsync(@new, old));
+        }
     }
 
     public IReactiveProperty<EditorTabItem?> SelectedTabItem => _editorService.SelectedTabItem;
