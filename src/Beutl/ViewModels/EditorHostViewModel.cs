@@ -24,13 +24,13 @@ public class EditorHostViewModel
 
     private async Task OnProjectChangedAsync(Project? @new, Project? old)
     {
+        var oldItems = _editorService.TabItems.ToArray();
         try
         {
-            var oldItems = _editorService.TabItems.ToArray();
-            _editorService.TabItems.Clear();
-
             try
             {
+                _editorService.TabItems.Clear();
+
                 // プロジェクトが閉じた
                 if (old != null)
                 {
