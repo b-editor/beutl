@@ -48,7 +48,7 @@ internal sealed class Counter<T>
         {
             if (_refs == 0)
             {
-                Debug.WriteLine("Counter<T>.Release called past zero — possible double-release bug.");
+                Trace.WriteLine($"Counter<{typeof(T).FullName}>.Release called past zero - possible double-release bug.{Environment.NewLine}{Environment.StackTrace}");
                 return;
             }
 
