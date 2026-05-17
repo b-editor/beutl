@@ -284,7 +284,14 @@ public sealed class IpcConnection : IDisposable
             throw fault;
 
         var tcs = new TaskCompletionSource<IpcMessage>(TaskCreationOptions.RunContinuationsAsynchronously);
-        _pendingRequests[request.Id] = tcs;
+        // 同じ Id が既に in-flight なら、indexer 代入だと前 TCS を黙って捨てて永久 await が
+        // 生まれる。TryAdd で衝突を表面化する。_nextId が int を一巡して再利用された場合や、
+        // 呼び出し元が手動 Id を渡すバグでも、症状が確実に上に伝わる。
+        if (!_pendingRequests.TryAdd(request.Id, tcs))
+        {
+            throw new InvalidOperationException(
+                $"Request id {request.Id} is already in flight on this multiplexed connection.");
+        }
 
         // 登録→fault チェックの順を逆にできない: 逆だと「fault 読み (null)」→「ループが
         // finally で fault 書き&foreach (空)」→「登録」のレースで永久 await になる。
