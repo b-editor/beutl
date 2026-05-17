@@ -31,13 +31,11 @@ public class EditorHostViewModel
             {
                 _editorService.TabItems.Clear();
 
-                // プロジェクトが閉じた
                 if (old != null)
                 {
                     old.Items.CollectionChanged -= Project_Items_CollectionChanged;
                 }
 
-                // プロジェクトが開いた
                 if (@new != null)
                 {
                     @new.Items.CollectionChanged += Project_Items_CollectionChanged;
