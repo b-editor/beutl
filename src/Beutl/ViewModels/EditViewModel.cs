@@ -32,6 +32,7 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
     private readonly EditorClockImpl _editorClock;
     private readonly EditorSelectionImpl _editorSelection;
     private readonly ElementAdderImpl _elementAdder;
+    private bool _viewStateSaveSuppressed;
 
     public EditViewModel(Scene scene)
     {
@@ -381,6 +382,14 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
 
     private void SaveState()
     {
+        if (_viewStateSaveSuppressed)
+        {
+            // RestoreState left an unreadable file in place (transient IO error or a
+            // failed quarantine attempt). Writing default state now would clobber the
+            // file the user actually cares about — skip until the next launch.
+            return;
+        }
+
         string viewStateDir = ViewStateDirectory();
         var json = new JsonObject
         {
@@ -435,8 +444,11 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             // Transient read failures (file lock, antivirus, permission glitches) do not
-            // mean the file is corrupt — leave it in place so the next launch can retry.
-            _logger.LogError(ex, "Failed to read view state file {ViewStateFile}; opening default tabs.", viewStateFile);
+            // mean the file is corrupt — leave it in place so the next launch can retry,
+            // and suppress SaveState() this session so AutoSave does not overwrite it
+            // with the default layout before the retry ever happens.
+            _logger.LogError(ex, "Failed to read view state file {ViewStateFile}; opening default tabs and suppressing view state save this session.", viewStateFile);
+            _viewStateSaveSuppressed = true;
             SafeOpenDefaultTabs();
             return;
         }
