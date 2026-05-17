@@ -131,4 +131,70 @@ public class MediaSourceResourceShareTest
         Assert.That(encode.Bitmap, Is.Not.SameAs(preview.Bitmap),
             "DisableResourceShare=true では専用の Bitmap が割り当てられるはず");
     }
+
+    [Test]
+    public void ImageSource_ReadFromDifferentUri_DoesNotShareStaleCounter()
+    {
+        // 別 Resource が古い URI の Counter を握ったまま ReadFrom(newUri) → ToResource すると、
+        // _bitmapRef を破棄しないと TryAddRef が成功し新 URI でも古い Bitmap が返ってしまう。
+        var uriOld = TestMediaHelper.CreateTestImageUri(16, 16, Colors.Red);
+        var uriNew = TestMediaHelper.CreateTestImageUri(32, 32, Colors.Blue);
+
+        var imageSource = new ImageSource();
+        imageSource.ReadFrom(uriOld);
+
+        using var oldResource = imageSource.ToResource(CompositionContext.Default);
+        Assert.That(oldResource.Bitmap, Is.Not.Null);
+
+        imageSource.ReadFrom(uriNew);
+        using var newResource = imageSource.ToResource(CompositionContext.Default);
+
+        Assert.That(newResource.Bitmap, Is.Not.Null);
+        Assert.That(newResource.Bitmap, Is.Not.SameAs(oldResource.Bitmap),
+            "URI 切替後の Resource が旧 URI の Bitmap を共有してはならない");
+        Assert.That(newResource.FrameSize, Is.EqualTo(new PixelSize(32, 32)),
+            "新 URI に対応する Bitmap がロードされるはず");
+    }
+
+    [Test]
+    public void VideoSource_ReadFromDifferentUri_DoesNotShareStaleCounter()
+    {
+        var pathOld = TestMediaHelper.CreateTestVideoFile(80, 80, new Rational(30, 1), 60);
+        var pathNew = TestMediaHelper.CreateTestVideoFile(120, 120, new Rational(30, 1), 60);
+
+        var videoSource = new VideoSource();
+        videoSource.ReadFrom(new Uri(pathOld));
+
+        using var oldResource = videoSource.ToResource(CompositionContext.Default);
+        Assert.That(oldResource.MediaReader, Is.Not.Null);
+
+        videoSource.ReadFrom(new Uri(pathNew));
+        using var newResource = videoSource.ToResource(CompositionContext.Default);
+
+        Assert.That(newResource.MediaReader, Is.Not.Null);
+        Assert.That(newResource.MediaReader, Is.Not.SameAs(oldResource.MediaReader),
+            "URI 切替後の Resource が旧 URI の MediaReader を共有してはならない");
+        Assert.That(newResource.MediaReader!.VideoInfo.FrameSize, Is.EqualTo(new PixelSize(120, 120)),
+            "新 URI に対応する MediaReader がロードされるはず");
+    }
+
+    [Test]
+    public void SoundSource_ReadFromDifferentUri_DoesNotShareStaleCounter()
+    {
+        var pathOld = TestMediaHelper.CreateTestVideoFile(80, 80, new Rational(30, 1), 60);
+        var pathNew = TestMediaHelper.CreateTestVideoFile(120, 120, new Rational(30, 1), 60);
+
+        var soundSource = new SoundSource();
+        soundSource.ReadFrom(new Uri(pathOld));
+
+        using var oldResource = soundSource.ToResource(CompositionContext.Default);
+        Assert.That(oldResource.MediaReader, Is.Not.Null);
+
+        soundSource.ReadFrom(new Uri(pathNew));
+        using var newResource = soundSource.ToResource(CompositionContext.Default);
+
+        Assert.That(newResource.MediaReader, Is.Not.Null);
+        Assert.That(newResource.MediaReader, Is.Not.SameAs(oldResource.MediaReader),
+            "URI 切替後の Resource が旧 URI の MediaReader を共有してはならない");
+    }
 }
