@@ -32,7 +32,7 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
     private readonly EditorClockImpl _editorClock;
     private readonly EditorSelectionImpl _editorSelection;
     private readonly ElementAdderImpl _elementAdder;
-    private bool _viewStateSaveSuppressed;
+    private volatile bool _viewStateSaveSuppressed;
 
     public EditViewModel(Scene scene)
     {
@@ -380,13 +380,22 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
         return directory;
     }
 
-    private void SaveState()
+    private void SaveState(bool isExplicitUserSave = false)
     {
         if (_viewStateSaveSuppressed)
         {
-            // RestoreState left an unreadable file in place (transient IO error or a
+            // RestoreState left an unreadable file in place (transient IO failure or a
             // failed quarantine attempt). Writing default state now would clobber the
-            // file the user actually cares about — skip until the next launch.
+            // file the user actually cares about — skip until the next launch. The
+            // explicit-save path also surfaces a warning so the user knows their Ctrl+S
+            // did not write view state (AutoSave / dispose stay silent — by design).
+            if (isExplicitUserSave)
+            {
+                _logger.LogWarning(
+                    "Explicit save requested but view state save is suppressed this session ({SceneId}).",
+                    SceneId);
+                NotificationService.ShowWarning(string.Empty, MessageStrings.ViewStateSaveSuppressed);
+            }
             return;
         }
 
@@ -436,18 +445,27 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
         }
         catch (JsonException ex)
         {
-            _logger.LogError(ex, "View state file {ViewStateFile} is malformed; quarantining and opening default tabs.", viewStateFile);
+            _logger.LogError(ex, "View state file {ViewStateFile} is malformed; quarantining and opening default tabs ({SceneId}).", viewStateFile, SceneId);
             QuarantineCorruptViewState(viewStateFile);
+            SafeOpenDefaultTabs();
+            return;
+        }
+        catch (Exception ex) when (ex is FileNotFoundException or DirectoryNotFoundException)
+        {
+            // File existed at File.Exists() but vanished before FileStream could open it
+            // (TOCTOU — another process or a user cleanup). Nothing to protect, so treat
+            // this like the no-state-file branch and let SaveState() proceed normally.
+            _logger.LogWarning(ex, "View state file {ViewStateFile} disappeared before it could be read; opening default tabs ({SceneId}).", viewStateFile, SceneId);
             SafeOpenDefaultTabs();
             return;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            // Transient read failures (file lock, antivirus, permission glitches) do not
-            // mean the file is corrupt — leave it in place so the next launch can retry,
-            // and suppress SaveState() this session so AutoSave does not overwrite it
-            // with the default layout before the retry ever happens.
-            _logger.LogError(ex, "Failed to read view state file {ViewStateFile}; opening default tabs and suppressing view state save this session.", viewStateFile);
+            // IO / permission failure (file lock, antivirus, sharing violation, path-too-long,
+            // disk error, etc.). The file may still be valid — leave it in place so the next
+            // launch can retry, and suppress SaveState() this session so AutoSave does not
+            // overwrite it with the default layout before the user gets a chance to recover.
+            _logger.LogError(ex, "Failed to read view state file {ViewStateFile}; opening default tabs and suppressing view state save this session ({SceneId}).", viewStateFile, SceneId);
             _viewStateSaveSuppressed = true;
             SafeOpenDefaultTabs();
             return;
@@ -455,13 +473,14 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
 
         if (json is not JsonObject jsonObject)
         {
-            // JsonNode.Parse returns C# null for the JSON null literal, so report
-            // that explicitly; GetValueKind on the remaining shapes (Array, String,
-            // Number, True, False) is more informative than the runtime type name.
+            // JsonNode.Parse returns C# null for the JSON null literal; report that
+            // explicitly and fall back to GetValueKind() for the rest (more informative
+            // than the runtime type name).
             _logger.LogWarning(
-                "View state root is not a JSON object (was {Kind}) in {ViewStateFile}; opening default tabs.",
+                "View state root is not a JSON object (was {Kind}) in {ViewStateFile}; opening default tabs ({SceneId}).",
                 json is null ? nameof(JsonValueKind.Null) : json.GetValueKind().ToString(),
-                viewStateFile);
+                viewStateFile,
+                SceneId);
             QuarantineCorruptViewState(viewStateFile);
             SafeOpenDefaultTabs();
             return;
@@ -478,9 +497,11 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
                     _editorSelection.SelectedObject.Value = searcher.Search() as CoreObject;
                 }
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not OutOfMemoryException and not OperationCanceledException)
             {
-                _logger.LogWarning(ex, "An error occurred while restoring the selected object.");
+                // Selection is non-critical state; let the rest of restore continue.
+                // OOM / cancellation propagate so the deeper catch can quarantine.
+                _logger.LogWarning(ex, "Could not restore the selected object from {ViewStateFile}; selection cleared ({SceneId}).", viewStateFile, SceneId);
             }
 
             var timelineOptions = new TimelineOptions();
@@ -538,12 +559,14 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
                 _editorClock.CurrentTime.Value = currentTime;
             }
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OutOfMemoryException and not OperationCanceledException)
         {
             // The file parsed as JSON but a deeper restore step blew up — treat the
             // file as effectively corrupt so the next AutoSave does not silently
-            // overwrite it with the default layout.
-            _logger.LogError(ex, "Unexpected error while restoring view state from {ViewStateFile}; quarantining and opening default tabs.", viewStateFile);
+            // overwrite it with the default layout. OOM / cancellation propagate
+            // because they signal "abort this restore", not "the file is bad" —
+            // quarantining a valid file on those would permanently lose the layout.
+            _logger.LogError(ex, "Unexpected error while restoring view state from {ViewStateFile}; quarantining and opening default tabs ({SceneId}).", viewStateFile, SceneId);
             QuarantineCorruptViewState(viewStateFile);
             SafeOpenDefaultTabs();
         }
@@ -551,38 +574,49 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
 
     private void SafeOpenDefaultTabs()
     {
-        // OpenDefaultTabs runs arbitrary tool-extension code, so swallow any
-        // exception here — the scene must remain openable even when the
-        // default-layout fallback itself fails.
+        // OpenDefaultTabs runs arbitrary tool-extension code, so swallow recoverable
+        // exceptions here — the scene must remain openable even when the
+        // default-layout fallback itself fails. OOM / cancellation propagate.
         try
         {
             DockHost.OpenDefaultTabs();
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OutOfMemoryException and not OperationCanceledException)
         {
-            _logger.LogError(ex, "Failed to open default tabs.");
+            _logger.LogError(ex, "Failed to open default tabs ({SceneId}).", SceneId);
+            NotificationService.ShowError(string.Empty, MessageStrings.DefaultTabsOpenFailed);
         }
     }
 
     private void QuarantineCorruptViewState(string viewStateFile)
     {
-        // Move the unreadable file aside so AutoSave's next SaveState() does not
-        // overwrite it with the default layout and erase the user's customizations.
-        // The random suffix avoids clobbering an earlier quarantine if corruption
-        // recurs within the same second.
+        // Move the unreadable file aside so subsequent SaveState() calls (AutoSave or
+        // dispose) do not overwrite it with the default layout and erase the user's
+        // customizations. The 8-hex-char random suffix (~4 billion variants per second)
+        // prevents collisions between concurrent restores or other Beutl instances
+        // that hit corruption with the same one-second timestamp.
         try
         {
-            string suffix = Guid.NewGuid().ToString("N").Substring(0, 8);
+            string suffix = Guid.NewGuid().ToString("N")[..8];
             string quarantined = $"{viewStateFile}.corrupt-{DateTime.UtcNow:yyyyMMddHHmmss}-{suffix}";
             File.Move(viewStateFile, quarantined);
-            _logger.LogInformation("Moved unreadable view state to {QuarantinedFile}.", quarantined);
+            _logger.LogInformation("Moved unreadable view state to {QuarantinedFile} ({SceneId}).", quarantined, SceneId);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or SecurityException)
         {
-            // The corrupt file still occupies the original path. Suppress SaveState()
-            // so AutoSave does not overwrite it before a developer can recover the
-            // original for diagnostics.
-            _logger.LogWarning(ex, "Failed to quarantine view state file {ViewStateFile}; suppressing view state save this session.", viewStateFile);
+            // Expected move failures. The corrupt file may still occupy the original
+            // path; suppress SaveState() so it does not get overwritten before a
+            // developer can recover the original for diagnostics. Suppression is a
+            // conservative default — it also fires if the file vanished mid-handling.
+            _logger.LogWarning(ex, "Failed to quarantine view state file {ViewStateFile}; suppressing view state save this session ({SceneId}).", viewStateFile, SceneId);
+            _viewStateSaveSuppressed = true;
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException and not OperationCanceledException)
+        {
+            // Belt-and-suspenders: any other File.Move failure (NotSupportedException,
+            // ArgumentException, etc.) must still leave us in a state where AutoSave
+            // cannot overwrite the file we tried to protect.
+            _logger.LogError(ex, "Unexpected failure quarantining view state file {ViewStateFile}; suppressing view state save this session ({SceneId}).", viewStateFile, SceneId);
             _viewStateSaveSuppressed = true;
         }
     }
@@ -635,7 +669,7 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
             viewModel._logger.LogInformation("Saving scene ({SceneId}).", scene.Id);
             CoreSerializer.StoreToUri(scene, scene.Uri!);
             Parallel.ForEach(scene.Children, item => CoreSerializer.StoreToUri(item, item.Uri!));
-            viewModel.SaveState();
+            viewModel.SaveState(isExplicitUserSave: true);
             viewModel._logger.LogInformation("Scene ({SceneId}) saved successfully.", scene.Id);
 
             return ValueTask.FromResult(true);
