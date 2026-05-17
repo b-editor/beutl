@@ -133,6 +133,40 @@ public class MediaSourceResourceShareTest
     }
 
     [Test]
+    public void ImageSource_DisableResourceShare_DoesNotContaminateSharedCache()
+    {
+        var uri = TestMediaHelper.CreateTestImageUri(16, 16, Colors.Red);
+        var imageSource = new ImageSource();
+        imageSource.ReadFrom(uri);
+
+        // エンコード側が先に Resource を生成しても、プレビュー側 (共有モード) は
+        // エンコード専用 Bitmap を掴まない
+        using var encode = imageSource.ToResource(
+            new CompositionContext(TimeSpan.Zero) { DisableResourceShare = true });
+        using var preview = imageSource.ToResource(CompositionContext.Default);
+
+        Assert.That(preview.Bitmap, Is.Not.SameAs(encode.Bitmap),
+            "エンコード専用 Bitmap がプレビュー側に漏れてはならない");
+    }
+
+    [Test]
+    public void SoundSource_DisableResourceShare_DoesNotContaminateSharedCache()
+    {
+        var videoPath = TestMediaHelper.CreateTestVideoFile(80, 80, new Rational(30, 1), 60);
+        var soundSource = new SoundSource();
+        soundSource.ReadFrom(new Uri(videoPath));
+
+        // エンコード側が先に Resource を生成しても、プレビュー側 (共有モード) は
+        // エンコード専用 MediaReader を掴まない
+        using var encode = soundSource.ToResource(
+            new CompositionContext(TimeSpan.Zero) { DisableResourceShare = true });
+        using var preview = soundSource.ToResource(CompositionContext.Default);
+
+        Assert.That(preview.MediaReader, Is.Not.SameAs(encode.MediaReader),
+            "エンコード専用 MediaReader がプレビュー側に漏れてはならない");
+    }
+
+    [Test]
     public void ImageSource_ReadFromDifferentUri_DoesNotShareStaleCounter()
     {
         // 別 Resource が古い URI の Counter を握ったまま ReadFrom(newUri) → ToResource すると、
