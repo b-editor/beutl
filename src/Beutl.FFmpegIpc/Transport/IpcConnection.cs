@@ -137,7 +137,7 @@ public sealed class IpcConnection : IDisposable
                     }
                 }
             }
-        }, loopCt);
+        }, CancellationToken.None);
     }
 
     public async ValueTask SendAsync(IpcMessage message, CancellationToken ct = default)
