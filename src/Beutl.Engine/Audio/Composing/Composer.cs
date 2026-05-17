@@ -118,7 +118,7 @@ public class Composer : IComposer
 
         if (mixedBuffer == null)
         {
-            return new AudioBuffer(SampleRate, 2, (int)(range.Duration.TotalSeconds * SampleRate));
+            return new AudioBuffer(SampleRate, 2, AudioProcessContext.GetSampleCount(range, SampleRate));
         }
 
         // Apply master effects
