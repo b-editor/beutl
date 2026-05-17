@@ -524,7 +524,12 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Unexpected error while restoring view state from {ViewStateFile}.", viewStateFile);
+            // The file parsed as JSON but a deeper restore step blew up — treat the
+            // file as effectively corrupt so the next AutoSave does not silently
+            // overwrite it with the default layout.
+            _logger.LogError(ex, "Unexpected error while restoring view state from {ViewStateFile}; quarantining and opening default tabs.", viewStateFile);
+            QuarantineCorruptViewState(viewStateFile);
+            DockHost.OpenDefaultTabs();
         }
     }
 
