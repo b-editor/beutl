@@ -70,34 +70,33 @@ public sealed class TimelineTabExtension : ToolTabExtension
         [
             new ContextCommandKeyGesture("OemCloseBrackets")
         ]),
+        // Nudge は矢印キーを避けて , / . に割り当てる。Premiere/DaVinci/Final Cut の
+        // 慣例に合わせるとともに、シーン側 Previous/Next (Left/Right), SeekStart/SeekEnd
+        // (Cmd+Left/Right on macOS), Marker nav (Ctrl+Left/Right, macOS Alt+Left/Right)
+        // との shortcut 衝突を完全に排除する。
         new ContextCommandDefinition("NudgeLeftFrame", Strings.NudgeLeftFrame, "",
         [
-            new ContextCommandKeyGesture("Left"),
+            new ContextCommandKeyGesture("OemComma"),
         ]),
         new ContextCommandDefinition("NudgeRightFrame", Strings.NudgeRightFrame, "",
         [
-            new ContextCommandKeyGesture("Right"),
+            new ContextCommandKeyGesture("OemPeriod"),
         ]),
         new ContextCommandDefinition("NudgeLeftLarge", Strings.NudgeLeftLarge, "",
         [
-            new ContextCommandKeyGesture("Shift+Left"),
+            new ContextCommandKeyGesture("Shift+OemComma"),
         ]),
         new ContextCommandDefinition("NudgeRightLarge", Strings.NudgeRightLarge, "",
         [
-            new ContextCommandKeyGesture("Shift+Right"),
+            new ContextCommandKeyGesture("Shift+OemPeriod"),
         ]),
-        // macOS の Cmd+Left/Right はシーン側 SeekStart/SeekEnd と衝突するため
-        // 明示バインドはしない (fallback の Alt+Left/Right が Opt+Left/Right として
-        // 利く)。Opt+Left/Right はマーカー間ナビと重なるが、ContextCommandManager の
-        // input element ルーティングで Timeline フォーカス時のみ nudge が走るため
-        // 実害は限定的。
         new ContextCommandDefinition("NudgeLeftSecond", Strings.NudgeLeftSecond, "",
         [
-            new ContextCommandKeyGesture("Alt+Left"),
+            new ContextCommandKeyGesture("Alt+OemComma"),
         ]),
         new ContextCommandDefinition("NudgeRightSecond", Strings.NudgeRightSecond, "",
         [
-            new ContextCommandKeyGesture("Alt+Right"),
+            new ContextCommandKeyGesture("Alt+OemPeriod"),
         ]),
         new ContextCommandDefinition("ToggleGroup", Strings.Group, "",
         [
