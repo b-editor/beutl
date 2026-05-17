@@ -62,6 +62,8 @@ public class EditorHostViewModel
             {
                 foreach (var item in oldItems)
                 {
+                    // Capture FilePath before DisposeAsync nulls out the underlying context.
+                    var filePath = item.FilePath.Value;
                     try
                     {
                         await item.DisposeAsync();
@@ -71,7 +73,7 @@ public class EditorHostViewModel
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogError(ex, "Failed to dispose editor tab item. FilePath={FilePath}", item.FilePath.Value);
+                        _logger.LogError(ex, "Failed to dispose editor tab item. FilePath={FilePath}", filePath);
                     }
                 }
             }
