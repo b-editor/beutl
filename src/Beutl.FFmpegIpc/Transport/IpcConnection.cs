@@ -121,11 +121,15 @@ public sealed class IpcConnection : IDisposable
                 terminationError = new IOException(
                     "IPC receive loop terminated due to a broken pipe. The remote endpoint may have crashed.", ex);
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not OutOfMemoryException
+                                           and not StackOverflowException
+                                           and not AccessViolationException)
             {
                 // プロトコル破損 (length out of range, JSON deserialize 失敗, 想定外の状態) など
                 // I/O 以外の例外も同じ termination 経路に集約し、呼び出し元から
                 // 「キャンセル」と「ループが死んだ」を区別可能にする。
+                // 致命系 (OOM/SOE/AVE) は IOException に包んで誤魔化さず、プロセス側に
+                // 元のクラッシュ意図を伝播させる (InvokeDroppedResponseHandler と同じ規約)。
                 terminationError = new IOException(
                     "IPC receive loop terminated due to an unexpected protocol or deserialization error.", ex);
             }
