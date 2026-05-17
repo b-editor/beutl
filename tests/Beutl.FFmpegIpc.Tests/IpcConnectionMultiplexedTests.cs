@@ -111,9 +111,7 @@ public class IpcConnectionMultiplexedTests
 
         int id = conn.NextId();
         var req = IpcMessage.CreateSimple(id, RequestType);
-        // ct.ThrowIfCancellationRequested が _pendingRequests への登録より先に走ること
-        // を確認する。登録が先だと finally 経由で消えるため、登録が起きないことの
-        // 直接の証跡として、PendingCount が増えないかどうかは別経路の補強でしかない点に注意。
+        // ct.ThrowIfCancellationRequested が _pendingRequests への登録より先に走る。
         Assert.CatchAsync<OperationCanceledException>(
             async () => await conn.SendAndReceiveAsync(req, cts.Token));
 
@@ -196,9 +194,8 @@ public class IpcConnectionMultiplexedTests
     [Test]
     public async Task DroppedResponseHandler_Throws_ReceiveLoopSurvives()
     {
-        // IpcConnection.cs の DroppedResponseHandler XML doc が
-        // 「万一スローしても受信ループは継続」と契約している。
-        // ハンドラ catch を狭めた変更が壊れたら、次のリクエストが永久ハングする。
+        // DroppedResponseHandler が例外を投げても受信ループは生存し、
+        // 後続リクエストが正常応答を受け取れる契約。
         var (server, client) = ConnectPair();
         using var _ = server;
         using var conn = new IpcConnection(client);
@@ -280,8 +277,7 @@ public class IpcConnectionMultiplexedTests
                 // 受信ループとキャンセルがほぼ同時に走るよう仕向ける。
                 cts.Cancel();
 
-                // PR で修正したキャンセル経路がリグレッションすると await が永久に
-                // 返らなくなるため、フェイルファストで上限を切る。
+                // キャンセル経路がリークすると await が返らなくなるため上限を切る。
                 await AwaitWithTimeout(requestTask, TimeSpan.FromSeconds(5), $"iter={iter}: requestTask");
             }
             catch (OperationCanceledException) { }
@@ -313,9 +309,8 @@ public class IpcConnectionMultiplexedTests
     [Test]
     public async Task SamePendingRequestId_ThrowsAndFirstSurvives()
     {
-        // _pendingRequests に同じ Id を二重登録しようとすると、TryAdd 化により
-        // 2 つ目が InvalidOperationException で失敗し、1 つ目の TCS には影響しない。
-        // 旧 indexer 代入では 1 つ目を黙って捨てて 1 つ目の awaiter が永久 await になっていた。
+        // 同じ Id の二重登録は 2 つ目だけが InvalidOperationException で失敗し、
+        // 1 つ目の TCS には影響しない。
         var (server, client) = ConnectPair();
         using var _ = server;
         using var conn = new IpcConnection(client);
@@ -342,9 +337,8 @@ public class IpcConnectionMultiplexedTests
     [Test]
     public async Task PostDispose_SendAndReceive_FailsFastWithObjectDisposed()
     {
-        // clean-cancel パスでも _receiveLoopFault が公開されることのテスト。
-        // 旧コードでは terminationError 無しのとき fault を書かず、Dispose 後の
-        // 新規呼び出しが永久 await した。
+        // clean-cancel パスでも _receiveLoopFault が公開され、Dispose 後の
+        // 新規呼び出しが永久 await せずに ObjectDisposedException で即時失敗する。
         var (server, client) = ConnectPair();
         using var _ = server;
         var conn = new IpcConnection(client);
@@ -412,9 +406,9 @@ public class IpcConnectionMultiplexedTests
     [Test]
     public async Task ProtocolCorruption_PendingRequestsObserveIOExceptionWithCause()
     {
-        // commit 9325ed5 で追加した catch (Exception) アームの回帰テスト。
-        // 不正な length prefix を流し込み、MessageSerializer が
-        // InvalidOperationException を投げて受信ループが死ぬケースを再現する。
+        // 不正な length prefix で MessageSerializer が InvalidOperationException を
+        // 投げて受信ループが死ぬケース。pending TCS は IOException (InnerException が
+        // 元の InvalidOperationException) として観測されること。
         var (server, client) = ConnectPair();
         using var _ = server;
         using var conn = new IpcConnection(client);
@@ -443,11 +437,8 @@ public class IpcConnectionMultiplexedTests
     [Test]
     public async Task AfterReceiveLoopDies_NewRequestsFailFast()
     {
-        // _receiveLoopFault のキャッシュが効いていないと、ループ死亡後に登録された
-        // TCS は誰にも完了されず永久 await になる。
-        // 1) 壊れたフレームでループを殺し、2) 最初のリクエストが IOException で
-        // 返ったのを確認、3) 次のリクエストがキャッシュ済み fault で即時失敗する
-        // ことを検証する。
+        // 受信ループ死亡後の新規リクエストはキャッシュされた _receiveLoopFault で
+        // 即時失敗する。fault が公開されていないと TCS が誰にも完了されず永久 await になる。
         var (server, client) = ConnectPair();
         using var _ = server;
         using var conn = new IpcConnection(client);
@@ -478,10 +469,9 @@ public class IpcConnectionMultiplexedTests
     [Test]
     public async Task DisposeWhileRequestPending_ObservesCancellationNotIOException()
     {
-        // commit 1d3304e5c で修正した Dispose 順序の回帰テスト。
-        // 自己 Dispose 中は受信ループの完了を待ってからパイプを破棄する契約。
-        // パイプ破棄を先にすると pending TCS に IOException("broken pipe") が
-        // 伝播してしまい、自プロセス由来か peer 由来かが区別不能になる。
+        // 自己 Dispose 中は受信ループ完了を待ってからパイプを破棄する。
+        // 逆順だと pending TCS に IOException("broken pipe") が伝播し、
+        // 自プロセス由来と peer 由来の区別がつかなくなる。
         var (server, client) = ConnectPair();
         using var _ = server;
         var conn = new IpcConnection(client);

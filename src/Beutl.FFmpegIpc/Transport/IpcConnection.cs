@@ -27,9 +27,8 @@ public sealed class IpcConnection : IDisposable
     private readonly ConcurrentDictionary<int, TaskCompletionSource<IpcMessage>> _pendingRequests = new();
     private Task? _receiveLoopTask;
     private CancellationTokenSource? _receiveLoopCts;
-    // 受信ループが I/O 障害/プロトコル破損で終了した際の例外。
-    // 死後に届いたリクエストを永久 await させないため、SendAndReceiveMultiplexedAsync で
-    // fail-fast に使う。Volatile.Write/Read で公開する。
+    // 受信ループ終了後の新規リクエストを fail-fast させるための終端例外。
+    // Volatile アクセスでループ→送信側に公開する。
     private Exception? _receiveLoopFault;
 
     public IpcConnection(PipeStream pipe)
@@ -136,22 +135,16 @@ public sealed class IpcConnection : IDisposable
             }
             finally
             {
-                // 死後の新規呼び出しが fail-fast できるよう、終了状態を先に公開してから
-                // 待機中リクエストを解放する。逆順だと finally の foreach 後に追加された
-                // TCS をループが拾えず永久ハングしうる。SendAndReceiveMultiplexedAsync 側で
-                // _pendingRequests への登録後にもう一度 fault を読むことで競合を閉じる。
-                // I/O / プロトコル系の終端は terminationError、loopCt キャンセルや
-                // 自プロセス Dispose は ObjectDisposedException として記録する。後者を
-                // 「fault は無し」と表現すると、ループ死亡後の caller が永久 await しうる。
+                // fault を先に公開し、その後で待機中 TCS を解放する。
+                // 送信側は登録後にもう一度 fault を読むことで、foreach に拾われなかった
+                // 新規 TCS の永久 await を防ぐ。clean-cancel の場合も「fault 無し」では
+                // なく ObjectDisposedException を載せて fail-fast を保証する。
                 Volatile.Write(
                     ref _receiveLoopFault,
                     terminationError ?? (Exception)new ObjectDisposedException(
                         nameof(IpcConnection),
                         "IPC receive loop has stopped; the connection no longer accepts multiplexed requests."));
 
-                // 残っている全ての待機中リクエストを解放。I/O 障害があれば例外として、
-                // それ以外 (ObjectDisposed / loopCt キャンセル) は loopCt 付きでキャンセル。
-                // EOF は terminationError 経路を通るのでここでは TrySetException 側に入る点に注意。
                 foreach (var kvp in _pendingRequests)
                 {
                     if (_pendingRequests.TryRemove(kvp.Key, out var tcs))
@@ -285,18 +278,16 @@ public sealed class IpcConnection : IDisposable
             throw fault;
 
         var tcs = new TaskCompletionSource<IpcMessage>(TaskCreationOptions.RunContinuationsAsynchronously);
-        // 同じ Id が既に in-flight なら、indexer 代入だと前 TCS を黙って捨てて永久 await が
-        // 生まれる。TryAdd で衝突を表面化する。_nextId が int を一巡して再利用された場合や、
-        // 呼び出し元が手動 Id を渡すバグでも、症状が確実に上に伝わる。
+        // Id 衝突は indexer 代入だと前 TCS を黙って捨てて永久 await になる。
+        // TryAdd で表面化させる。
         if (!_pendingRequests.TryAdd(request.Id, tcs))
         {
             throw new InvalidOperationException(
                 $"Request id {request.Id} is already in flight on this multiplexed connection.");
         }
 
-        // 登録→fault チェックの順を逆にできない: 逆だと「fault 読み (null)」→「ループが
-        // finally で fault 書き&foreach (空)」→「登録」のレースで永久 await になる。
-        // 登録後にもう一度読み直すことで、foreach に拾われなかった TCS も検出する。
+        // 登録後にもう一度 fault を読む。「fault 読み (null)」→「ループ finally で
+        // fault 書き&foreach (空)」→「登録」のレースで永久 await になるのを防ぐ。
         fault = Volatile.Read(ref _receiveLoopFault);
         if (fault != null)
         {
@@ -306,13 +297,9 @@ public sealed class IpcConnection : IDisposable
 
         try
         {
-            // SendAsync の前にキャンセルを購読し、送信中・受信待機中いずれの局面でも
-            // ct 発火が確実に tcs へ伝播するようにする。
-            // 旧実装は SendAsync 完了後に Register していたため、送信成功とキャンセル発火と
-            // レスポンス到着が同時に走ると、TCS が中途半端に解決されず競合の隙間で
-            // バッファインデックスを未消費のまま落とすケースがあった。
-            // Register 自体は ObjectDisposedException 等で失敗しうるため try の内側
-            // に置き、失敗時にも finally で pending を確実に撤去する。
+            // SendAsync 前にキャンセルを購読する。送信中・受信待機中いずれの局面でも
+            // ct 発火を tcs に伝播させる必要がある。Register は ObjectDisposedException
+            // を投げうるため try 内に置き、失敗時も finally で pending を撤去する。
             using var registration = ct.Register(static state =>
             {
                 var (innerTcs, token) = ((TaskCompletionSource<IpcMessage> Tcs, CancellationToken Token))state!;
@@ -329,11 +316,9 @@ public sealed class IpcConnection : IDisposable
         }
         finally
         {
-            // 自身が登録した TCS のみを撤去する (KeyValuePair オーバーロード)。
-            // 主目的は受信ループとのレース対策: ループが先にこのスロットを取り出して
-            // 別レスポンスを刺し直していた場合、参照不一致になり TryRemove は失敗 — 別リクエストの
-            // TCS を取り違えて消すのを防ぐ。副次的に、_nextId が int を一巡 (2^31 件) して Id が
-            // 再利用された場合の保険も兼ねる。
+            // 自身が登録した TCS のみを撤去する。受信ループが先にスロットを取り出して
+            // 別の登録に差し替わっていた場合、KeyValuePair オーバーロードの参照不一致で
+            // TryRemove は失敗し、他リクエストの TCS を取り違えて消すのを防ぐ。
             _pendingRequests.TryRemove(new KeyValuePair<int, TaskCompletionSource<IpcMessage>>(request.Id, tcs));
         }
     }
