@@ -602,12 +602,19 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
             File.Move(viewStateFile, quarantined);
             _logger.LogInformation("Moved unreadable view state to {QuarantinedFile} ({SceneId}).", quarantined, SceneId);
         }
+        catch (Exception ex) when (ex is FileNotFoundException or DirectoryNotFoundException)
+        {
+            // The file (or its directory) vanished between the parse failure and the
+            // move — nothing left to protect, so do NOT suppress SaveState(); a later
+            // save can write fresh state to the now-empty path normally.
+            _logger.LogWarning(ex, "View state file {ViewStateFile} disappeared before it could be quarantined ({SceneId}).", viewStateFile, SceneId);
+        }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or SecurityException)
         {
-            // Expected move failures. The corrupt file may still occupy the original
-            // path; suppress SaveState() so it does not get overwritten before a
-            // developer can recover the original for diagnostics. Suppression is a
-            // conservative default — it also fires if the file vanished mid-handling.
+            // Expected move failures (sharing violation, permission denied, etc.) where
+            // the corrupt file likely still occupies the original path; suppress
+            // SaveState() so it does not get overwritten before a developer can recover
+            // the original for diagnostics.
             _logger.LogWarning(ex, "Failed to quarantine view state file {ViewStateFile}; suppressing view state save this session ({SceneId}).", viewStateFile, SceneId);
             _viewStateSaveSuppressed = true;
         }
