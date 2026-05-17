@@ -1257,7 +1257,13 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
 
     private void NudgeSelectedElements(int direction, NudgeUnit unit)
     {
-        ElementViewModel? first = SelectedElements.FirstOrDefault();
+        // SelectedElements は HashSet で順序不定。RoundToRate を適用する anchor を
+        // 決定論的にするため Start (副: ZIndex) でソートして最も左の要素を選ぶ。
+        // 異なる off-grid Start を持つ要素間で実行毎にシフト量が変わるのを防ぐ。
+        ElementViewModel? first = SelectedElements
+            .OrderBy(e => e.Model.Start)
+            .ThenBy(e => e.Model.ZIndex)
+            .FirstOrDefault();
         if (first is null) return;
 
         // 他の編集操作との一貫性と、グループの位置関係が崩れることを防ぐため、
