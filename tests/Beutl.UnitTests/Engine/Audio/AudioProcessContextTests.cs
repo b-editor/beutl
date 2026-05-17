@@ -57,6 +57,18 @@ public class AudioProcessContextTests
         Assert.That(AudioProcessContext.GetSampleCount(range, 48000), Is.EqualTo(96000));
     }
 
+    [TestCase(0)]
+    [TestCase(-1)]
+    [TestCase(int.MinValue)]
+    public void GetSampleCount_Static_NonPositiveSampleRate_Throws(int sampleRate)
+    {
+        var range = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+
+        var ex = Assert.Throws<ArgumentOutOfRangeException>(
+            () => AudioProcessContext.GetSampleCount(range, sampleRate));
+        Assert.That(ex!.ParamName, Is.EqualTo("sampleRate"));
+    }
+
     [Test]
     public void GetSampleCount_Static_NegativeDuration_Throws()
     {
