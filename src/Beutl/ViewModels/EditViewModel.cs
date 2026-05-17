@@ -579,7 +579,11 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or SecurityException)
         {
-            _logger.LogWarning(ex, "Failed to quarantine view state file {ViewStateFile}.", viewStateFile);
+            // The corrupt file still occupies the original path. Suppress SaveState()
+            // so AutoSave does not overwrite it before a developer can recover the
+            // original for diagnostics.
+            _logger.LogWarning(ex, "Failed to quarantine view state file {ViewStateFile}; suppressing view state save this session.", viewStateFile);
+            _viewStateSaveSuppressed = true;
         }
     }
 
