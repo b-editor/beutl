@@ -20,7 +20,7 @@ public sealed class IpcConnection : IDisposable
     private readonly SemaphoreSlim _writeLock = new(1, 1);
     private readonly SemaphoreSlim _readLock = new(1, 1);
     private int _nextId;
-    private bool _disposed;
+    private volatile bool _disposed;
 
     // 多重化モード用
     private readonly ConcurrentDictionary<int, TaskCompletionSource<IpcMessage>> _pendingRequests = new();
@@ -314,6 +314,20 @@ public sealed class IpcConnection : IDisposable
         _disposed = true;
 
         _receiveLoopCts?.Cancel();
+
+        // 受信ループを待ってからパイプ/セマフォを破棄する。先にパイプを破棄すると
+        // 進行中の ReadMessageAsync が ObjectDisposedException で死に、自己 Dispose が
+        // 誤って "broken pipe" として pending リクエストに伝播してしまう。上限を切って
+        // 待つことで、ループ内ハング (理論上ありえない) でも Dispose は必ず進む。
+        try
+        {
+            _receiveLoopTask?.Wait(TimeSpan.FromSeconds(5));
+        }
+        catch (AggregateException)
+        {
+            // 受信ループ内例外は finally で pending TCS へ伝播済み。
+        }
+
         _receiveLoopCts?.Dispose();
 
         _requestLock.Dispose();
