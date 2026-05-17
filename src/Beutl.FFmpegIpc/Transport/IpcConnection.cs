@@ -52,11 +52,33 @@ public sealed class IpcConnection : IDisposable
     /// IpcFrameProvider) の責務とする。
     /// 呼び出しは受信ループスレッドで同期的に行われるため、ブロックすると後続メッセージの
     /// 処理が遅延する。例外は投げないことを契約とするが、非致命例外をスローしても
-    /// 受信ループは継続し、内容は <see cref="System.Diagnostics.Trace.TraceError(string)"/>
-    /// に記録される。OOM/SOE/AVE 等の致命例外は呼び出し元 (受信ループ) に伝播し、
+    /// 受信ループは継続し、内容は <see cref="DiagnosticLogger"/> (未設定時は
+    /// <see cref="System.Diagnostics.Trace.TraceError(string)"/>) に記録される。
+    /// OOM/SOE/AVE 等の致命例外は呼び出し元 (受信ループ) に伝播し、
     /// ループを終了させてプロセス状態を上位に晒す。
     /// </summary>
     public Action<IpcMessage>? DroppedResponseHandler { get; set; }
+
+    /// <summary>
+    /// 異常系の診断メッセージを上位レイヤーのロガーに流すためのフック
+    /// (例: ハンドラ例外 / Dispose タイムアウト / 受信ループ終了時の根因)。
+    /// <para>
+    /// 第 1 引数はメッセージ、第 2 引数は関連例外 (無い場合は null)。
+    /// </para>
+    /// <para>
+    /// 本ライブラリは依存ゼロを保つため <see cref="System.Diagnostics.Trace"/> を
+    /// デフォルトの出力先とするが、ホスト側 (例: Beutl.Extensions.FFmpeg の
+    /// <c>Microsoft.Extensions.Logging.ILogger</c>) やワーカー側 (例: Beutl.FFmpegWorker
+    /// の <c>WorkerLog</c>) はこのフックを設定して各レイヤーの慣習に合わせたロガーへ
+    /// 転送できる。フックが <c>null</c> の場合、メッセージは <see cref="System.Diagnostics.Trace.TraceError(string)"/>
+    /// に出力される。
+    /// </para>
+    /// <para>
+    /// フック内例外は飲み込まれ、診断は <see cref="System.Diagnostics.Trace"/> に
+    /// フォールバックする。受信ループや Dispose を巻き込まないことを優先する。
+    /// </para>
+    /// </summary>
+    public Action<string, Exception?>? DiagnosticLogger { get; set; }
 
     public int NextId() => Interlocked.Increment(ref _nextId);
 
@@ -345,9 +367,51 @@ public sealed class IpcConnection : IDisposable
                                        and not StackOverflowException
                                        and not AccessViolationException)
         {
-            // ハンドラ例外は受信ループを止めない。診断のため Trace へ送る。
-            Trace.TraceError(
-                $"IpcConnection.DroppedResponseHandler threw {ex.GetType().Name} for message Id={message.Id} Type={message.Type}: {ex}");
+            // ハンドラ例外は受信ループを止めない。診断のため上位ロガーへ送る。
+            WriteDiagnostic(
+                $"IpcConnection.DroppedResponseHandler threw {ex.GetType().Name} for message Id={message.Id} Type={message.Type}.",
+                ex);
+        }
+    }
+
+    /// <summary>
+    /// 異常系の診断メッセージを出力する。<see cref="DiagnosticLogger"/> が設定されていれば
+    /// そちらへ、無ければ <see cref="Trace.TraceError(string)"/> へフォールバックする。
+    /// フック自身が例外を投げても受信ループ / Dispose を巻き込まないよう、二重に try-catch する。
+    /// </summary>
+    private void WriteDiagnostic(string message, Exception? exception = null)
+    {
+        var logger = DiagnosticLogger;
+        if (logger != null)
+        {
+            try
+            {
+                logger(message, exception);
+                return;
+            }
+            catch (Exception ex) when (ex is not OutOfMemoryException
+                                           and not StackOverflowException
+                                           and not AccessViolationException)
+            {
+                // フック自身の例外。フォールバックの Trace 出力に切り替える。
+                try
+                {
+                    Trace.TraceError(
+                        $"IpcConnection.DiagnosticLogger threw {ex.GetType().Name}: {ex}. Original message: {message}{(exception != null ? " | " + exception : string.Empty)}");
+                }
+                catch
+                {
+                }
+                return;
+            }
+        }
+
+        try
+        {
+            Trace.TraceError(exception != null ? $"{message} {exception}" : message);
+        }
+        catch
+        {
         }
     }
 
@@ -370,15 +434,15 @@ public sealed class IpcConnection : IDisposable
                 {
                     // タイムアウト = ループが停止しなかった。続行するとパイプ破棄で
                     // ObjectDisposedException を引き起こし、その先で診断が消える。
-                    // 続行はするが、痕跡が残るよう Trace に出す。
-                    Trace.TraceError("IpcConnection.Dispose: receive loop did not exit within 5s; proceeding with disposal.");
+                    // 続行はするが、痕跡が残るよう上位ロガーへ出す。
+                    WriteDiagnostic("IpcConnection.Dispose: receive loop did not exit within 5s; proceeding with disposal.");
                 }
             }
             catch (AggregateException ex)
             {
                 // 受信ループ内例外は finally で pending TCS / _receiveLoopFault へ伝播済みだが、
                 // Dispose 時の根因をたどれるよう原例外を残す。
-                Trace.TraceError($"IpcConnection.Dispose: receive loop ended with exception: {ex}");
+                WriteDiagnostic("IpcConnection.Dispose: receive loop ended with exception.", ex);
 
                 // 受信ループの generic catch が除外している致命系 (OOM/SOE/AVE) は
                 // Dispose 経路でも握りつぶさず再 throw する。リソース解放後に投げ直すため
