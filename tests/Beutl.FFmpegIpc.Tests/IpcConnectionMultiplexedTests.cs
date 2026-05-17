@@ -1,4 +1,5 @@
 ﻿using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.IO.Pipes;
 using Beutl.FFmpegIpc.Protocol;
 using Beutl.FFmpegIpc.Transport;
@@ -497,6 +498,35 @@ public class IpcConnectionMultiplexedTests
     }
 
     [Test]
+    public async Task Dispose_ProceedsWhenReceiveLoopDoesNotExitWithinTimeout()
+    {
+        // 受信ループが loopCt を無視してハングした場合、Dispose は 5 秒で
+        // 待機を諦め、残りのリソース解放 (pipe / セマフォ / CTS) は完走させる契約。
+        // タイムアウト境界が 5s から例えば 50ms に縮められたらこのテストが先に落ちる。
+        // NOTE: 5 秒の実時間待機が発生する。短縮するなら受信ループ Wait 上限を可変にする
+        //       internal API が必要。
+        var pipe = new HangingPipeStream();
+        var conn = new IpcConnection(pipe);
+        conn.StartMultiplexedReceive();
+
+        // 受信ループが確実に ReadAsync の hang に入った状態にしてから Dispose を呼ぶ。
+        // pending dict に 1 件入った = SendAsync が完走 = ループは ReadAsync 待機中。
+        int id = conn.NextId();
+        var req = IpcMessage.CreateSimple(id, RequestType);
+        _ = Task.Run(() => conn.SendAndReceiveAsync(req).AsTask());
+        await WaitUntil(() => PendingCount(conn) == 1, TimeSpan.FromSeconds(2), "request enters pending dict");
+
+        var sw = Stopwatch.StartNew();
+        Assert.DoesNotThrow(() => conn.Dispose());
+        sw.Stop();
+
+        Assert.That(sw.Elapsed, Is.GreaterThanOrEqualTo(TimeSpan.FromSeconds(4)),
+            "Dispose must wait for the receive loop until the timeout fires");
+        Assert.That(sw.Elapsed, Is.LessThan(TimeSpan.FromSeconds(8)),
+            "Dispose must give up after the timeout instead of hanging indefinitely");
+    }
+
+    [Test]
     public async Task Dispose_RethrowsFatalExceptionFromReceiveLoop()
     {
         // 受信ループが OOM/SOE/AVE を投げた場合、IPC のフレーム化エラーとして
@@ -589,6 +619,35 @@ public class IpcConnectionMultiplexedTests
             Assert.Fail($"Timeout {timeout.TotalMilliseconds}ms waiting for task result.");
         }
         return await task;
+    }
+
+    /// <summary>
+    /// ReadAsync が永久に完了しない PipeStream。Dispose の Wait タイムアウト経路を
+    /// 検証する目的でだけ使う。
+    /// </summary>
+    private sealed class HangingPipeStream : PipeStream
+    {
+        public HangingPipeStream() : base(PipeDirection.InOut, 4096) { }
+
+        public override int Read(byte[] buffer, int offset, int count)
+        {
+            // 同期 Read は使わない想定だが、最低限ハングさせる。
+            new TaskCompletionSource<int>().Task.GetAwaiter().GetResult();
+            return 0;
+        }
+
+        public override int Read(Span<byte> buffer) => Read(Array.Empty<byte>(), 0, 0);
+
+        public override ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
+            => new ValueTask<int>(new TaskCompletionSource<int>().Task);
+
+        public override Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
+            => new TaskCompletionSource<int>().Task;
+
+        public override void Write(byte[] buffer, int offset, int count) { }
+
+        public override ValueTask WriteAsync(ReadOnlyMemory<byte> buffer, CancellationToken cancellationToken = default)
+            => ValueTask.CompletedTask;
     }
 
     /// <summary>
