@@ -1824,4 +1824,121 @@ public class HistoryManagerTests
     }
 
     #endregion
+
+    #region BeforeMutation Tests
+
+    [Test]
+    public void BeforeMutation_Undo_FiresBeforeStackMutates()
+    {
+        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        manager.Record(CreateTestOperation());
+        manager.Commit("Step");
+
+        bool undoStackStillFull = false;
+        bool fired = false;
+        using var subscription = manager.BeforeMutation.Subscribe(_ =>
+        {
+            fired = true;
+            // CanUndo must still be observable as true when subscribers see the event;
+            // otherwise a flush handler that inspects history state would see the
+            // post-undo world.
+            undoStackStillFull = manager.CanUndo;
+        });
+
+        manager.Undo();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(fired, Is.True);
+            Assert.That(undoStackStillFull, Is.True);
+            Assert.That(manager.CanUndo, Is.False);
+        });
+    }
+
+    [Test]
+    public void BeforeMutation_Redo_FiresBeforeStackMutates()
+    {
+        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        manager.Record(CreateTestOperation());
+        manager.Commit("Step");
+        manager.Undo();
+
+        bool redoStackStillFull = false;
+        bool fired = false;
+        using var subscription = manager.BeforeMutation.Subscribe(_ =>
+        {
+            fired = true;
+            redoStackStillFull = manager.CanRedo;
+        });
+
+        manager.Redo();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(fired, Is.True);
+            Assert.That(redoStackStillFull, Is.True);
+            Assert.That(manager.CanRedo, Is.False);
+        });
+    }
+
+    [Test]
+    public void BeforeMutation_SubscriberCommit_LandsAsSeparateUndoEntry()
+    {
+        // Reproduces the timeline-nudge flush contract: a subscriber Commit
+        // during Undo must produce an undo entry of its own that gets popped
+        // by the very Undo that triggered it, not merged with the prior entry.
+        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        manager.Record(CreateTestOperation());
+        manager.Commit("First");
+
+        using var subscription = manager.BeforeMutation.Subscribe(_ =>
+        {
+            // Simulate a debounced edit that was still pending in a flush handler.
+            manager.Record(CreateTestOperation());
+            manager.Commit("Pending");
+        });
+
+        int undoCountBefore = manager.UndoCount;
+        manager.Undo();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(undoCountBefore, Is.EqualTo(1));
+            // After commit-from-subscriber (push) + Undo (pop), the user's prior
+            // commit must remain on the stack.
+            Assert.That(manager.UndoCount, Is.EqualTo(1));
+            Assert.That(manager.PeekUndo()!.DisplayName, Is.EqualTo("First"));
+        });
+    }
+
+    [Test]
+    public void BeforeMutation_SubscriberThrows_DoesNotAbortUndo()
+    {
+        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        manager.Record(CreateTestOperation());
+        manager.Commit("Step");
+
+        using var subscription = manager.BeforeMutation.Subscribe(_ =>
+            throw new InvalidOperationException("subscriber blew up"));
+
+        Assert.DoesNotThrow(() => manager.Undo());
+        Assert.That(manager.CanUndo, Is.False);
+    }
+
+    [Test]
+    public void BeforeMutation_Dispose_CompletesObservable()
+    {
+        var manager = new HistoryManager(_root, _sequenceGenerator);
+
+        bool completed = false;
+        using var subscription = manager.BeforeMutation.Subscribe(
+            _ => { },
+            () => completed = true);
+
+        manager.Dispose();
+
+        Assert.That(completed, Is.True);
+    }
+
+    #endregion
 }
