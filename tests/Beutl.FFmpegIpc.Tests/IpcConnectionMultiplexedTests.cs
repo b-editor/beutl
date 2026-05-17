@@ -189,6 +189,58 @@ public class IpcConnectionMultiplexedTests
     }
 
     [Test]
+    public async Task DroppedResponseHandler_Throws_ReceiveLoopSurvives()
+    {
+        // IpcConnection.cs の DroppedResponseHandler XML doc が
+        // 「万一スローしても受信ループは継続」と契約している。
+        // ハンドラ catch を狭めた変更が壊れたら、次のリクエストが永久ハングする。
+        var (server, client) = ConnectPair();
+        using var _ = server;
+        using var conn = new IpcConnection(client);
+
+        int handlerCalls = 0;
+        conn.DroppedResponseHandler = _ =>
+        {
+            Interlocked.Increment(ref handlerCalls);
+            throw new InvalidOperationException("intentional from test");
+        };
+        conn.StartMultiplexedReceive();
+
+        // 1) キャンセル後の遅延応答でハンドラを発火させる。
+        using (var cts = new CancellationTokenSource())
+        {
+            int firstId = conn.NextId();
+            var firstReq = IpcMessage.CreateSimple(firstId, RequestType);
+            var firstTask = conn.SendAndReceiveAsync(firstReq, cts.Token).AsTask();
+
+            await WaitUntil(() => PendingCount(conn) == 1, TimeSpan.FromSeconds(5), "first request enters pending dict");
+            cts.Cancel();
+            Assert.CatchAsync<OperationCanceledException>(async () => await firstTask);
+            await WaitUntil(() => PendingCount(conn) == 0, TimeSpan.FromSeconds(5), "pending dict drains after cancel");
+
+            var lateResp = IpcMessage.CreateSimple(firstId, ResponseType);
+            await MessageSerializer.WriteMessageAsync(server, lateResp);
+            await WaitUntil(() => Volatile.Read(ref handlerCalls) >= 1, TimeSpan.FromSeconds(5), "dropped handler is invoked");
+        }
+
+        // 2) 二本目のリクエストが正常応答を受け取る = 受信ループ生存中。
+        int secondId = conn.NextId();
+        var secondReq = IpcMessage.CreateSimple(secondId, RequestType);
+        var secondTask = conn.SendAndReceiveAsync(secondReq).AsTask();
+
+        await WaitUntil(() => PendingCount(conn) == 1, TimeSpan.FromSeconds(5), "second request enters pending dict");
+
+        // ハンドラを差し替えてから応答を返す (二本目で再度発火させない)。
+        conn.DroppedResponseHandler = null;
+        var secondResp = IpcMessage.CreateSimple(secondId, ResponseType);
+        await MessageSerializer.WriteMessageAsync(server, secondResp);
+
+        var got = await AwaitWithResult(secondTask, TimeSpan.FromSeconds(5));
+        Assert.That(got.Id, Is.EqualTo(secondId));
+        Assert.That(got.Type, Is.EqualTo(ResponseType));
+    }
+
+    [Test]
     public async Task RaceCancelAndResponse_NoLeak_StressLoop()
     {
         // レスポンス勝ち / キャンセル勝ち どちらでもリークしない不変を確認。
@@ -392,5 +444,18 @@ public class IpcConnectionMultiplexedTests
             Assert.Fail($"Timeout {timeout.TotalMilliseconds}ms waiting for: {description}");
         }
         await task;
+    }
+
+    /// <summary>
+    /// 結果付き Task の完了を上限時間で待つ。タイムアウト時は Assert.Fail でテストを落とす。
+    /// </summary>
+    private static async Task<T> AwaitWithResult<T>(Task<T> task, TimeSpan timeout)
+    {
+        var completed = await Task.WhenAny(task, Task.Delay(timeout));
+        if (completed != task)
+        {
+            Assert.Fail($"Timeout {timeout.TotalMilliseconds}ms waiting for task result.");
+        }
+        return await task;
     }
 }
