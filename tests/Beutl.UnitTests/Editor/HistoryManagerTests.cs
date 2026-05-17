@@ -1926,6 +1926,35 @@ public class HistoryManagerTests
     }
 
     [Test]
+    public void BeforeMutation_JumpTo_FiresBeforeWalkBegins()
+    {
+        // Pending nudge operations live on _currentTransaction; without a flush
+        // before JumpTo walks the stacks, those operations would silently revert
+        // and never reach the undo history.
+        using var manager = new HistoryManager(_root, _sequenceGenerator);
+        manager.Record(CreateTestOperation());
+        manager.Commit("First");
+
+        using var subscription = manager.BeforeMutation.Subscribe(_ =>
+        {
+            manager.Record(CreateTestOperation());
+            manager.Commit("Pending");
+        });
+
+        int undoCountBefore = manager.UndoCount;
+        manager.JumpTo(0);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(undoCountBefore, Is.EqualTo(1));
+            // After flush (push) + JumpTo to 0 (walks both back to redo), no
+            // entries should be on the undo stack but both should be recoverable.
+            Assert.That(manager.UndoCount, Is.EqualTo(0));
+            Assert.That(manager.RedoCount, Is.EqualTo(2));
+        });
+    }
+
+    [Test]
     public void BeforeMutation_Dispose_CompletesObservable()
     {
         var manager = new HistoryManager(_root, _sequenceGenerator);

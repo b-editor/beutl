@@ -49,8 +49,8 @@ public sealed class HistoryManager : IDisposable
 
     public IObservable<HistoryState> StateChanged => _stateChanged.AsObservable();
 
-    // Undo / Redo の直前に発火する。debounce 等で未コミットの操作を抱えている
-    // 購読側 (例: タイムラインの Nudge) が、Undo/Redo に巻き込まれる前に
+    // Undo / Redo / JumpTo の直前に発火する。debounce 等で未コミットの操作を抱えている
+    // 購読側 (例: タイムラインの Nudge) が、ヒストリ操作に巻き込まれる前に
     // 自前で Commit を流し切るためのフック。
     public IObservable<System.Reactive.Unit> BeforeMutation => _beforeMutation.AsObservable();
 
@@ -279,6 +279,8 @@ public sealed class HistoryManager : IDisposable
     public bool JumpTo(int index)
     {
         ThrowIfDisposed();
+
+        FireBeforeMutation();
 
         bool moved = false;
         bool stateMutated = false;
