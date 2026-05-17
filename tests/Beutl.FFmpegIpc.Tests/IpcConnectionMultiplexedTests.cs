@@ -391,6 +391,41 @@ public class IpcConnectionMultiplexedTests
     }
 
     [Test]
+    public async Task AfterReceiveLoopDies_NewRequestsFailFast()
+    {
+        // _receiveLoopFault のキャッシュが効いていないと、ループ死亡後に登録された
+        // TCS は誰にも完了されず永久 await になる。
+        // 1) 壊れたフレームでループを殺し、2) 最初のリクエストが IOException で
+        // 返ったのを確認、3) 次のリクエストがキャッシュ済み fault で即時失敗する
+        // ことを検証する。
+        var (server, client) = ConnectPair();
+        using var _ = server;
+        using var conn = new IpcConnection(client);
+        conn.StartMultiplexedReceive();
+
+        int firstId = conn.NextId();
+        var firstReq = IpcMessage.CreateSimple(firstId, RequestType);
+        var firstTask = conn.SendAndReceiveAsync(firstReq).AsTask();
+        await WaitUntil(() => PendingCount(conn) == 1, TimeSpan.FromSeconds(5), "first request enters pending dict");
+
+        byte[] badLength = [0xFF, 0xFF, 0xFF, 0xFF];
+        await server.WriteAsync(badLength);
+        await server.FlushAsync();
+
+        Assert.CatchAsync<IOException>(async () => await firstTask);
+
+        // ここでループは死んで _receiveLoopFault が公開されている。次のリクエストは
+        // 待たずに即時 IOException を投げるはず (cached fault による fail-fast)。
+        int secondId = conn.NextId();
+        var secondReq = IpcMessage.CreateSimple(secondId, RequestType);
+        var secondTask = conn.SendAndReceiveAsync(secondReq).AsTask();
+        var completed = await Task.WhenAny(secondTask, Task.Delay(TimeSpan.FromSeconds(2)));
+        Assert.That(completed, Is.SameAs(secondTask), "second request must fail fast, not hang");
+        Assert.CatchAsync<IOException>(async () => await secondTask);
+        Assert.That(PendingCount(conn), Is.EqualTo(0));
+    }
+
+    [Test]
     public async Task BrokenPipe_PendingRequestsObserveIOException()
     {
         var (server, client) = ConnectPair();
