@@ -51,8 +51,10 @@ public sealed class IpcConnection : IDisposable
     /// 上位レイヤーで解放するためのコールバック。現状は配線されておらず、配線するのは消費側 (例:
     /// IpcFrameProvider) の責務とする。
     /// 呼び出しは受信ループスレッドで同期的に行われるため、ブロックすると後続メッセージの
-    /// 処理が遅延する。例外は投げないことを契約とするが、万一スローした場合でも受信ループは
-    /// 継続し、内容は <see cref="System.Diagnostics.Trace.TraceError(string)"/> に記録される。
+    /// 処理が遅延する。例外は投げないことを契約とするが、非致命例外をスローしても
+    /// 受信ループは継続し、内容は <see cref="System.Diagnostics.Trace.TraceError(string)"/>
+    /// に記録される。OOM/SOE/AVE 等の致命例外は呼び出し元 (受信ループ) に伝播し、
+    /// ループを終了させてプロセス状態を上位に晒す。
     /// </summary>
     public Action<IpcMessage>? DroppedResponseHandler { get; set; }
 
@@ -356,8 +358,8 @@ public sealed class IpcConnection : IDisposable
 
             // 受信ループを待ってからパイプ/セマフォを破棄する。先にパイプを破棄すると
             // 進行中の ReadMessageAsync が ObjectDisposedException で死に、自己 Dispose が
-            // 誤って "broken pipe" として pending リクエストに伝播してしまう。上限を切って
-            // 待つことで、ループ内ハング (理論上ありえない) でも Dispose は必ず進む。
+            // 誤って "broken pipe" として pending リクエストに伝播してしまう。
+            // 上限を切って待つので、ループが loopCt を尊重しない異常状態でも Dispose は完走する。
             try
             {
                 if (_receiveLoopTask is { } task && !task.Wait(TimeSpan.FromSeconds(5)))
