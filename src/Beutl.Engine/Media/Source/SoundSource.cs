@@ -21,6 +21,13 @@ public sealed class SoundSource : MediaSource
     {
         if (!uri.IsFile) throw new NotSupportedException("Only file URIs are supported.");
 
+        if (HasUri && Uri != uri)
+        {
+            // 古い URI の Counter を別 Resource が保持していると
+            // TryAddRef が成功して新 URI でも古い MediaReader を返してしまうため、
+            // URI が切り替わったタイミングで共有参照を破棄する。
+            Volatile.Write(ref _mediaReaderRef, null);
+        }
         Uri = uri;
     }
 
@@ -109,14 +116,13 @@ public sealed class SoundSource : MediaSource
                 if (!context.DisableResourceShare)
                 {
                     var localRef = Volatile.Read(ref soundSource._mediaReaderRef);
-                    if (localRef?.TryGetTarget(out var counter) == true && counter.RefCount > 0)
+                    if (localRef?.TryGetTarget(out var counter) == true && counter.TryAddRef())
                         shared = counter;
                 }
 
                 if (shared is not null)
                 {
                     _counter = shared;
-                    shared.AddRef();
                 }
                 else
                 {
