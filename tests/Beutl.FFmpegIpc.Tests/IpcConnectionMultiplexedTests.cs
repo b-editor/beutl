@@ -513,7 +513,7 @@ public class IpcConnectionMultiplexedTests
         Assert.DoesNotThrow(() => conn.Dispose(), "third Dispose must be a no-op");
     }
 
-    [Test]
+    [Test, Category("Slow")]
     public async Task Dispose_ProceedsWhenReceiveLoopDoesNotExitWithinTimeout()
     {
         // 受信ループが loopCt を無視してハングした場合、Dispose は 5 秒で
