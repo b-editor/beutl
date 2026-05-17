@@ -177,6 +177,12 @@
   <data name="FilesAutoSaved" xml:space="preserve">
     <value>ファイルは自動的に保存されます。</value>
   </data>
+  <data name="ViewStateSaveSuppressed" xml:space="preserve">
+    <value>既存のレイアウトファイルが読み込めないため、エディターレイアウトを保存できませんでした。Beutlを再起動するか、.beutl/view-state 配下の *.config を削除してください。</value>
+  </data>
+  <data name="DefaultTabsOpenFailed" xml:space="preserve">
+    <value>既定のエディターレイアウトを開けませんでした。一部のツールタブが表示されない可能性があります。詳細はログを確認してください。</value>
+  </data>
   <data name="SvgPathParsingException" xml:space="preserve">
     <value>SVGパスの解析中に例外が発生しました。</value>
   </data>

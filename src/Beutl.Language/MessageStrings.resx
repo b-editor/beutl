@@ -182,6 +182,12 @@ Please wait a moment.</value>
   <data name="FilesAutoSaved" xml:space="preserve">
     <value>Files are saved automatically.</value>
   </data>
+  <data name="ViewStateSaveSuppressed" xml:space="preserve">
+    <value>The editor layout could not be saved because the existing layout file is unreadable. Restart Beutl to retry, or remove the *.config file under .beutl/view-state.</value>
+  </data>
+  <data name="DefaultTabsOpenFailed" xml:space="preserve">
+    <value>The default editor layout could not be opened. Some tool tabs may be missing — see the log for details.</value>
+  </data>
   <data name="SvgPathParsingException" xml:space="preserve">
     <value>An exception occurred while parsing the SVG path.</value>
   </data>
