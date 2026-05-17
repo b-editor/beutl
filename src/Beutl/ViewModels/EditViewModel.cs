@@ -413,7 +413,7 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
         if (!File.Exists(viewStateFile))
         {
             _logger.LogInformation("No state file found, opening default tabs.");
-            DockHost.OpenDefaultTabs();
+            SafeOpenDefaultTabs();
             return;
         }
 
@@ -428,7 +428,7 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
         {
             _logger.LogError(ex, "View state file {ViewStateFile} is malformed; quarantining and opening default tabs.", viewStateFile);
             QuarantineCorruptViewState(viewStateFile);
-            DockHost.OpenDefaultTabs();
+            SafeOpenDefaultTabs();
             return;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
@@ -436,7 +436,7 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
             // Transient read failures (file lock, antivirus, permission glitches) do not
             // mean the file is corrupt — leave it in place so the next launch can retry.
             _logger.LogError(ex, "Failed to read view state file {ViewStateFile}; opening default tabs.", viewStateFile);
-            DockHost.OpenDefaultTabs();
+            SafeOpenDefaultTabs();
             return;
         }
 
@@ -447,7 +447,7 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
                 json?.GetType().Name ?? "null",
                 viewStateFile);
             QuarantineCorruptViewState(viewStateFile);
-            DockHost.OpenDefaultTabs();
+            SafeOpenDefaultTabs();
             return;
         }
 
@@ -529,7 +529,22 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
             // overwrite it with the default layout.
             _logger.LogError(ex, "Unexpected error while restoring view state from {ViewStateFile}; quarantining and opening default tabs.", viewStateFile);
             QuarantineCorruptViewState(viewStateFile);
+            SafeOpenDefaultTabs();
+        }
+    }
+
+    private void SafeOpenDefaultTabs()
+    {
+        // OpenDefaultTabs runs arbitrary tool-extension code, so swallow any
+        // exception here — the scene must remain openable even when the
+        // default-layout fallback itself fails.
+        try
+        {
             DockHost.OpenDefaultTabs();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to open default tabs.");
         }
     }
 
