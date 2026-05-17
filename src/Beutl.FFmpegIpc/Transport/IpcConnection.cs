@@ -26,6 +26,10 @@ public sealed class IpcConnection : IDisposable
     private readonly ConcurrentDictionary<int, TaskCompletionSource<IpcMessage>> _pendingRequests = new();
     private Task? _receiveLoopTask;
     private CancellationTokenSource? _receiveLoopCts;
+    // 受信ループが I/O 障害/プロトコル破損で終了した際の例外。
+    // 死後に届いたリクエストを永久 await させないため、SendAndReceiveMultiplexedAsync で
+    // fail-fast に使う。Volatile.Write/Read で公開する。
+    private Exception? _receiveLoopFault;
 
     public IpcConnection(PipeStream pipe)
     {
@@ -124,6 +128,13 @@ public sealed class IpcConnection : IDisposable
             }
             finally
             {
+                // 死後の新規呼び出しが fail-fast できるよう、終了状態を先に公開してから
+                // 待機中リクエストを解放する。逆順だと finally の foreach 後に追加された
+                // TCS をループが拾えず永久ハングしうる。SendAndReceiveMultiplexedAsync 側で
+                // _pendingRequests への登録後にもう一度 fault を読むことで競合を閉じる。
+                if (terminationError != null)
+                    Volatile.Write(ref _receiveLoopFault, terminationError);
+
                 // 残っている全ての待機中リクエストを解放。I/O 障害があれば例外として、
                 // それ以外 (正常クローズ / loopCt キャンセル) は loopCt 付きでキャンセル。
                 foreach (var kvp in _pendingRequests)
@@ -253,8 +264,23 @@ public sealed class IpcConnection : IDisposable
     {
         ct.ThrowIfCancellationRequested();
 
+        // 受信ループが既に死んでいたら、TCS をハングさせずに即時失敗する。
+        var fault = Volatile.Read(ref _receiveLoopFault);
+        if (fault != null)
+            throw fault;
+
         var tcs = new TaskCompletionSource<IpcMessage>(TaskCreationOptions.RunContinuationsAsynchronously);
         _pendingRequests[request.Id] = tcs;
+
+        // 登録→fault チェックの順を逆にできない: 逆だと「fault 読み (null)」→「ループが
+        // finally で fault 書き&foreach (空)」→「登録」のレースで永久 await になる。
+        // 登録後にもう一度読み直すことで、foreach に拾われなかった TCS も検出する。
+        fault = Volatile.Read(ref _receiveLoopFault);
+        if (fault != null)
+        {
+            _pendingRequests.TryRemove(new KeyValuePair<int, TaskCompletionSource<IpcMessage>>(request.Id, tcs));
+            throw fault;
+        }
 
         try
         {
