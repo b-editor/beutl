@@ -443,9 +443,12 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
 
         if (json is not JsonObject jsonObject)
         {
+            // JsonNode.Parse returns C# null for the JSON null literal, so report
+            // that explicitly; GetValueKind on the remaining shapes (Array, String,
+            // Number, True, False) is more informative than the runtime type name.
             _logger.LogWarning(
                 "View state root is not a JSON object (was {Kind}) in {ViewStateFile}; opening default tabs.",
-                json?.GetType().Name ?? "null",
+                json is null ? nameof(JsonValueKind.Null) : json.GetValueKind().ToString(),
                 viewStateFile);
             QuarantineCorruptViewState(viewStateFile);
             SafeOpenDefaultTabs();
