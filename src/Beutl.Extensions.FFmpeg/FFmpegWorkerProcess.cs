@@ -192,11 +192,8 @@ public sealed class FFmpegWorkerProcess : IDisposable
         _connection = new IpcConnection(pipeServer)
         {
             // 受信ループ / Dispose 異常系の診断は ILogger に転送する。
-            DiagnosticLogger = (msg, ex) =>
-            {
-                if (ex != null) s_logger.LogError(ex, "{Message}", msg);
-                else s_logger.LogError("{Message}", msg);
-            },
+            // LogError(Exception?, ...) は ex が null でも受け付ける。
+            DiagnosticLogger = (msg, ex) => s_logger.LogError(ex, "{Message}", msg),
             // 現状ホスト側のリードはキャンセルトークンを渡しておらず、
             // 共有メモリは参照カウントで管理されるため通常は呼ばれない。
             // 将来 CancellationToken 対応リードを追加した際のリグレッション検知として

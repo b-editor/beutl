@@ -80,6 +80,11 @@ public sealed class IpcConnection : IDisposable
     /// </summary>
     public Action<string, Exception?>? DiagnosticLogger { get; set; }
 
+    // corrupted-process 例外 (OOM/SOE/AVE) は generic catch / when filter / Dispose の
+    // inner-exception スキャンで一貫して "捕まえない・潰さない" として扱う。
+    private static bool IsFatal(Exception ex) =>
+        ex is OutOfMemoryException or StackOverflowException or AccessViolationException;
+
     public int NextId() => Interlocked.Increment(ref _nextId);
 
     /// <summary>
@@ -147,9 +152,7 @@ public sealed class IpcConnection : IDisposable
                 terminationError = new IOException(
                     "IPC receive loop terminated due to a broken pipe. The remote endpoint may have crashed.", ex);
             }
-            catch (Exception ex) when (ex is not OutOfMemoryException
-                                           and not StackOverflowException
-                                           and not AccessViolationException)
+            catch (Exception ex) when (!IsFatal(ex))
             {
                 // プロトコル破損 (length out of range, JSON deserialize 失敗, 想定外の状態) など
                 // I/O 以外の例外も同じ termination 経路に集約し、呼び出し元から
@@ -363,9 +366,7 @@ public sealed class IpcConnection : IDisposable
         {
             handler(message);
         }
-        catch (Exception ex) when (ex is not OutOfMemoryException
-                                       and not StackOverflowException
-                                       and not AccessViolationException)
+        catch (Exception ex) when (!IsFatal(ex))
         {
             // ハンドラ例外は受信ループを止めない。診断のため上位ロガーへ送る。
             WriteDiagnostic(
@@ -377,7 +378,7 @@ public sealed class IpcConnection : IDisposable
     /// <summary>
     /// 異常系の診断メッセージを出力する。<see cref="DiagnosticLogger"/> が設定されていれば
     /// そちらへ、無ければ <see cref="Trace.TraceError(string)"/> へフォールバックする。
-    /// フック自身が例外を投げても受信ループ / Dispose を巻き込まないよう、二重に try-catch する。
+    /// フック自身が例外を投げても受信ループ / Dispose を巻き込まないよう Trace に切り替える。
     /// </summary>
     private void WriteDiagnostic(string message, Exception? exception = null)
     {
@@ -389,30 +390,15 @@ public sealed class IpcConnection : IDisposable
                 logger(message, exception);
                 return;
             }
-            catch (Exception ex) when (ex is not OutOfMemoryException
-                                           and not StackOverflowException
-                                           and not AccessViolationException)
+            catch (Exception ex) when (!IsFatal(ex))
             {
-                // フック自身の例外。フォールバックの Trace 出力に切り替える。
-                try
-                {
-                    Trace.TraceError(
-                        $"IpcConnection.DiagnosticLogger threw {ex.GetType().Name}: {ex}. Original message: {message}{(exception != null ? " | " + exception : string.Empty)}");
-                }
-                catch
-                {
-                }
+                Trace.TraceError(
+                    $"IpcConnection.DiagnosticLogger threw {ex.GetType().Name}: {ex}. Original message: {message}{(exception != null ? " | " + exception : string.Empty)}");
                 return;
             }
         }
 
-        try
-        {
-            Trace.TraceError(exception != null ? $"{message} {exception}" : message);
-        }
-        catch
-        {
-        }
+        Trace.TraceError(exception != null ? $"{message} {exception}" : message);
     }
 
     public void Dispose()
@@ -447,8 +433,7 @@ public sealed class IpcConnection : IDisposable
                 // 受信ループの generic catch が除外している致命系 (OOM/SOE/AVE) は
                 // Dispose 経路でも握りつぶさず再 throw する。リソース解放後に投げ直すため
                 // ExceptionDispatchInfo として捕捉だけしておく。
-                var fatal = ex.InnerExceptions.FirstOrDefault(static e =>
-                    e is OutOfMemoryException or StackOverflowException or AccessViolationException);
+                var fatal = ex.InnerExceptions.FirstOrDefault(IsFatal);
                 if (fatal != null)
                 {
                     fatalToRethrow = ExceptionDispatchInfo.Capture(fatal);

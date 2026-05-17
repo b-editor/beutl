@@ -88,7 +88,7 @@ internal static class Program
         {
             // 受信ループ / Dispose 異常系の診断は WorkerLog 経由でホストに送る。
             // DroppedResponseHandler はワーカー側が多重化モードを使わないため未設定。
-            DiagnosticLogger = (msg, ex) => WorkerLog.Error(msg, ex)
+            DiagnosticLogger = WorkerLog.Error
         };
 
         // ハンドシェイク送信（プロトコルバージョン含む）
