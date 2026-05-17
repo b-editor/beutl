@@ -417,7 +417,16 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
     public void Dispose()
     {
         _logger.LogInformation("Disposing TimelineViewModel.");
-        FlushPendingNudgeCommit();
+        // Dispose は throw しない契約。HistoryManager が先に Dispose されている等で
+        // Commit が失敗しても残りのクリーンアップは必ず進める。
+        try
+        {
+            FlushPendingNudgeCommit();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to flush pending nudge during dispose.");
+        }
         // 以降の OnNext を抑止してから内部 Subject を Dispose する。
         _isDisposed = true;
         _disposables.Dispose();
