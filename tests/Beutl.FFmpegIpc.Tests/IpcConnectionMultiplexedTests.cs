@@ -571,19 +571,27 @@ public class IpcConnectionMultiplexedTests
         // 受信ループが OOM/SOE/AVE を投げた場合、IPC のフレーム化エラーとして
         // 握りつぶしてはならない。Dispose は AggregateException から取り出した
         // 致命例外を ExceptionDispatchInfo で原型のまま再 throw する。
-        var pipe = new FailingPipeStream(() => new OutOfMemoryException("synthetic fatal"));
+        using var pipe = new FailingPipeStream(() => new OutOfMemoryException("synthetic fatal"));
         var conn = new IpcConnection(pipe);
-        conn.StartMultiplexedReceive();
+        try
+        {
+            conn.StartMultiplexedReceive();
 
-        // ループが OOM を投げて Faulted で終わるまで観測してから Dispose を呼ぶ。
-        // StartMultiplexedReceive 直後に Dispose だと、まだ loop body が走らないうちに
-        // _receiveLoopCts.Cancel() が先に走り、OOM ではなく cancel 経路で終わる可能性がある。
-        int id = conn.NextId();
-        var req = IpcMessage.CreateSimple(id, RequestType);
-        Assert.CatchAsync(async () => await conn.SendAndReceiveAsync(req));
+            // ループが OOM を投げて Faulted で終わるまで観測してから Dispose を呼ぶ。
+            // StartMultiplexedReceive 直後に Dispose だと、まだ loop body が走らないうちに
+            // _receiveLoopCts.Cancel() が先に走り、OOM ではなく cancel 経路で終わる可能性がある。
+            int id = conn.NextId();
+            var req = IpcMessage.CreateSimple(id, RequestType);
+            Assert.CatchAsync(async () => await conn.SendAndReceiveAsync(req));
 
-        var oom = Assert.Throws<OutOfMemoryException>(() => conn.Dispose());
-        Assert.That(oom!.Message, Is.EqualTo("synthetic fatal"));
+            var oom = Assert.Throws<OutOfMemoryException>(() => conn.Dispose());
+            Assert.That(oom!.Message, Is.EqualTo("synthetic fatal"));
+        }
+        finally
+        {
+            // OOM で Dispose が抜けた後の保険。Interlocked ガードのおかげで再呼び出しは no-op。
+            conn.Dispose();
+        }
     }
 
     [Test]
