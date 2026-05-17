@@ -36,6 +36,8 @@ public sealed class AudioProcessContext
     {
         if (sampleRate <= 0)
             throw new ArgumentOutOfRangeException(nameof(sampleRate), "Sample rate must be positive.");
+        if (range.Duration < TimeSpan.Zero)
+            throw new ArgumentOutOfRangeException(nameof(range), $"Duration must be non-negative; was {range.Duration}.");
 
         return (int)Math.Ceiling(range.Duration.TotalSeconds * sampleRate);
     }
