@@ -135,8 +135,14 @@ public sealed class IpcConnection : IDisposable
                 // 待機中リクエストを解放する。逆順だと finally の foreach 後に追加された
                 // TCS をループが拾えず永久ハングしうる。SendAndReceiveMultiplexedAsync 側で
                 // _pendingRequests への登録後にもう一度 fault を読むことで競合を閉じる。
-                if (terminationError != null)
-                    Volatile.Write(ref _receiveLoopFault, terminationError);
+                // I/O / プロトコル系の終端は terminationError、loopCt キャンセルや
+                // 自プロセス Dispose は ObjectDisposedException として記録する。後者を
+                // 「fault は無し」と表現すると、ループ死亡後の caller が永久 await しうる。
+                Volatile.Write(
+                    ref _receiveLoopFault,
+                    terminationError ?? (Exception)new ObjectDisposedException(
+                        nameof(IpcConnection),
+                        "IPC receive loop has stopped; the connection no longer accepts multiplexed requests."));
 
                 // 残っている全ての待機中リクエストを解放。I/O 障害があれば例外として、
                 // それ以外 (ObjectDisposed / loopCt キャンセル) は loopCt 付きでキャンセル。
