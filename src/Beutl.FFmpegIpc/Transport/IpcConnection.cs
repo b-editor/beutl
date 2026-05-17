@@ -21,7 +21,9 @@ public sealed class IpcConnection : IDisposable
     private readonly SemaphoreSlim _writeLock = new(1, 1);
     private readonly SemaphoreSlim _readLock = new(1, 1);
     private int _nextId;
-    private volatile bool _disposed;
+    // 0 = 未 Dispose、1 = Dispose 開始済み。Interlocked で check-and-set し、
+    // 並行 Dispose 呼び出しでも本体は厳密に 1 度しか走らないようにする。
+    private int _disposed;
 
     // 多重化モード用
     private readonly ConcurrentDictionary<int, TaskCompletionSource<IpcMessage>> _pendingRequests = new();
@@ -345,8 +347,7 @@ public sealed class IpcConnection : IDisposable
 
     public void Dispose()
     {
-        if (_disposed) return;
-        _disposed = true;
+        if (Interlocked.Exchange(ref _disposed, 1) != 0) return;
 
         ExceptionDispatchInfo? fatalToRethrow = null;
         try
