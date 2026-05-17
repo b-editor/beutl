@@ -116,7 +116,7 @@ public sealed class IpcConnection : IDisposable
                     }
                 }
             }
-            catch (OperationCanceledException) when (loopCt.IsCancellationRequested) { }
+            catch (OperationCanceledException oce) when (oce.CancellationToken == loopCt && loopCt.IsCancellationRequested) { }
             catch (ObjectDisposedException) when (loopCt.IsCancellationRequested) { }
             catch (IOException ex)
             {
