@@ -8,6 +8,7 @@ using Avalonia.Input;
 using Avalonia.Input.Platform;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using Beutl.Animation;
 using Beutl.Configuration;
 using Beutl.Editor.Components.Helpers;
@@ -1183,7 +1184,7 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
                 }
 
                 break;
-            case "ToggleRazorMode" when execution.KeyEventArgs?.Source is not TextBox:
+            case "ToggleRazorMode" when !IsTextInputFocused(execution.KeyEventArgs):
                 IsRazorMode.Value = !IsRazorMode.Value;
                 if (execution.KeyEventArgs != null)
                 {
@@ -1191,7 +1192,7 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
                 }
 
                 break;
-            case "ExitRazorMode" when execution.KeyEventArgs?.Source is not TextBox:
+            case "ExitRazorMode" when !IsTextInputFocused(execution.KeyEventArgs):
                 if (IsRazorMode.Value)
                 {
                     IsRazorMode.Value = false;
@@ -1202,7 +1203,7 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
                 }
 
                 break;
-            case "NudgeLeftFrame" when execution.KeyEventArgs?.Source is not TextBox:
+            case "NudgeLeftFrame" when !IsTextInputFocused(execution.KeyEventArgs):
                 NudgeSelectedElements(-1, NudgeUnit.Frame);
                 if (execution.KeyEventArgs != null)
                 {
@@ -1210,7 +1211,7 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
                 }
 
                 break;
-            case "NudgeRightFrame" when execution.KeyEventArgs?.Source is not TextBox:
+            case "NudgeRightFrame" when !IsTextInputFocused(execution.KeyEventArgs):
                 NudgeSelectedElements(+1, NudgeUnit.Frame);
                 if (execution.KeyEventArgs != null)
                 {
@@ -1218,7 +1219,7 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
                 }
 
                 break;
-            case "NudgeLeftLarge" when execution.KeyEventArgs?.Source is not TextBox:
+            case "NudgeLeftLarge" when !IsTextInputFocused(execution.KeyEventArgs):
                 NudgeSelectedElements(-1, NudgeUnit.Large);
                 if (execution.KeyEventArgs != null)
                 {
@@ -1226,7 +1227,7 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
                 }
 
                 break;
-            case "NudgeRightLarge" when execution.KeyEventArgs?.Source is not TextBox:
+            case "NudgeRightLarge" when !IsTextInputFocused(execution.KeyEventArgs):
                 NudgeSelectedElements(+1, NudgeUnit.Large);
                 if (execution.KeyEventArgs != null)
                 {
@@ -1234,7 +1235,7 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
                 }
 
                 break;
-            case "NudgeLeftSecond" when execution.KeyEventArgs?.Source is not TextBox:
+            case "NudgeLeftSecond" when !IsTextInputFocused(execution.KeyEventArgs):
                 NudgeSelectedElements(-1, NudgeUnit.Second);
                 if (execution.KeyEventArgs != null)
                 {
@@ -1242,7 +1243,7 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
                 }
 
                 break;
-            case "NudgeRightSecond" when execution.KeyEventArgs?.Source is not TextBox:
+            case "NudgeRightSecond" when !IsTextInputFocused(execution.KeyEventArgs):
                 NudgeSelectedElements(+1, NudgeUnit.Second);
                 if (execution.KeyEventArgs != null)
                 {
@@ -1251,6 +1252,16 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
 
                 break;
         }
+    }
+
+    // ナッジ・ToggleRazorMode 系のショートカットがテキスト入力中に発火しないようにする。
+    // TextBox を直接見るだけでは AutoCompleteBox/NumericUpDown/MaskedTextBox 等の
+    // ラッパー経由でフォーカスされた埋め込み TextBox を検知できないので、Source の
+    // ancestor 連鎖を辿って TextBox を探す。
+    private static bool IsTextInputFocused(KeyEventArgs? args)
+    {
+        if (args?.Source is not Visual visual) return false;
+        return visual.FindAncestorOfType<TextBox>(includeSelf: true) is not null;
     }
 
     private enum NudgeUnit { Frame, Large, Second }
