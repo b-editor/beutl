@@ -217,9 +217,8 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
             .AddTo(_disposables);
 
         // Undo/Redo の直前で debounce 中の Nudge を必ず Commit する。
-        // 未コミットのまま Undo が走ると HistoryManager.Rollback が先に Nudge を
-        // 巻き戻し、続けて前回コミットの Pop も走るため 2 アクション分が
-        // 同時に取り消される。
+        // 未コミットのままだと、Undo が先に未確定 transaction を revert してから
+        // 前回コミットを Pop するため 2 アクション分が同時に取り消されてしまう。
         editorContext.GetRequiredService<HistoryManager>()
             .BeforeMutation
             .Subscribe(_ => FlushPendingNudgeCommit())
