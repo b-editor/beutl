@@ -1,5 +1,7 @@
 ﻿using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.IO.Pipes;
+using System.Runtime.ExceptionServices;
 using Beutl.FFmpegIpc.Protocol;
 
 namespace Beutl.FFmpegIpc.Transport;
@@ -8,7 +10,9 @@ namespace Beutl.FFmpegIpc.Transport;
 /// 名前付きパイプ上のIPC接続。リクエスト/レスポンスの送受信を行う。
 /// 通常モード: SendAndReceiveAsync で逐次リクエスト/レスポンス。
 /// 多重化モード: StartMultiplexedReceive でバックグラウンド受信ループを開始し、
-///              IDベースで並行リクエスト/レスポンスを実現する。
+///              IDベースで並行リクエスト/レスポンスを実現する。送信元のキャンセルと
+///              レスポンス到着がレースしうるため、待機者を失ったレスポンスは
+///              <see cref="DroppedResponseHandler"/> 経由でドレインされる。
 /// </summary>
 public sealed class IpcConnection : IDisposable
 {
@@ -17,12 +21,17 @@ public sealed class IpcConnection : IDisposable
     private readonly SemaphoreSlim _writeLock = new(1, 1);
     private readonly SemaphoreSlim _readLock = new(1, 1);
     private int _nextId;
-    private bool _disposed;
+    // 0 = 未 Dispose、1 = Dispose 開始済み。Interlocked で check-and-set し、
+    // 並行 Dispose 呼び出しでも本体は厳密に 1 度しか走らないようにする。
+    private int _disposed;
 
     // 多重化モード用
     private readonly ConcurrentDictionary<int, TaskCompletionSource<IpcMessage>> _pendingRequests = new();
     private Task? _receiveLoopTask;
     private CancellationTokenSource? _receiveLoopCts;
+    // 受信ループ終了後の新規リクエストを fail-fast させるための終端例外。
+    // Volatile アクセスでループ→送信側に公開する。
+    private Exception? _receiveLoopFault;
 
     public IpcConnection(PipeStream pipe)
     {
@@ -33,7 +42,55 @@ public sealed class IpcConnection : IDisposable
 
     public bool IsMultiplexed => _receiveLoopTask != null;
 
+    /// <summary>
+    /// 多重化モードでルーティング先を失ったレスポンスを受け取るフック。
+    /// 次のいずれかで呼ばれる:
+    ///   - <c>_pendingRequests</c> から TCS を取り出せたがキャンセル済みで TrySetResult が失敗した。
+    ///   - 対応する <c>request.Id</c> の TCS が <c>_pendingRequests</c> に居なかった (キャンセル後到着の stray)。
+    /// 想定する使い方は、共有メモリバッファ (bufferIndex 等) を握ったまま捨てられるレスポンスを
+    /// 上位レイヤーで解放するためのコールバック。現状は配線されておらず、配線するのは消費側 (例:
+    /// IpcFrameProvider) の責務とする。
+    /// 呼び出しは受信ループスレッドで同期的に行われるため、ブロックすると後続メッセージの
+    /// 処理が遅延する。例外は投げないことを契約とするが、非致命例外をスローしても
+    /// 受信ループは継続し、内容は <see cref="DiagnosticLogger"/> (未設定時は
+    /// <see cref="System.Diagnostics.Trace.TraceError(string)"/>) に記録される。
+    /// OOM/SOE/AVE 等の致命例外は呼び出し元 (受信ループ) に伝播し、
+    /// ループを終了させてプロセス状態を上位に晒す。
+    /// </summary>
+    public Action<IpcMessage>? DroppedResponseHandler { get; set; }
+
+    /// <summary>
+    /// 異常系の診断メッセージを上位レイヤーのロガーに流すためのフック
+    /// (例: ハンドラ例外 / Dispose タイムアウト / 受信ループ終了時の根因)。
+    /// <para>
+    /// 第 1 引数はメッセージ、第 2 引数は関連例外 (無い場合は null)。
+    /// </para>
+    /// <para>
+    /// 本ライブラリは依存ゼロを保つため <see cref="System.Diagnostics.Trace"/> を
+    /// デフォルトの出力先とするが、ホスト側 (例: Beutl.Extensions.FFmpeg の
+    /// <c>Microsoft.Extensions.Logging.ILogger</c>) やワーカー側 (例: Beutl.FFmpegWorker
+    /// の <c>WorkerLog</c>) はこのフックを設定して各レイヤーの慣習に合わせたロガーへ
+    /// 転送できる。フックが <c>null</c> の場合、メッセージは <see cref="System.Diagnostics.Trace.TraceError(string)"/>
+    /// に出力される。
+    /// </para>
+    /// <para>
+    /// フック内例外は飲み込まれ、診断は <see cref="System.Diagnostics.Trace"/> に
+    /// フォールバックする。受信ループや Dispose を巻き込まないことを優先する。
+    /// </para>
+    /// </summary>
+    public Action<string, Exception?>? DiagnosticLogger { get; set; }
+
+    // corrupted-process 例外 (OOM/SOE/AVE) は generic catch / when filter / Dispose の
+    // inner-exception スキャンで一貫して "捕まえない・潰さない" として扱う。
+    private static bool IsFatal(Exception ex) =>
+        ex is OutOfMemoryException or StackOverflowException or AccessViolationException;
+
     public int NextId() => Interlocked.Increment(ref _nextId);
+
+    /// <summary>
+    /// 多重化モード用 pending request 辞書のエントリ数。テスト/診断専用。
+    /// </summary>
+    internal int PendingRequestCount => _pendingRequests.Count;
 
     /// <summary>
     /// 多重化受信モードを開始する。バックグラウンドでメッセージを受信し、
@@ -50,33 +107,87 @@ public sealed class IpcConnection : IDisposable
 
         _receiveLoopTask = Task.Run(async () =>
         {
+            // 受信ループが終了する理由を以下のように区別する:
+            //   - loopCt キャンセル/ObjectDisposedException: 自プロセス由来の停止。
+            //     finally で待機中 TCS を TrySetCanceled(loopCt) してキャンセル扱い。
+            //   - EOF (msg == null) / IOException: 相手側起因の切断。
+            //     terminationError に詰めて TrySetException で伝播し、
+            //     「ユーザーがキャンセル」と「接続が死んだ」を呼び出し元から区別可能にする。
+            //   - 想定外例外 (プロトコル破損/JSON 失敗 など): 同じ termination 経路に集約し、
+            //     IOException として待機中 TCS と _receiveLoopFault に伝播する。
+            Exception? terminationError = null;
             try
             {
                 while (!loopCt.IsCancellationRequested)
                 {
                     var msg = await MessageSerializer.ReadMessageAsync(_pipe, loopCt).ConfigureAwait(false);
                     if (msg == null)
+                    {
+                        terminationError = new IOException(
+                            "IPC receive loop terminated: remote endpoint closed the pipe.");
                         break;
+                    }
 
                     if (_pendingRequests.TryRemove(msg.Id, out var tcs))
                     {
-                        tcs.TrySetResult(msg);
+                        // tcs が既にキャンセル済みなら TrySetResult は false を返す。
+                        // その場合、呼び出し元はレスポンスを受け取らないので
+                        // 上位レイヤーに通知してリソース解放のチャンスを与える。
+                        if (!tcs.TrySetResult(msg))
+                        {
+                            InvokeDroppedResponseHandler(msg);
+                        }
+                    }
+                    else
+                    {
+                        // 待機中の TCS が居ない (キャンセル後に到着した stray message)。
+                        InvokeDroppedResponseHandler(msg);
                     }
                 }
             }
-            catch (OperationCanceledException) { }
-            catch (ObjectDisposedException) { }
-            catch (IOException) { }
+            catch (OperationCanceledException oce) when (oce.CancellationToken == loopCt && loopCt.IsCancellationRequested) { }
+            catch (ObjectDisposedException) when (loopCt.IsCancellationRequested) { }
+            catch (IOException ex)
+            {
+                terminationError = new IOException(
+                    "IPC receive loop terminated due to a broken pipe. The remote endpoint may have crashed.", ex);
+            }
+            catch (Exception ex) when (!IsFatal(ex))
+            {
+                // プロトコル破損 (length out of range, JSON deserialize 失敗, 想定外の状態) など
+                // I/O 以外の例外も同じ termination 経路に集約し、呼び出し元から
+                // 「キャンセル」と「ループが死んだ」を区別可能にする。
+                // 致命系 (OOM/SOE/AVE) は IOException に包んで誤魔化さず、プロセス側に
+                // 元のクラッシュ意図を伝播させる (InvokeDroppedResponseHandler と同じ規約)。
+                terminationError = new IOException(
+                    "IPC receive loop terminated due to an unexpected protocol or deserialization error.", ex);
+            }
             finally
             {
-                // 残っている全ての待機中リクエストをキャンセル
+                // ストア順序: Volatile.Write (release) → foreach の順を厳守する。
+                // 送信側は TryAdd 後に Volatile.Read (acquire) で fault を読み直すので、
+                // この release/acquire ペアが ARM などの弱メモリモデルでも保証される。
+                // 逆順だと foreach で拾われなかった TCS が永久 await になる。
+                // clean-cancel の場合も「fault 無し」ではなく ObjectDisposedException を
+                // 載せて fail-fast を保証する。
+                Volatile.Write(
+                    ref _receiveLoopFault,
+                    terminationError ?? (Exception)new ObjectDisposedException(
+                        nameof(IpcConnection),
+                        "IPC receive loop has stopped; the connection no longer accepts multiplexed requests."));
+
                 foreach (var kvp in _pendingRequests)
                 {
                     if (_pendingRequests.TryRemove(kvp.Key, out var tcs))
-                        tcs.TrySetCanceled();
+                    {
+                        if (terminationError != null)
+                            tcs.TrySetException(terminationError);
+                        else
+                            tcs.TrySetCanceled(loopCt);
+                    }
                 }
             }
-        }, loopCt);
+        }, CancellationToken.None);
     }
 
     public async ValueTask SendAsync(IpcMessage message, CancellationToken ct = default)
@@ -190,13 +301,47 @@ public sealed class IpcConnection : IDisposable
 
     private async ValueTask<IpcMessage> SendAndReceiveMultiplexedAsync(IpcMessage request, CancellationToken ct)
     {
+        ct.ThrowIfCancellationRequested();
+
+        // 受信ループが既に死んでいたら、TCS をハングさせずに即時失敗する。
+        // 同じ fault インスタンスが複数 caller に rethrow されるため、各 caller の
+        // スタックトレースが残るよう ExceptionDispatchInfo 経由で投げる。
+        var fault = Volatile.Read(ref _receiveLoopFault);
+        if (fault != null)
+            ExceptionDispatchInfo.Capture(fault).Throw();
+
         var tcs = new TaskCompletionSource<IpcMessage>(TaskCreationOptions.RunContinuationsAsynchronously);
-        _pendingRequests[request.Id] = tcs;
+        // Id 衝突は indexer 代入だと前 TCS を黙って捨てて永久 await になる。
+        // TryAdd で表面化させる。
+        if (!_pendingRequests.TryAdd(request.Id, tcs))
+        {
+            throw new InvalidOperationException(
+                $"Request id {request.Id} is already in flight on this multiplexed connection.");
+        }
+
+        // TryAdd の後に acquire-read で fault を再読する。受信ループ finally の
+        // Volatile.Write (release) と対になり、ループが foreach を抜けた後の状態
+        // (fault 公開済み) を必ず観測できる。「fault 読み (null)」→「ループ finally で
+        // fault 書き & foreach (空)」→「登録」のレースで永久 await になるのを防ぐ。
+        fault = Volatile.Read(ref _receiveLoopFault);
+        if (fault != null)
+        {
+            _pendingRequests.TryRemove(new KeyValuePair<int, TaskCompletionSource<IpcMessage>>(request.Id, tcs));
+            ExceptionDispatchInfo.Capture(fault).Throw();
+        }
 
         try
         {
+            // SendAsync 前にキャンセルを購読する。送信中・受信待機中いずれの局面でも
+            // ct 発火を tcs に伝播させる必要がある。Register は ObjectDisposedException
+            // を投げうるため try 内に置き、失敗時も finally で pending を撤去する。
+            using var registration = ct.Register(static state =>
+            {
+                var (innerTcs, token) = ((TaskCompletionSource<IpcMessage> Tcs, CancellationToken Token))state!;
+                innerTcs.TrySetCanceled(token);
+            }, (tcs, ct));
+
             await SendAsync(request, ct).ConfigureAwait(false);
-            using var registration = ct.Register(() => tcs.TrySetCanceled(ct));
             var response = await tcs.Task.ConfigureAwait(false);
 
             if (response.Error != null)
@@ -204,24 +349,108 @@ public sealed class IpcConnection : IDisposable
 
             return response;
         }
-        catch
+        finally
         {
-            _pendingRequests.TryRemove(request.Id, out _);
-            throw;
+            // 自身が登録した TCS のみを撤去する。受信ループが先にスロットを取り出して
+            // 別の登録に差し替わっていた場合、KeyValuePair オーバーロードの参照不一致で
+            // TryRemove は失敗し、他リクエストの TCS を取り違えて消すのを防ぐ。
+            _pendingRequests.TryRemove(new KeyValuePair<int, TaskCompletionSource<IpcMessage>>(request.Id, tcs));
         }
+    }
+
+    private void InvokeDroppedResponseHandler(IpcMessage message)
+    {
+        var handler = DroppedResponseHandler;
+        if (handler == null) return;
+        try
+        {
+            handler(message);
+        }
+        catch (Exception ex) when (!IsFatal(ex))
+        {
+            // ハンドラ例外は受信ループを止めない。診断のため上位ロガーへ送る。
+            WriteDiagnostic(
+                $"IpcConnection.DroppedResponseHandler threw {ex.GetType().Name} for message Id={message.Id} Type={message.Type}.",
+                ex);
+        }
+    }
+
+    /// <summary>
+    /// 異常系の診断メッセージを出力する。<see cref="DiagnosticLogger"/> が設定されていれば
+    /// そちらへ、無ければ <see cref="Trace.TraceError(string)"/> へフォールバックする。
+    /// フック自身が例外を投げても受信ループ / Dispose を巻き込まないよう Trace に切り替える。
+    /// </summary>
+    private void WriteDiagnostic(string message, Exception? exception = null)
+    {
+        var logger = DiagnosticLogger;
+        if (logger != null)
+        {
+            try
+            {
+                logger(message, exception);
+                return;
+            }
+            catch (Exception ex) when (!IsFatal(ex))
+            {
+                Trace.TraceError(
+                    $"IpcConnection.DiagnosticLogger threw {ex.GetType().Name}: {ex}. Original message: {message}{(exception != null ? " | " + exception : string.Empty)}");
+                return;
+            }
+        }
+
+        Trace.TraceError(exception != null ? $"{message} {exception}" : message);
     }
 
     public void Dispose()
     {
-        if (_disposed) return;
-        _disposed = true;
+        if (Interlocked.Exchange(ref _disposed, 1) != 0) return;
 
-        _receiveLoopCts?.Cancel();
-        _receiveLoopCts?.Dispose();
+        ExceptionDispatchInfo? fatalToRethrow = null;
+        try
+        {
+            _receiveLoopCts?.Cancel();
 
-        _requestLock.Dispose();
-        _writeLock.Dispose();
-        _readLock.Dispose();
-        _pipe.Dispose();
+            // 受信ループを待ってからパイプ/セマフォを破棄する。先にパイプを破棄すると
+            // 進行中の ReadMessageAsync が ObjectDisposedException で死に、自己 Dispose が
+            // 誤って "broken pipe" として pending リクエストに伝播してしまう。
+            // 上限を切って待つので、ループが loopCt を尊重しない異常状態でも Dispose は完走する。
+            try
+            {
+                if (_receiveLoopTask is { } task && !task.Wait(TimeSpan.FromSeconds(5)))
+                {
+                    // タイムアウト = ループが停止しなかった。続行するとパイプ破棄で
+                    // ObjectDisposedException を引き起こし、その先で診断が消える。
+                    // 続行はするが、痕跡が残るよう上位ロガーへ出す。
+                    WriteDiagnostic("IpcConnection.Dispose: receive loop did not exit within 5s; proceeding with disposal.");
+                }
+            }
+            catch (AggregateException ex)
+            {
+                // 受信ループ内例外は finally で pending TCS / _receiveLoopFault へ伝播済みだが、
+                // Dispose 時の根因をたどれるよう原例外を残す。
+                WriteDiagnostic("IpcConnection.Dispose: receive loop ended with exception.", ex);
+
+                // 受信ループの generic catch が除外している致命系 (OOM/SOE/AVE) は
+                // Dispose 経路でも握りつぶさず再 throw する。リソース解放後に投げ直すため
+                // ExceptionDispatchInfo として捕捉だけしておく。
+                var fatal = ex.InnerExceptions.FirstOrDefault(IsFatal);
+                if (fatal != null)
+                {
+                    fatalToRethrow = ExceptionDispatchInfo.Capture(fatal);
+                }
+            }
+        }
+        finally
+        {
+            // task.Wait が AggregateException 以外の例外 (ObjectDisposedException 等) で
+            // 抜けても、パイプ/セマフォ/CTS は必ず解放してハンドルリークを防ぐ。
+            _receiveLoopCts?.Dispose();
+            _requestLock.Dispose();
+            _writeLock.Dispose();
+            _readLock.Dispose();
+            _pipe.Dispose();
+        }
+
+        fatalToRethrow?.Throw();
     }
 }

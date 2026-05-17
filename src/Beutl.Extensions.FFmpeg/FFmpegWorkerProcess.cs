@@ -189,7 +189,18 @@ public sealed class FFmpegWorkerProcess : IDisposable
             throw;
         }
 
-        _connection = new IpcConnection(pipeServer);
+        _connection = new IpcConnection(pipeServer)
+        {
+            // 受信ループ / Dispose 異常系の診断は ILogger に転送する。
+            // LogError(Exception?, ...) は ex が null でも受け付ける。
+            DiagnosticLogger = (msg, ex) => s_logger.LogError(ex, "{Message}", msg),
+            // 現状ホスト側のリードはキャンセルトークンを渡しておらず、
+            // 共有メモリは参照カウントで管理されるため通常は呼ばれない。
+            // 将来 CancellationToken 対応リードを追加した際のリグレッション検知として
+            // 観測のみログに残す (実際のバッファ解放は消費側の責務とする)。
+            DroppedResponseHandler = msg => s_logger.LogWarning(
+                "Dropped IPC response Id={Id} Type={Type}; no awaiter present.", msg.Id, msg.Type)
+        };
 
         // ハンドシェイク待機（プロトコルバージョン検証）
         var handshake = await _connection.ReceiveAsync(ct)
