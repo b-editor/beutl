@@ -498,6 +498,22 @@ public class IpcConnectionMultiplexedTests
     }
 
     [Test]
+    public void Dispose_CalledTwice_SecondCallIsNoOp()
+    {
+        // Interlocked.Exchange ガードが効いていれば 2 回目以降の Dispose は本体を
+        // 通らない。ガードが緩むと SemaphoreSlim が再 Dispose されて
+        // ObjectDisposedException が漏れ出すため、no-throw でガードをピン留めできる。
+        var (server, client) = ConnectPair();
+        using var _ = server;
+        var conn = new IpcConnection(client);
+        conn.StartMultiplexedReceive();
+
+        Assert.DoesNotThrow(() => conn.Dispose());
+        Assert.DoesNotThrow(() => conn.Dispose(), "second Dispose must be a no-op");
+        Assert.DoesNotThrow(() => conn.Dispose(), "third Dispose must be a no-op");
+    }
+
+    [Test]
     public async Task Dispose_ProceedsWhenReceiveLoopDoesNotExitWithinTimeout()
     {
         // 受信ループが loopCt を無視してハングした場合、Dispose は 5 秒で
