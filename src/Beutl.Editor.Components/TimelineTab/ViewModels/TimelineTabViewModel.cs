@@ -1336,7 +1336,18 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
     {
         _nudgeCommitTimer?.Stop();
         if (_isDisposed) return;
-        EditorContext.GetRequiredService<HistoryManager>().Commit(CommandNames.MoveElement);
+        // Shutdown では HistoryManager が VM より先に Dispose されることがあり、
+        // その場合 Commit が ObjectDisposedException を投げる。Tick はバックグラウンド
+        // から UI スレッドに上がってくる経路なので、未捕捉例外を回避するため
+        // Dispose 経路と同様に防御する。
+        try
+        {
+            EditorContext.GetRequiredService<HistoryManager>().Commit(CommandNames.MoveElement);
+        }
+        catch (ObjectDisposedException ex)
+        {
+            _logger.LogWarning(ex, "Pending nudge commit dropped: HistoryManager already disposed.");
+        }
     }
 
     private void FlushPendingNudgeCommit()
