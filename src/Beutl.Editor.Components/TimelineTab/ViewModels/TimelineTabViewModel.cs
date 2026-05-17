@@ -1267,9 +1267,8 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
 
         if (frames == 0) return;
 
-        // ドラッグ移動 (ElementView.axaml.cs) では新 Start を RoundToRate で
-        // frame に揃えるので、Nudge も結果がグリッドに乗るようアンカー要素
-        // (= 最初の選択) の現在 Start を一旦丸めてから N フレーム分シフトする。
+        // ドラッグ移動と同じく、結果がフレームグリッドに乗るようアンカー要素
+        // (= 最初の選択) の現在 Start を一旦 RoundToRate で丸めてから N フレーム分シフトする。
         // TimeSpan.FromSeconds は repeating fraction を tick へ丸めるため、
         // 連打で sub-frame ドリフトする可能性があるので int.ToTimeSpan(rate) で
         // 整数 tick 計算にする。
