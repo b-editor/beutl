@@ -74,8 +74,8 @@ public class EditorHostViewModel
                 ex,
                 "Unhandled exception in {Method}. OldProject={OldProject} NewProject={NewProject}",
                 nameof(OnProjectChangedAsync),
-                old?.Uri?.LocalPath,
-                @new?.Uri?.LocalPath);
+                SafeLocalPath(old?.Uri),
+                SafeLocalPath(@new?.Uri));
             NotificationService.ShowError(Strings.Project, MessageStrings.OperationFailed);
         }
     }
@@ -114,7 +114,7 @@ public class EditorHostViewModel
                         _logger.LogError(
                             ex,
                             "Failed to close tab for removed project item. FilePath={FilePath}",
-                            item.Uri?.LocalPath);
+                            SafeLocalPath(item.Uri));
                     }
                 }
             }
@@ -131,5 +131,14 @@ public class EditorHostViewModel
                 e.Action);
             NotificationService.ShowError(Strings.Project, MessageStrings.OperationFailed);
         }
+    }
+
+    // Uri.LocalPath throws InvalidOperationException for relative URIs; protect log
+    // formatting inside catch blocks from masking the original exception.
+    private static string? SafeLocalPath(Uri? uri)
+    {
+        if (uri is null)
+            return null;
+        return uri.IsAbsoluteUri ? uri.LocalPath : uri.OriginalString;
     }
 }
