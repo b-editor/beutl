@@ -348,44 +348,53 @@ public sealed class IpcConnection : IDisposable
         if (_disposed) return;
         _disposed = true;
 
-        _receiveLoopCts?.Cancel();
-
-        // 受信ループを待ってからパイプ/セマフォを破棄する。先にパイプを破棄すると
-        // 進行中の ReadMessageAsync が ObjectDisposedException で死に、自己 Dispose が
-        // 誤って "broken pipe" として pending リクエストに伝播してしまう。上限を切って
-        // 待つことで、ループ内ハング (理論上ありえない) でも Dispose は必ず進む。
+        ExceptionDispatchInfo? fatalToRethrow = null;
         try
         {
-            if (_receiveLoopTask is { } task && !task.Wait(TimeSpan.FromSeconds(5)))
+            _receiveLoopCts?.Cancel();
+
+            // 受信ループを待ってからパイプ/セマフォを破棄する。先にパイプを破棄すると
+            // 進行中の ReadMessageAsync が ObjectDisposedException で死に、自己 Dispose が
+            // 誤って "broken pipe" として pending リクエストに伝播してしまう。上限を切って
+            // 待つことで、ループ内ハング (理論上ありえない) でも Dispose は必ず進む。
+            try
             {
-                // タイムアウト = ループが停止しなかった。続行するとパイプ破棄で
-                // ObjectDisposedException を引き起こし、その先で診断が消える。
-                // 続行はするが、痕跡が残るよう Trace に出す。
-                Trace.TraceError("IpcConnection.Dispose: receive loop did not exit within 5s; proceeding with disposal.");
+                if (_receiveLoopTask is { } task && !task.Wait(TimeSpan.FromSeconds(5)))
+                {
+                    // タイムアウト = ループが停止しなかった。続行するとパイプ破棄で
+                    // ObjectDisposedException を引き起こし、その先で診断が消える。
+                    // 続行はするが、痕跡が残るよう Trace に出す。
+                    Trace.TraceError("IpcConnection.Dispose: receive loop did not exit within 5s; proceeding with disposal.");
+                }
+            }
+            catch (AggregateException ex)
+            {
+                // 受信ループ内例外は finally で pending TCS / _receiveLoopFault へ伝播済みだが、
+                // Dispose 時の根因をたどれるよう原例外を残す。
+                Trace.TraceError($"IpcConnection.Dispose: receive loop ended with exception: {ex}");
+
+                // 受信ループの generic catch が除外している致命系 (OOM/SOE/AVE) は
+                // Dispose 経路でも握りつぶさず再 throw する。リソース解放後に投げ直すため
+                // ExceptionDispatchInfo として捕捉だけしておく。
+                var fatal = ex.InnerExceptions.FirstOrDefault(static e =>
+                    e is OutOfMemoryException or StackOverflowException or AccessViolationException);
+                if (fatal != null)
+                {
+                    fatalToRethrow = ExceptionDispatchInfo.Capture(fatal);
+                }
             }
         }
-        catch (AggregateException ex)
+        finally
         {
-            // 受信ループ内例外は finally で pending TCS / _receiveLoopFault へ伝播済みだが、
-            // Dispose 時の根因をたどれるよう原例外を残す。
-            Trace.TraceError($"IpcConnection.Dispose: receive loop ended with exception: {ex}");
-
-            // 受信ループの generic catch が除外している致命系 (OOM/SOE/AVE) は
-            // Dispose 経路でも握りつぶさず再 throw する。さもないと receive-loop の
-            // exclusion 規約がこの行で undo される。
-            var fatal = ex.InnerExceptions.FirstOrDefault(static e =>
-                e is OutOfMemoryException or StackOverflowException or AccessViolationException);
-            if (fatal != null)
-            {
-                ExceptionDispatchInfo.Capture(fatal).Throw();
-            }
+            // task.Wait が AggregateException 以外の例外 (ObjectDisposedException 等) で
+            // 抜けても、パイプ/セマフォ/CTS は必ず解放してハンドルリークを防ぐ。
+            _receiveLoopCts?.Dispose();
+            _requestLock.Dispose();
+            _writeLock.Dispose();
+            _readLock.Dispose();
+            _pipe.Dispose();
         }
 
-        _receiveLoopCts?.Dispose();
-
-        _requestLock.Dispose();
-        _writeLock.Dispose();
-        _readLock.Dispose();
-        _pipe.Dispose();
+        fatalToRethrow?.Throw();
     }
 }
