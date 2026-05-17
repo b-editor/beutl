@@ -217,12 +217,24 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
             .Subscribe(_ => RaiseCanExecuteChanged())
             .AddTo(_disposables);
 
-        // Undo/Redo の直前で debounce 中の Nudge を必ず Commit する。
-        // 未コミットのままだと、Undo が先に未確定 transaction を revert してから
-        // 前回コミットを Pop するため 2 アクション分が同時に取り消されてしまう。
+        // Undo/JumpTo の直前は debounce 中の Nudge を必ず Commit してから本来の
+        // mutation が走るようにする (未コミットのままだと前回コミットも巻き込まれる)。
+        // Redo は Commit 経由で _redoStack.Clear() が走ると redo 対象が消えるため、
+        // Flush ではなく Timer を止めて pending を破棄するに留める。Redo 内側の
+        // Rollback() が _currentTransaction の nudge ops を revert してくれる。
         editorContext.GetRequiredService<HistoryManager>()
             .BeforeMutation
-            .Subscribe(_ => FlushPendingNudgeCommit())
+            .Subscribe(kind =>
+            {
+                if (kind == HistoryMutationKind.Redo)
+                {
+                    DiscardPendingNudge();
+                }
+                else
+                {
+                    FlushPendingNudgeCommit();
+                }
+            })
             .AddTo(_disposables);
 
         _logger.LogInformation("TimelineTabViewModel initialized successfully.");
@@ -1358,6 +1370,14 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
         if (_nudgeCommitTimer is null || !_nudgeCommitTimer.IsEnabled) return;
         _nudgeCommitTimer.Stop();
         EditorContext.GetRequiredService<HistoryManager>().Commit(CommandNames.MoveElement);
+    }
+
+    private void DiscardPendingNudge()
+    {
+        // Redo の直前専用。Commit を呼ばないので _redoStack はクリアされない。
+        // 未コミット nudge ops は HistoryManager.Redo の lock 内 Rollback() が
+        // revert してくれるので、ここでは timer を止めるだけで十分。
+        _nudgeCommitTimer?.Stop();
     }
 
     public void RazorSplitAt(TimeSpan time, bool acrossAllLayers)
