@@ -311,6 +311,56 @@ public class IpcConnectionMultiplexedTests
     }
 
     [Test]
+    public async Task SamePendingRequestId_ThrowsAndFirstSurvives()
+    {
+        // _pendingRequests に同じ Id を二重登録しようとすると、TryAdd 化により
+        // 2 つ目が InvalidOperationException で失敗し、1 つ目の TCS には影響しない。
+        // 旧 indexer 代入では 1 つ目を黙って捨てて 1 つ目の awaiter が永久 await になっていた。
+        var (server, client) = ConnectPair();
+        using var _ = server;
+        using var conn = new IpcConnection(client);
+        conn.StartMultiplexedReceive();
+
+        using var cts = new CancellationTokenSource();
+        const int fixedId = 12345;
+        var first = IpcMessage.CreateSimple(fixedId, RequestType);
+        var second = IpcMessage.CreateSimple(fixedId, RequestType);
+
+        var firstTask = conn.SendAndReceiveAsync(first, cts.Token).AsTask();
+        await WaitUntil(() => PendingCount(conn) == 1, TimeSpan.FromSeconds(5), "first request enters pending dict");
+
+        var ex = Assert.ThrowsAsync<InvalidOperationException>(
+            async () => await conn.SendAndReceiveAsync(second));
+        Assert.That(ex!.Message, Does.Contain("already in flight"));
+        Assert.That(PendingCount(conn), Is.EqualTo(1));
+
+        cts.Cancel();
+        Assert.CatchAsync<OperationCanceledException>(async () => await firstTask);
+        await WaitUntil(() => PendingCount(conn) == 0, TimeSpan.FromSeconds(5), "pending dict drains after cancel");
+    }
+
+    [Test]
+    public async Task PostDispose_SendAndReceive_FailsFastWithObjectDisposed()
+    {
+        // clean-cancel パスでも _receiveLoopFault が公開されることのテスト。
+        // 旧コードでは terminationError 無しのとき fault を書かず、Dispose 後の
+        // 新規呼び出しが永久 await した。
+        var (server, client) = ConnectPair();
+        using var _ = server;
+        var conn = new IpcConnection(client);
+        conn.StartMultiplexedReceive();
+        conn.Dispose();
+
+        int id = conn.NextId();
+        var req = IpcMessage.CreateSimple(id, RequestType);
+        var task = conn.SendAndReceiveAsync(req).AsTask();
+        var completed = await Task.WhenAny(task, Task.Delay(TimeSpan.FromSeconds(2)));
+        Assert.That(completed, Is.SameAs(task), "post-Dispose call must fail fast, not hang");
+        Assert.CatchAsync<ObjectDisposedException>(async () => await task);
+        Assert.That(PendingCount(conn), Is.EqualTo(0));
+    }
+
+    [Test]
     public void StartMultiplexedReceive_CalledTwice_Throws()
     {
         var (server, client) = ConnectPair();
