@@ -213,7 +213,7 @@ public class Scene : ProjectItem, INotifyEdited
 
     public void MoveChildren(int deltaIndex, TimeSpan deltaStart, Element[] elements)
     {
-        if (elements.Length < 2)
+        if (elements.Length < 1)
         {
             throw new ArgumentOutOfRangeException(nameof(elements));
         }

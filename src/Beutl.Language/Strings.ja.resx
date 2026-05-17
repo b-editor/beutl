@@ -552,6 +552,24 @@
   <data name="SetEndTime" xml:space="preserve">
     <value>終了時間を設定</value>
   </data>
+  <data name="NudgeLeftFrame" xml:space="preserve">
+    <value>1 フレーム左へ移動</value>
+  </data>
+  <data name="NudgeRightFrame" xml:space="preserve">
+    <value>1 フレーム右へ移動</value>
+  </data>
+  <data name="NudgeLeftLarge" xml:space="preserve">
+    <value>10 フレーム左へ移動</value>
+  </data>
+  <data name="NudgeRightLarge" xml:space="preserve">
+    <value>10 フレーム右へ移動</value>
+  </data>
+  <data name="NudgeLeftSecond" xml:space="preserve">
+    <value>1 秒左へ移動</value>
+  </data>
+  <data name="NudgeRightSecond" xml:space="preserve">
+    <value>1 秒右へ移動</value>
+  </data>
   <data name="Editor" xml:space="preserve">
     <value>エディター</value>
   </data>

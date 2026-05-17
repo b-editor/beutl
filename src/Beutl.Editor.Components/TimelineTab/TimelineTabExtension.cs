@@ -70,6 +70,34 @@ public sealed class TimelineTabExtension : ToolTabExtension
         [
             new ContextCommandKeyGesture("OemCloseBrackets")
         ]),
+        // Nudge は矢印キーを避けて , / . に割り当てる。Premiere/DaVinci/Final Cut の
+        // 慣例に合わせるとともに、シーン側 Previous/Next (Left/Right), SeekStart/SeekEnd
+        // (Cmd+Left/Right on macOS), Marker nav (Ctrl+Left/Right, macOS Alt+Left/Right)
+        // との shortcut 衝突を完全に排除する。
+        new ContextCommandDefinition("NudgeLeftFrame", Strings.NudgeLeftFrame, "",
+        [
+            new ContextCommandKeyGesture("OemComma"),
+        ]),
+        new ContextCommandDefinition("NudgeRightFrame", Strings.NudgeRightFrame, "",
+        [
+            new ContextCommandKeyGesture("OemPeriod"),
+        ]),
+        new ContextCommandDefinition("NudgeLeftLarge", Strings.NudgeLeftLarge, "",
+        [
+            new ContextCommandKeyGesture("Shift+OemComma"),
+        ]),
+        new ContextCommandDefinition("NudgeRightLarge", Strings.NudgeRightLarge, "",
+        [
+            new ContextCommandKeyGesture("Shift+OemPeriod"),
+        ]),
+        new ContextCommandDefinition("NudgeLeftSecond", Strings.NudgeLeftSecond, "",
+        [
+            new ContextCommandKeyGesture("Alt+OemComma"),
+        ]),
+        new ContextCommandDefinition("NudgeRightSecond", Strings.NudgeRightSecond, "",
+        [
+            new ContextCommandKeyGesture("Alt+OemPeriod"),
+        ]),
         new ContextCommandDefinition("ToggleGroup", Strings.Group, "",
         [
             new ContextCommandKeyGesture("Ctrl+G"),

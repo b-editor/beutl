@@ -19,6 +19,7 @@ public sealed class HistoryManager : IDisposable
     private readonly OperationExecutionContext _context;
     private readonly OperationSequenceGenerator _sequenceGenerator;
     private readonly Subject<HistoryState> _stateChanged = new();
+    private readonly Subject<System.Reactive.Unit> _beforeMutation = new();
     private readonly List<IDisposable> _subscriptions = new();
     private readonly object _lock = new();
     private readonly ObservableCollection<HistoryEntry> _entries = new();
@@ -47,6 +48,11 @@ public sealed class HistoryManager : IDisposable
     public int RedoCount => _redoStack.Count;
 
     public IObservable<HistoryState> StateChanged => _stateChanged.AsObservable();
+
+    // Undo / Redo / JumpTo の直前に発火する。debounce 等で未コミットの操作を抱えている
+    // 購読側 (例: タイムラインの Nudge) が、ヒストリ操作に巻き込まれる前に
+    // 自前で Commit を流し切るためのフック。
+    public IObservable<System.Reactive.Unit> BeforeMutation => _beforeMutation.AsObservable();
 
     public ReadOnlyObservableCollection<HistoryEntry> Entries => _readOnlyEntries;
 
@@ -176,6 +182,8 @@ public sealed class HistoryManager : IDisposable
     {
         ThrowIfDisposed();
 
+        FireBeforeMutation();
+
         lock (_lock)
         {
             Rollback();
@@ -204,6 +212,8 @@ public sealed class HistoryManager : IDisposable
     public bool Redo()
     {
         ThrowIfDisposed();
+
+        FireBeforeMutation();
 
         lock (_lock)
         {
@@ -269,6 +279,8 @@ public sealed class HistoryManager : IDisposable
     public bool JumpTo(int index)
     {
         ThrowIfDisposed();
+
+        FireBeforeMutation();
 
         bool moved = false;
         bool stateMutated = false;
@@ -455,6 +467,21 @@ public sealed class HistoryManager : IDisposable
         _stateChanged.OnNext(new HistoryState(CanUndo, CanRedo, UndoCount, RedoCount));
     }
 
+    // BeforeMutation subscribers are user-supplied (e.g. timeline flush handlers).
+    // A throw must not abort the Undo/Redo that triggered the notification, since
+    // the history operation itself is independent of any debounce flush.
+    private void FireBeforeMutation()
+    {
+        try
+        {
+            _beforeMutation.OnNext(System.Reactive.Unit.Default);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "BeforeMutation subscriber threw; continuing with the pending Undo/Redo.");
+        }
+    }
+
     public IDisposable SuppressRecording()
     {
         ThrowIfDisposed();
@@ -482,6 +509,8 @@ public sealed class HistoryManager : IDisposable
         }
         _stateChanged.OnCompleted();
         _stateChanged.Dispose();
+        _beforeMutation.OnCompleted();
+        _beforeMutation.Dispose();
         _undoStack.Clear();
         _redoStack.Clear();
     }

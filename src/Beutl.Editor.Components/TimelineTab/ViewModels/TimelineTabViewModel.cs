@@ -7,6 +7,8 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Input.Platform;
 using Avalonia.Platform.Storage;
+using Avalonia.Threading;
+using Avalonia.VisualTree;
 using Beutl.Animation;
 using Beutl.Configuration;
 using Beutl.Editor.Components.Helpers;
@@ -36,6 +38,7 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
     private readonly Subject<LayerHeaderViewModel> _layerHeightChanged = new();
     private readonly Subject<System.Reactive.Unit> _canExecuteChangedSubject = new();
     private readonly Dictionary<int, TrackedLayerTopObservable> _trackerCache = [];
+    private DispatcherTimer? _nudgeCommitTimer;
     private bool _isDisposed;
 
     public TimelineTabViewModel(IEditorContext editorContext)
@@ -212,6 +215,14 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
         // CanExecute がレイザーモード切替に追従するよう変更通知へ流す。
         IsRazorMode
             .Subscribe(_ => RaiseCanExecuteChanged())
+            .AddTo(_disposables);
+
+        // Undo/Redo の直前で debounce 中の Nudge を必ず Commit する。
+        // 未コミットのままだと、Undo が先に未確定 transaction を revert してから
+        // 前回コミットを Pop するため 2 アクション分が同時に取り消されてしまう。
+        editorContext.GetRequiredService<HistoryManager>()
+            .BeforeMutation
+            .Subscribe(_ => FlushPendingNudgeCommit())
             .AddTo(_disposables);
 
         _logger.LogInformation("TimelineTabViewModel initialized successfully.");
@@ -407,6 +418,16 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
     public void Dispose()
     {
         _logger.LogInformation("Disposing TimelineViewModel.");
+        // Dispose は throw しない契約。HistoryManager が先に Dispose されている等で
+        // Commit が失敗しても残りのクリーンアップは必ず進める。
+        try
+        {
+            FlushPendingNudgeCommit();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to flush pending nudge during dispose.");
+        }
         // 以降の OnNext を抑止してから内部 Subject を Dispose する。
         _isDisposed = true;
         _disposables.Dispose();
@@ -1087,6 +1108,9 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
         return execution.CommandName switch
         {
             "Copy" or "Cut" or "Delete" or "Exclude" => SelectedElements.Count > 0,
+            "NudgeLeftFrame" or "NudgeRightFrame"
+                or "NudgeLeftLarge" or "NudgeRightLarge"
+                or "NudgeLeftSecond" or "NudgeRightSecond" => SelectedElements.Count > 0,
             "ToggleGroup" => SelectedElements.FirstOrDefault() is { } first
                 && (first.CanUngroupSelectedElements() || first.CanGroupSelectedElements()),
             "ExitRazorMode" => IsRazorMode.Value,
@@ -1100,6 +1124,15 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
     public void Execute(ContextCommandExecution execution)
     {
         _logger.LogDebug("Executing context command {CommandName}.", execution.CommandName);
+
+        // Nudge 連打を 1 Undo にまとめる debounce 中に他コマンドが Commit すると、
+        // 双方が同じ transaction に積まれて 1 Undo で一緒に取り消されてしまう。
+        // Nudge 以外のコマンドを実行する直前に Nudge 分を確定させて分離する。
+        if (!execution.CommandName.StartsWith("Nudge", StringComparison.Ordinal))
+        {
+            FlushPendingNudgeCommit();
+        }
+
         switch (execution.CommandName)
         {
             case "Paste":
@@ -1151,7 +1184,7 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
                 }
 
                 break;
-            case "ToggleRazorMode" when execution.KeyEventArgs?.Source is not TextBox:
+            case "ToggleRazorMode" when !IsTextInputFocused(execution.KeyEventArgs):
                 IsRazorMode.Value = !IsRazorMode.Value;
                 if (execution.KeyEventArgs != null)
                 {
@@ -1159,7 +1192,7 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
                 }
 
                 break;
-            case "ExitRazorMode" when execution.KeyEventArgs?.Source is not TextBox:
+            case "ExitRazorMode" when !IsTextInputFocused(execution.KeyEventArgs):
                 if (IsRazorMode.Value)
                 {
                     IsRazorMode.Value = false;
@@ -1170,7 +1203,161 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
                 }
 
                 break;
+            case "NudgeLeftFrame" when !IsTextInputFocused(execution.KeyEventArgs):
+                NudgeSelectedElements(-1, NudgeUnit.Frame);
+                if (execution.KeyEventArgs != null)
+                {
+                    execution.KeyEventArgs.Handled = true;
+                }
+
+                break;
+            case "NudgeRightFrame" when !IsTextInputFocused(execution.KeyEventArgs):
+                NudgeSelectedElements(+1, NudgeUnit.Frame);
+                if (execution.KeyEventArgs != null)
+                {
+                    execution.KeyEventArgs.Handled = true;
+                }
+
+                break;
+            case "NudgeLeftLarge" when !IsTextInputFocused(execution.KeyEventArgs):
+                NudgeSelectedElements(-1, NudgeUnit.Large);
+                if (execution.KeyEventArgs != null)
+                {
+                    execution.KeyEventArgs.Handled = true;
+                }
+
+                break;
+            case "NudgeRightLarge" when !IsTextInputFocused(execution.KeyEventArgs):
+                NudgeSelectedElements(+1, NudgeUnit.Large);
+                if (execution.KeyEventArgs != null)
+                {
+                    execution.KeyEventArgs.Handled = true;
+                }
+
+                break;
+            case "NudgeLeftSecond" when !IsTextInputFocused(execution.KeyEventArgs):
+                NudgeSelectedElements(-1, NudgeUnit.Second);
+                if (execution.KeyEventArgs != null)
+                {
+                    execution.KeyEventArgs.Handled = true;
+                }
+
+                break;
+            case "NudgeRightSecond" when !IsTextInputFocused(execution.KeyEventArgs):
+                NudgeSelectedElements(+1, NudgeUnit.Second);
+                if (execution.KeyEventArgs != null)
+                {
+                    execution.KeyEventArgs.Handled = true;
+                }
+
+                break;
         }
+    }
+
+    // ナッジ・ToggleRazorMode 系のショートカットがテキスト入力中に発火しないようにする。
+    // TextBox を直接見るだけでは AutoCompleteBox/NumericUpDown/MaskedTextBox 等の
+    // ラッパー経由でフォーカスされた埋め込み TextBox を検知できないので、Source の
+    // ancestor 連鎖を辿って TextBox を探す。
+    private static bool IsTextInputFocused(KeyEventArgs? args)
+    {
+        if (args?.Source is not Visual visual) return false;
+        return visual.FindAncestorOfType<TextBox>(includeSelf: true) is not null;
+    }
+
+    private enum NudgeUnit { Frame, Large, Second }
+
+    private void NudgeSelectedElements(int direction, NudgeUnit unit)
+    {
+        // SelectedElements は HashSet で順序不定。RoundToRate を適用する anchor を
+        // 決定論的にするため Start (副: ZIndex) でソートして最も左の要素を選ぶ。
+        // 異なる off-grid Start を持つ要素間で実行毎にシフト量が変わるのを防ぐ。
+        ElementViewModel? first = SelectedElements
+            .OrderBy(e => e.Model.Start)
+            .ThenBy(e => e.Model.ZIndex)
+            .FirstOrDefault();
+        if (first is null) return;
+
+        // 他の編集操作との一貫性と、グループの位置関係が崩れることを防ぐため、
+        // メンバーが 1 つだけ選択されていてもグループ全体を移動対象にする。
+        IReadOnlyList<ElementViewModel> targets = first.GetGroupOrSelectedElements();
+        if (targets.Count == 0) return;
+
+        int rate = Scene.FindHierarchicalParent<Project>()?.GetFrameRate() ?? 30;
+        int frames = unit switch
+        {
+            NudgeUnit.Frame => direction,
+            NudgeUnit.Large => direction * 10,
+            NudgeUnit.Second => direction * rate,
+            _ => throw new ArgumentOutOfRangeException(nameof(unit), unit, "Unhandled NudgeUnit."),
+        };
+
+        if (frames == 0) return;
+
+        // ドラッグ移動と同じく、結果がフレームグリッドに乗るようアンカー要素
+        // (= 最初の選択) の現在 Start を一旦 RoundToRate で丸めてから N フレーム分シフトする。
+        // TimeSpan.FromSeconds は repeating fraction を tick へ丸めるため、
+        // 連打で sub-frame ドリフトする可能性があるので int.ToTimeSpan(rate) で
+        // 整数 tick 計算にする。
+        Element anchor = first.Model;
+        TimeSpan anchoredStart = anchor.Start.RoundToRate(rate) + frames.ToTimeSpan(rate);
+        if (anchoredStart < TimeSpan.Zero) return;
+
+        TimeSpan delta = anchoredStart - anchor.Start;
+        if (delta == TimeSpan.Zero) return;
+
+        Scene.MoveChildren(0, delta, targets.Select(x => x.Model).ToArray());
+        ScheduleNudgeCommit();
+    }
+
+    // 連続押下を 1 つの Undo にまとめるための debounce。
+    // 典型的なキーリピート間隔 (~30-50ms) より十分長く、かつ単発の意図的な
+    // ナッジとリピート押下のひとかたまりを分離できる値として 300ms を採用 (経験則)。
+    //
+    // 既知の制約: debounce 中 (~300ms 以内) に Timeline 外の経路 (例:
+    // ElementViewModel の色変更が直接 Commit する) が走ると、その操作の Record と
+    // 未コミット nudge ops が同じ HistoryTransaction にマージしてしまう。
+    // 完全に分離するには nudge 専用 transaction の導入が必要だが、UI 上 300ms 以内
+    // にダイアログを伴う操作が完結することは稀なため、現状はこの制約を受け入れる。
+    private void ScheduleNudgeCommit()
+    {
+        if (_nudgeCommitTimer is null)
+        {
+            _nudgeCommitTimer = new DispatcherTimer(
+                TimeSpan.FromMilliseconds(300),
+                DispatcherPriority.Background,
+                OnNudgeCommitTick);
+        }
+
+        _nudgeCommitTimer.Stop();
+        _nudgeCommitTimer.Start();
+    }
+
+    private void OnNudgeCommitTick(object? sender, EventArgs e)
+    {
+        _nudgeCommitTimer?.Stop();
+        if (_isDisposed) return;
+        // Shutdown では HistoryManager が VM より先に Dispose されることがあり、
+        // その場合 Commit が ObjectDisposedException を投げる。Tick はバックグラウンド
+        // から UI スレッドに上がってくる経路なので、未捕捉例外を回避するため
+        // Dispose 経路と同様に防御する。
+        try
+        {
+            EditorContext.GetRequiredService<HistoryManager>().Commit(CommandNames.MoveElement);
+        }
+        catch (ObjectDisposedException ex)
+        {
+            _logger.LogWarning(ex, "Pending nudge commit dropped: HistoryManager already disposed.");
+        }
+    }
+
+    private void FlushPendingNudgeCommit()
+    {
+        // Timer が止まっている = コミット待ちの Nudge は無い (Tick 実行済み、既に Flush 済み、
+        // または未スタート)。同じ debounce ウィンドウを Undo / 他コマンド実行 / Dispose の
+        // 各経路から重ねて Flush しても二重コミットにならないようガードする。
+        if (_nudgeCommitTimer is null || !_nudgeCommitTimer.IsEnabled) return;
+        _nudgeCommitTimer.Stop();
+        EditorContext.GetRequiredService<HistoryManager>().Commit(CommandNames.MoveElement);
     }
 
     public void RazorSplitAt(TimeSpan time, bool acrossAllLayers)
