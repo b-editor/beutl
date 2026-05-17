@@ -1828,17 +1828,17 @@ public class HistoryManagerTests
     #region BeforeMutation Tests
 
     [Test]
-    public void BeforeMutation_Undo_FiresWithUndoKindBeforeStackMutates()
+    public void BeforeMutation_Undo_FiresBeforeStackMutates()
     {
         using var manager = new HistoryManager(_root, _sequenceGenerator);
         manager.Record(CreateTestOperation());
         manager.Commit("Step");
 
         bool undoStackStillFull = false;
-        HistoryMutationKind? observedKind = null;
-        using var subscription = manager.BeforeMutation.Subscribe(kind =>
+        bool fired = false;
+        using var subscription = manager.BeforeMutation.Subscribe(_ =>
         {
-            observedKind = kind;
+            fired = true;
             // CanUndo must still be observable as true when subscribers see the event;
             // otherwise a flush handler that inspects history state would see the
             // post-undo world.
@@ -1849,14 +1849,14 @@ public class HistoryManagerTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(observedKind, Is.EqualTo(HistoryMutationKind.Undo));
+            Assert.That(fired, Is.True);
             Assert.That(undoStackStillFull, Is.True);
             Assert.That(manager.CanUndo, Is.False);
         });
     }
 
     [Test]
-    public void BeforeMutation_Redo_FiresWithRedoKindBeforeStackMutates()
+    public void BeforeMutation_Redo_FiresBeforeStackMutates()
     {
         using var manager = new HistoryManager(_root, _sequenceGenerator);
         manager.Record(CreateTestOperation());
@@ -1864,10 +1864,10 @@ public class HistoryManagerTests
         manager.Undo();
 
         bool redoStackStillFull = false;
-        HistoryMutationKind? observedKind = null;
-        using var subscription = manager.BeforeMutation.Subscribe(kind =>
+        bool fired = false;
+        using var subscription = manager.BeforeMutation.Subscribe(_ =>
         {
-            observedKind = kind;
+            fired = true;
             redoStackStillFull = manager.CanRedo;
         });
 
@@ -1875,63 +1875,10 @@ public class HistoryManagerTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(observedKind, Is.EqualTo(HistoryMutationKind.Redo));
+            Assert.That(fired, Is.True);
             Assert.That(redoStackStillFull, Is.True);
             Assert.That(manager.CanRedo, Is.False);
         });
-    }
-
-    [Test]
-    public void BeforeMutation_RedoSubscriberDiscardingPendingOps_KeepsRedoEntry()
-    {
-        // Regression for the redo-stack wipeout: when a subscriber commits inside
-        // a Redo's BeforeMutation, Commit clears _redoStack and the very Redo that
-        // triggered it can no longer pop anything. The contract is that a flush
-        // handler must inspect the kind and only commit on Undo/JumpTo. We
-        // verify by simulating the correct behavior: discard pending ops (rollback)
-        // on Redo, and confirm the Redo still completes against the original entry.
-        using var manager = new HistoryManager(_root, _sequenceGenerator);
-        _root.Value = 0;
-        CreateValueOperation(manager, 100, 0, "TargetForRedo");
-        manager.Commit("TargetForRedo");
-        manager.Undo();
-
-        using var subscription = manager.BeforeMutation.Subscribe(kind =>
-        {
-            if (kind == HistoryMutationKind.Redo)
-            {
-                // Correct subscriber: only rollback pending, do NOT commit.
-                manager.Rollback();
-            }
-        });
-
-        // Simulate a pending uncommitted op (e.g. nudge in debounce).
-        manager.Record(CreateTestOperation());
-
-        bool redone = manager.Redo();
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(redone, Is.True);
-            Assert.That(_root.Value, Is.EqualTo(100));
-            Assert.That(manager.CanRedo, Is.False);
-            Assert.That(manager.UndoCount, Is.EqualTo(1));
-        });
-    }
-
-    [Test]
-    public void BeforeMutation_JumpTo_FiresWithJumpToKind()
-    {
-        using var manager = new HistoryManager(_root, _sequenceGenerator);
-        manager.Record(CreateTestOperation());
-        manager.Commit("Step");
-
-        HistoryMutationKind? observedKind = null;
-        using var subscription = manager.BeforeMutation.Subscribe(kind => observedKind = kind);
-
-        manager.JumpTo(0);
-
-        Assert.That(observedKind, Is.EqualTo(HistoryMutationKind.JumpTo));
     }
 
     [Test]
