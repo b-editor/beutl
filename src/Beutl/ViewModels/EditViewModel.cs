@@ -532,9 +532,12 @@ public sealed partial class EditViewModel : IEditorContext, ISupportAutoSaveEdit
     {
         // Move the unreadable file aside so AutoSave's next SaveState() does not
         // overwrite it with the default layout and erase the user's customizations.
+        // The random suffix avoids clobbering an earlier quarantine if corruption
+        // recurs within the same second.
         try
         {
-            string quarantined = $"{viewStateFile}.corrupt-{DateTime.UtcNow:yyyyMMddHHmmss}";
+            string suffix = Guid.NewGuid().ToString("N").Substring(0, 8);
+            string quarantined = $"{viewStateFile}.corrupt-{DateTime.UtcNow:yyyyMMddHHmmss}-{suffix}";
             File.Move(viewStateFile, quarantined);
             _logger.LogInformation("Moved unreadable view state to {QuarantinedFile}.", quarantined);
         }
