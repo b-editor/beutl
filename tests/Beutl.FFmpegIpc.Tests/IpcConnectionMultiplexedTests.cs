@@ -45,7 +45,7 @@ public class IpcConnectionMultiplexedTests
         using var conn = new IpcConnection(client);
         conn.StartMultiplexedReceive();
 
-        // Worker 役: 受信した順にレスポンスを返す。
+        // Worker 役: 5 本溜まったら受信と逆順でレスポンスを返す。
         // 受信順とは異なる順序で返すことで ID ルーティングを実際にストレスする。
         var workerCts = new CancellationTokenSource();
         var workerTask = Task.Run(async () =>
@@ -177,6 +177,7 @@ public class IpcConnectionMultiplexedTests
             await WaitUntil(() => PendingCount(conn) == 0, TimeSpan.FromSeconds(5), "pending dict drains after cancel");
 
             // 遅延レスポンスを送り込む → dropped ハンドラに来るはず。
+            // cts は既に発火済みなので渡せるトークンが無く、無トークン書き込みでよい。
             var resp = IpcMessage.CreateSimple(id, ResponseType);
             await MessageSerializer.WriteMessageAsync(server, resp);
 

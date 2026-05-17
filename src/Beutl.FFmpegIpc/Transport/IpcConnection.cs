@@ -45,11 +45,12 @@ public sealed class IpcConnection : IDisposable
     /// 次のいずれかで呼ばれる:
     ///   - <c>_pendingRequests</c> から TCS を取り出せたがキャンセル済みで TrySetResult が失敗した。
     ///   - 対応する <c>request.Id</c> の TCS が <c>_pendingRequests</c> に居なかった (キャンセル後到着の stray)。
-    /// 主用途は共有メモリバッファ (bufferIndex 等) を握っているレスポンスを上位レイヤー
-    /// (例: <c>IpcFrameProvider</c>) で解放するセマフォとなること。
+    /// 想定する使い方は、共有メモリバッファ (bufferIndex 等) を握ったまま捨てられるレスポンスを
+    /// 上位レイヤーで解放するためのコールバック。現状は配線されておらず、配線するのは消費側 (例:
+    /// IpcFrameProvider) の責務とする。
     /// 呼び出しは受信ループスレッドで同期的に行われるため、ブロックすると後続メッセージの
     /// 処理が遅延する。例外は投げないことを契約とするが、万一スローした場合でも受信ループは
-    /// 継続し、内容は <see cref="Trace"/> に記録される。
+    /// 継続し、内容は <see cref="System.Diagnostics.Trace.TraceError(string)"/> に記録される。
     /// </summary>
     public Action<IpcMessage>? DroppedResponseHandler { get; set; }
 
@@ -81,6 +82,8 @@ public sealed class IpcConnection : IDisposable
             //   - EOF (msg == null) / IOException: 相手側起因の切断。
             //     terminationError に詰めて TrySetException で伝播し、
             //     「ユーザーがキャンセル」と「接続が死んだ」を呼び出し元から区別可能にする。
+            //   - 想定外例外 (プロトコル破損/JSON 失敗 など): 同じ termination 経路に集約し、
+            //     IOException として待機中 TCS と _receiveLoopFault に伝播する。
             Exception? terminationError = null;
             try
             {
@@ -136,7 +139,8 @@ public sealed class IpcConnection : IDisposable
                     Volatile.Write(ref _receiveLoopFault, terminationError);
 
                 // 残っている全ての待機中リクエストを解放。I/O 障害があれば例外として、
-                // それ以外 (正常クローズ / loopCt キャンセル) は loopCt 付きでキャンセル。
+                // それ以外 (ObjectDisposed / loopCt キャンセル) は loopCt 付きでキャンセル。
+                // EOF は terminationError 経路を通るのでここでは TrySetException 側に入る点に注意。
                 foreach (var kvp in _pendingRequests)
                 {
                     if (_pendingRequests.TryRemove(kvp.Key, out var tcs))
@@ -308,10 +312,10 @@ public sealed class IpcConnection : IDisposable
         finally
         {
             // 自身が登録した TCS のみを撤去する (KeyValuePair オーバーロード)。
-            // 受信ループが先に取り出していれば TryRemove は失敗する。
-            // 通常 _nextId は単調増加するが int を一巡 (2^31 件) すると同じ Id が
-            // 再利用されうるため、value 一致を要求して別リクエストの TCS を
-            // 誤って消さないようにする防御的措置。
+            // 主目的は受信ループとのレース対策: ループが先にこのスロットを取り出して
+            // 別レスポンスを刺し直していた場合、参照不一致になり TryRemove は失敗 — 別リクエストの
+            // TCS を取り違えて消すのを防ぐ。副次的に、_nextId が int を一巡 (2^31 件) して Id が
+            // 再利用された場合の保険も兼ねる。
             _pendingRequests.TryRemove(new KeyValuePair<int, TaskCompletionSource<IpcMessage>>(request.Id, tcs));
         }
     }
