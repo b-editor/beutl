@@ -543,6 +543,29 @@ public class IpcConnectionMultiplexedTests
     }
 
     [Test]
+    public async Task ForeignTokenCancellation_ObservedAsIOExceptionNotCleanCancel()
+    {
+        // 受信ループの clean-cancel フィルタは loopCt 自身のトークンを持つ OCE だけを
+        // 黙って吸収する契約。別トークンの OCE は protocol-corruption と同じ経路で
+        // IOException (InnerException = OCE) として pending リクエストに伝播する。
+        // フィルタが loopCt 同一性チェックを失うと、外部由来の OCE が clean-cancel として
+        // 握り潰されてしまい、呼び出し元はループ死亡を観測できなくなる。
+        var foreignCts = new CancellationTokenSource();
+        foreignCts.Cancel();
+        var pipe = new FailingPipeStream(() => new OperationCanceledException(foreignCts.Token));
+        using var conn = new IpcConnection(pipe);
+        conn.StartMultiplexedReceive();
+
+        int id = conn.NextId();
+        var req = IpcMessage.CreateSimple(id, RequestType);
+        var ex = Assert.CatchAsync<IOException>(async () => await conn.SendAndReceiveAsync(req));
+        Assert.That(ex!.Message, Does.Contain("unexpected protocol or deserialization error"));
+        Assert.That(ex.InnerException, Is.InstanceOf<OperationCanceledException>());
+
+        await WaitUntil(() => PendingCount(conn) == 0, TimeSpan.FromSeconds(5), "pending dict drains after foreign-token OCE");
+    }
+
+    [Test]
     public async Task Dispose_RethrowsFatalExceptionFromReceiveLoop()
     {
         // 受信ループが OOM/SOE/AVE を投げた場合、IPC のフレーム化エラーとして
