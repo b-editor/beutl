@@ -32,6 +32,14 @@ public sealed class AudioProcessContext
         return GetSampleCount(TimeRange, SampleRate);
     }
 
+    /// <summary>
+    /// Returns the number of audio samples that cover <paramref name="range"/> at the given <paramref name="sampleRate"/>.
+    /// </summary>
+    /// <remarks>
+    /// Always rounds up via <see cref="Math.Ceiling(double)"/> so non-integer-second durations never under-allocate.
+    /// Both per-node audio paths and <c>Composer.BuildFinalOutput</c>'s silence fallback must route through this
+    /// helper to stay in sync; replacing it with truncation will desynchronise mix and silent buffers by one sample.
+    /// </remarks>
     public static int GetSampleCount(TimeRange range, int sampleRate)
     {
         if (sampleRate <= 0)
