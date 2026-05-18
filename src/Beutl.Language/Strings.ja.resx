@@ -840,6 +840,24 @@
   <data name="Duplicate_Description" xml:space="preserve">
     <value>選択したアイテムを複製します。</value>
   </data>
+  <data name="Duplicate_Failed" xml:space="preserve">
+    <value>複製に失敗しました</value>
+  </data>
+  <data name="Duplicate_ProjectNotSaved" xml:space="preserve">
+    <value>クリップを複製する前にプロジェクトを保存してください。</value>
+  </data>
+  <data name="Duplicate_IOFailed" xml:space="preserve">
+    <value>複製した要素のディスクへの書き込みに失敗しました。</value>
+  </data>
+  <data name="Duplicate_NoEmptySlot" xml:space="preserve">
+    <value>タイムラインに空きが見つからなかったため、既存のクリップと重なる位置に複製を配置しました。</value>
+  </data>
+  <data name="Duplicate_FallbackToMove" xml:space="preserve">
+    <value>複製に失敗したため、元のクリップを移動だけ行いました。</value>
+  </data>
+  <data name="Duplicate_FallbackFailed" xml:space="preserve">
+    <value>移動のフォールバックも失敗しました。タイムラインの状態と表示が一致しない可能性があります。</value>
+  </data>
   <data name="AboutBeutl" xml:space="preserve">
     <value>Beutlについて</value>
   </data>

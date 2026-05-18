@@ -211,4 +211,73 @@ public class DuplicateHelperTests
                 anchorZIndex: 0,
                 elementFileExtension: "belm"));
     }
+
+    [Test]
+    public void PlaceDuplicates_ThrowsArgumentException_WhenLengthsMismatch()
+    {
+        // Positional zip mapping breaking silently would corrupt group remap.
+        string basePath = GetTempPath();
+        try
+        {
+            Scene scene = CreateScene(basePath);
+            Element source = CreateElement(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+            Element newA = CreateElement(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+            Element newB = CreateElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
+
+            ClassicAssert.Throws<ArgumentException>(
+                () => DuplicateHelper.PlaceDuplicates(
+                    scene,
+                    newElements: [newA, newB],
+                    sourceElements: [source],
+                    anchorStart: TimeSpan.Zero,
+                    anchorZIndex: 0,
+                    elementFileExtension: "belm"));
+        }
+        finally
+        {
+            if (Directory.Exists(basePath)) Directory.Delete(basePath, recursive: true);
+        }
+    }
+
+    [Test]
+    public void PlaceDuplicates_LeavesSceneUntouched_OnPhase1Failure()
+    {
+        // Asserts the Phase 1 invariant: scene.Children/Groups stay untouched on failure.
+        // Forces Phase 1 to fail by placing a file where StoreToUri expects a directory,
+        // so Directory.CreateDirectory throws.
+        string basePath = GetTempPath();
+        try
+        {
+            Directory.CreateDirectory(basePath);
+            string blocked = Path.Combine(basePath, "blocked");
+            File.WriteAllText(blocked, "not a directory");
+
+            var scene = new Scene(100, 100, string.Empty)
+            {
+                Uri = new Uri(Path.Combine(blocked, "test.scene"))
+            };
+            int sceneChildrenBefore = scene.Children.Count;
+            int sceneGroupsBefore = scene.Groups.Count;
+
+            Element source = CreateElement(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+            Element newOne = CreateElement(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+
+            ClassicAssert.Throws<IOException>(
+                () => DuplicateHelper.PlaceDuplicates(
+                    scene,
+                    newElements: [newOne],
+                    sourceElements: [source],
+                    anchorStart: TimeSpan.Zero,
+                    anchorZIndex: 0,
+                    elementFileExtension: "belm"));
+
+            // Scene 状態は無変更で抜けている
+            ClassicAssert.AreEqual(sceneChildrenBefore, scene.Children.Count);
+            ClassicAssert.AreEqual(sceneGroupsBefore, scene.Groups.Count);
+        }
+        finally
+        {
+            if (Directory.Exists(basePath)) Directory.Delete(basePath, recursive: true);
+        }
+    }
 }

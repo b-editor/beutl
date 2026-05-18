@@ -495,12 +495,9 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
         int stepped = 0; // その方向で進んだ歩数
         int turnCount = 0; // 方向転換回数（2回ごとに stepLen を+1）
 
-        // タイムラインが要素で隙間なく埋め尽くされた病的なケースで UI スレッドが
-        // 永久ループに陥らないよう、探索回数に上限を設ける。100_000 ステップは
-        // 30fps なら ±1500 フレーム ≒ ±50 秒分の渦巻きをカバーするので、
-        // 実運用で到達することは想定していない。到達した場合は最後に検査した
-        // 候補位置をそのまま返す (Overlap している可能性があるが、UI フリーズより
-        // 既存要素と重なる方が回復可能)。
+        // Cap to prevent UI freeze when the timeline is densely packed. Spiral radius
+        // is ~sqrt(MaxSearchSteps / 4) frames; on cap we return the last candidate
+        // (may overlap) and notify the user — overlap is recoverable, a hang is not.
         const int MaxSearchSteps = 100_000;
         int searchSteps = 0;
         bool capped = false;
@@ -543,6 +540,7 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
             _logger.LogWarning(
                 "CorrectPosition gave up after {Steps} steps without finding a non-overlapping slot; using last candidate at start={Start}, zIndex={ZIndex}.",
                 searchSteps, newStart, newZIndex);
+            NotificationService.ShowWarning(Strings.Duplicate, Strings.Duplicate_NoEmptySlot);
         }
 
         return (newStart, newZIndex);
@@ -559,8 +557,17 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
 
     private async Task PasteElementList(IClipboard clipboard)
     {
-        if (await clipboard.TryGetValueAsync(BeutlDataFormats.Elements) is not { } json
-            || JsonNode.Parse(json) is not JsonArray jsonArray) return;
+        // Format was advertised by PasteCore; a missing/invalid payload here is an anomaly.
+        if (await clipboard.TryGetValueAsync(BeutlDataFormats.Elements) is not { } json)
+        {
+            _logger.LogWarning("Paste skipped: clipboard advertises Elements format but returned null.");
+            return;
+        }
+        if (JsonNode.Parse(json) is not JsonArray jsonArray)
+        {
+            _logger.LogWarning("Paste skipped: clipboard Elements payload is not a JsonArray. Length={Length}", json.Length);
+            return;
+        }
 
         var oldElements = jsonArray
             .Select(node => (node, element: new Element()))
@@ -568,24 +575,22 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
             .Select(t => t.element)
             .ToArray();
 
+        if (oldElements.Length == 0)
+        {
+            _logger.LogWarning("Paste skipped: clipboard Elements payload is an empty array.");
+            return;
+        }
+
         ObjectRegenerator.Regenerate(oldElements, out Element[] newElements);
 
-        TimeSpan minStart = newElements.Min(e => e.Start);
-        int minZIndex = newElements.Min(e => e.ZIndex);
-        TimeSpan maxStart = newElements.Max(e => e.Start);
-        int maxZIndex = newElements.Max(e => e.ZIndex);
-        TimeSpan length = maxStart - minStart;
-
-        var (newStart, newZIndex) = CorrectPosition(
-            new TimeRange(minStart, length),
-            minZIndex,
-            maxZIndex);
+        (TimeRange seedRange, int minZIndex, int maxZIndex) = DuplicateHelper.ComputePlacementRange(newElements);
+        var (newStart, newZIndex) = CorrectPosition(seedRange, minZIndex, maxZIndex);
 
         DuplicateHelper.PlaceDuplicates(
             Scene, newElements, oldElements, newStart, newZIndex, Constants.ElementFileExtension);
         EditorContext.GetRequiredService<HistoryManager>().Commit(CommandNames.PasteElement);
 
-        ScrollTo.Execute((new TimeRange(newStart, length), newZIndex));
+        ScrollTo.Execute((new TimeRange(newStart, seedRange.Duration), newZIndex));
     }
 
     private void DuplicateSelectedElements()
@@ -601,9 +606,7 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
             var sourceVMs = Elements.Where(x => ids.Contains(x.Model.Id)).ToArray();
             if (sourceVMs.Length == 0)
             {
-                // SelectedElements は非空だが Elements の側で ID が解決できない
-                // = 選択モデルと VM コレクションのライフサイクルが desync している。
-                // どちらかの管理にバグがあるので警告として残す (ユーザー操作では起きない想定)。
+                // Selected IDs do not resolve in Elements — should not happen.
                 _logger.LogWarning(
                     "Duplicate skipped: selected element IDs did not resolve to Elements. Ids={Ids}",
                     string.Join(", ", ids));
@@ -624,8 +627,7 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "An exception has occurred while duplicating elements.");
-            NotificationService.ShowError(MessageStrings.UnexpectedError, ex.Message);
+            HandleDuplicateException(ex, "duplicating elements");
         }
     }
 
@@ -633,9 +635,9 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
     {
         if (sourceElements.Count == 0)
         {
-            // Alt+drag は閾値未満のドラッグでここに来うる。通常経路なので
-            // notification は出さないが、想定外の no-op を後追いできるよう debug ログを残す。
-            _logger.LogDebug("DuplicateElementsAt skipped: sourceElements is empty.");
+            // Caller (ElementView.OnBorderPointerReleased) already guards this — if we
+            // get here, the caller has a bug worth surfacing.
+            _logger.LogWarning("DuplicateElementsAt called with empty sourceElements; investigate caller.");
             return;
         }
 
@@ -650,15 +652,44 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "An exception has occurred while duplicating elements at position.");
-            NotificationService.ShowError(MessageStrings.UnexpectedError, ex.Message);
+            HandleDuplicateException(ex, "duplicating elements at position");
+        }
+    }
+
+    // Map expected failures (no project Uri / I/O) to localized messages; otherwise
+    // surface the raw exception as a generic unexpected error.
+    private void HandleDuplicateException(Exception ex, string context)
+    {
+        switch (ex)
+        {
+            case InvalidOperationException when Scene.Uri is null:
+                _logger.LogWarning(ex, "Duplicate skipped while {Context}: project has no Uri.", context);
+                NotificationService.ShowWarning(Strings.Duplicate_Failed, Strings.Duplicate_ProjectNotSaved);
+                break;
+            case IOException:
+            case UnauthorizedAccessException:
+                _logger.LogError(ex, "Duplicate failed while {Context}: I/O error.", context);
+                NotificationService.ShowError(Strings.Duplicate_Failed, Strings.Duplicate_IOFailed);
+                break;
+            default:
+                _logger.LogError(ex, "An exception has occurred while {Context}.", context);
+                NotificationService.ShowError(MessageStrings.UnexpectedError, ex.Message);
+                break;
         }
     }
 
     private async Task PasteElement(IClipboard clipboard)
     {
-        if (await clipboard.TryGetValueAsync(BeutlDataFormats.Element) is not { } json) return;
-        if (JsonNode.Parse(json) is not JsonObject jsonObject) return;
+        if (await clipboard.TryGetValueAsync(BeutlDataFormats.Element) is not { } json)
+        {
+            _logger.LogWarning("Paste skipped: clipboard advertises Element format but returned null.");
+            return;
+        }
+        if (JsonNode.Parse(json) is not JsonObject jsonObject)
+        {
+            _logger.LogWarning("Paste skipped: clipboard Element payload is not a JsonObject. Length={Length}", json.Length);
+            return;
+        }
 
         var oldElement = new Element();
 

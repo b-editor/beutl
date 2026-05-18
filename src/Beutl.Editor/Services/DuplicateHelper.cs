@@ -1,13 +1,21 @@
 ﻿using System.Collections.Immutable;
+using Beutl.Logging;
 using Beutl.Media;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
 using Beutl.Utilities;
+using Microsoft.Extensions.Logging;
 
 namespace Beutl.Editor.Services;
 
 public static class DuplicateHelper
 {
+    private static readonly ILogger s_logger = Log.CreateLogger(typeof(DuplicateHelper));
+
+    /// <summary>
+    /// Expands the seed set to include every member of any group that overlaps it,
+    /// so partial group selections still duplicate the whole group.
+    /// </summary>
     public static HashSet<Guid> ExpandWithGroupSiblings(
         IEnumerable<Guid> seedIds,
         IEnumerable<ImmutableHashSet<Guid>> groups)
@@ -24,9 +32,11 @@ public static class DuplicateHelper
         return ids;
     }
 
-    // 配置探索のシード範囲を返す。Length は最遅 Start ではなく最遅 Range.End から
-    // 算出する: 短い末尾要素が長い先頭要素より早く終わるケースで、検索範囲が
-    // 短すぎて元クリップに被る位置を選んでしまう問題を避けるため。
+    /// <summary>
+    /// Returns the seed range for placement search. Uses the latest Range.End (not the
+    /// latest Start) so a short trailing element does not shrink the range and let the
+    /// spiral search land on top of a longer leading element.
+    /// </summary>
     public static (TimeRange Range, int MinZIndex, int MaxZIndex) ComputePlacementRange(
         IReadOnlyList<Element> elements)
     {
@@ -44,12 +54,21 @@ public static class DuplicateHelper
         return (new TimeRange(minStart, maxEnd - minStart), minZIndex, maxZIndex);
     }
 
-    // 複製要素を Scene に配置する。2-phase commit:
-    //   Phase 1: 全要素にアンカー基準で位置を割り当て、ディスクへ直列化する。
-    //            途中で失敗した場合は書き出し済みファイルを削除して例外を伝播する。
-    //   Phase 2: グループ remap と Scene.AddChild を適用する。全要素の I/O が
-    //            成功しないと Scene 状態へ反映しないため、孤児ファイル + Scene
-    //            未反映の半端状態を回避できる。
+    /// <summary>
+    /// Places duplicated elements onto the scene. <paramref name="sourceElements"/> and
+    /// <paramref name="newElements"/> use a positional zip mapping
+    /// (<c>sourceElements[i] -&gt; newElements[i]</c>); <paramref name="scene"/>.<see cref="Scene.Uri"/>
+    /// must be non-null.
+    /// </summary>
+    /// <remarks>
+    /// Two phases:
+    /// <list type="bullet">
+    /// <item>Phase 1 stages every element to disk. On failure, staged files are deleted
+    /// best-effort and the scene is left untouched.</item>
+    /// <item>Phase 2 remaps groups and calls <see cref="Scene.AddChild"/>. Not atomic:
+    /// a failure here can leave partial children and staged files behind.</item>
+    /// </list>
+    /// </remarks>
     public static void PlaceDuplicates(
         Scene scene,
         Element[] newElements,
@@ -93,19 +112,22 @@ public static class DuplicateHelper
                 stagedFiles.Add(uri.LocalPath);
             }
         }
-        catch
+        catch (Exception originalEx)
         {
-            // 既に書き出したファイルを best-effort で削除。プロジェクトフォルダに
-            // 孤児 .belm ファイルを残さない。削除自体の失敗は元の例外を覆い隠さない
-            // ようにスローしない (元の I/O エラーの方が原因として重要)。
+            // Best-effort cleanup. Don't mask the original exception with delete errors,
+            // but log them so orphan files can be tracked.
             foreach (string path in stagedFiles)
             {
                 try
                 {
                     if (File.Exists(path)) File.Delete(path);
                 }
-                catch
+                catch (Exception deleteEx)
                 {
+                    s_logger.LogWarning(
+                        deleteEx,
+                        "Failed to delete staged duplicate file during rollback; orphan file may remain. Path={Path} OriginalCause={Original}",
+                        path, originalEx.Message);
                 }
             }
 

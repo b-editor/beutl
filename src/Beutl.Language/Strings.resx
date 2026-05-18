@@ -845,6 +845,24 @@
   <data name="Duplicate_Description" xml:space="preserve">
     <value>Duplicate the selected item.</value>
   </data>
+  <data name="Duplicate_Failed" xml:space="preserve">
+    <value>Failed to duplicate</value>
+  </data>
+  <data name="Duplicate_ProjectNotSaved" xml:space="preserve">
+    <value>Save the project before duplicating clips.</value>
+  </data>
+  <data name="Duplicate_IOFailed" xml:space="preserve">
+    <value>Could not write the duplicated element to disk.</value>
+  </data>
+  <data name="Duplicate_NoEmptySlot" xml:space="preserve">
+    <value>Could not find an empty slot on the timeline; the duplicate was placed where it may overlap an existing clip.</value>
+  </data>
+  <data name="Duplicate_FallbackToMove" xml:space="preserve">
+    <value>Duplicate failed; falling back to a plain move of the original clips.</value>
+  </data>
+  <data name="Duplicate_FallbackFailed" xml:space="preserve">
+    <value>The move fallback also failed; the timeline state may not match what you see.</value>
+  </data>
   <data name="AboutBeutl" xml:space="preserve">
     <value>About Beutl</value>
   </data>

@@ -22,7 +22,8 @@ public static class ObjectRegenerator
             .Distinct()
             .ToArray();
 
-        // JsonObjectに変換
+        // ICoreObjects with a Uri serialize as a file reference by default, hiding their
+        // inner Ids from the JSON. Embed them so GuidToUtf8 can rewrite every Id.
         var jsonObject = CoreSerializer.SerializeToJsonObject(obj, new CoreSerializerOptions
         {
             Mode = CoreSerializationMode.EmbedReferencedObjects
@@ -62,6 +63,13 @@ public static class ObjectRegenerator
         }
     }
 
+    private static JsonObject ParseRegeneratedBuffer(Span<byte> buffer)
+    {
+        return JsonNode.Parse(buffer)?.AsObject()
+            ?? throw new InvalidOperationException(
+                $"ObjectRegenerator: serialized payload could not be parsed as JsonObject. Bytes={buffer.Length}");
+    }
+
     public static void Regenerate<T>(T obj, out T newInstance)
         where T : class, ICoreObject, new()
     {
@@ -70,7 +78,7 @@ public static class ObjectRegenerator
 
         Span<byte> buffer = PooledArrayBufferWriter<byte>.GetArray(output).AsSpan().Slice(0, output.WrittenCount);
 
-        JsonObject jsonObj = JsonNode.Parse(buffer)!.AsObject();
+        JsonObject jsonObj = ParseRegeneratedBuffer(buffer);
         var instance = new T();
 
         CoreSerializer.PopulateFromJsonObject(instance, jsonObj);
@@ -93,7 +101,7 @@ public static class ObjectRegenerator
         RegenerateCore(obj, output);
 
         Span<byte> buffer = PooledArrayBufferWriter<byte>.GetArray(output).AsSpan().Slice(0, output.WrittenCount);
-        JsonObject jsonObj = JsonNode.Parse(buffer)!.AsObject();
+        JsonObject jsonObj = ParseRegeneratedBuffer(buffer);
 
         var instance = (ICoreSerializable)Activator.CreateInstance(actualType)!;
         CoreSerializer.PopulateFromJsonObject(instance, actualType, jsonObj);
@@ -110,7 +118,7 @@ public static class ObjectRegenerator
 
         Span<byte> buffer = PooledArrayBufferWriter<byte>.GetArray(output).AsSpan().Slice(0, output.WrittenCount);
 
-        JsonObject jsonObj = JsonNode.Parse(buffer)!.AsObject();
+        JsonObject jsonObj = ParseRegeneratedBuffer(buffer);
         var instance = new ListWrapper<T>();
 
         CoreSerializer.PopulateFromJsonObject(instance, jsonObj);
@@ -123,7 +131,7 @@ public static class ObjectRegenerator
         Span<char> utf16 = stackalloc char[DefaultGuidStringSize];
 
         if (!id.TryFormat(utf16, out _))
-            throw new Exception("Failed to 'Guid.TryFormat'.");
+            throw new InvalidOperationException($"Failed to format Guid {id} as UTF-16 in a {DefaultGuidStringSize}-char span.");
 
         Encoding.UTF8.GetBytes(utf16, utf8);
     }

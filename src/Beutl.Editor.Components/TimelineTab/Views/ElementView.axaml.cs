@@ -543,9 +543,7 @@ public sealed partial class ElementView : UserControl
 
     private sealed class _MoveBehavior : Behavior<ElementView>
     {
-        // OnBorderPointerReleased は async void なので例外が UI スレッドの
-        // SynchronizationContext へ伝播してアプリを落としうる。ハンドラ内部で
-        // 必ず捕捉して logger + 通知へ流すためにここで logger を確保しておく。
+        // Logger for the async void handler; see OnBorderPointerReleased.
         private static readonly ILogger s_logger = Log.CreateLogger<ElementView>();
 
         private bool _pressed;
@@ -627,7 +625,7 @@ public sealed partial class ElementView : UserControl
 
         private void OnBorderPointerPressed(object? sender, PointerPressedEventArgs e)
         {
-            if (AssociatedObject is { _timeline: { }, border: { }, ViewModel: { } viewModel } view)
+            if (AssociatedObject is { _timeline: { } timeline, border: { }, ViewModel: { } viewModel } view)
             {
                 if (viewModel.Timeline.IsRazorMode.Value)
                 {
@@ -641,24 +639,32 @@ public sealed partial class ElementView : UserControl
                     _pressed = true;
                     _duplicateMode = e.KeyModifiers.HasFlag(KeyModifiers.Alt);
                     _duplicateGhostShown = false;
-                    _ghosts.Clear();
+                    // Drop any orphan ghosts left by a previous Released that took an early return.
+                    RemoveGhosts(timeline);
                     _start = point.Position;
                     e.Handled = true;
                 }
             }
         }
 
-        // AnimationRequest が例外で途中終了すると BorderMargin/Margin/Width が
-        // ドラッグ中の視覚値のまま残ってしまうので、Model 由来の正しい値で上書きする。
-        // ElementViewModel.AnimationRequest が成功時末尾でセットしている値と同じ。
+        // Snap the visual state back to the model when AnimationRequest aborts midway,
+        // otherwise margins/width stay frozen at the dragged position.
         private static void ForceRestoreVisualToModel(IEnumerable<ElementViewModel> targets)
         {
             foreach (ElementViewModel vm in targets)
             {
-                float scale = vm.Timeline.Options.Value.Scale;
-                vm.BorderMargin.Value = new Thickness(vm.Model.Start.TimeToPixel(scale), 0, 0, 0);
-                vm.Margin.Value = new Thickness(0, vm.Timeline.CalculateLayerTop(vm.Model.ZIndex), 0, 0);
-                vm.Width.Value = vm.Model.Length.TimeToPixel(scale);
+                // Never let a per-element NRE escape — we're on the async void handler path.
+                try
+                {
+                    float scale = vm.Timeline.Options.Value.Scale;
+                    vm.BorderMargin.Value = new Thickness(vm.Model.Start.TimeToPixel(scale), 0, 0, 0);
+                    vm.Margin.Value = new Thickness(0, vm.Timeline.CalculateLayerTop(vm.Model.ZIndex), 0, 0);
+                    vm.Width.Value = vm.Model.Length.TimeToPixel(scale);
+                }
+                catch (Exception ex)
+                {
+                    s_logger.LogWarning(ex, "Failed to restore visual state to model for element {Id}.", vm.Model.Id);
+                }
             }
         }
 
@@ -708,39 +714,40 @@ public sealed partial class ElementView : UserControl
                         viewModel.Timeline.DuplicateElementsAt(elems, anchorStart, anchorZIndex);
                     }
 
-                    // 旧実装は fire-and-forget で AnimationRequest を投げており、
-                    // Task 内の例外が unobserved となって視覚位置がドラッグ中のまま
-                    // 取り残されることがあった。await + 失敗時のフォールバックで防ぐ。
+                    // Must await: a fire-and-forget AnimationRequest swallows exceptions
+                    // and leaves the visual stuck at the dragged position.
                     await Task.WhenAll(
                         animations.Select(a => a.ViewModel.AnimationRequest(a.Context)));
                 }
                 catch (Exception ex)
                 {
-                    // 複製が失敗してもユーザーのドラッグ操作を捨てない: 元要素を
-                    // ドロップ位置で MoveElement として確定させる。視覚は既にドロップ
-                    // 位置にあるためアニメ不要。Move 自体も失敗した場合のみ視覚を
-                    // モデルへ強制リストアする。
+                    // Fall back to a plain move so the drag is not lost. Alt is a copy
+                    // gesture, so notify the user that we silently demoted to move.
                     s_logger.LogError(ex, "Failed to duplicate; falling back to plain move.");
-                    NotificationService.ShowError(MessageStrings.UnexpectedError, ex.Message);
+                    NotificationService.ShowError(Strings.Duplicate_Failed, ex.Message);
                     try
                     {
                         if (elems.Length > 0 && (deltaStart != TimeSpan.Zero || deltaIndex != 0))
                         {
                             viewModel.Scene.MoveChildren(deltaIndex, deltaStart, elems);
                             history.Commit(CommandNames.MoveElement);
+                            NotificationService.ShowWarning(Strings.Duplicate_Failed, Strings.Duplicate_FallbackToMove);
                         }
                     }
                     catch (Exception ex2)
                     {
                         ForceRestoreVisualToModel(animations.Select(a => a.ViewModel));
                         s_logger.LogError(ex2, "Move fallback also failed.");
+                        NotificationService.ShowError(Strings.Duplicate_Failed, Strings.Duplicate_FallbackFailed);
                     }
                 }
             }
             else if (duplicate)
             {
-                // Alt 押下でドラッグ閾値未満のまま離した = 複製なしで no-op。
-                // PointerMoved の段階で視覚を動かしている可能性があるためモデル値へ戻す。
+                // PointerMoved may have shifted the visual already; snap it back.
+                s_logger.LogDebug(
+                    "Alt+drag duplicate cancelled below threshold (deltaStart={DeltaStart}, deltaIndex={DeltaIndex}).",
+                    deltaStart, deltaIndex);
                 ForceRestoreVisualToModel(relatedElements);
             }
             else if (elems.Length == 1)
