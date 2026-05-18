@@ -592,6 +592,17 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
             error = GotoTimecodeError.OutOfRange;
             return false;
         }
+
+        TimeSpan endTime = Scene.Start + Scene.Duration - TimeSpan.FromSeconds(1d / rate);
+        if (target < Scene.Start || target > endTime)
+        {
+            _logger.LogDebug(
+                "Goto-timecode target out of scene range. ({SceneId}, Target={Target}, Range=[{Start}, {End}])",
+                _editViewModel.SceneId, target, Scene.Start, endTime);
+            error = GotoTimecodeError.OutOfRange;
+            return false;
+        }
+
         return true;
     }
 

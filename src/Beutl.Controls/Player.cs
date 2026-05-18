@@ -118,6 +118,7 @@ public class Player : RangeBase
     private ContentPresenter _contentPresenter;
     private TextBlock _currentTimeTextBlock;
     private TextBox _currentTimeTextBox;
+    private IDisposable _currentTimeTextBoxTextSubscription;
     private ICommand _playButtonCommand;
     private ICommand _nextButtonCommand;
     private ICommand _previousButtonCommand;
@@ -300,6 +301,22 @@ public class Player : RangeBase
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {
         base.OnApplyTemplate(e);
+
+        // Detach handlers / dispose subscriptions from any previous template so
+        // re-applying the template (e.g. when the control template is reassigned)
+        // doesn't double-wire handlers or leak the observable subscription.
+        if (_currentTimeTextBlock != null)
+        {
+            _currentTimeTextBlock.PointerPressed -= OnCurrentTimeTextBlockPointerPressed;
+        }
+        if (_currentTimeTextBox != null)
+        {
+            _currentTimeTextBox.KeyDown -= OnCurrentTimeTextBoxKeyDown;
+            _currentTimeTextBox.LostFocus -= OnCurrentTimeTextBoxLostFocus;
+        }
+        _currentTimeTextBoxTextSubscription?.Dispose();
+        _currentTimeTextBoxTextSubscription = null;
+
         _playButton = e.NameScope.Find<ToggleButton>("PART_PlayButton");
         _nextButton = e.NameScope.Find<RepeatButton>("PART_NextButton");
         _previousButton = e.NameScope.Find<RepeatButton>("PART_PreviousButton");
@@ -327,11 +344,13 @@ public class Player : RangeBase
             _currentTimeTextBox.IsVisible = false;
             _currentTimeTextBox.KeyDown += OnCurrentTimeTextBoxKeyDown;
             _currentTimeTextBox.LostFocus += OnCurrentTimeTextBoxLostFocus;
-            _currentTimeTextBox.GetObservable(TextBox.TextProperty).Subscribe(_ =>
-            {
-                _currentTimeTextBox.Classes.Remove("invalid");
-                ToolTip.SetTip(_currentTimeTextBox, null);
-            });
+            _currentTimeTextBoxTextSubscription = _currentTimeTextBox
+                .GetObservable(TextBox.TextProperty)
+                .Subscribe(_ =>
+                {
+                    _currentTimeTextBox.Classes.Remove("invalid");
+                    ToolTip.SetTip(_currentTimeTextBox, null);
+                });
         }
 
         _innerLeftPresenter.GetObservable(BoundsProperty).Subscribe(OnInnerLeftBoundsChanged);
