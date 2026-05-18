@@ -576,7 +576,16 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
                 Scene.Groups);
 
             var sourceVMs = Elements.Where(x => ids.Contains(x.Model.Id)).ToArray();
-            if (sourceVMs.Length == 0) return;
+            if (sourceVMs.Length == 0)
+            {
+                // SelectedElements は非空だが Elements の側で ID が解決できない
+                // = 選択モデルと VM コレクションのライフサイクルが desync している。
+                // どちらかの管理にバグがあるので警告として残す (ユーザー操作では起きない想定)。
+                _logger.LogWarning(
+                    "Duplicate skipped: selected element IDs did not resolve to Elements. Ids={Ids}",
+                    string.Join(", ", ids));
+                return;
+            }
 
             var oldElements = sourceVMs.Select(x => x.Model).ToArray();
             ObjectRegenerator.Regenerate(oldElements, out Element[] newElements);
@@ -599,7 +608,13 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
 
     internal void DuplicateElementsAt(IReadOnlyList<Element> sourceElements, TimeSpan anchorStart, int anchorZIndex)
     {
-        if (sourceElements.Count == 0) return;
+        if (sourceElements.Count == 0)
+        {
+            // Alt+drag は閾値未満のドラッグでここに来うる。通常経路なので
+            // notification は出さないが、想定外の no-op を後追いできるよう debug ログを残す。
+            _logger.LogDebug("DuplicateElementsAt skipped: sourceElements is empty.");
+            return;
+        }
 
         try
         {
