@@ -96,6 +96,147 @@ public class AnimatorInterpolateTests
     }
 
     [Test]
+    public void Int32Animator_DoesNotOverflowAtMaxValue()
+    {
+        var animator = new Int32Animator();
+        Assert.That(animator.Interpolate(1f, 0, int.MaxValue), Is.EqualTo(int.MaxValue));
+        Assert.That(animator.Interpolate(0f, int.MaxValue, 0), Is.EqualTo(int.MaxValue));
+    }
+
+    [Test]
+    public void Int32Animator_FullRangeMidpoint()
+    {
+        var animator = new Int32Animator();
+        // double 補間: -2^31 + (2^32 - 1) * 0.5 = -0.5 → Math.Round 既定 (ToEven) → 0
+        Assert.That(animator.Interpolate(0.5f, int.MinValue, int.MaxValue), Is.EqualTo(0));
+    }
+
+    [Test]
+    public void Int32Animator_RoundsMidpointToEven()
+    {
+        var animator = new Int32Animator();
+        // Math.Round 既定 (ToEven): 0.5 → 0 (偶数寄り)。
+        // ByteAnimator/Int16Animator など他の整数 Animator と一貫する。
+        Assert.That(animator.Interpolate(0.5f, 0, 1), Is.EqualTo(0));
+        // Math.Round 既定 (ToEven): -0.5 → 0
+        Assert.That(animator.Interpolate(0.5f, -1, 0), Is.EqualTo(0));
+    }
+
+    [Test]
+    public void Int64Animator_DoesNotOverflowAtMaxValue()
+    {
+        var animator = new Int64Animator();
+        Assert.That(animator.Interpolate(1f, 0L, long.MaxValue), Is.EqualTo(long.MaxValue));
+        Assert.That(animator.Interpolate(0f, long.MaxValue, 0L), Is.EqualTo(long.MaxValue));
+    }
+
+    [Test]
+    public void Int64Animator_PreservesPrecisionForLargeValues()
+    {
+        var animator = new Int64Animator();
+        // 旧実装は (float)long.MaxValue で正規化するため、結果が float の精度に丸まり
+        // 入力の絶対値とは無関係に誤差が乗る (この入力では 1024 ずれて 49_999_998_976L を返す)。
+        // 新実装の double 補間では完全に一致する。
+        Assert.That(animator.Interpolate(0.5f, 0L, 100_000_000_000L), Is.EqualTo(50_000_000_000L));
+    }
+
+    [Test]
+    public void UInt32Animator_DoesNotOverflowAtMaxValue()
+    {
+        var animator = new UInt32Animator();
+        Assert.That(animator.Interpolate(1f, 0u, uint.MaxValue), Is.EqualTo(uint.MaxValue));
+    }
+
+    [Test]
+    public void UInt64Animator_DoesNotOverflowAtMaxValue()
+    {
+        var animator = new UInt64Animator();
+        Assert.That(animator.Interpolate(1f, 0ul, ulong.MaxValue), Is.EqualTo(ulong.MaxValue));
+    }
+
+    [Test]
+    public void UInt64Animator_DoesNotUnderflowOnReverseInterpolation()
+    {
+        var animator = new UInt64Animator();
+        // newValue < oldValue でも ulong 直接減算による underflow を起こさず、
+        // 中点近傍の値を返すこと (double 精度の許容差あり)。
+        var result = animator.Interpolate(0.5f, ulong.MaxValue, 0ul);
+        const ulong expected = ulong.MaxValue / 2;
+        // double の有効精度は 53bit (仮数 52bit + 暗黙の先頭 1bit)。
+        // ulong.MaxValue 近傍の 1 ULP は 2^(64-53) = 2048 なので 2 ULP 分の許容差。
+        Assert.That(result, Is.GreaterThan(expected - 4096ul).And.LessThan(expected + 4096ul));
+    }
+
+    [Test]
+    public void Int32Animator_ClampsOnRangeOvershoot()
+    {
+        var animator = new Int32Animator();
+        // progress > 1 (Back/Elastic 系イージング由来の overshoot) で int.MaxValue を超える
+        Assert.That(animator.Interpolate(2f, 0, int.MaxValue), Is.EqualTo(int.MaxValue));
+        // progress < 0 で int.MinValue を下回る
+        Assert.That(animator.Interpolate(-2f, 0, int.MaxValue), Is.EqualTo(int.MinValue));
+    }
+
+    [Test]
+    public void Int32Animator_ReverseFullRange()
+    {
+        var animator = new Int32Animator();
+        // 逆方向フルレンジの境界 (progress=1) で newValue に到達することを確認。
+        Assert.That(animator.Interpolate(1f, int.MaxValue, int.MinValue), Is.EqualTo(int.MinValue));
+    }
+
+    [Test]
+    public void Int64Animator_ClampsOnRangeOvershoot()
+    {
+        var animator = new Int64Animator();
+        Assert.That(animator.Interpolate(2f, 0L, long.MaxValue), Is.EqualTo(long.MaxValue));
+        Assert.That(animator.Interpolate(-2f, 0L, long.MaxValue), Is.EqualTo(long.MinValue));
+    }
+
+    [Test]
+    public void Int64Animator_ReverseFullRange()
+    {
+        var animator = new Int64Animator();
+        Assert.That(animator.Interpolate(1f, long.MaxValue, long.MinValue), Is.EqualTo(long.MinValue));
+    }
+
+    [Test]
+    public void UInt32Animator_ClampsOnRangeOvershoot()
+    {
+        var animator = new UInt32Animator();
+        // progress < 0 で v が負になっても Clamp で 0
+        Assert.That(animator.Interpolate(-2f, 100u, 200u), Is.EqualTo(0u));
+        Assert.That(animator.Interpolate(2f, 0u, uint.MaxValue), Is.EqualTo(uint.MaxValue));
+    }
+
+    [Test]
+    public void UInt64Animator_ClampsOnRangeOvershoot()
+    {
+        var animator = new UInt64Animator();
+        Assert.That(animator.Interpolate(-2f, 100ul, 200ul), Is.EqualTo(0ul));
+        Assert.That(animator.Interpolate(2f, 0ul, ulong.MaxValue), Is.EqualTo(ulong.MaxValue));
+    }
+
+    [Test]
+    public void Int64Animator_PreservesExactEndpointNearMaxValue()
+    {
+        var animator = new Int64Animator();
+        // double 経由では long.MaxValue - 1 が 2^63 に丸まり long.MaxValue として扱われる。
+        // progress=0/1 では oldValue/newValue を正確に返すこと。
+        Assert.That(animator.Interpolate(0f, long.MaxValue - 1, 0L), Is.EqualTo(long.MaxValue - 1));
+        Assert.That(animator.Interpolate(1f, 0L, long.MaxValue - 1), Is.EqualTo(long.MaxValue - 1));
+        Assert.That(animator.Interpolate(0f, long.MinValue + 1, 0L), Is.EqualTo(long.MinValue + 1));
+    }
+
+    [Test]
+    public void UInt64Animator_PreservesExactEndpointNearMaxValue()
+    {
+        var animator = new UInt64Animator();
+        Assert.That(animator.Interpolate(0f, ulong.MaxValue - 1, 0ul), Is.EqualTo(ulong.MaxValue - 1));
+        Assert.That(animator.Interpolate(1f, 0ul, ulong.MaxValue - 1), Is.EqualTo(ulong.MaxValue - 1));
+    }
+
+    [Test]
     [TestCase(0f, false, false, false)]
     [TestCase(0.49f, false, true, false)]
     [TestCase(0.5f, false, true, false)]

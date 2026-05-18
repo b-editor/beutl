@@ -4,11 +4,11 @@ public sealed class Int32Animator : Animator<int>
 {
     public override int Interpolate(float progress, int oldValue, int newValue)
     {
-        const float maxVal = int.MaxValue;
-
-        var normOV = oldValue / maxVal;
-        var normNV = newValue / maxVal;
-        var deltaV = normNV - normOV;
-        return (int)MathF.Round(maxVal * ((deltaV * progress) + normOV));
+        // 32bit 値も Math.Clamp の上下限 (int.MinValue/int.MaxValue) も double で正確に
+        // 表現できるため、Int64Animator のような progress=0/1 の早期 return や自前飽和は不要。
+        // 丸めは Math.Round 既定 (ToEven) のままにし、ByteAnimator/Int16Animator など他の整数 Animator と挙動を一致させる。
+        double delta = (double)newValue - oldValue;
+        double v = oldValue + delta * progress;
+        return (int)Math.Round(Math.Clamp(v, int.MinValue, int.MaxValue));
     }
 }
