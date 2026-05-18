@@ -112,6 +112,16 @@ public class AnimatorInterpolateTests
     }
 
     [Test]
+    public void Int32Animator_RoundsMidpointAwayFromZero()
+    {
+        var animator = new Int32Animator();
+        // MidpointRounding.AwayFromZero: 0.5 → 1 (ToEven なら 0)
+        Assert.That(animator.Interpolate(0.5f, 0, 1), Is.EqualTo(1));
+        // MidpointRounding.AwayFromZero: -0.5 → -1 (ToEven なら 0)
+        Assert.That(animator.Interpolate(0.5f, -1, 0), Is.EqualTo(-1));
+    }
+
+    [Test]
     public void Int64Animator_DoesNotOverflowAtMaxValue()
     {
         var animator = new Int64Animator();
@@ -123,9 +133,9 @@ public class AnimatorInterpolateTests
     public void Int64Animator_PreservesPrecisionForLargeValues()
     {
         var animator = new Int64Animator();
-        // 旧 float ベース実装では (float)long.MaxValue で正規化するため 1e11 付近で
-        // ~1024 程度の誤差が出る (旧実装は 49_999_998_976L を返す)。新実装の double
-        // 補間では完全に一致する。
+        // 旧実装は (float)long.MaxValue で正規化するため、結果が float の精度に丸まり
+        // 入力の絶対値とは無関係に誤差が乗る (この入力では 1024 ずれて 49_999_998_976L を返す)。
+        // 新実装の double 補間では完全に一致する。
         Assert.That(animator.Interpolate(0.5f, 0L, 100_000_000_000L), Is.EqualTo(50_000_000_000L));
     }
 
