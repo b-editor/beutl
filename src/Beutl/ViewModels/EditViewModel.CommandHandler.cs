@@ -216,10 +216,16 @@ public partial class EditViewModel : IContextCommandHandler, IContextCommandStat
     {
         TimeSpan current = _editorClock.CurrentTime.Value;
 
-        // 探索範囲のフォールバックチェーン: 選択中の Element → 直近の親 Element → Scene 全 Element (いずれか1つのみ)
+        // 探索範囲のフォールバックチェーン: 選択中の Element → 直近の親 Element → Scene 全 Element (Scene のみ複数 root)
         CoreObject? sel = _editorSelection.SelectedObject.Value;
         Element? scope = sel as Element
             ?? (sel as IHierarchical)?.FindHierarchicalParent<Element>();
+        if (sel != null && scope == null)
+        {
+            _logger.LogDebug(
+                "Key frame seek: selection ({Type}) could not be resolved to an Element; falling back to scene-wide search.",
+                sel.GetType().Name);
+        }
         IReadOnlyList<Element> roots = scope != null
             ? new[] { scope }
             : Scene.Children.ToArray();
@@ -233,11 +239,11 @@ public partial class EditViewModel : IContextCommandHandler, IContextCommandStat
             foreach (KeyFrameAnimation anim in EnumerateKeyFrameAnimations(el))
             {
                 // UseGlobalClock=false の場合、KeyFrameAnimation<T>.GetAnimatedValue は直近の親
-                // EngineObject.TimeRange.Start でローカル時刻を解釈する (KeyFrameAnimation{T}.cs:35)。
-                // time-anchored で Element.Start とズレるケースに備え、実際の owner から offset を取る。
+                // EngineObject.TimeRange.Start でローカル時刻を解釈する。実際の owner から offset を取り、
+                // owner が見つからない場合は GetAnimatedValue の挙動 (_parent==null 時はグローバル扱い) に揃える。
                 TimeSpan offset = anim.UseGlobalClock
                     ? TimeSpan.Zero
-                    : anim.FindHierarchicalParent<EngineObject>()?.TimeRange.Start ?? el.Start;
+                    : anim.FindHierarchicalParent<EngineObject>()?.TimeRange.Start ?? TimeSpan.Zero;
                 foreach (IKeyFrame kf in anim.KeyFrames)
                 {
                     TimeSpan time = kf.KeyTime + offset;
