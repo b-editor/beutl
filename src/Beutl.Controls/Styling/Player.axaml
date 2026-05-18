@@ -55,6 +55,7 @@
                                  Padding="4,2"
                                  HorizontalAlignment="Left"
                                  VerticalAlignment="Center"
+                                 controls:TextBoxAttachment.EnterDownBehavior="None"
                                  FontWeight="SemiBold"
                                  IsVisible="False" />
 
