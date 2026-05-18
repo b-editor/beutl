@@ -282,32 +282,37 @@ public partial class PlayerView : UserControl
         }
 
         double frameScale = image.Bounds.Width / scene.FrameSize.Width;
-        // An Element with multiple Drawables can have the overlay and OnPressedHitTest (zindex resolution)
-        // pick different Drawables, so leave a Debug log so this is observable.
-        var drawables = element.Objects.OfType<BtlDrawable>();
+        // Prefer the last hit-tested drawable so the overlay tracks the visual object the user actually
+        // clicked on. Without this, an Element with multiple drawables would always show handles around
+        // the first one, even after hit-testing resolves a different one.
+        BtlDrawable? hitTested = null;
+        if (_lastSelected.TryGetTarget(out BtlDrawable? cached))
+        {
+            hitTested = cached;
+        }
         BtlDrawable? drawable = null;
         int drawableCount = 0;
-        foreach (BtlDrawable d in drawables)
+        foreach (BtlDrawable d in element.Objects.OfType<BtlDrawable>())
         {
             if (drawableCount == 0) drawable = d;
+            if (ReferenceEquals(d, hitTested))
+            {
+                drawable = d;
+                drawableCount = -1; // marker: matched the cached selection, no need to keep iterating
+                break;
+            }
             drawableCount++;
-            if (drawableCount > 1) break;
+            if (drawableCount > 16) break; // cap iteration; multi-drawable elements rarely exceed this
         }
         if (drawable == null)
         {
             ClearTransformHandleOverlay();
             return;
         }
-        if (drawableCount > 1 && _logger.IsEnabled(LogLevel.Debug))
-        {
-            _logger.LogDebug(
-                "UpdateTransformHandles: element '{Element}' has multiple Drawables; overlay uses the first ({DrawableType}). hit-test may target a different one.",
-                element.Name, drawable.GetType().Name);
-        }
 
         // Build an independent Resource on RenderThread and compute userMatrix / localSize / pivot
         // (evaluate animations against the ctx time, without depending on the renderer's cached render node).
-        (BtlSize localSize, BtlMatrix userMatrix, BtlPoint pivotLocal)? snap = null;
+        (BtlSize localSize, BtlMatrix userMatrix, BtlPoint pivotLocal)? snap;
         try
         {
             BtlDrawable target = drawable;
@@ -319,11 +324,10 @@ public partial class PlayerView : UserControl
                 if (bounds is not { Width: > 0, Height: > 0 }) return null;
 
                 var ctx = new CompositionContext(ctxTime);
-                BtlDrawable.Resource resource;
                 if (_transformHandleResource == null || _transformHandleResourceTarget != target)
                 {
                     _transformHandleResource?.Dispose();
-                    _transformHandleResource = (BtlDrawable.Resource)target.ToResource(ctx);
+                    _transformHandleResource = target.ToResource(ctx);
                     _transformHandleResourceTarget = target;
                 }
                 else
@@ -332,7 +336,7 @@ public partial class PlayerView : UserControl
                     bool updateOnly = true;
                     _transformHandleResource.Update(target, ctx, ref updateOnly);
                 }
-                resource = _transformHandleResource;
+                BtlDrawable.Resource? resource = _transformHandleResource;
 
                 BtlSize localSize = target.MeasureInternal(availableSize, resource);
                 if (localSize.Width <= 0 || localSize.Height <= 0) return null;

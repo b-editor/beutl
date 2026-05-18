@@ -215,6 +215,10 @@ public partial class PlayerView
         private PressState? _press;
         private EnsuredState? _ensured;
 
+        // Stored so that ResetSession can release the capture during normal or aborted teardown.
+        // Without releasing, framePanel would keep stealing pointer events from sibling controls after the drag.
+        private IPointer? _capturedPointer;
+
         // _changed is drag-scoped (cleared by ResetSession); _shift stays live outside of a drag too
         // (synced from KeyDown/Up and pointer-event KeyModifiers, reset to false only in OnReleased).
         private bool _changed;
@@ -323,6 +327,7 @@ public partial class PlayerView
             // framePanel. Without this, releasing outside the control would leave _press dangling
             // and subsequent re-entries would mutate the Transform without a held button.
             e.Pointer.Capture(View.framePanel);
+            _capturedPointer = e.Pointer;
 
             e.Handled = true;
         }
@@ -429,6 +434,7 @@ public partial class PlayerView
             // Capture the pointer so a translate drag started here still delivers Released even when
             // the cursor leaves framePanel during the drag.
             e.Pointer.Capture(View.framePanel);
+            _capturedPointer = e.Pointer;
 
             e.Handled = true;
 
@@ -874,11 +880,23 @@ public partial class PlayerView
         //   - successful Release after Commit: Rollback becomes a no-op because Commit already cleared the current transaction.
         //   - abort/discard paths (AbortDrag, OnReleased discard branch): pending Ensure-driven structure changes and
         //     handle-applied deltas would otherwise leak into the next unrelated Commit, breaking undo grouping.
+        // Also releases any pointer capture taken in OnPressed; otherwise framePanel keeps stealing
+        // pointer events from sibling controls after the drag ends (capture does NOT auto-release on button up).
         private void ResetSession()
         {
             if (_changed || _ensured != null)
             {
                 EditViewModel.HistoryManager.Rollback();
+            }
+            if (_capturedPointer != null)
+            {
+                // Capture(null) when the captured target is still framePanel; the PointerCaptureLost
+                // path may already have done the release for us, so guard against double-clearing.
+                if (ReferenceEquals(_capturedPointer.Captured, View.framePanel))
+                {
+                    _capturedPointer.Capture(null);
+                }
+                _capturedPointer = null;
             }
             _press = null;
             _ensured = null;
