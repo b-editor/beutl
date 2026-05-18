@@ -825,6 +825,9 @@
   <data name="GotoTimecode_Description" xml:space="preserve">
     <value>現在のタイムコードを編集して再生ヘッドを移動します。絶対時刻 (00:01:23.45)、フレーム (60f / #60)、相対 (+5s / -10f / +1m)、マーカー名 (@Intro) を受け付けます。</value>
   </data>
+  <data name="GotoTimecode_InputHint" xml:space="preserve">
+    <value>00:01:23 / 60f / +5s / @マーカー</value>
+  </data>
   <data name="GotoTimecode_InvalidFormat" xml:space="preserve">
     <value>タイムコードの形式が無効です。</value>
   </data>

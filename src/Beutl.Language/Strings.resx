@@ -830,6 +830,9 @@
   <data name="GotoTimecode_Description" xml:space="preserve">
     <value>Edit the current timecode to seek. Accepts absolute (00:01:23.45), frame (60f or #60), relative (+5s/-10f/+1m) or marker name (@Intro).</value>
   </data>
+  <data name="GotoTimecode_InputHint" xml:space="preserve">
+    <value>00:01:23 / 60f / +5s / @marker</value>
+  </data>
   <data name="GotoTimecode_InvalidFormat" xml:space="preserve">
     <value>Invalid timecode format.</value>
   </data>

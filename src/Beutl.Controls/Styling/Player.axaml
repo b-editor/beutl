@@ -2,6 +2,7 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                     xmlns:controls="using:Beutl.Controls"
                     xmlns:icons="using:FluentIcons.FluentAvalonia"
+                    xmlns:lang="using:Beutl.Language"
                     xmlns:ui="using:FluentAvalonia.UI.Controls">
     <Design.PreviewWith>
         <controls:Player Width="600"
@@ -57,7 +58,8 @@
                                  VerticalAlignment="Center"
                                  controls:TextBoxAttachment.EnterDownBehavior="None"
                                  FontWeight="SemiBold"
-                                 IsVisible="False" />
+                                 IsVisible="False"
+                                 Watermark="{x:Static lang:Strings.GotoTimecode_InputHint}" />
 
                         <TextBlock Name="PART_DurationTextBlock"
                                    Grid.Row="1"
