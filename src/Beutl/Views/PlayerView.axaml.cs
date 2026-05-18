@@ -1,4 +1,8 @@
-﻿using Avalonia;
+﻿using System.Collections.Specialized;
+using System.ComponentModel;
+using System.Globalization;
+
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Data;
 using Avalonia.Input;
@@ -238,6 +242,15 @@ public partial class PlayerView : UserControl
                 .Subscribe(_ => Player.BeginEditCurrentTime())
                 .DisposeWith(_disposables);
 
+            if (vm.Scene is { } scene)
+            {
+                WirePlayerMarkers(scene).DisposeWith(_disposables);
+            }
+            else
+            {
+                Player.Markers = Array.Empty<PlayerMarkerEntry>();
+            }
+
             vm.FrameMatrix
                 .ObserveOnUIDispatcher()
                 .Select(matrix => (matrix, image, framePanel.Children?.FirstOrDefault()!))
@@ -441,6 +454,89 @@ public partial class PlayerView : UserControl
             _transformHandleResource = null;
             _transformHandleResourceTarget = null;
         });
+    }
+
+    private IDisposable WirePlayerMarkers(Scene scene)
+    {
+        var disposables = new CompositeDisposable();
+        var markerSubscriptions = new Dictionary<SceneMarker, IDisposable>();
+
+        void Refresh()
+        {
+            var snapshot = new PlayerMarkerEntry[scene.Markers.Count];
+            for (int i = 0; i < scene.Markers.Count; i++)
+            {
+                SceneMarker m = scene.Markers[i];
+                snapshot[i] = new PlayerMarkerEntry(
+                    m.Name ?? string.Empty,
+                    // Player の CurrentTime 表示 (hh\:mm\:ss\.ff) と桁を揃える。
+                    m.Time.ToString(@"hh\:mm\:ss\.ff", CultureInfo.InvariantCulture));
+            }
+            Player.Markers = snapshot;
+        }
+
+        void Subscribe(SceneMarker marker)
+        {
+            if (markerSubscriptions.ContainsKey(marker)) return;
+            void OnMarkerPropertyChanged(object? s, PropertyChangedEventArgs e)
+            {
+                if (e.PropertyName == nameof(SceneMarker.Name)
+                    || e.PropertyName == nameof(SceneMarker.Time))
+                {
+                    Refresh();
+                }
+            }
+            marker.PropertyChanged += OnMarkerPropertyChanged;
+            markerSubscriptions[marker] = Disposable.Create(
+                () => marker.PropertyChanged -= OnMarkerPropertyChanged);
+        }
+
+        void Unsubscribe(SceneMarker marker)
+        {
+            if (markerSubscriptions.Remove(marker, out IDisposable? sub))
+            {
+                sub.Dispose();
+            }
+        }
+
+        foreach (SceneMarker marker in scene.Markers)
+        {
+            Subscribe(marker);
+        }
+
+        void OnCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+        {
+            if (e.OldItems != null)
+            {
+                foreach (object? item in e.OldItems)
+                {
+                    if (item is SceneMarker marker) Unsubscribe(marker);
+                }
+            }
+            if (e.NewItems != null)
+            {
+                foreach (object? item in e.NewItems)
+                {
+                    if (item is SceneMarker marker) Subscribe(marker);
+                }
+            }
+            Refresh();
+        }
+
+        scene.Markers.CollectionChanged += OnCollectionChanged;
+        disposables.Add(Disposable.Create(
+            () => scene.Markers.CollectionChanged -= OnCollectionChanged));
+        disposables.Add(Disposable.Create(() =>
+        {
+            foreach (IDisposable sub in markerSubscriptions.Values)
+            {
+                sub.Dispose();
+            }
+            markerSubscriptions.Clear();
+        }));
+
+        Refresh();
+        return disposables;
     }
 
     private void Player_PreviewInvalidated(object? sender, EventArgs e)

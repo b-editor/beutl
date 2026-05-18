@@ -61,6 +61,44 @@
                                  IsVisible="False"
                                  Watermark="{x:Static lang:Strings.GotoTimecode_InputHint}" />
 
+                        <Popup Name="PART_MarkerPopup"
+                               Grid.Row="1"
+                               IsLightDismissEnabled="False"
+                               Placement="Top"
+                               PlacementTarget="{Binding ElementName=PART_CurrentTimeTextBox}">
+                            <Border Padding="0"
+                                    Background="{DynamicResource SolidBackgroundFillColorBaseBrush}"
+                                    BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
+                                    BorderThickness="1"
+                                    BoxShadow="0 4 16 0 #40000000"
+                                    CornerRadius="4">
+                                <ListBox Name="PART_MarkerListBox"
+                                         MinWidth="200"
+                                         MaxHeight="240"
+                                         Background="Transparent"
+                                         BorderThickness="0"
+                                         Focusable="False">
+                                    <ListBox.ItemTemplate>
+                                        <DataTemplate x:DataType="controls:PlayerMarkerEntry">
+                                            <Grid ColumnDefinitions="*,Auto">
+                                                <TextBlock Grid.Column="0"
+                                                           FontWeight="SemiBold"
+                                                           Text="{Binding Name}"
+                                                           VerticalAlignment="Center"
+                                                           TextTrimming="CharacterEllipsis" />
+                                                <TextBlock Grid.Column="1"
+                                                           Margin="12,0,0,0"
+                                                           FontSize="11"
+                                                           VerticalAlignment="Center"
+                                                           Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                                           Text="{Binding TimeText}" />
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ListBox.ItemTemplate>
+                                </ListBox>
+                            </Border>
+                        </Popup>
+
                         <TextBlock Name="PART_DurationTextBlock"
                                    Grid.Row="1"
                                    HorizontalAlignment="Right"

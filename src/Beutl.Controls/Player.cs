@@ -7,6 +7,7 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Data;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.VisualTree;
 
 using Microsoft.Extensions.Logging;
 
@@ -102,6 +103,9 @@ public class Player : RangeBase
             owner => owner.StartButtonCommand,
             (owner, obj) => owner.StartButtonCommand = obj);
 
+    public static readonly StyledProperty<IReadOnlyList<PlayerMarkerEntry>> MarkersProperty =
+        AvaloniaProperty.Register<Player, IReadOnlyList<PlayerMarkerEntry>>(nameof(Markers));
+
     private static readonly ILogger s_logger = Beutl.Logging.Log.CreateLogger<Player>();
 
     private string _currentTime = string.Empty;
@@ -119,6 +123,9 @@ public class Player : RangeBase
     private TextBlock _currentTimeTextBlock;
     private TextBox _currentTimeTextBox;
     private IDisposable _currentTimeTextBoxTextSubscription;
+    private Popup _markerPopup;
+    private ListBox _markerListBox;
+    private IDisposable _markersChangeSubscription;
     private ICommand _playButtonCommand;
     private ICommand _nextButtonCommand;
     private ICommand _previousButtonCommand;
@@ -199,6 +206,12 @@ public class Player : RangeBase
         set => SetAndRaise(StartButtonCommandProperty, ref _startButtonCommand, value);
     }
 
+    public IReadOnlyList<PlayerMarkerEntry> Markers
+    {
+        get => GetValue(MarkersProperty);
+        set => SetValue(MarkersProperty, value);
+    }
+
     public void SetSeekBarOpacity(double opacity)
     {
         if (_slider != null)
@@ -228,6 +241,7 @@ public class Player : RangeBase
         {
             _currentTimeTextBlock.IsVisible = false;
         }
+        CloseMarkerPopup();
         _currentTimeTextBox.Focus();
         _currentTimeTextBox.SelectAll();
     }
@@ -242,6 +256,70 @@ public class Player : RangeBase
         {
             _currentTimeTextBlock.IsVisible = true;
         }
+        CloseMarkerPopup();
+    }
+
+    private void CloseMarkerPopup()
+    {
+        if (_markerPopup != null)
+        {
+            _markerPopup.IsOpen = false;
+        }
+    }
+
+    private bool IsMarkerPopupOpen => _markerPopup != null && _markerPopup.IsOpen;
+
+    private void UpdateMarkerPopup(string text)
+    {
+        if (_markerPopup == null || _markerListBox == null) return;
+        if (string.IsNullOrEmpty(text) || text[0] != '@')
+        {
+            _markerPopup.IsOpen = false;
+            return;
+        }
+
+        // Match the prefix-trimming rule used by GotoTimecodeParser.TryParseMarker
+        // so the popup never lists an entry the parser would reject.
+        string prefix = text.Substring(1).TrimStart();
+        IReadOnlyList<PlayerMarkerEntry> source = Markers;
+        if (source == null || source.Count == 0)
+        {
+            _markerPopup.IsOpen = false;
+            return;
+        }
+
+        var filtered = new List<PlayerMarkerEntry>(source.Count);
+        for (int i = 0; i < source.Count; i++)
+        {
+            PlayerMarkerEntry m = source[i];
+            if (m == null) continue;
+            string name = m.Name ?? string.Empty;
+            if (prefix.Length == 0
+                || name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            {
+                filtered.Add(m);
+            }
+        }
+
+        if (filtered.Count == 0)
+        {
+            _markerPopup.IsOpen = false;
+            return;
+        }
+
+        _markerListBox.ItemsSource = filtered;
+        _markerListBox.SelectedIndex = 0;
+        _markerPopup.IsOpen = true;
+    }
+
+    private void CommitMarkerSelection()
+    {
+        if (_markerListBox == null || _currentTimeTextBox == null) return;
+        if (_markerListBox.SelectedItem is not PlayerMarkerEntry selected) return;
+
+        _currentTimeTextBox.Text = "@" + (selected.Name ?? string.Empty);
+        _markerPopup.IsOpen = false;
+        SubmitCurrentTimeEdit();
     }
 
     private void SubmitCurrentTimeEdit()
@@ -314,8 +392,14 @@ public class Player : RangeBase
             _currentTimeTextBox.KeyDown -= OnCurrentTimeTextBoxKeyDown;
             _currentTimeTextBox.LostFocus -= OnCurrentTimeTextBoxLostFocus;
         }
+        if (_markerListBox != null)
+        {
+            _markerListBox.PointerReleased -= OnMarkerListBoxPointerReleased;
+        }
         _currentTimeTextBoxTextSubscription?.Dispose();
         _currentTimeTextBoxTextSubscription = null;
+        _markersChangeSubscription?.Dispose();
+        _markersChangeSubscription = null;
 
         _playButton = e.NameScope.Find<ToggleButton>("PART_PlayButton");
         _nextButton = e.NameScope.Find<RepeatButton>("PART_NextButton");
@@ -327,6 +411,8 @@ public class Player : RangeBase
         _contentPresenter = e.NameScope.Find<ContentPresenter>("ContentPresenter");
         _currentTimeTextBlock = e.NameScope.Find<TextBlock>("PART_CurrentTimeTextBlock");
         _currentTimeTextBox = e.NameScope.Find<TextBox>("PART_CurrentTimeTextBox");
+        _markerPopup = e.NameScope.Find<Popup>("PART_MarkerPopup");
+        _markerListBox = e.NameScope.Find<ListBox>("PART_MarkerListBox");
 
         _playButton.Click += (s, e) => PlayButtonCommand?.Execute(null);
         _nextButton.Click += (s, e) => NextButtonCommand?.Execute(null);
@@ -346,12 +432,35 @@ public class Player : RangeBase
             _currentTimeTextBox.LostFocus += OnCurrentTimeTextBoxLostFocus;
             _currentTimeTextBoxTextSubscription = _currentTimeTextBox
                 .GetObservable(TextBox.TextProperty)
-                .Subscribe(_ =>
+                .Subscribe(text =>
                 {
                     _currentTimeTextBox.Classes.Remove("invalid");
                     ToolTip.SetTip(_currentTimeTextBox, null);
+                    // TextBox が非表示の間（編集モード外）のスプリアス通知でポップアップを開かない。
+                    if (_currentTimeTextBox.IsVisible)
+                    {
+                        UpdateMarkerPopup(text);
+                    }
                 });
         }
+
+        if (_markerListBox != null)
+        {
+            _markerListBox.PointerReleased += OnMarkerListBoxPointerReleased;
+        }
+
+        // マーカーソースが差し替わったら現在の入力に基づいて再フィルタする。
+        _markersChangeSubscription = this.GetObservable(MarkersProperty).Subscribe(_ =>
+        {
+            if (_currentTimeTextBox != null && _currentTimeTextBox.IsVisible)
+            {
+                UpdateMarkerPopup(_currentTimeTextBox.Text);
+            }
+            else
+            {
+                CloseMarkerPopup();
+            }
+        });
 
         _innerLeftPresenter.GetObservable(BoundsProperty).Subscribe(OnInnerLeftBoundsChanged);
     }
@@ -367,6 +476,33 @@ public class Player : RangeBase
 
     private void OnCurrentTimeTextBoxKeyDown(object sender, KeyEventArgs e)
     {
+        // IME 変換中のキー入力は IME に委ね、ポップアップ操作・確定処理に横取りしない。
+        if (e.Key == Key.ImeProcessed) return;
+
+        if (IsMarkerPopupOpen)
+        {
+            switch (e.Key)
+            {
+                case Key.Down:
+                    MoveMarkerSelection(1);
+                    e.Handled = true;
+                    return;
+                case Key.Up:
+                    MoveMarkerSelection(-1);
+                    e.Handled = true;
+                    return;
+                case Key.Enter:
+                    CommitMarkerSelection();
+                    e.Handled = true;
+                    return;
+                case Key.Escape:
+                    // ポップアップだけ閉じ、編集モードは継続する。
+                    CloseMarkerPopup();
+                    e.Handled = true;
+                    return;
+            }
+        }
+
         if (e.Key == Key.Enter)
         {
             SubmitCurrentTimeEdit();
@@ -377,6 +513,48 @@ public class Player : RangeBase
             EndEditCurrentTime();
             e.Handled = true;
         }
+    }
+
+    private void MoveMarkerSelection(int delta)
+    {
+        if (_markerListBox == null) return;
+        int count = _markerListBox.ItemCount;
+        if (count == 0) return;
+        int current = _markerListBox.SelectedIndex;
+        int next = Math.Clamp(current + delta, 0, count - 1);
+        if (next != current)
+        {
+            _markerListBox.SelectedIndex = next;
+        }
+        if (_markerListBox.SelectedItem is { } item)
+        {
+            _markerListBox.ScrollIntoView(item);
+        }
+    }
+
+    private void OnMarkerListBoxPointerReleased(object sender, PointerReleasedEventArgs e)
+    {
+        if (e.InitialPressMouseButton != MouseButton.Left) return;
+        if (e.Source is not Visual source) return;
+
+        // 起点アイテム経由で取得することで、SelectedItem 反映前のクリックでも誤確定しない。
+        ListBoxItem item = FindListBoxItem(source);
+        if (item == null || item.DataContext is not PlayerMarkerEntry entry) return;
+
+        _markerListBox.SelectedItem = entry;
+        e.Handled = true;
+        CommitMarkerSelection();
+    }
+
+    private static ListBoxItem FindListBoxItem(Visual source)
+    {
+        Visual current = source;
+        while (current != null)
+        {
+            if (current is ListBoxItem item) return item;
+            current = current.GetVisualParent();
+        }
+        return null;
     }
 
     private void OnCurrentTimeTextBoxLostFocus(object sender, RoutedEventArgs e)
