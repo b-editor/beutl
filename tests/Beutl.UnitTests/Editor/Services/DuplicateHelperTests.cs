@@ -194,6 +194,73 @@ public class DuplicateHelperTests
     }
 
     [Test]
+    public void WouldOverlapSources_ReturnsTrue_WhenAnchorLandsInsideSource()
+    {
+        // Single 5s clip at t=0..5 on layer 0. Anchor at t=3 → new range 3..8 still
+        // overlaps the original on the same layer.
+        Element a = CreateElement(TimeSpan.FromSeconds(0), TimeSpan.FromSeconds(5), zIndex: 0);
+
+        bool result = DuplicateHelper.WouldOverlapSources([a], TimeSpan.FromSeconds(3), anchorZIndex: 0);
+
+        ClassicAssert.IsTrue(result);
+    }
+
+    [Test]
+    public void WouldOverlapSources_ReturnsFalse_WhenAnchorIsExactlyAtSourceEnd()
+    {
+        // [0,5) and [5,10) on layer 0 are adjacent but not intersecting.
+        Element a = CreateElement(TimeSpan.FromSeconds(0), TimeSpan.FromSeconds(5), zIndex: 0);
+
+        bool result = DuplicateHelper.WouldOverlapSources([a], TimeSpan.FromSeconds(5), anchorZIndex: 0);
+
+        ClassicAssert.IsFalse(result);
+    }
+
+    [Test]
+    public void WouldOverlapSources_ReturnsFalse_WhenLayerDiffers()
+    {
+        // Same time range but different ZIndex — no overlap.
+        Element a = CreateElement(TimeSpan.FromSeconds(0), TimeSpan.FromSeconds(5), zIndex: 0);
+
+        bool result = DuplicateHelper.WouldOverlapSources([a], TimeSpan.FromSeconds(0), anchorZIndex: 1);
+
+        ClassicAssert.IsFalse(result);
+    }
+
+    [Test]
+    public void WouldOverlapSources_ReturnsTrue_WhenAnyMemberOverlaps()
+    {
+        // a: [0,2), b: [10,12) on layer 0. Shift by +1 → new a: [1,3), new b: [11,13).
+        // new a overlaps source a.
+        Element a = CreateElement(TimeSpan.FromSeconds(0), TimeSpan.FromSeconds(2), zIndex: 0);
+        Element b = CreateElement(TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(2), zIndex: 0);
+
+        bool result = DuplicateHelper.WouldOverlapSources([a, b], TimeSpan.FromSeconds(1), anchorZIndex: 0);
+
+        ClassicAssert.IsTrue(result);
+    }
+
+    [Test]
+    public void WouldOverlapSources_ReturnsFalse_WhenAllNewRangesClearSources()
+    {
+        // a: [0,2), b: [4,6) on layer 0. Anchor at t=10 → new a: [10,12), new b: [14,16).
+        // Neither intersects any source on the same layer.
+        Element a = CreateElement(TimeSpan.FromSeconds(0), TimeSpan.FromSeconds(2), zIndex: 0);
+        Element b = CreateElement(TimeSpan.FromSeconds(4), TimeSpan.FromSeconds(2), zIndex: 0);
+
+        bool result = DuplicateHelper.WouldOverlapSources([a, b], TimeSpan.FromSeconds(10), anchorZIndex: 0);
+
+        ClassicAssert.IsFalse(result);
+    }
+
+    [Test]
+    public void WouldOverlapSources_ReturnsFalse_OnEmptyInput()
+    {
+        ClassicAssert.IsFalse(
+            DuplicateHelper.WouldOverlapSources([], TimeSpan.Zero, anchorZIndex: 0));
+    }
+
+    [Test]
     public void PlaceDuplicates_ThrowsInvalidOperation_WhenSceneUriIsNull()
     {
         var scene = new Scene(100, 100, string.Empty);

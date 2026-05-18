@@ -711,6 +711,16 @@ public sealed partial class ElementView : UserControl
                         if (anchorStart < TimeSpan.Zero) anchorStart = TimeSpan.Zero;
                         int anchorZIndex = Math.Max(minSourceZIndex + deltaIndex, 0);
 
+                        // Skip the duplicate when the copy would land on top of any source clip.
+                        if (DuplicateHelper.WouldOverlapSources(elems, anchorStart, anchorZIndex))
+                        {
+                            s_logger.LogDebug(
+                                "Alt+drag duplicate cancelled: copy would overlap source clip(s) at start={Start}, zIndex={ZIndex}.",
+                                anchorStart, anchorZIndex);
+                            ForceRestoreVisualToModel(animations.Select(a => a.ViewModel));
+                            return;
+                        }
+
                         viewModel.Timeline.DuplicateElementsAt(elems, anchorStart, anchorZIndex);
                     }
 

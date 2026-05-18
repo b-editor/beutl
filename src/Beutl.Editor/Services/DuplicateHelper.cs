@@ -33,6 +33,41 @@ public static class DuplicateHelper
     }
 
     /// <summary>
+    /// Returns true when placing duplicates of <paramref name="sourceElements"/> at the
+    /// given anchor would land on a source clip (same ZIndex, intersecting TimeRange).
+    /// Used by Alt+drag to skip the duplicate when the user has not moved far enough
+    /// for the copy to clear the originals.
+    /// </summary>
+    public static bool WouldOverlapSources(
+        IReadOnlyList<Element> sourceElements,
+        TimeSpan anchorStart,
+        int anchorZIndex)
+    {
+        ArgumentNullException.ThrowIfNull(sourceElements);
+        if (sourceElements.Count == 0) return false;
+
+        TimeSpan minStart = sourceElements.Min(e => e.Start);
+        int minZIndex = sourceElements.Min(e => e.ZIndex);
+
+        foreach (Element src in sourceElements)
+        {
+            TimeSpan newStart = src.Start - minStart + anchorStart;
+            int newZIndex = src.ZIndex - minZIndex + anchorZIndex;
+            var newRange = new TimeRange(newStart, src.Length);
+
+            foreach (Element other in sourceElements)
+            {
+                if (other.ZIndex == newZIndex && other.Range.Intersects(newRange))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
     /// Returns the seed range for placement search. Uses the latest Range.End (not the
     /// latest Start) so a short trailing element does not shrink the range and let the
     /// spiral search land on top of a longer leading element.
