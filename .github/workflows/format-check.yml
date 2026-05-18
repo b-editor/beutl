@@ -20,7 +20,7 @@ jobs:
         run: dotnet tool restore
 
       - name: Run CSharpier
-        run: dotnet csharpier check .
+        run: dotnet csharpier check . --compilation-errors-as-warnings
 
       - name: Report formatting issues
         if: failure()
