@@ -1,5 +1,4 @@
-﻿using System.Collections.Immutable;
-using System.Collections.Specialized;
+﻿using System.Collections.Specialized;
 using System.Reactive.Subjects;
 using System.Text.Json.Nodes;
 using Avalonia;
@@ -559,51 +558,11 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
             minZIndex,
             maxZIndex);
 
-        PlaceAndAddDuplicates(newElements, oldElements, newStart, newZIndex);
+        DuplicateHelper.PlaceDuplicates(
+            Scene, newElements, oldElements, newStart, newZIndex, Constants.ElementFileExtension);
         EditorContext.GetRequiredService<HistoryManager>().Commit(CommandNames.PasteElement);
 
         ScrollTo.Execute((new TimeRange(newStart, length), newZIndex));
-    }
-
-    private void PlaceAndAddDuplicates(
-        Element[] newElements,
-        Element[] sourceElements,
-        TimeSpan newStartAnchor,
-        int newZIndexAnchor)
-    {
-        TimeSpan minStart = newElements.Min(e => e.Start);
-        int minZIndex = newElements.Min(e => e.ZIndex);
-
-        foreach (Element newElement in newElements)
-        {
-            newElement.Start = newElement.Start - minStart + newStartAnchor;
-            newElement.ZIndex = newElement.ZIndex - minZIndex + newZIndexAnchor;
-
-            CoreSerializer.StoreToUri(newElement,
-                RandomFileNameGenerator.GenerateUri(Scene.Uri!, Constants.ElementFileExtension));
-        }
-
-        var idMapping = new Dictionary<Guid, Guid>();
-        for (int i = 0; i < sourceElements.Length; i++)
-        {
-            idMapping[sourceElements[i].Id] = newElements[i].Id;
-        }
-
-        List<ImmutableHashSet<Guid>> newGroups = Scene.Groups
-            .Select(g => g.Where(id => idMapping.ContainsKey(id))
-                .Select(id => idMapping[id])
-                .ToImmutableHashSet())
-            .Where(g => g.Count >= 2)
-            .ToList();
-        if (newGroups.Count > 0)
-        {
-            Scene.Groups.AddRange(newGroups);
-        }
-
-        foreach (Element newElement in newElements)
-        {
-            Scene.AddChild(newElement);
-        }
     }
 
     private void DuplicateSelectedElements()
@@ -612,14 +571,9 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
         {
             if (SelectedElements.Count == 0) return;
 
-            var ids = new HashSet<Guid>(SelectedElements.Select(s => s.Model.Id));
-            foreach (ImmutableHashSet<Guid> group in Scene.Groups)
-            {
-                if (group.Overlaps(ids))
-                {
-                    ids.UnionWith(group);
-                }
-            }
+            HashSet<Guid> ids = DuplicateHelper.ExpandWithGroupSiblings(
+                SelectedElements.Select(s => s.Model.Id),
+                Scene.Groups);
 
             var sourceVMs = Elements.Where(x => ids.Contains(x.Model.Id)).ToArray();
             if (sourceVMs.Length == 0) return;
@@ -627,21 +581,14 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
             var oldElements = sourceVMs.Select(x => x.Model).ToArray();
             ObjectRegenerator.Regenerate(oldElements, out Element[] newElements);
 
-            TimeSpan minStart = newElements.Min(e => e.Start);
-            int minZIndex = newElements.Min(e => e.ZIndex);
-            TimeSpan maxEnd = newElements.Max(e => e.Range.End);
-            int maxZIndex = newElements.Max(e => e.ZIndex);
-            TimeSpan length = maxEnd - minStart;
+            (TimeRange seedRange, int minZIndex, int maxZIndex) = DuplicateHelper.ComputePlacementRange(newElements);
+            var (newStart, newZIndex) = CorrectPosition(seedRange, minZIndex, maxZIndex);
 
-            var (newStart, newZIndex) = CorrectPosition(
-                new TimeRange(minStart, length),
-                minZIndex,
-                maxZIndex);
-
-            PlaceAndAddDuplicates(newElements, oldElements, newStart, newZIndex);
+            DuplicateHelper.PlaceDuplicates(
+                Scene, newElements, oldElements, newStart, newZIndex, Constants.ElementFileExtension);
             EditorContext.GetRequiredService<HistoryManager>().Commit(CommandNames.DuplicateElement);
 
-            ScrollTo.Execute((new TimeRange(newStart, length), newZIndex));
+            ScrollTo.Execute((new TimeRange(newStart, seedRange.Duration), newZIndex));
         }
         catch (Exception ex)
         {
@@ -659,7 +606,8 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
             var src = sourceElements.ToArray();
             ObjectRegenerator.Regenerate(src, out Element[] newElements);
 
-            PlaceAndAddDuplicates(newElements, src, anchorStart, Math.Max(anchorZIndex, 0));
+            DuplicateHelper.PlaceDuplicates(
+                Scene, newElements, src, anchorStart, Math.Max(anchorZIndex, 0), Constants.ElementFileExtension);
             EditorContext.GetRequiredService<HistoryManager>().Commit(CommandNames.DuplicateElement);
         }
         catch (Exception ex)
