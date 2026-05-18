@@ -8,6 +8,13 @@ using Microsoft.Extensions.Logging;
 namespace Beutl.Editor;
 
 /// <summary>
+/// Result of a project export operation.
+/// </summary>
+/// <param name="Success">Whether the ZIP was written. Cancellation does not set this to <c>false</c> — it propagates as <see cref="OperationCanceledException"/>.</param>
+/// <param name="FailedResources">Identifiers of resources that could not be fully relocated. Non-empty while <see cref="Success"/> is <c>true</c> means partial failure: the ZIP exists, but some referenced files/fonts are either missing from it or still pointing at the original path inside the saved project. When <see cref="Success"/> is <c>false</c>, this preserves any failures that were already collected before the export was aborted.</param>
+public sealed record ExportResult(bool Success, IReadOnlyList<string> FailedResources);
+
+/// <summary>
 /// Service for exporting and importing projects.
 /// </summary>
 public sealed class ProjectPackageService
@@ -15,10 +22,16 @@ public sealed class ProjectPackageService
     public static ProjectPackageService Current { get; } = new();
 
     private readonly ILogger _logger = Log.CreateLogger<ProjectPackageService>();
-    private readonly ResourceRelocationService _relocationService = new();
+    private readonly ResourceRelocationService _relocationService;
 
     private ProjectPackageService()
     {
+        _relocationService = new ResourceRelocationService();
+    }
+
+    internal ProjectPackageService(ResourceRelocationService relocationService)
+    {
+        _relocationService = relocationService;
     }
 
     /// <summary>
@@ -28,8 +41,8 @@ public sealed class ProjectPackageService
     /// <param name="outputPath">The output ZIP file path.</param>
     /// <param name="progress">Progress reporter.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns><c>true</c> if the export was successful.</returns>
-    public async Task<bool> ExportAsync(
+    /// <returns>An <see cref="ExportResult"/> describing whether the export completed and any resources that failed to copy.</returns>
+    public async Task<ExportResult> ExportAsync(
         Project project,
         string outputPath,
         IProgress<(string Message, double Progress)>? progress = null,
@@ -44,6 +57,8 @@ public sealed class ProjectPackageService
         }
 
         string? tempDir = null;
+        RelocationResult fileResult = new(0, []);
+        RelocationResult fontResult = new(0, []);
 
         try
         {
@@ -73,20 +88,34 @@ public sealed class ProjectPackageService
             progress?.Report((Strings.ExportingProject, 0.4));
             ExternalResourceCollector collector = ExternalResourceCollector.Collect(project, projectDir);
 
-            int fileCount = await _relocationService.RelocateFileSourcesAsync(
+            fileResult = await _relocationService.RelocateFileSourcesAsync(
                 collector.FileSources,
                 tempProject,
                 tempProjectDir,
                 cancellationToken);
-            _logger.LogInformation("Relocated {Count} external files", fileCount);
+            _logger.LogInformation("Relocated {Count} external files", fileResult.SuccessCount);
+            if (fileResult.FailedResources.Count > 0)
+            {
+                _logger.LogWarning(
+                    "Failed to relocate {Count} external files: {Resources}",
+                    fileResult.FailedResources.Count,
+                    string.Join(", ", fileResult.FailedResources));
+            }
 
             // Step 6: Copy fonts
             progress?.Report((Strings.ExportingProject, 0.6));
-            int fontCount = await _relocationService.RelocateFontsAsync(
+            fontResult = await _relocationService.RelocateFontsAsync(
                 collector.FontFamilies,
                 tempProjectDir,
                 cancellationToken);
-            _logger.LogInformation("Relocated {Count} font files", fontCount);
+            _logger.LogInformation("Relocated {Count} font files", fontResult.SuccessCount);
+            if (fontResult.FailedResources.Count > 0)
+            {
+                _logger.LogWarning(
+                    "Failed to relocate {Count} font families: {Resources}",
+                    fontResult.FailedResources.Count,
+                    string.Join(", ", fontResult.FailedResources));
+            }
 
             // Step 7: Save the project
             progress?.Report((Strings.ExportingProject, 0.8));
@@ -107,7 +136,8 @@ public sealed class ProjectPackageService
             progress?.Report((Strings.ExportingProject, 1.0));
             _logger.LogInformation("Project exported successfully to {OutputPath}", outputPath);
 
-            return true;
+            List<string> failedResources = [.. fileResult.FailedResources, .. fontResult.FailedResources];
+            return new ExportResult(true, failedResources);
         }
         catch (OperationCanceledException)
         {
@@ -116,7 +146,7 @@ public sealed class ProjectPackageService
         }
         catch (Exception ex)
         {
-            return LogExportError(ex);
+            return LogExportError(ex, fileResult, fontResult);
         }
         finally
         {
@@ -130,11 +160,11 @@ public sealed class ProjectPackageService
         _logger.LogInformation("Export operation was cancelled");
     }
 
-    [ExcludeFromCodeCoverage]
-    private bool LogExportError(Exception ex)
+    private ExportResult LogExportError(Exception ex, RelocationResult fileResult, RelocationResult fontResult)
     {
         _logger.LogError(ex, "Failed to export project");
-        return false;
+        List<string> failedResources = [.. fileResult.FailedResources, .. fontResult.FailedResources];
+        return new ExportResult(false, failedResources);
     }
 
     [ExcludeFromCodeCoverage]

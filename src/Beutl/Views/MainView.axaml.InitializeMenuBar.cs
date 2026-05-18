@@ -15,6 +15,7 @@ using Beutl.ViewModels;
 using Beutl.Views.Dialogs;
 using FluentAvalonia.UI.Controls;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Reactive.Bindings.Extensions;
 
 namespace Beutl.Views;
@@ -244,7 +245,7 @@ public partial class MainView
         {
             try
             {
-                bool result = await ProjectPackageService.Current.ExportAsync(
+                ExportResult result = await ProjectPackageService.Current.ExportAsync(
                     project,
                     outputPath,
                     new Progress<(string Message, double Progress)>(p =>
@@ -252,17 +253,34 @@ public partial class MainView
                         // 進捗表示（将来的にはプログレスダイアログを表示）
                     }));
 
-                if (result)
+                if (!result.Success)
                 {
-                    NotificationService.ShowSuccess(Strings.ExportProject, MessageStrings.OperationCompletedSuccessfully);
+                    _logger.LogWarning(
+                        "Project export failed; partial failures collected before abort: [{Resources}]",
+                        string.Join(", ", result.FailedResources));
+                    NotificationService.ShowError(Strings.ExportProject, MessageStrings.OperationFailed);
+                }
+                else if (result.FailedResources.Count > 0)
+                {
+                    _logger.LogWarning(
+                        "Project exported with partial failures: [{Resources}]",
+                        string.Join(", ", result.FailedResources));
+                    NotificationService.ShowWarning(
+                        Strings.ExportProject,
+                        string.Format(MessageStrings.ExportProjectPartialFailure, result.FailedResources.Count));
                 }
                 else
                 {
-                    NotificationService.ShowError(Strings.ExportProject, MessageStrings.OperationFailed);
+                    NotificationService.ShowSuccess(Strings.ExportProject, MessageStrings.OperationCompletedSuccessfully);
                 }
+            }
+            catch (OperationCanceledException)
+            {
+                // User-initiated cancellation is not a failure.
             }
             catch (Exception ex)
             {
+                _logger.LogError(ex, "Unhandled exception while exporting project to {OutputPath}", outputPath);
                 _ = ex.Handle();
                 NotificationService.ShowError(Strings.ExportProject, MessageStrings.OperationFailed);
             }
@@ -326,8 +344,13 @@ public partial class MainView
                 NotificationService.ShowError(Strings.ImportProject, MessageStrings.OperationFailed);
             }
         }
+        catch (OperationCanceledException)
+        {
+            // User-initiated cancellation is not a failure.
+        }
         catch (Exception ex)
         {
+            _logger.LogError(ex, "Unhandled exception while importing project from {PackagePath}", packagePath);
             _ = ex.Handle();
             NotificationService.ShowError(Strings.ImportProject, MessageStrings.OperationFailed);
         }

@@ -11,9 +11,16 @@ using SkiaSharp;
 namespace Beutl.Editor;
 
 /// <summary>
+/// Result of a resource relocation operation.
+/// </summary>
+/// <param name="SuccessCount">Number of property updates (file sources) or font files (fonts) that were successfully relocated. Granularity differs from <paramref name="FailedResources"/>.Count.</param>
+/// <param name="FailedResources">Identifiers of resources that could not be relocated. The string format depends on the failure path: local file paths for missing sources, "<c>uri (guid.property)</c>" for per-property URI rewrites that threw, full URI strings for file-copy failures, and font family names for font failures.</param>
+public sealed record RelocationResult(int SuccessCount, IReadOnlyList<string> FailedResources);
+
+/// <summary>
 /// Service for copying resource files and rewriting their URIs.
 /// </summary>
-public sealed class ResourceRelocationService
+public class ResourceRelocationService
 {
     private readonly ILogger _logger = Log.CreateLogger<ResourceRelocationService>();
     private readonly Func<string, IEnumerable<string>>? _fontFileFinder;
@@ -41,8 +48,8 @@ public sealed class ResourceRelocationService
     /// <param name="stagingProject">The project to apply URI updates to.</param>
     /// <param name="projectDirectory">The path of the project directory.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>The number of files copied.</returns>
-    public async Task<int> RelocateFileSourcesAsync(
+    /// <returns>A <see cref="RelocationResult"/> with success count and failed source identifiers.</returns>
+    public virtual async Task<RelocationResult> RelocateFileSourcesAsync(
         IEnumerable<(Guid Object, string PropertyName, Uri OriginalUri)> sources,
         Project stagingProject,
         string projectDirectory,
@@ -52,41 +59,55 @@ public sealed class ResourceRelocationService
         Directory.CreateDirectory(resourcesDir);
 
         int count = 0;
+        List<string> failedResources = [];
         foreach (var group in sources.GroupBy(i => i.OriginalUri))
         {
             cancellationToken.ThrowIfCancellationRequested();
             var originalUri = group.Key;
+            string sourceFilePath = originalUri.LocalPath;
+            if (!File.Exists(sourceFilePath))
+            {
+                _logger.LogWarning("Source file not found: {FilePath}", sourceFilePath);
+                failedResources.Add(sourceFilePath);
+                continue;
+            }
+
+            string destFilePath;
             try
             {
-                string sourceFilePath = originalUri.LocalPath;
-                if (!File.Exists(sourceFilePath))
-                {
-                    _logger.LogWarning("Source file not found: {FilePath}", sourceFilePath);
-                    continue;
-                }
-
                 string fileName = Path.GetFileName(sourceFilePath);
-                string destFilePath = GetUniqueFilePath(resourcesDir, fileName);
-
+                destFilePath = GetUniqueFilePath(resourcesDir, fileName);
                 await CopyFileAsync(sourceFilePath, destFilePath, cancellationToken);
-
-                foreach ((Guid id, string prop, _) in group)
-                {
-                    cancellationToken.ThrowIfCancellationRequested();
-                    // Update the URI to the new path
-                    UpdateUri(stagingProject, id, prop, new Uri(destFilePath));
-
-                    count++;
-                    _logger.LogDebug("Relocated file: {OriginalPath} -> {NewPath}", sourceFilePath, destFilePath);
-                }
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to relocate file: {Uri}", originalUri);
+                _logger.LogError(ex, "Failed to copy file: {Uri}", originalUri);
+                failedResources.Add(originalUri.ToString());
+                continue;
+            }
+
+            foreach ((Guid id, string prop, _) in group)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                try
+                {
+                    UpdateUri(stagingProject, id, prop, new Uri(destFilePath));
+                    count++;
+                    _logger.LogDebug("Relocated file: {OriginalPath} -> {NewPath}", sourceFilePath, destFilePath);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to update URI for {Id}.{Property}: {Uri}", id, prop, originalUri);
+                    failedResources.Add($"{originalUri} ({id}.{prop})");
+                }
             }
         }
 
-        return count;
+        return new RelocationResult(count, failedResources);
     }
 
     private void UpdateUri(Project stagingProject, Guid id, string propertyName, Uri newUri)
@@ -130,8 +151,8 @@ public sealed class ResourceRelocationService
     /// <param name="fontFamilies">The list of font families to copy.</param>
     /// <param name="projectDirectory">The path of the project directory.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>The number of font files copied.</returns>
-    public async Task<int> RelocateFontsAsync(
+    /// <returns>A <see cref="RelocationResult"/> with success count and failed font family names.</returns>
+    public virtual async Task<RelocationResult> RelocateFontsAsync(
         IEnumerable<FontFamily> fontFamilies,
         string projectDirectory,
         CancellationToken cancellationToken = default)
@@ -141,6 +162,7 @@ public sealed class ResourceRelocationService
 
         HashSet<string> copiedFiles = [];
         int count = 0;
+        List<string> failedResources = [];
 
         foreach (FontFamily fontFamily in fontFamilies)
         {
@@ -151,8 +173,10 @@ public sealed class ResourceRelocationService
                 IEnumerable<string> fontFiles = _fontFileFinder != null
                     ? _fontFileFinder(fontFamily.Name)
                     : FindFontFiles(fontFamily.Name);
+                bool foundAnyFile = false;
                 foreach (string sourceFilePath in fontFiles)
                 {
+                    foundAnyFile = true;
                     if (!copiedFiles.Add(sourceFilePath))
                         continue;
 
@@ -164,14 +188,25 @@ public sealed class ResourceRelocationService
                     count++;
                     _logger.LogDebug("Relocated font: {OriginalPath} -> {NewPath}", sourceFilePath, destFilePath);
                 }
+
+                if (!foundAnyFile)
+                {
+                    _logger.LogWarning("No font files found for family: {FontFamily}", fontFamily.Name);
+                    failedResources.Add(fontFamily.Name);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to relocate font: {FontFamily}", fontFamily.Name);
+                failedResources.Add(fontFamily.Name);
             }
         }
 
-        return count;
+        return new RelocationResult(count, failedResources);
     }
 
     /// <summary>
