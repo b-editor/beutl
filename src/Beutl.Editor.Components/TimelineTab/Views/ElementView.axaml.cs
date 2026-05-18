@@ -4,9 +4,11 @@ using Avalonia.Animation.Easings;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Layout;
 using Avalonia.LogicalTree;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
+using Avalonia.Media.Immutable;
 using Avalonia.Threading;
 using Avalonia.Xaml.Interactivity;
 using Beutl.Configuration;
@@ -548,6 +550,8 @@ public sealed partial class ElementView : UserControl
 
         private bool _pressed;
         private bool _duplicateMode;
+        private bool _duplicateGhostShown;
+        private readonly List<Control> _ghosts = [];
         private Point _start;
 
         protected override void OnAttached()
@@ -564,6 +568,8 @@ public sealed partial class ElementView : UserControl
         {
             base.OnDetaching();
             if (AssociatedObject == null) return;
+
+            if (AssociatedObject._timeline is { } timeline) RemoveGhosts(timeline);
 
             AssociatedObject.RemoveHandler(PointerMovedEvent, OnPointerMoved);
             AssociatedObject.border.RemoveHandler(PointerPressedEvent, OnBorderPointerPressed);
@@ -600,6 +606,21 @@ public sealed partial class ElementView : UserControl
                     item.BorderMargin.Value = new(item.BorderMargin.Value.Left + deltaLeft, 0, 0, 0);
                 }
 
+                if (_duplicateMode && !_duplicateGhostShown)
+                {
+                    int rate = viewModel.Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;
+                    TimeSpan minFrame = TimeSpan.FromSeconds(1d / rate);
+                    TimeSpan modelStart = viewModel.BorderMargin.Value.Left.PixelToTimeSpan(scale).RoundToRate(rate);
+                    TimeSpan deltaStart = modelStart - viewModel.Model.Start;
+                    int modelIndex = viewModel.Timeline.ToLayerNumber(viewModel.Margin.Value);
+                    int deltaIndex = modelIndex - viewModel.Model.ZIndex;
+                    if (Math.Abs(deltaStart.Ticks) >= minFrame.Ticks || deltaIndex != 0)
+                    {
+                        SpawnGhostsForRelatedElements(relatedElements, timeline);
+                        _duplicateGhostShown = true;
+                    }
+                }
+
                 e.Handled = true;
             }
         }
@@ -619,6 +640,8 @@ public sealed partial class ElementView : UserControl
                 {
                     _pressed = true;
                     _duplicateMode = e.KeyModifiers.HasFlag(KeyModifiers.Alt);
+                    _duplicateGhostShown = false;
+                    _ghosts.Clear();
                     _start = point.Position;
                     e.Handled = true;
                 }
@@ -641,85 +664,140 @@ public sealed partial class ElementView : UserControl
 
         private async void OnBorderPointerReleased(object? sender, PointerReleasedEventArgs e)
         {
-            if (_pressed)
+            if (!_pressed) return;
+
+            _pressed = false;
+            bool duplicate = _duplicateMode;
+            bool ghostShown = _duplicateGhostShown;
+            _duplicateMode = false;
+            _duplicateGhostShown = false;
+
+            if (AssociatedObject is not { ViewModel: { } viewModel, _timeline: { } timeline }) return;
+
+            RemoveGhosts(timeline);
+
+            viewModel.Timeline.SnapBarPosition.Value = null;
+            HistoryManager history = viewModel.Timeline.EditorContext.GetRequiredService<HistoryManager>();
+            e.Handled = true;
+            IReadOnlyList<ElementViewModel> relatedElements = viewModel.GetGroupOrSelectedElements();
+            var elems = relatedElements.Select(x => x.Model).ToArray();
+
+            float scale = viewModel.Timeline.Options.Value.Scale;
+            int rate = viewModel.Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;
+            TimeSpan newStart = viewModel.BorderMargin.Value.Left.PixelToTimeSpan(scale).RoundToRate(rate);
+            TimeSpan deltaStart = newStart - viewModel.Model.Start;
+            int newIndex = viewModel.Timeline.ToLayerNumber(viewModel.Margin.Value);
+            int deltaIndex = newIndex - viewModel.Model.ZIndex;
+
+            if (duplicate && ghostShown)
             {
-                _pressed = false;
-                bool duplicate = _duplicateMode;
-                _duplicateMode = false;
+                var animations = relatedElements
+                    .Select(x => (ViewModel: x, Context: x.PrepareAnimation()))
+                    .ToArray();
 
-                if (AssociatedObject is { ViewModel: { } viewModel })
+                try
                 {
-                    viewModel.Timeline.SnapBarPosition.Value = null;
-                    HistoryManager history = viewModel.Timeline.EditorContext.GetRequiredService<HistoryManager>();
-                    e.Handled = true;
-                    IReadOnlyList<ElementViewModel> relatedElements = viewModel.GetGroupOrSelectedElements();
-                    var elems = relatedElements.Select(x => x.Model).ToArray();
-
-                    float scale = viewModel.Timeline.Options.Value.Scale;
-                    int rate = viewModel.Scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;
-                    TimeSpan newStart = viewModel.BorderMargin.Value.Left.PixelToTimeSpan(scale).RoundToRate(rate);
-                    TimeSpan deltaStart = newStart - viewModel.Model.Start;
-                    int newIndex = viewModel.Timeline.ToLayerNumber(viewModel.Margin.Value);
-                    int deltaIndex = newIndex - viewModel.Model.ZIndex;
-
-                    if (duplicate)
+                    if (elems.Length > 0)
                     {
-                        // ドラッグした要素はすべて元位置に戻し、ドロップ位置に複製を作成
-                        var animations = relatedElements
-                            .Select(x => (ViewModel: x, Context: x.PrepareAnimation()))
-                            .ToArray();
+                        TimeSpan minSourceStart = elems.Min(m => m.Start);
+                        int minSourceZIndex = elems.Min(m => m.ZIndex);
+                        TimeSpan anchorStart = minSourceStart + deltaStart;
+                        if (anchorStart < TimeSpan.Zero) anchorStart = TimeSpan.Zero;
+                        int anchorZIndex = Math.Max(minSourceZIndex + deltaIndex, 0);
 
-                        try
+                        viewModel.Timeline.DuplicateElementsAt(elems, anchorStart, anchorZIndex);
+                    }
+
+                    // 旧実装は fire-and-forget で AnimationRequest を投げており、
+                    // Task 内の例外が unobserved となって視覚位置がドラッグ中のまま
+                    // 取り残されることがあった。await + 失敗時のフォールバックで防ぐ。
+                    await Task.WhenAll(
+                        animations.Select(a => a.ViewModel.AnimationRequest(a.Context)));
+                }
+                catch (Exception ex)
+                {
+                    // 複製が失敗してもユーザーのドラッグ操作を捨てない: 元要素を
+                    // ドロップ位置で MoveElement として確定させる。視覚は既にドロップ
+                    // 位置にあるためアニメ不要。Move 自体も失敗した場合のみ視覚を
+                    // モデルへ強制リストアする。
+                    s_logger.LogError(ex, "Failed to duplicate; falling back to plain move.");
+                    NotificationService.ShowError(MessageStrings.UnexpectedError, ex.Message);
+                    try
+                    {
+                        if (elems.Length > 0 && (deltaStart != TimeSpan.Zero || deltaIndex != 0))
                         {
-                            TimeSpan minFrame = TimeSpan.FromSeconds(1d / rate);
-                            bool hasDrag = Math.Abs(deltaStart.Ticks) >= minFrame.Ticks || deltaIndex != 0;
-                            if (hasDrag && elems.Length > 0)
-                            {
-                                TimeSpan minSourceStart = elems.Min(m => m.Start);
-                                int minSourceZIndex = elems.Min(m => m.ZIndex);
-                                TimeSpan anchorStart = minSourceStart + deltaStart;
-                                if (anchorStart < TimeSpan.Zero) anchorStart = TimeSpan.Zero;
-                                int anchorZIndex = Math.Max(minSourceZIndex + deltaIndex, 0);
-
-                                viewModel.Timeline.DuplicateElementsAt(elems, anchorStart, anchorZIndex);
-                            }
-
-                            // 旧実装は fire-and-forget で AnimationRequest を投げており、
-                            // Task 内の例外が unobserved となって視覚位置がドラッグ中のまま
-                            // 取り残されることがあった。await + 失敗時の強制リストアで防ぐ。
-                            await Task.WhenAll(
-                                animations.Select(a => a.ViewModel.AnimationRequest(a.Context)));
-                        }
-                        catch (Exception ex)
-                        {
-                            // 例外が起きるとソースクリップが BorderMargin/Margin = ドラッグ後の
-                            // 視覚位置のまま残り、モデルとずれた表示が次の操作まで続いてしまう。
-                            // Model から再計算して強制的に視覚を巻き戻す。
-                            ForceRestoreVisualToModel(animations.Select(a => a.ViewModel));
-                            s_logger.LogError(ex, "Failed to complete duplicate drag.");
-                            NotificationService.ShowError(MessageStrings.UnexpectedError, ex.Message);
+                            viewModel.Scene.MoveChildren(deltaIndex, deltaStart, elems);
+                            history.Commit(CommandNames.MoveElement);
                         }
                     }
-                    else if (elems.Length == 1)
+                    catch (Exception ex2)
                     {
-                        await viewModel.SubmitViewModelChanges();
-                    }
-                    else if (elems.Length > 1)
-                    {
-                        var animations = relatedElements
-                            .Select(x => (ViewModel: x, Context: x.PrepareAnimation()))
-                            .ToArray();
-
-                        viewModel.Scene.MoveChildren(deltaIndex, deltaStart, elems);
-                        history.Commit(CommandNames.MoveElement);
-
-                        foreach (var (item, context) in animations)
-                        {
-                            _ = item.AnimationRequest(context);
-                        }
+                        ForceRestoreVisualToModel(animations.Select(a => a.ViewModel));
+                        s_logger.LogError(ex2, "Move fallback also failed.");
                     }
                 }
             }
+            else if (duplicate)
+            {
+                // Alt 押下でドラッグ閾値未満のまま離した = 複製なしで no-op。
+                // PointerMoved の段階で視覚を動かしている可能性があるためモデル値へ戻す。
+                ForceRestoreVisualToModel(relatedElements);
+            }
+            else if (elems.Length == 1)
+            {
+                await viewModel.SubmitViewModelChanges();
+            }
+            else if (elems.Length > 1)
+            {
+                var animations = relatedElements
+                    .Select(x => (ViewModel: x, Context: x.PrepareAnimation()))
+                    .ToArray();
+
+                viewModel.Scene.MoveChildren(deltaIndex, deltaStart, elems);
+                history.Commit(CommandNames.MoveElement);
+
+                foreach (var (item, context) in animations)
+                {
+                    _ = item.AnimationRequest(context);
+                }
+            }
+        }
+
+        private void SpawnGhostsForRelatedElements(
+            IReadOnlyList<ElementViewModel> related,
+            TimelineTabView timeline)
+        {
+            foreach (ElementViewModel vm in related)
+            {
+                float scale = vm.Timeline.Options.Value.Scale;
+                double left = vm.Model.Start.TimeToPixel(scale);
+                double top = vm.Timeline.CalculateLayerTop(vm.Model.ZIndex);
+                double width = vm.Model.Length.TimeToPixel(scale);
+
+                var ghost = new Border
+                {
+                    Background = new ImmutableSolidColorBrush(vm.Color.Value),
+                    Opacity = 0.4,
+                    Width = width,
+                    Height = FrameNumberHelper.LayerHeight,
+                    HorizontalAlignment = HorizontalAlignment.Left,
+                    VerticalAlignment = VerticalAlignment.Top,
+                    Margin = new Thickness(left, top, 0, 0),
+                    IsHitTestVisible = false,
+                };
+                timeline.TimelinePanel.Children.Add(ghost);
+                _ghosts.Add(ghost);
+            }
+        }
+
+        private void RemoveGhosts(TimelineTabView timeline)
+        {
+            if (_ghosts.Count == 0) return;
+            foreach (Control ghost in _ghosts)
+            {
+                timeline.TimelinePanel.Children.Remove(ghost);
+            }
+            _ghosts.Clear();
         }
     }
 

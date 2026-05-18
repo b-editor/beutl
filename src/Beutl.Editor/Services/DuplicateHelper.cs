@@ -1,4 +1,4 @@
-using System.Collections.Immutable;
+﻿using System.Collections.Immutable;
 using Beutl.Media;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;

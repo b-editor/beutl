@@ -1,4 +1,4 @@
-using System.Collections.Immutable;
+﻿using System.Collections.Immutable;
 using Beutl.Editor.Services;
 using Beutl.ProjectSystem;
 using NUnit.Framework.Legacy;
