@@ -1,6 +1,7 @@
 ﻿using System.Collections.Concurrent;
 using Beutl.Editor;
 using Beutl.Logging;
+using Beutl.Media;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
 using Microsoft.Extensions.Logging;
@@ -229,6 +230,107 @@ public class ProjectPackageServiceTests
             Assert.That(result.Success, Is.True);
             Assert.That(result.FailedResources, Is.Empty);
             Assert.That(File.Exists(outputPath), Is.True);
+        });
+    }
+
+    [Test]
+    public async Task ExportAsync_WithFileAndFontFailures_SurfacesBothInResult()
+    {
+        // Arrange: the stub returns canned failures from both file and font relocation
+        // so we can verify ExportAsync concatenates them into ExportResult.FailedResources.
+        var stub = new StubRelocationService(
+            new RelocationResult(2, ["missing/file_a.png", "missing/file_b.png"]),
+            new RelocationResult(1, ["MissingFamily1", "MissingFamily2"]));
+        var service = new ProjectPackageService(stub);
+        Project project = CreateAndSaveTestProject();
+        string outputPath = Path.Combine(_exportDir, "partial_failure.zip");
+
+        // Act
+        ExportResult result = await service.ExportAsync(project, outputPath);
+
+        // Assert: the ZIP was still written (partial success), and FailedResources
+        // contains file failures first, then font failures, preserving order.
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Success, Is.True);
+            Assert.That(File.Exists(outputPath), Is.True);
+            Assert.That(result.FailedResources, Is.EqualTo(new[]
+            {
+                "missing/file_a.png",
+                "missing/file_b.png",
+                "MissingFamily1",
+                "MissingFamily2",
+            }));
+        });
+    }
+
+    [Test]
+    public async Task ExportAsync_WithOnlyFileFailures_SurfacesFileFailures()
+    {
+        // Arrange
+        var stub = new StubRelocationService(
+            new RelocationResult(0, ["missing/only_file.png"]),
+            new RelocationResult(0, []));
+        var service = new ProjectPackageService(stub);
+        Project project = CreateAndSaveTestProject();
+        string outputPath = Path.Combine(_exportDir, "file_only.zip");
+
+        // Act
+        ExportResult result = await service.ExportAsync(project, outputPath);
+
+        // Assert
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Success, Is.True);
+            Assert.That(result.FailedResources, Is.EqualTo(new[] { "missing/only_file.png" }));
+        });
+    }
+
+    [Test]
+    public async Task ExportAsync_WithOnlyFontFailures_SurfacesFontFailures()
+    {
+        // Arrange
+        var stub = new StubRelocationService(
+            new RelocationResult(0, []),
+            new RelocationResult(0, ["MissingFontFamily"]));
+        var service = new ProjectPackageService(stub);
+        Project project = CreateAndSaveTestProject();
+        string outputPath = Path.Combine(_exportDir, "font_only.zip");
+
+        // Act
+        ExportResult result = await service.ExportAsync(project, outputPath);
+
+        // Assert
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Success, Is.True);
+            Assert.That(result.FailedResources, Is.EqualTo(new[] { "MissingFontFamily" }));
+        });
+    }
+
+    [Test]
+    public async Task ExportAsync_WhenZipCreationFails_PreservesAlreadyCollectedFailures()
+    {
+        // Arrange: file relocation accumulates failures, then the outer ZIP creation
+        // step throws because the output path is a directory. The failures collected
+        // before the abort must still be surfaced — otherwise we lose information
+        // that's already in memory.
+        var stub = new StubRelocationService(
+            new RelocationResult(0, ["pre_abort_file.png"]),
+            new RelocationResult(0, ["pre_abort_font"]));
+        var service = new ProjectPackageService(stub);
+        Project project = CreateAndSaveTestProject();
+        string invalidOutputPath = Path.Combine(_exportDir, "invalid_output_dir");
+        Directory.CreateDirectory(invalidOutputPath);
+
+        // Act
+        ExportResult result = await service.ExportAsync(project, invalidOutputPath);
+
+        // Assert
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Success, Is.False);
+            Assert.That(result.FailedResources, Is.EqualTo(new[] { "pre_abort_file.png", "pre_abort_font" }));
         });
     }
 
@@ -533,6 +635,24 @@ public class ProjectPackageServiceTests
 
         // Restore the project to get a proper Uri set
         return CoreSerializer.RestoreFromUri<Project>(projectUri);
+    }
+
+    private sealed class StubRelocationService(
+        RelocationResult fileResult,
+        RelocationResult fontResult) : ResourceRelocationService
+    {
+        public override Task<RelocationResult> RelocateFileSourcesAsync(
+            IEnumerable<(Guid Object, string PropertyName, Uri OriginalUri)> sources,
+            Project stagingProject,
+            string projectDirectory,
+            CancellationToken cancellationToken = default)
+            => Task.FromResult(fileResult);
+
+        public override Task<RelocationResult> RelocateFontsAsync(
+            IEnumerable<FontFamily> fontFamilies,
+            string projectDirectory,
+            CancellationToken cancellationToken = default)
+            => Task.FromResult(fontResult);
     }
 
     private Project CreateAndSaveTestProjectWithItems()

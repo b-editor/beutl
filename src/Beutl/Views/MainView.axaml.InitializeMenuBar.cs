@@ -15,6 +15,7 @@ using Beutl.ViewModels;
 using Beutl.Views.Dialogs;
 using FluentAvalonia.UI.Controls;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Reactive.Bindings.Extensions;
 
 namespace Beutl.Views;
@@ -254,10 +255,16 @@ public partial class MainView
 
                 if (!result.Success)
                 {
+                    _logger.LogWarning(
+                        "Project export failed; partial failures collected before abort: [{Resources}]",
+                        string.Join(", ", result.FailedResources));
                     NotificationService.ShowError(Strings.ExportProject, MessageStrings.OperationFailed);
                 }
                 else if (result.FailedResources.Count > 0)
                 {
+                    _logger.LogWarning(
+                        "Project exported with partial failures: [{Resources}]",
+                        string.Join(", ", result.FailedResources));
                     NotificationService.ShowWarning(
                         Strings.ExportProject,
                         string.Format(MessageStrings.ExportProjectPartialFailure, result.FailedResources.Count));
@@ -273,6 +280,7 @@ public partial class MainView
             }
             catch (Exception ex)
             {
+                _logger.LogError(ex, "Unhandled exception while exporting project to {OutputPath}", outputPath);
                 _ = ex.Handle();
                 NotificationService.ShowError(Strings.ExportProject, MessageStrings.OperationFailed);
             }
@@ -342,6 +350,7 @@ public partial class MainView
         }
         catch (Exception ex)
         {
+            _logger.LogError(ex, "Unhandled exception while importing project from {PackagePath}", packagePath);
             _ = ex.Handle();
             NotificationService.ShowError(Strings.ImportProject, MessageStrings.OperationFailed);
         }

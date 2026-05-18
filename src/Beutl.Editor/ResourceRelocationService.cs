@@ -20,7 +20,7 @@ public sealed record RelocationResult(int SuccessCount, IReadOnlyList<string> Fa
 /// <summary>
 /// Service for copying resource files and rewriting their URIs.
 /// </summary>
-public sealed class ResourceRelocationService
+public class ResourceRelocationService
 {
     private readonly ILogger _logger = Log.CreateLogger<ResourceRelocationService>();
     private readonly Func<string, IEnumerable<string>>? _fontFileFinder;
@@ -49,7 +49,7 @@ public sealed class ResourceRelocationService
     /// <param name="projectDirectory">The path of the project directory.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>A <see cref="RelocationResult"/> with success count and failed source identifiers.</returns>
-    public async Task<RelocationResult> RelocateFileSourcesAsync(
+    public virtual async Task<RelocationResult> RelocateFileSourcesAsync(
         IEnumerable<(Guid Object, string PropertyName, Uri OriginalUri)> sources,
         Project stagingProject,
         string projectDirectory,
@@ -152,7 +152,7 @@ public sealed class ResourceRelocationService
     /// <param name="projectDirectory">The path of the project directory.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>A <see cref="RelocationResult"/> with success count and failed font family names.</returns>
-    public async Task<RelocationResult> RelocateFontsAsync(
+    public virtual async Task<RelocationResult> RelocateFontsAsync(
         IEnumerable<FontFamily> fontFamilies,
         string projectDirectory,
         CancellationToken cancellationToken = default)
