@@ -631,14 +631,16 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
         }
     }
 
-    internal void DuplicateElementsAt(IReadOnlyList<Element> sourceElements, TimeSpan anchorStart, int anchorZIndex)
+    // Returns true if a duplicate was placed and committed. Caller (Alt+drag) uses
+    // this to decide whether to fall back to a plain move.
+    internal bool DuplicateElementsAt(IReadOnlyList<Element> sourceElements, TimeSpan anchorStart, int anchorZIndex)
     {
         if (sourceElements.Count == 0)
         {
             // Caller (ElementView.OnBorderPointerReleased) already guards this — if we
             // get here, the caller has a bug worth surfacing.
             _logger.LogWarning("DuplicateElementsAt called with empty sourceElements; investigate caller.");
-            return;
+            return false;
         }
 
         try
@@ -649,10 +651,12 @@ public sealed class TimelineTabViewModel : IToolContext, IContextCommandHandler,
             DuplicateHelper.PlaceDuplicates(
                 Scene, newElements, src, anchorStart, Math.Max(anchorZIndex, 0), Constants.ElementFileExtension);
             EditorContext.GetRequiredService<HistoryManager>().Commit(CommandNames.DuplicateElement);
+            return true;
         }
         catch (Exception ex)
         {
             HandleDuplicateException(ex, "duplicating elements at position");
+            return false;
         }
     }
 

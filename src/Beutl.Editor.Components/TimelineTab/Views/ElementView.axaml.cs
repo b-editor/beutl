@@ -701,29 +701,49 @@ public sealed partial class ElementView : UserControl
                     .Select(x => (ViewModel: x, Context: x.PrepareAnimation()))
                     .ToArray();
 
-                try
+                bool duplicated = false;
+                if (elems.Length > 0)
                 {
-                    if (elems.Length > 0)
+                    TimeSpan minSourceStart = elems.Min(m => m.Start);
+                    int minSourceZIndex = elems.Min(m => m.ZIndex);
+                    TimeSpan anchorStart = minSourceStart + deltaStart;
+                    if (anchorStart < TimeSpan.Zero) anchorStart = TimeSpan.Zero;
+                    int anchorZIndex = Math.Max(minSourceZIndex + deltaIndex, 0);
+
+                    // Skip the duplicate when the copy would land on top of any source clip.
+                    if (DuplicateHelper.WouldOverlapSources(elems, anchorStart, anchorZIndex))
                     {
-                        TimeSpan minSourceStart = elems.Min(m => m.Start);
-                        int minSourceZIndex = elems.Min(m => m.ZIndex);
-                        TimeSpan anchorStart = minSourceStart + deltaStart;
-                        if (anchorStart < TimeSpan.Zero) anchorStart = TimeSpan.Zero;
-                        int anchorZIndex = Math.Max(minSourceZIndex + deltaIndex, 0);
-
-                        // Skip the duplicate when the copy would land on top of any source clip.
-                        if (DuplicateHelper.WouldOverlapSources(elems, anchorStart, anchorZIndex))
-                        {
-                            s_logger.LogDebug(
-                                "Alt+drag duplicate cancelled: copy would overlap source clip(s) at start={Start}, zIndex={ZIndex}.",
-                                anchorStart, anchorZIndex);
-                            ForceRestoreVisualToModel(animations.Select(a => a.ViewModel));
-                            return;
-                        }
-
-                        viewModel.Timeline.DuplicateElementsAt(elems, anchorStart, anchorZIndex);
+                        s_logger.LogDebug(
+                            "Alt+drag duplicate cancelled: copy would overlap source clip(s) at start={Start}, zIndex={ZIndex}.",
+                            anchorStart, anchorZIndex);
+                        ForceRestoreVisualToModel(animations.Select(a => a.ViewModel));
+                        return;
                     }
 
+                    duplicated = viewModel.Timeline.DuplicateElementsAt(elems, anchorStart, anchorZIndex);
+                }
+
+                if (!duplicated && elems.Length > 0 && (deltaStart != TimeSpan.Zero || deltaIndex != 0))
+                {
+                    // Duplicate failed (notification already raised by ViewModel). Alt is
+                    // a copy gesture, so fall back to a plain move so the drag is not lost.
+                    try
+                    {
+                        viewModel.Scene.MoveChildren(deltaIndex, deltaStart, elems);
+                        history.Commit(CommandNames.MoveElement);
+                        NotificationService.ShowWarning(Strings.Duplicate_Failed, Strings.Duplicate_FallbackToMove);
+                    }
+                    catch (Exception ex)
+                    {
+                        ForceRestoreVisualToModel(animations.Select(a => a.ViewModel));
+                        s_logger.LogError(ex, "Move fallback also failed.");
+                        NotificationService.ShowError(Strings.Duplicate_Failed, Strings.Duplicate_FallbackFailed);
+                        return;
+                    }
+                }
+
+                try
+                {
                     // Must await: a fire-and-forget AnimationRequest swallows exceptions
                     // and leaves the visual stuck at the dragged position.
                     await Task.WhenAll(
@@ -731,25 +751,9 @@ public sealed partial class ElementView : UserControl
                 }
                 catch (Exception ex)
                 {
-                    // Fall back to a plain move so the drag is not lost. Alt is a copy
-                    // gesture, so notify the user that we silently demoted to move.
-                    s_logger.LogError(ex, "Failed to duplicate; falling back to plain move.");
-                    NotificationService.ShowError(Strings.Duplicate_Failed, ex.Message);
-                    try
-                    {
-                        if (elems.Length > 0 && (deltaStart != TimeSpan.Zero || deltaIndex != 0))
-                        {
-                            viewModel.Scene.MoveChildren(deltaIndex, deltaStart, elems);
-                            history.Commit(CommandNames.MoveElement);
-                            NotificationService.ShowWarning(Strings.Duplicate_Failed, Strings.Duplicate_FallbackToMove);
-                        }
-                    }
-                    catch (Exception ex2)
-                    {
-                        ForceRestoreVisualToModel(animations.Select(a => a.ViewModel));
-                        s_logger.LogError(ex2, "Move fallback also failed.");
-                        NotificationService.ShowError(Strings.Duplicate_Failed, Strings.Duplicate_FallbackFailed);
-                    }
+                    // Model state is already committed; just snap the visuals back.
+                    s_logger.LogWarning(ex, "Animation failed after duplicate/move; snapping visuals to model.");
+                    ForceRestoreVisualToModel(animations.Select(a => a.ViewModel));
                 }
             }
             else if (duplicate)
