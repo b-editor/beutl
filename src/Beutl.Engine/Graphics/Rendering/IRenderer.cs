@@ -26,6 +26,9 @@ public interface IRenderer : IDisposable
 
     Rect[] GetBoundaries(int zIndex);
 
+    // Provide a default implementation for source compatibility with third-party IRenderer implementations. null = not computed / cache miss.
+    Rect? GetBoundary(Drawable drawable) => null;
+
     DrawableRenderNode? FindRenderNode(Drawable drawable);
 
     RenderCacheOptions CacheOptions { get; set; }

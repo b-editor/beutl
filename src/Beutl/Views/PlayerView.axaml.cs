@@ -8,16 +8,29 @@ using Avalonia.Media.Imaging;
 using Avalonia.Media.Immutable;
 using Avalonia.Threading;
 
+using Beutl.Composition;
 using Beutl.Configuration;
 using Beutl.Controls;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.PathEditorTab.ViewModels;
+using Beutl.Engine;
+using Beutl.Graphics;
+using Beutl.Graphics.Rendering;
+using Beutl.Graphics.Transformation;
 using Beutl.Logging;
+using Beutl.ProjectSystem;
 using Beutl.ViewModels;
 
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 using Reactive.Bindings.Extensions;
+
+using BtlDrawable = Beutl.Graphics.Drawable;
+using BtlMatrix = Beutl.Graphics.Matrix;
+using BtlPoint = Beutl.Graphics.Point;
+using BtlRect = Beutl.Graphics.Rect;
+using BtlSize = Beutl.Graphics.Size;
 
 namespace Beutl.Views;
 
@@ -29,6 +42,10 @@ public partial class PlayerView : UserControl
     private IDisposable? _boundsSubscription;
     internal Control image = null!;
 
+    // _transformHandleResource is RenderThread-owned: only mutate inside RenderThread.Dispatcher.
+    private BtlDrawable.Resource? _transformHandleResource;
+    private BtlDrawable? _transformHandleResourceTarget;
+
     public PlayerView()
     {
         InitializeComponent();
@@ -39,6 +56,7 @@ public partial class PlayerView : UserControl
         framePanel.PointerPressed += OnFramePointerPressed;
         framePanel.PointerReleased += OnFramePointerReleased;
         framePanel.PointerMoved += OnFramePointerMoved;
+        framePanel.PointerCaptureLost += OnFramePointerCaptureLost;
         framePanel.AddHandler(PointerWheelChangedEvent, OnFramePointerWheelChanged, RoutingStrategies.Tunnel);
 
         framePanel.Focusable = true;
@@ -103,6 +121,9 @@ public partial class PlayerView : UserControl
                 imageBackground.Height = bounds.Height;
                 pathEditorView.Width = bounds.Width;
                 pathEditorView.Height = bounds.Height;
+                transformHandlesOverlay.Width = bounds.Width;
+                transformHandlesOverlay.Height = bounds.Height;
+                UpdateTransformHandles();
             });
     }
 
@@ -125,6 +146,9 @@ public partial class PlayerView : UserControl
         base.OnDetachedFromVisualTree(e);
         _imageConfigSubscription?.Dispose();
         _boundsSubscription?.Dispose();
+
+        InvalidateTransformHandleResource();
+
         if (DataContext is PlayerViewModel viewModel && viewModel.IsPlaying.Value)
         {
             await viewModel.Pause();
@@ -141,7 +165,7 @@ public partial class PlayerView : UserControl
         if (DataContext is PlayerViewModel player && TopLevel.GetTopLevel(this) is { } topLevel)
         {
             var size = framePanel.Bounds.Size;
-            player.MaxFrameSize = new Beutl.Graphics.Size(
+            player.MaxFrameSize = new BtlSize(
                 (float)(size.Width * topLevel.RenderScaling),
                 (float)(size.Height * topLevel.RenderScaling));
         }
@@ -151,6 +175,9 @@ public partial class PlayerView : UserControl
     {
         base.OnDataContextChanged(e);
         _disposables.Clear();
+
+        InvalidateTransformHandleResource();
+
         if (DataContext is PlayerViewModel vm)
         {
             vm.PreviewInvalidated += Player_PreviewInvalidated;
@@ -163,7 +190,7 @@ public partial class PlayerView : UserControl
                 .Where(t => t.Item3 != null)
                 .Subscribe(t =>
                 {
-                    framePanel.RenderTransformOrigin = RelativePoint.TopLeft;
+                    framePanel.RenderTransformOrigin = Avalonia.RelativePoint.TopLeft;
                     framePanel.RenderTransform = new ImmutableTransform(t.matrix.ToAvaMatrix());
                     if (DataContext is PlayerViewModel { Scene: { } } vm)
                     {
@@ -197,7 +224,169 @@ public partial class PlayerView : UserControl
                         framePanel.Cursor = null;
                 })
                 .DisposeWith(_disposables);
+
+            var selection = vm.EditViewModel.GetRequiredService<Beutl.Editor.Services.IEditorSelection>();
+            selection.SelectedObject
+                .ObserveOnUIDispatcher()
+                .Subscribe(_ => UpdateTransformHandles())
+                .DisposeWith(_disposables);
+
+            // RenderThread.Invoke during playback would stall frame generation, so suppress overlay
+            // updates outside Move mode + paused state.
+            vm.IsMoveMode.CombineLatest(vm.IsPlaying, (move, playing) => move && !playing)
+                .DistinctUntilChanged()
+                .ObserveOnUIDispatcher()
+                .Subscribe(visible =>
+                {
+                    transformHandlesOverlay.IsVisible = visible;
+                    if (visible) UpdateTransformHandles();
+                    else ClearTransformHandleOverlay();
+                })
+                .DisposeWith(_disposables);
         }
+    }
+
+    private void UpdateTransformHandles()
+    {
+        if (DataContext is not PlayerViewModel vm) return;
+        if (!vm.IsMoveMode.Value)
+        {
+            ClearTransformHandleOverlay();
+            return;
+        }
+
+        var selection = vm.EditViewModel.GetRequiredService<Beutl.Editor.Services.IEditorSelection>();
+        var clock = vm.EditViewModel.GetRequiredService<Beutl.Editor.Services.IEditorClock>();
+        if (selection.SelectedObject.Value is not Element element)
+        {
+            ClearTransformHandleOverlay();
+            return;
+        }
+
+        TimeSpan time = clock.CurrentTime.Value;
+        if (time < element.Start || time >= element.Range.End)
+        {
+            ClearTransformHandleOverlay();
+            return;
+        }
+
+        var renderer = vm.EditViewModel.Renderer.Value;
+        var scene = vm.EditViewModel.Scene;
+        if (image.Bounds.Width <= 0 || scene.FrameSize.Width <= 0)
+        {
+            ClearTransformHandleOverlay();
+            return;
+        }
+
+        double frameScale = image.Bounds.Width / scene.FrameSize.Width;
+        // Prefer the last hit-tested drawable so the overlay tracks the visual object the user actually
+        // clicked on, not just the element's first drawable.
+        BtlDrawable? hitTested = _lastSelected.TryGetTarget(out BtlDrawable? cached) ? cached : null;
+        BtlDrawable? drawable = null;
+        foreach (BtlDrawable d in element.Objects.OfType<BtlDrawable>())
+        {
+            drawable ??= d;
+            if (ReferenceEquals(d, hitTested))
+            {
+                drawable = d;
+                break;
+            }
+        }
+        if (drawable == null)
+        {
+            ClearTransformHandleOverlay();
+            return;
+        }
+
+        // Use an independent Resource on RenderThread so we evaluate animations against ctxTime
+        // without piggybacking on the renderer's cached render node.
+        (BtlSize localSize, BtlMatrix userMatrix, BtlPoint pivotLocal)? snap;
+        try
+        {
+            BtlDrawable target = drawable;
+            BtlSize availableSize = scene.FrameSize.ToSize(1.0f);
+            TimeSpan ctxTime = time;
+            snap = RenderThread.Dispatcher.Invoke(() =>
+            {
+                BtlRect? bounds = renderer.GetBoundary(target);
+                if (bounds is not { Width: > 0, Height: > 0 }) return null;
+
+                var ctx = new CompositionContext(ctxTime);
+                if (_transformHandleResource == null || _transformHandleResourceTarget != target)
+                {
+                    _transformHandleResource?.Dispose();
+                    _transformHandleResource = target.ToResource(ctx);
+                    _transformHandleResourceTarget = target;
+                }
+                else
+                {
+                    // updateOnly=true: this is a read-only view for the overlay, so don't bump Version
+                    // and invalidate downstream consumers.
+                    bool updateOnly = true;
+                    _transformHandleResource.Update(target, ctx, ref updateOnly);
+                }
+                BtlDrawable.Resource? resource = _transformHandleResource;
+
+                BtlSize localSize = target.MeasureInternal(availableSize, resource);
+                if (localSize.Width <= 0 || localSize.Height <= 0) return null;
+
+                BtlMatrix userMatrix = target.GetTransformMatrix(availableSize, localSize, resource);
+                BtlPoint pivot = resource.TransformOrigin.ToPixels(localSize);
+
+                // userMatrix omits FilterEffect-induced offsets; align against rendered bounds.
+                BtlMatrix adjusted = TransformHandleMath.AlignUserMatrixToRenderedBounds(userMatrix, localSize, bounds.Value);
+
+                return ((BtlSize, BtlMatrix, BtlPoint)?)(localSize, adjusted, pivot);
+            });
+        }
+        catch (InvalidOperationException ex)
+        {
+            _logger.LogError(
+                ex,
+                "GetBoundary/MeasureInternal called from invalid thread for {DrawableType} on element '{Element}'.",
+                drawable.GetType().Name, element.Name);
+            // Partially-updated cache may remain — dispose and let it rebuild.
+            ClearTransformHandleOverlay();
+            return;
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException and not StackOverflowException)
+        {
+            _logger.LogError(
+                ex,
+                "Unexpected exception while querying transform overlay geometry (drawable={DrawableType}, element='{Element}').",
+                drawable.GetType().Name, element.Name);
+            ClearTransformHandleOverlay();
+            return;
+        }
+
+        if (snap is not { } s)
+        {
+            ClearTransformHandleOverlay();
+            return;
+        }
+
+        transformHandlesOverlay.Update(drawable, element, s.localSize, s.userMatrix, s.pivotLocal, image.Bounds.Size, frameScale);
+    }
+
+    private void ClearTransformHandleOverlay()
+    {
+        transformHandlesOverlay.Clear();
+        InvalidateTransformHandleResource();
+    }
+
+    private void InvalidateTransformHandleResource()
+    {
+        if (_transformHandleResource == null) return;
+
+        // _transformHandleResource is created inside RenderThread.Dispatcher.Invoke, so the matching
+        // Dispose must run there too — UI-thread paths (OnDataContextChanged, OnDetachedFromVisualTree,
+        // ClearTransformHandleOverlay) would otherwise race in-flight RenderThread updates.
+        RenderThread.Dispatcher.Invoke(() =>
+        {
+            _transformHandleResource?.Dispose();
+            _transformHandleResource = null;
+            _transformHandleResourceTarget = null;
+        });
     }
 
     private void Player_PreviewInvalidated(object? sender, EventArgs e)
@@ -205,7 +394,16 @@ public partial class PlayerView : UserControl
         if (image == null)
             return;
 
-        Dispatcher.UIThread.InvokeAsync(image.InvalidateVisual);
+        Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            image.InvalidateVisual();
+
+            // Skip overlay updates while playing — RenderThread Invoke would block next-frame generation.
+            // When playback stops, the IsPlaying subscriber triggers it once.
+            if (DataContext is PlayerViewModel { IsPlaying.Value: true }) return;
+
+            UpdateTransformHandles();
+        });
     }
 
     private void ToggleDragModeClick(object? sender, RoutedEventArgs e)
