@@ -36,8 +36,6 @@ namespace Beutl.Views;
 
 public partial class PlayerView : UserControl
 {
-    private const int MaxScannedDrawablesPerElement = 16;
-
     private readonly CompositeDisposable _disposables = [];
     private readonly ILogger _logger = Log.CreateLogger<PlayerView>();
     private IDisposable? _imageConfigSubscription;
@@ -285,7 +283,6 @@ public partial class PlayerView : UserControl
         // clicked on, not just the element's first drawable.
         BtlDrawable? hitTested = _lastSelected.TryGetTarget(out BtlDrawable? cached) ? cached : null;
         BtlDrawable? drawable = null;
-        int drawableCount = 0;
         foreach (BtlDrawable d in element.Objects.OfType<BtlDrawable>())
         {
             drawable ??= d;
@@ -294,7 +291,6 @@ public partial class PlayerView : UserControl
                 drawable = d;
                 break;
             }
-            if (++drawableCount > MaxScannedDrawablesPerElement) break;
         }
         if (drawable == null)
         {
