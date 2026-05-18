@@ -376,12 +376,17 @@ public partial class PlayerView : UserControl
 
     private void InvalidateTransformHandleResource()
     {
-        if (_transformHandleResource != null)
+        if (_transformHandleResource == null) return;
+
+        // _transformHandleResource is created inside RenderThread.Dispatcher.Invoke, so the matching
+        // Dispose must run there too — UI-thread paths (OnDataContextChanged, OnDetachedFromVisualTree,
+        // ClearTransformHandleOverlay) would otherwise race in-flight RenderThread updates.
+        RenderThread.Dispatcher.Invoke(() =>
         {
-            _transformHandleResource.Dispose();
+            _transformHandleResource?.Dispose();
             _transformHandleResource = null;
             _transformHandleResourceTarget = null;
-        }
+        });
     }
 
     private void Player_PreviewInvalidated(object? sender, EventArgs e)
