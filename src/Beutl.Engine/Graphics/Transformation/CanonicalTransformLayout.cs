@@ -39,10 +39,13 @@ internal static class CanonicalTransformLayout
             groupChanged = true;
         }
 
+        // Only adopt enabled T/R/S; disabled children are ignored by TransformGroup.CreateMatrix,
+        // so editing them would leave the preview unchanged. Treat absence and "disabled-only" the same way.
         int rIdx = -1, sIdx = -1, tIdx = -1;
         for (int i = 0; i < tg.Children.Count; i++)
         {
             Transform c = tg.Children[i];
+            if (!c.IsEnabled) continue;
             if (rIdx < 0 && c is RotationTransform) rIdx = i;
             if (sIdx < 0 && c is ScaleTransform) sIdx = i;
             if (tIdx < 0 && c is TranslateTransform) tIdx = i;
@@ -106,6 +109,7 @@ internal static class CanonicalTransformLayout
             for (int i = 0; i < tg.Children.Count; i++)
             {
                 Transform c = tg.Children[i];
+                if (!c.IsEnabled) continue;
                 if (rIdx < 0 && c is RotationTransform) rIdx = i;
                 if (sIdx < 0 && c is ScaleTransform) sIdx = i;
                 if (tIdx < 0 && c is TranslateTransform) tIdx = i;
@@ -117,9 +121,9 @@ internal static class CanonicalTransformLayout
         }
         return t switch
         {
-            RotationTransform r => (r, null, null),
-            ScaleTransform s => (null, s, null),
-            TranslateTransform tr => (null, null, tr),
+            RotationTransform r when r.IsEnabled => (r, null, null),
+            ScaleTransform s when s.IsEnabled => (null, s, null),
+            TranslateTransform tr when tr.IsEnabled => (null, null, tr),
             _ => (null, null, null)
         };
     }

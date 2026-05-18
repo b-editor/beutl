@@ -89,6 +89,10 @@ public partial class PlayerView
         void OnKeyUp(KeyEventArgs e)
         {
         }
+
+        void OnPointerCaptureLost(PointerCaptureLostEventArgs e)
+        {
+        }
     }
 
     private class MouseControlHand : IMouseControlHandler
@@ -315,6 +319,11 @@ public partial class PlayerView
             EditorSelection.SelectedObject.Value = element;
             View.framePanel.Cursor = TransformHandlesOverlay.GetCursorForHandle(Kind);
 
+            // Capture the pointer so handle drags receive Released even when the cursor leaves
+            // framePanel. Without this, releasing outside the control would leave _press dangling
+            // and subsequent re-entries would mutate the Transform without a held button.
+            e.Pointer.Capture(View.framePanel);
+
             e.Handled = true;
         }
 
@@ -384,13 +393,20 @@ public partial class PlayerView
                 return;
             }
 
-            int zindex = drawable.ZIndex;
-            TimeSpan time = Clock.CurrentTime.Value;
-            Element? element = scene.Children.FirstOrDefault(v =>
-                v.IsEnabled
-                && v.ZIndex == zindex
-                && v.Start <= time
-                && time < v.Range.End);
+            // Resolve the owning Element via the hierarchical parent chain so that overlapping
+            // ZIndex elements do not alias to each other. Fall back to a ZIndex/time-window search
+            // only when the drawable's parent is outside this scene (e.g. nested SceneDrawable).
+            Element? element = drawable.FindHierarchicalParent<Element>();
+            if (element == null || !scene.Children.Contains(element))
+            {
+                int zindex = drawable.ZIndex;
+                TimeSpan time = Clock.CurrentTime.Value;
+                element = scene.Children.FirstOrDefault(v =>
+                    v.IsEnabled
+                    && v.ZIndex == zindex
+                    && v.Start <= time
+                    && time < v.Range.End);
+            }
 
             if (element != null)
             {
@@ -409,6 +425,11 @@ public partial class PlayerView
                 StartImagePos: imagePos,
                 PressTransform: drawable.Transform.CurrentValue);
             _ensured = null;
+
+            // Capture the pointer so a translate drag started here still delivers Released even when
+            // the cursor leaves framePanel during the drag.
+            e.Pointer.Capture(View.framePanel);
+
             e.Handled = true;
 
             // Double-click on shape → path editor
@@ -803,16 +824,18 @@ public partial class PlayerView
             };
         }
 
+        // Anchor at the center of the opposite edge so that proportional (Shift) edge-resize stays centered
+        // on the orthogonal axis. Using a corner here makes Shift-dragging an edge introduce sideways drift.
         private static (double X, double Y) EdgeAnchorLocal(PressState press, TransformHandlesOverlay.HandleKind kind)
         {
             BtlSize size = press.LocalSize;
             double w = size.Width, h = size.Height;
             return kind switch
             {
-                TransformHandlesOverlay.HandleKind.Top => (0, h),     // opposite = Bottom edge
-                TransformHandlesOverlay.HandleKind.Bottom => (0, 0),  // opposite = Top edge
-                TransformHandlesOverlay.HandleKind.Left => (w, 0),    // opposite = Right edge
-                TransformHandlesOverlay.HandleKind.Right => (0, 0),   // opposite = Left edge
+                TransformHandlesOverlay.HandleKind.Top => (w * 0.5, h),       // opposite = Bottom edge center
+                TransformHandlesOverlay.HandleKind.Bottom => (w * 0.5, 0),    // opposite = Top edge center
+                TransformHandlesOverlay.HandleKind.Left => (w, h * 0.5),      // opposite = Right edge center
+                TransformHandlesOverlay.HandleKind.Right => (0, h * 0.5),     // opposite = Left edge center
                 _ => throw new System.ArgumentOutOfRangeException(nameof(kind), kind, "Edge anchor requested for non-edge HandleKind."),
             };
         }
@@ -847,8 +870,16 @@ public partial class PlayerView
             e.Handled = true;
         }
 
+        // Always roll back any pending operations recorded during the drag. ResetSession is reached on:
+        //   - successful Release after Commit: Rollback becomes a no-op because Commit already cleared the current transaction.
+        //   - abort/discard paths (AbortDrag, OnReleased discard branch): pending Ensure-driven structure changes and
+        //     handle-applied deltas would otherwise leak into the next unrelated Commit, breaking undo grouping.
         private void ResetSession()
         {
+            if (_changed || _ensured != null)
+            {
+                EditViewModel.HistoryManager.Rollback();
+            }
             _press = null;
             _ensured = null;
             _changed = false;
@@ -857,6 +888,19 @@ public partial class PlayerView
         public void OnKeyDown(KeyEventArgs e) => SyncShift(e.KeyModifiers);
 
         public void OnKeyUp(KeyEventArgs e) => SyncShift(e.KeyModifiers);
+
+        public void OnPointerCaptureLost(PointerCaptureLostEventArgs e)
+        {
+            // In the normal Release flow, OnReleased clears _press before this fires, so this is a no-op.
+            // It only does work when capture was taken away externally (focus stolen, system event, etc.).
+            if (_press == null) return;
+            _logger.LogDebug(
+                "OnPointerCaptureLost: capture lost mid-drag (Drawable={DrawableType}, Kind={Kind}); discarding pending changes.",
+                _press.Drawable.GetType().Name, Kind);
+            View.framePanel.Cursor = null;
+            ResetSession();
+            _shift = false;
+        }
 
         private void SyncShift(KeyModifiers modifiers) => _shift = modifiers.HasFlag(KeyModifiers.Shift);
 
@@ -1792,6 +1836,15 @@ public partial class PlayerView
     private void OnFramePointerMoved(object? sender, PointerEventArgs e)
     {
         _mouseState?.OnMoved(e);
+    }
+
+    private void OnFramePointerCaptureLost(object? sender, PointerCaptureLostEventArgs e)
+    {
+        // On a normal Release, OnFramePointerReleased already nulled out _mouseState, so this is a no-op.
+        // It only does work when capture was taken away externally before Release reached us.
+        if (_mouseState == null) return;
+        _mouseState.OnPointerCaptureLost(e);
+        _mouseState = null;
     }
 
     private void OnFramePointerReleased(object? sender, PointerReleasedEventArgs e)

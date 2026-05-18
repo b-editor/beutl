@@ -495,6 +495,74 @@ public class CanonicalTransformLayoutTests
     }
 
     [Test]
+    public void FindCanonicalTransforms_DisabledChildren_AreSkipped()
+    {
+        // Disabled T/R/S do not contribute to TransformGroup.CreateMatrix, so the handle code must not adopt them.
+        var disabledT = new TranslateTransform(10f, 20f) { IsEnabled = false };
+        var enabledT = new TranslateTransform(30f, 40f);
+        var disabledR = new RotationTransform(15f) { IsEnabled = false };
+        var enabledR = new RotationTransform(45f);
+        var s = new ScaleTransform(150f, 150f);
+        var group = new TransformGroup();
+        group.Children.Add(disabledT);
+        group.Children.Add(enabledT);
+        group.Children.Add(disabledR);
+        group.Children.Add(enabledR);
+        group.Children.Add(s);
+
+        var (rotation, scale, translate) = CanonicalTransformLayout.FindCanonicalTransforms(group);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(translate, Is.SameAs(enabledT));
+            Assert.That(rotation, Is.SameAs(enabledR));
+            Assert.That(scale, Is.SameAs(s));
+        });
+    }
+
+    [Test]
+    public void FindCanonicalTransforms_DisabledSingleton_ReturnsAllNull()
+    {
+        var r = new RotationTransform(45f) { IsEnabled = false };
+        var (rotation, scale, translate) = CanonicalTransformLayout.FindCanonicalTransforms(r);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(rotation, Is.Null);
+            Assert.That(scale, Is.Null);
+            Assert.That(translate, Is.Null);
+        });
+    }
+
+    [Test]
+    public void Ensure_DisabledExisting_InsertsNewEnabledTransforms()
+    {
+        // If the existing T/R/S are all disabled, Ensure must insert fresh enabled ones rather than adopt the disabled ones.
+        var drawable = CreateDrawable();
+        var disabledT = new TranslateTransform(10f, 20f) { IsEnabled = false };
+        var disabledR = new RotationTransform(30f) { IsEnabled = false };
+        var disabledS = new ScaleTransform(200f, 200f) { IsEnabled = false };
+        var group = new TransformGroup();
+        group.Children.Add(disabledT);
+        group.Children.Add(disabledR);
+        group.Children.Add(disabledS);
+        drawable.Transform.CurrentValue = group;
+
+        CanonicalTransformLayoutResult result = CanonicalTransformLayout.Ensure(drawable, Context);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.StructureChanged, Is.True);
+            Assert.That(result.Translate, Is.Not.SameAs(disabledT));
+            Assert.That(result.Rotation, Is.Not.SameAs(disabledR));
+            Assert.That(result.Scale, Is.Not.SameAs(disabledS));
+            Assert.That(result.Translate.IsEnabled, Is.True);
+            Assert.That(result.Rotation.IsEnabled, Is.True);
+            Assert.That(result.Scale.IsEnabled, Is.True);
+        });
+    }
+
+    [Test]
     public void FindCanonicalTransforms_AgreesWithEnsureOnNewCanonical()
     {
         // Under the new canonical [T, R, S], Find and Ensure return the same references and do not change the structure.

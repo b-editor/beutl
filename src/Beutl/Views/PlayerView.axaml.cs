@@ -57,6 +57,7 @@ public partial class PlayerView : UserControl
         framePanel.PointerPressed += OnFramePointerPressed;
         framePanel.PointerReleased += OnFramePointerReleased;
         framePanel.PointerMoved += OnFramePointerMoved;
+        framePanel.PointerCaptureLost += OnFramePointerCaptureLost;
         framePanel.AddHandler(PointerWheelChangedEvent, OnFramePointerWheelChanged, RoutingStrategies.Tunnel);
 
         framePanel.Focusable = true;
