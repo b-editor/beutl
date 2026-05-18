@@ -1,4 +1,8 @@
-﻿using Avalonia;
+﻿using System.Collections.Specialized;
+using System.ComponentModel;
+using System.Globalization;
+
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Data;
 using Avalonia.Input;
@@ -70,7 +74,56 @@ public partial class PlayerView : UserControl
         DragDrop.SetAllowDrop(framePanel, true);
         framePanel.AddHandler(DragDrop.DragOverEvent, OnFrameDragOver);
         framePanel.AddHandler(DragDrop.DropEvent, OnFrameDrop);
+
+        Player.CurrentTimeSubmitted += OnPlayerCurrentTimeSubmitted;
     }
+
+    private async void OnPlayerCurrentTimeSubmitted(object? sender, Beutl.Controls.TimecodeSubmittedEventArgs e)
+    {
+        if (DataContext is not PlayerViewModel vm)
+        {
+            // A wrong DataContext on a PlayerView event handler is a wiring bug,
+            // not a user error — log at Error level so it surfaces in telemetry,
+            // and show a generic "unexpected error" message instead of the
+            // misleading "Invalid timecode format".
+            _logger.LogError("Timecode submitted but DataContext is not PlayerViewModel; ignoring.");
+            e.Reject(Beutl.Language.MessageStrings.UnexpectedError);
+            return;
+        }
+
+        // Parse synchronously so Player.SubmitCurrentTimeEdit sees the final
+        // Handled/Error state before its post-Invoke check. The actual seek
+        // is applied after awaiting Pause if playback is running, otherwise
+        // the playback timer would overwrite the new playhead on its next tick.
+        if (!vm.TryParseTimecode(e.Input, out TimeSpan target, out GotoTimecodeError error))
+        {
+            e.Reject(LookupLocalizedError(error));
+            return;
+        }
+
+        e.Accept();
+        try
+        {
+            if (vm.IsPlaying.Value)
+            {
+                await vm.Pause();
+            }
+            vm.ApplyTimecodeSeek(target);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Unexpected error while applying timecode '{Input}'.", e.Input);
+        }
+    }
+
+    private string LookupLocalizedError(GotoTimecodeError error) => error switch
+    {
+        GotoTimecodeError.InvalidFormat => Beutl.Language.Strings.GotoTimecode_InvalidFormat,
+        GotoTimecodeError.MarkerNotFound => Beutl.Language.Strings.GotoTimecode_MarkerNotFound,
+        GotoTimecodeError.NoScene => Beutl.Language.Strings.GotoTimecode_NoScene,
+        GotoTimecodeError.OutOfRange => Beutl.Language.Strings.GotoTimecode_OutOfRange,
+        _ => Beutl.Language.Strings.GotoTimecode_InvalidFormat,
+    };
 
     private void SetupImageControl()
     {
@@ -183,6 +236,20 @@ public partial class PlayerView : UserControl
             vm.PreviewInvalidated += Player_PreviewInvalidated;
             Disposable.Create(vm, x => x.PreviewInvalidated -= Player_PreviewInvalidated)
                 .DisposeWith(_disposables);
+
+            vm.BeginEditTimecodeRequested
+                .ObserveOnUIDispatcher()
+                .Subscribe(_ => Player.BeginEditCurrentTime())
+                .DisposeWith(_disposables);
+
+            if (vm.Scene is { } scene)
+            {
+                WirePlayerMarkers(scene).DisposeWith(_disposables);
+            }
+            else
+            {
+                Player.Markers = Array.Empty<PlayerMarkerEntry>();
+            }
 
             vm.FrameMatrix
                 .ObserveOnUIDispatcher()
@@ -387,6 +454,89 @@ public partial class PlayerView : UserControl
             _transformHandleResource = null;
             _transformHandleResourceTarget = null;
         });
+    }
+
+    private IDisposable WirePlayerMarkers(Scene scene)
+    {
+        var disposables = new CompositeDisposable();
+        var markerSubscriptions = new Dictionary<SceneMarker, IDisposable>();
+
+        void Refresh()
+        {
+            var snapshot = new PlayerMarkerEntry[scene.Markers.Count];
+            for (int i = 0; i < scene.Markers.Count; i++)
+            {
+                SceneMarker m = scene.Markers[i];
+                snapshot[i] = new PlayerMarkerEntry(
+                    m.Name ?? string.Empty,
+                    // Player の CurrentTime 表示 (hh\:mm\:ss\.ff) と桁を揃える。
+                    m.Time.ToString(@"hh\:mm\:ss\.ff", CultureInfo.InvariantCulture));
+            }
+            Player.Markers = snapshot;
+        }
+
+        void Subscribe(SceneMarker marker)
+        {
+            if (markerSubscriptions.ContainsKey(marker)) return;
+            void OnMarkerPropertyChanged(object? s, PropertyChangedEventArgs e)
+            {
+                if (e.PropertyName == nameof(SceneMarker.Name)
+                    || e.PropertyName == nameof(SceneMarker.Time))
+                {
+                    Refresh();
+                }
+            }
+            marker.PropertyChanged += OnMarkerPropertyChanged;
+            markerSubscriptions[marker] = Disposable.Create(
+                () => marker.PropertyChanged -= OnMarkerPropertyChanged);
+        }
+
+        void Unsubscribe(SceneMarker marker)
+        {
+            if (markerSubscriptions.Remove(marker, out IDisposable? sub))
+            {
+                sub.Dispose();
+            }
+        }
+
+        foreach (SceneMarker marker in scene.Markers)
+        {
+            Subscribe(marker);
+        }
+
+        void OnCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+        {
+            if (e.OldItems != null)
+            {
+                foreach (object? item in e.OldItems)
+                {
+                    if (item is SceneMarker marker) Unsubscribe(marker);
+                }
+            }
+            if (e.NewItems != null)
+            {
+                foreach (object? item in e.NewItems)
+                {
+                    if (item is SceneMarker marker) Subscribe(marker);
+                }
+            }
+            Refresh();
+        }
+
+        scene.Markers.CollectionChanged += OnCollectionChanged;
+        disposables.Add(Disposable.Create(
+            () => scene.Markers.CollectionChanged -= OnCollectionChanged));
+        disposables.Add(Disposable.Create(() =>
+        {
+            foreach (IDisposable sub in markerSubscriptions.Values)
+            {
+                sub.Dispose();
+            }
+            markerSubscriptions.Clear();
+        }));
+
+        Refresh();
+        return disposables;
     }
 
     private void Player_PreviewInvalidated(object? sender, EventArgs e)

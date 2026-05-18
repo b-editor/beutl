@@ -140,6 +140,9 @@ public partial class EditViewModel : IContextCommandHandler, IContextCommandStat
             case "PreviousMarker" when !isFromTextBox:
                 SeekToAdjacentMarker(forward: false);
                 break;
+            case "GotoTimecode" when !isFromTextBox:
+                Player.RequestEditTimecode();
+                break;
             default:
                 if (execution.KeyEventArgs != null)
                     execution.KeyEventArgs.Handled = false;

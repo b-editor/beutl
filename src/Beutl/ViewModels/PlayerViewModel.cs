@@ -7,6 +7,7 @@ using Beutl.Composition;
 using Beutl.Configuration;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.PathEditorTab.ViewModels;
+using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Cache;
@@ -544,6 +545,81 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
             return (TimeSpan.Zero, TimeSpan.Zero);
 
         return (Scene.Start, Scene.Start + Scene.Duration);
+    }
+
+    public Subject<Unit> BeginEditTimecodeRequested { get; } = new();
+
+    public void RequestEditTimecode()
+    {
+        BeginEditTimecodeRequested.OnNext(Unit.Default);
+    }
+
+    public bool TryParseTimecode(string input, out TimeSpan target, out GotoTimecodeError error)
+    {
+        target = TimeSpan.Zero;
+        if (Scene == null)
+        {
+            // The view should not raise the event without a scene; surface the
+            // state mismatch so it is visible in telemetry.
+            _logger.LogWarning(
+                "TryParseTimecode invoked with no scene loaded. ({SceneId}, Input={Input})",
+                _editViewModel.SceneId, input);
+            error = GotoTimecodeError.NoScene;
+            return false;
+        }
+
+        int rate = GetFrameRate();
+        if (!GotoTimecodeParser.TryParse(input, rate, _editorClock.CurrentTime.Value, Scene.Markers, out TimeSpan parsed, out error))
+        {
+            _logger.LogDebug(
+                "Goto-timecode parse failed. ({SceneId}, Input={Input}, Error={Error})",
+                _editViewModel.SceneId, input, error);
+            return false;
+        }
+
+        // Frame-snap up front so ApplyTimecodeSeek cannot fail later — without
+        // this, the parser-accepted value could be returned to the view, the
+        // editor would close on Accept(), and the actual seek would silently
+        // no-op when RoundToRate overflowed.
+        try
+        {
+            target = parsed.RoundToRate(rate);
+        }
+        catch (OverflowException ex)
+        {
+            _logger.LogWarning(ex,
+                "RoundToRate overflowed for goto-timecode target. ({SceneId}, Parsed={Parsed}, Rate={Rate})",
+                _editViewModel.SceneId, parsed, rate);
+            error = GotoTimecodeError.OutOfRange;
+            return false;
+        }
+
+        TimeSpan endTime = Scene.Start + Scene.Duration - TimeSpan.FromSeconds(1d / rate);
+        if (target < Scene.Start || target > endTime)
+        {
+            _logger.LogDebug(
+                "Goto-timecode target out of scene range. ({SceneId}, Target={Target}, Range=[{Start}, {End}])",
+                _editViewModel.SceneId, target, Scene.Start, endTime);
+            error = GotoTimecodeError.OutOfRange;
+            return false;
+        }
+
+        return true;
+    }
+
+    public void ApplyTimecodeSeek(TimeSpan target)
+    {
+        // target is already frame-snapped by TryParseTimecode.
+        _editorClock.CurrentTime.Value = target;
+
+        // 再生ヘッドがビューポート外へ飛ぶ場合に追従する。EditViewModel.CommandHandler の
+        // 既存スクロール呼び出しと同形。
+        if (_editViewModel.FindToolTab<TimelineTabViewModel>() is { } timeline)
+        {
+            int currentZIndex = timeline.ToLayerNumber(timeline.Options.Value.Offset.Y);
+            timeline.ScrollTo.Execute(
+                (new Beutl.Media.TimeRange(target, TimeSpan.FromTicks(1)), currentZIndex));
+        }
     }
 
     public void ToggleLoop()
@@ -1304,6 +1380,7 @@ public sealed class PlayerViewModel : IAsyncDisposable, IPreviewPlayer
         _currentFrameSubscription?.Dispose();
         AfterRendered.Dispose();
         _audioFramePushed.Dispose();
+        BeginEditTimecodeRequested.Dispose();
         PreviewInvalidated = null;
         Scene = null!;
         PreviewImage.Value?.Dispose();

@@ -824,6 +824,27 @@
   <data name="ToggleLoop_Description" xml:space="preserve">
     <value>Toggle loop playback.</value>
   </data>
+  <data name="GotoTimecode" xml:space="preserve">
+    <value>Goto timecode</value>
+  </data>
+  <data name="GotoTimecode_Description" xml:space="preserve">
+    <value>Edit the current timecode to seek. Accepts absolute (00:01:23.45), frame (60f or #60), relative (+5s/-10f/+1m) or marker name (@Intro).</value>
+  </data>
+  <data name="GotoTimecode_InputHint" xml:space="preserve">
+    <value>00:01:23 / 60f / +5s / @marker</value>
+  </data>
+  <data name="GotoTimecode_InvalidFormat" xml:space="preserve">
+    <value>Invalid timecode format.</value>
+  </data>
+  <data name="GotoTimecode_MarkerNotFound" xml:space="preserve">
+    <value>Marker not found.</value>
+  </data>
+  <data name="GotoTimecode_NoScene" xml:space="preserve">
+    <value>No scene is loaded.</value>
+  </data>
+  <data name="GotoTimecode_OutOfRange" xml:space="preserve">
+    <value>Timecode is out of range.</value>
+  </data>
   <data name="Paste_Description" xml:space="preserve">
     <value>Paste the copied data.</value>
   </data>
