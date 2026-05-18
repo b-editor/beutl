@@ -15,8 +15,9 @@ public sealed class UInt64Animator : Animator<ulong>
         // ulong の境界と比較して飽和させ、確実に範囲内になった値だけを cast する。
         // 上流前提: progress は有限値で呼ばれること (Animator<T> / Easing 側で保証)。
         // NaN 入力は仕様上の保証対象外で、現状の cast 経路で 0 が返るが意図しないなら上流バグ。
+        // 丸めは Math.Round 既定 (ToEven) のままにし、ByteAnimator/UInt16Animator など他の整数 Animator と挙動を一致させる。
         if (v >= ulong.MaxValue) return ulong.MaxValue;
         if (v <= 0d) return 0ul;
-        return (ulong)Math.Round(v, MidpointRounding.AwayFromZero);
+        return (ulong)Math.Round(v);
     }
 }

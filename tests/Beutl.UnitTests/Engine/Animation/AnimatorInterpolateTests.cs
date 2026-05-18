@@ -107,18 +107,19 @@ public class AnimatorInterpolateTests
     public void Int32Animator_FullRangeMidpoint()
     {
         var animator = new Int32Animator();
-        // double 補間: -2^31 + (2^32 - 1) * 0.5 = -0.5 → Math.Round(AwayFromZero) → -1
-        Assert.That(animator.Interpolate(0.5f, int.MinValue, int.MaxValue), Is.EqualTo(-1));
+        // double 補間: -2^31 + (2^32 - 1) * 0.5 = -0.5 → Math.Round 既定 (ToEven) → 0
+        Assert.That(animator.Interpolate(0.5f, int.MinValue, int.MaxValue), Is.EqualTo(0));
     }
 
     [Test]
-    public void Int32Animator_RoundsMidpointAwayFromZero()
+    public void Int32Animator_RoundsMidpointToEven()
     {
         var animator = new Int32Animator();
-        // MidpointRounding.AwayFromZero: 0.5 → 1 (ToEven なら 0)
-        Assert.That(animator.Interpolate(0.5f, 0, 1), Is.EqualTo(1));
-        // MidpointRounding.AwayFromZero: -0.5 → -1 (ToEven なら 0)
-        Assert.That(animator.Interpolate(0.5f, -1, 0), Is.EqualTo(-1));
+        // Math.Round 既定 (ToEven): 0.5 → 0 (偶数寄り)。
+        // ByteAnimator/Int16Animator など他の整数 Animator と一貫する。
+        Assert.That(animator.Interpolate(0.5f, 0, 1), Is.EqualTo(0));
+        // Math.Round 既定 (ToEven): -0.5 → 0
+        Assert.That(animator.Interpolate(0.5f, -1, 0), Is.EqualTo(0));
     }
 
     [Test]

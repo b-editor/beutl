@@ -6,8 +6,9 @@ public sealed class UInt32Animator : Animator<uint>
     {
         // 32bit 値も Math.Clamp の上下限 (uint.MinValue/uint.MaxValue) も double で正確に
         // 表現できるため、UInt64Animator のような progress=0/1 の早期 return や自前飽和は不要。
+        // 丸めは Math.Round 既定 (ToEven) のままにし、ByteAnimator/UInt16Animator など他の整数 Animator と挙動を一致させる。
         double delta = (double)newValue - (double)oldValue;
         double v = oldValue + delta * progress;
-        return (uint)Math.Round(Math.Clamp(v, uint.MinValue, uint.MaxValue), MidpointRounding.AwayFromZero);
+        return (uint)Math.Round(Math.Clamp(v, uint.MinValue, uint.MaxValue));
     }
 }

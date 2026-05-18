@@ -15,8 +15,9 @@ public sealed class Int64Animator : Animator<long>
         // 2^63 に丸まる (double で表現可能な最近接値)。これは long.MaxValue + 1 に相当し
         // long には収まらないため、(long) キャストで未定義に近い値になる。よって double の
         // まま long の境界と比較して飽和させ、確実に範囲内になった値だけを cast する。
+        // 丸めは Math.Round 既定 (ToEven) のままにし、ByteAnimator/Int16Animator など他の整数 Animator と挙動を一致させる。
         if (v >= long.MaxValue) return long.MaxValue;
         if (v <= long.MinValue) return long.MinValue;
-        return (long)Math.Round(v, MidpointRounding.AwayFromZero);
+        return (long)Math.Round(v);
     }
 }
